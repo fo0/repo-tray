@@ -20,7 +20,7 @@
     "icons:generate": "node scripts/generate-icons.mjs",
     "icons:check": "node scripts/generate-icons.mjs --check",
     "verify": "pnpm icons:check && pnpm check && pnpm test && pnpm release:test && pnpm lint && pnpm build",
-    "release:test": "node --test scripts/release.test.mjs"
+    "release:test": "node --test scripts/release.test.mjs scripts/updater.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",

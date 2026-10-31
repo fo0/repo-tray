@@ -48,14 +48,53 @@ test.beforeEach(async ({ page }) => {
             authGeneration++;
             return null;
           }
-          if (cmd === 'check_update')
+          if (cmd === 'check_update') {
+            const settings = window as unknown as {
+              __updateCheckError?: boolean;
+              __updateCurrent?: boolean;
+            };
+            if (settings.__updateCheckError)
+              throw 'Updateprüfung fehlgeschlagen. Prüfe die Verbindung.';
+            if (settings.__updateCurrent) return null;
             return {
               version: '0.2.0',
               notes: 'Test-Changelog · nur IPC-Mock',
               downloadUrl:
                 'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
             };
-          if (cmd === 'open_update') return null;
+          }
+          if (cmd === 'download_update') {
+            const settings = window as unknown as {
+              __downloadFail?: boolean;
+              __downloadDelay?: number;
+            };
+            const progress = args?.onProgress as {
+              onmessage: (value: unknown) => void;
+            };
+            progress.onmessage({
+              downloaded: 5242880,
+              total: 10485760,
+              stage: 'downloading',
+            });
+            await new Promise((resolve) =>
+              setTimeout(resolve, settings.__downloadDelay ?? 150),
+            );
+            progress.onmessage({
+              downloaded: 0,
+              total: null,
+              stage: 'verifying',
+            });
+            if (settings.__downloadFail)
+              throw 'Signaturprüfung fehlgeschlagen. Es wurde nichts installiert.';
+            return null;
+          }
+          if (cmd === 'install_update') {
+            if (
+              (window as unknown as { __installFail?: boolean }).__installFail
+            )
+              throw 'Installation konnte nicht gestartet werden.';
+            return null;
+          }
           if (cmd === 'select_repos') return structuredClone(snapshot);
           if (cmd === 'disconnect_account') {
             snapshot = {
@@ -161,24 +200,135 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
     page.getByRole('heading', { name: 'Dein Workspace', exact: true }),
   ).toBeVisible();
 });
-test('unsigned update shows changelog and opens only an explicit manual EXE download', async ({
+test('public update downloads inside the app and installs only after a separate confirmation', async ({
   page,
 }) => {
-  await login(page);
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
+  await page.getByRole('tab', { name: 'Updates' }).click();
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await expect(page.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
+  await page.evaluate(() => Object.assign(window, { __downloadDelay: 700 }));
   await page
-    .getByRole('button', { name: 'EXE im Browser herunterladen' })
+    .getByRole('button', { name: 'Update herunterladen', exact: true })
     .click();
+  await expect(page.getByRole('progressbar')).toHaveAttribute('value', '50');
   await expect(
-    page.getByText(/Starte die EXE nach dem Herunterladen manuell/),
-  ).toBeVisible();
-  const calls = await page.evaluate(
+    page.getByRole('button', { name: 'Installieren und neu starten' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
+  await page.getByRole('tab', { name: 'Updates' }).click();
+  const install = page.getByRole('button', {
+    name: 'Installieren und neu starten',
+  });
+  await expect(install).toBeEnabled();
+  let calls = await page.evaluate(
     () => (window as unknown as { __nativeCalls: string[] }).__nativeCalls,
   );
-  expect(calls).toContain('open_update');
+  expect(calls.filter((cmd) => cmd === 'download_update')).toHaveLength(1);
   expect(calls).not.toContain('install_update');
+  expect(calls).not.toContain('open_update');
+  await install.click();
+  calls = await page.evaluate(
+    () => (window as unknown as { __nativeCalls: string[] }).__nativeCalls,
+  );
+  expect(calls.filter((cmd) => cmd === 'install_update')).toHaveLength(1);
+  await expect(
+    page.getByRole('button', { name: 'Installation wird gestartet …' }),
+  ).toBeDisabled();
 });
+
+test('a failed download never enables installation and can be retried', async ({
+  page,
+}) => {
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
+  await page.getByRole('tab', { name: 'Updates' }).click();
+  await page.evaluate(() => Object.assign(window, { __downloadFail: true }));
+  await page
+    .getByRole('button', { name: 'Update herunterladen', exact: true })
+    .click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Es wurde nichts installiert',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Installieren und neu starten' }),
+  ).toHaveCount(0);
+  await page.evaluate(() =>
+    Object.assign(window, { __downloadFail: false, __installFail: true }),
+  );
+  await page
+    .getByRole('button', { name: 'Update herunterladen', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Installieren und neu starten' })
+    .click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Installation konnte nicht gestartet werden',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Installieren und neu starten' }),
+  ).toBeEnabled();
+});
+
+test('failed update checks clear stale results and a successful retry can report current', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Update ansehen' }).click();
+  await page.evaluate(() =>
+    Object.assign(window, { __updateCheckError: true }),
+  );
+  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Updateprüfung fehlgeschlagen',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Update herunterladen', exact: true }),
+  ).toHaveCount(0);
+  await page.evaluate(() =>
+    Object.assign(window, { __updateCheckError: false, __updateCurrent: true }),
+  );
+  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
+  await expect(
+    page.getByText('Du verwendest die aktuelle Version.'),
+  ).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('update details and install confirmation fit a narrow panel', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 360, height: 760 });
+  await page.getByRole('button', { name: 'Update ansehen' }).click();
+  await expect(page.getByRole('tab', { name: 'Updates' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const panel = page.locator('.update-panel');
+  await expect(panel.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
+  expect(
+    await panel.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('updates-available-360.png'),
+  });
+  await page
+    .getByRole('button', { name: 'Update herunterladen', exact: true })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Installieren und neu starten' }),
+  ).toBeEnabled();
+  expect(
+    await panel.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('updates-ready-360.png') });
+});
+
 test('native invalid token is rejected and disconnect removes the account view', async ({
   page,
 }) => {

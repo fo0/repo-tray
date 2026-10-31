@@ -1,0 +1,83 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { versionFromTag } from './release.mjs';
+
+export function updaterConfig(publicKey, releaseConfig) {
+  if (!publicKey?.trim())
+    throw new Error('REPOTRAY_UPDATER_PUBLIC_KEY is required');
+  const decoded = Buffer.from(publicKey.trim(), 'base64').toString('utf8');
+  const lines = decoded.trim().split(/\r?\n/);
+  if (
+    lines.length !== 2 ||
+    !lines[0].startsWith('untrusted comment:') ||
+    Buffer.from(lines[1], 'base64').length !== 42
+  )
+    throw new Error(
+      'Expected the contents of the Tauri .pub file, not its path',
+    );
+  return {
+    ...releaseConfig,
+    plugins: {
+      ...releaseConfig.plugins,
+      updater: { ...releaseConfig.plugins?.updater, pubkey: publicKey.trim() },
+    },
+  };
+}
+
+export function updaterManifest(version, signature, notes, date) {
+  versionFromTag(`v${version}`);
+  const published = new Date(date);
+  if (!Number.isFinite(published.getTime()))
+    throw new Error('Invalid publication date');
+  // Version is covered by minisign's trusted comment, not just the unsigned JSON.
+  const decoded = Buffer.from(signature.trim(), 'base64').toString('utf8');
+  if (
+    !decoded
+      .split(/\r?\n/)
+      .some(
+        (line) =>
+          line.startsWith('trusted comment:') &&
+          line.endsWith(`\tversion:${version}`),
+      )
+  )
+    throw new Error('Updater signature is missing its matching signed version');
+  return {
+    version,
+    notes,
+    pub_date: published.toISOString(),
+    platforms: {
+      'windows-x86_64': {
+        signature: signature.trim(),
+        url: `https://github.com/fo0/repo-tray/releases/download/v${version}/RepoTray_${version}_x64-setup.exe`,
+      },
+    },
+  };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [command, ...args] = process.argv.slice(2);
+  if (command === 'config') {
+    const config = updaterConfig(
+      process.env.REPOTRAY_UPDATER_PUBLIC_KEY,
+      JSON.parse(readFileSync('src-tauri/tauri.release.conf.json', 'utf8')),
+    );
+    writeFileSync(args[0], JSON.stringify(config, null, 2) + '\n');
+  } else if (command === 'manifest') {
+    const [version, signaturePath, notesPath, date, output] = args;
+    writeFileSync(
+      output,
+      JSON.stringify(
+        updaterManifest(
+          version,
+          readFileSync(signaturePath, 'utf8'),
+          readFileSync(notesPath, 'utf8'),
+          date,
+        ),
+        null,
+        2,
+      ) + '\n',
+    );
+  } else {
+    throw new Error('Unknown updater command');
+  }
+}

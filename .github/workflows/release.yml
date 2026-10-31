@@ -29,6 +29,7 @@ jobs:
       contents: write
       actions: read # Read this run's immutable created_at for retry-stable versions.
     env:
+      REPOTRAY_UPDATER_PUBLIC_KEY: ${{ vars.REPOTRAY_UPDATER_PUBLIC_KEY }}
       RELEASE_SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v5
@@ -43,7 +44,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Prepare automatic unsigned release
+      - name: Check updater signing configuration
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if (!$env:TAURI_SIGNING_PRIVATE_KEY) { throw 'Set the TAURI_SIGNING_PRIVATE_KEY repository secret before releasing' }
+          if (!$env:REPOTRAY_UPDATER_PUBLIC_KEY) { throw 'Set the matching REPOTRAY_UPDATER_PUBLIC_KEY repository variable before releasing' }
+          New-Item -ItemType Directory -Force release-work | Out-Null
+          node scripts/updater.mjs config release-work/updater.config.json
+          if ($LASTEXITCODE -ne 0) { throw 'Updater public key configuration is invalid' }
+      - name: Prepare automatic release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,9 +96,12 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials
       - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials --all-targets -- -D warnings
-      - name: Build unsigned Windows installer
+      - name: Build Windows installer and signed updater artifact
         id: installer
-        run: pnpm tauri build --features desktop --bundles nsis --config src-tauri/tauri.release.conf.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build --features desktop --bundles nsis --config release-work/updater.config.json
       - name: Verify installer download and publish release
         shell: pwsh
         env:
@@ -95,14 +109,18 @@ jobs:
         run: |
           $version = $env:RELEASE_VERSION
           $installer = "src-tauri/target/release/bundle/nsis/RepoTray_${version}_x64-setup.exe"
-          if (!(Test-Path $installer)) { throw 'Installer missing' }
+          $signature = "$installer.sig"
+          if (!(Test-Path $installer) -or !(Test-Path $signature)) { throw 'Installer or update signature missing' }
+          $metadata = Get-Content release-work/release-meta.json -Raw | ConvertFrom-Json
+          node scripts/updater.mjs manifest $version $signature release-work/release-notes.md $metadata.created_at release-work/latest.json
+          if ($LASTEXITCODE -ne 0) { throw 'Signed update manifest generation failed' }
           gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" --paginate --slurp | Out-File -Encoding utf8 release-work/release-history.json
           if ($LASTEXITCODE -ne 0) { throw 'Release history unavailable' }
           node scripts/release.mjs check-history release-work/release-meta.json release-work/release-history.json
           if ($LASTEXITCODE -ne 0) { throw 'Release exists or would downgrade latest' }
           $remoteTag = git ls-remote --refs --tags origin "refs/tags/$env:RELEASE_TAG"
           if ($LASTEXITCODE -ne 0 -or $remoteTag) { throw 'Release tag appeared during build or cannot be checked' }
-          gh release create $env:RELEASE_TAG $installer --target $env:RELEASE_SOURCE_SHA --title $env:RELEASE_TITLE --notes-file release-work/release-notes.md --latest
+          gh release create $env:RELEASE_TAG $installer $signature release-work/latest.json --target $env:RELEASE_SOURCE_SHA --title $env:RELEASE_TITLE --notes-file release-work/release-notes.md --latest
           if ($LASTEXITCODE -ne 0) { throw 'Release creation/upload failed' }
           $isDraft = gh release view $env:RELEASE_TAG --json isDraft --jq '.isDraft'
           if ($LASTEXITCODE -ne 0 -or $isDraft -ne 'false') { throw 'Release was not published' }
@@ -117,6 +135,8 @@ jobs:
           name: RepoTray-Windows-release
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.sig
+            release-work/latest.json
           if-no-files-found: error
 
   publish-existing:
@@ -158,12 +178,19 @@ jobs:
           git merge-base --is-ancestor $release.target_commitish origin/main
           if ($LASTEXITCODE -ne 0) { throw 'Release source is outside main' }
           $filename = "RepoTray_$($tag.Substring(1))_x64-setup.exe"
-          $assets = @($release.assets | Where-Object { $_.name -eq $filename })
-          if ($assets.Count -ne 1 -or $assets[0].size -le 0) { throw 'Expected one built Windows EXE' }
-          gh release download $tag --pattern $filename --dir release-work
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot download built EXE' }
-          $hash = (Get-FileHash (Join-Path release-work $filename) -Algorithm SHA256).Hash.ToLower()
-          if ($assets[0].digest -ne "sha256:$hash") { throw 'Downloaded EXE hash differs from GitHub asset' }
+          foreach ($name in @($filename, "$filename.sig", 'latest.json')) {
+            $assets = @($release.assets | Where-Object { $_.name -eq $name })
+            if ($assets.Count -ne 1 -or $assets[0].size -le 0) { throw "Missing or ambiguous update artifact: $name" }
+            gh release download $tag --pattern $name --dir release-work
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot download built update artifacts' }
+            $hash = (Get-FileHash (Join-Path release-work $name) -Algorithm SHA256).Hash.ToLower()
+            if ($assets[0].digest -ne "sha256:$hash") { throw 'Downloaded update artifact differs from GitHub asset' }
+          }
+          $manifest = Get-Content release-work/latest.json -Raw | ConvertFrom-Json
+          $platform = $manifest.platforms.'windows-x86_64'
+          $expectedUrl = "https://github.com/fo0/repo-tray/releases/download/$tag/$filename"
+          $signature = (Get-Content "release-work/$filename.sig" -Raw).Trim()
+          if ($manifest.version -ne $tag.Substring(1) -or $platform.url -ne $expectedUrl -or $platform.signature -ne $signature) { throw 'Update feed differs from the built release' }
           if ($release.draft) {
             gh release edit $tag --draft=false --latest
             if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

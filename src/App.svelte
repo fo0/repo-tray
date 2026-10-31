@@ -5,8 +5,11 @@
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
-  import { invoke } from '@tauri-apps/api/core';
+  import { Channel, invoke } from '@tauri-apps/api/core';
+  import UpdatePanel from './lib/UpdatePanel.svelte';
+  import type { UpdateInfo, UpdatePhase, UpdateProgress } from './lib/updates';
   import NativeConnect from './lib/NativeConnect.svelte';
+  import ConnectedAccounts from './lib/ConnectedAccounts.svelte';
   import ConnectPanel from './lib/ConnectPanel.svelte';
   import {
     accountTitle,
@@ -44,14 +47,28 @@
 
   let snapshot = $state<Snapshot | null>(null);
   const demo = $derived(snapshot?.mode !== 'live');
-  let updateInfo = $state<{
-    version: string;
-    notes: string;
-    downloadUrl: string;
-  } | null>(null);
-  let updateBusy = $state(false);
+  let updateInfo = $state<UpdateInfo | null>(null);
+  let updatePhase = $state<UpdatePhase>('idle');
+  let updateProgress = $state<UpdateProgress>({
+    downloaded: 0,
+    total: null,
+    stage: 'downloading',
+  });
   let updateMessage = $state('');
-  let updateEpoch = 0;
+  let updateCheckedAt = $state('');
+  const updateBusy = $derived(
+    ['checking', 'downloading', 'verifying', 'installing'].includes(
+      updatePhase,
+    ),
+  );
+  const settingsTabs = [
+    { id: 'accounts', label: 'Konten' },
+    { id: 'repositories', label: 'Repositories' },
+    { id: 'updates', label: 'Updates' },
+  ] as const;
+  type SettingsTab = (typeof settingsTabs)[number]['id'];
+  let settingsTab = $state<SettingsTab>('accounts');
+  let repoSettingsQuery = $state('');
   let demoAccountConnected = $state(false);
   let tab = $state<'repositories' | 'activity' | 'launch'>('repositories');
   let accountId = $state('');
@@ -189,49 +206,50 @@
   }
 
   async function checkUpdates(silent = false) {
-    if (!native || updateBusy || !snapshot?.accounts.length) return;
-    if (
-      !accountId ||
-      !snapshot.accounts.some((account) => account.id === accountId)
-    ) {
-      if (!silent)
-        updateMessage = 'Wähle zuerst ein aktives Konto für die Updateprüfung.';
-      return;
-    }
-    updateBusy = true;
-    const ticket = ++updateEpoch;
-    const selectedAccount = accountId;
-    if (!silent) updateMessage = '';
+    if (!native || updateBusy || updatePhase === 'ready') return;
+    updatePhase = 'checking';
+    updateMessage = '';
     try {
-      const value = await invoke<{
-        version: string;
-        notes: string;
-        downloadUrl: string;
-      } | null>('check_update', { accountId: selectedAccount });
-      if (ticket !== updateEpoch) return;
-      updateInfo = value;
-      if (!silent)
-        updateMessage = updateInfo
-          ? 'Neue Version verfügbar.'
-          : 'Du verwendest die aktuelle Version.';
+      updateInfo = await invoke<UpdateInfo | null>('check_update');
+      updateCheckedAt = new Date().toLocaleTimeString('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      updatePhase = updateInfo ? 'available' : 'current';
     } catch (cause) {
-      if (!silent && ticket === updateEpoch) updateMessage = message(cause);
-    } finally {
-      updateBusy = false;
+      updateInfo = null;
+      updatePhase = 'idle';
+      if (!silent) updateMessage = message(cause);
     }
   }
   async function downloadUpdate() {
-    if (updateBusy || !updateInfo) return;
-    updateBusy = true;
+    if (updateBusy || !updateInfo || updatePhase === 'ready') return;
+    updatePhase = 'downloading';
+    updateMessage = '';
+    updateProgress = { downloaded: 0, total: null, stage: 'downloading' };
+    const onProgress = new Channel<UpdateProgress>();
+    onProgress.onmessage = (progress) => {
+      if (updatePhase !== 'downloading' && updatePhase !== 'verifying') return;
+      updatePhase = progress.stage;
+      if (progress.stage === 'downloading') updateProgress = progress;
+    };
+    try {
+      await invoke('download_update', { onProgress });
+      updatePhase = 'ready';
+    } catch (cause) {
+      updatePhase = 'available';
+      updateMessage = message(cause);
+    }
+  }
+  async function installUpdate() {
+    if (updatePhase !== 'ready') return;
+    updatePhase = 'installing';
     updateMessage = '';
     try {
-      await invoke('open_update');
-      updateMessage =
-        'Download im Browser geöffnet. Starte die EXE nach dem Herunterladen manuell. Im Browser muss ein GitHub-Konto mit Repository-Zugriff angemeldet sein.';
+      await invoke('install_update');
     } catch (cause) {
+      updatePhase = 'ready';
       updateMessage = message(cause);
-    } finally {
-      updateBusy = false;
     }
   }
   function connectedNative(value: Snapshot) {
@@ -250,11 +268,6 @@
         accountId: id,
       });
       acceptSnapshot(value);
-      // The native disconnect command clears its pending update for any account.
-      // Keep the active identity, but invalidate the matching UI result as well.
-      updateEpoch++;
-      updateInfo = null;
-      updateMessage = '';
       selectedRepos = value.repos
         .filter((repo) => repo.selected)
         .map((repo) => repo.id);
@@ -377,10 +390,6 @@
   });
 
   function changeAccount(value: string) {
-    updateEpoch++;
-    updateInfo = null;
-    updateMessage = '';
-    if (native) void invoke('clear_update').catch(() => {});
     viewEpoch.invalidate();
     refreshing = false;
     dialogEpoch.invalidate();
@@ -469,7 +478,30 @@
     selectedRepos =
       snapshot?.repos.filter((repo) => repo.selected).map((repo) => repo.id) ??
       [];
+    settingsTab = 'accounts';
+    repoSettingsQuery = '';
     modal = 'settings';
+  }
+  function openUpdateSettings() {
+    openSettings();
+    settingsTab = 'updates';
+  }
+  function settingsTabKey(event: KeyboardEvent) {
+    const direction =
+      event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    if (!direction && event.key !== 'Home' && event.key !== 'End') return;
+    event.preventDefault();
+    const index = settingsTabs.findIndex((item) => item.id === settingsTab);
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? settingsTabs.length - 1
+          : (index + direction + settingsTabs.length) % settingsTabs.length;
+    settingsTab = settingsTabs[next].id;
+    (event.currentTarget as HTMLElement)
+      .querySelectorAll<HTMLButtonElement>('[role=tab]')
+      [next]?.focus();
   }
   function selectWorkflow(value: number) {
     dialogEpoch.invalidate();
@@ -941,7 +973,7 @@
         >
           <Icon name="refresh" size={16} /><span
             >RepoTray {updateInfo.version} verfügbar</span
-          ><button class="text-button" onclick={openSettings}
+          ><button class="text-button" onclick={openUpdateSettings}
             >Update ansehen</button
           >
         </div>{/if}
@@ -1451,218 +1483,254 @@
           >
         </div>
         {#if modal === 'settings'}
-          <div class="modal-body">
-            {#if native}
-              <section
-                class="active-account-settings"
-                aria-labelledby="active-account-heading"
+          <div
+            class="settings-tabs"
+            role="tablist"
+            tabindex="-1"
+            aria-label="Einstellungsbereiche"
+            onkeydown={settingsTabKey}
+          >
+            {#each settingsTabs as item}
+              <button
+                id={`settings-tab-${item.id}`}
+                role="tab"
+                aria-selected={settingsTab === item.id}
+                aria-controls="settings-panel"
+                tabindex={settingsTab === item.id ? 0 : -1}
+                onclick={() => (settingsTab = item.id)}
+                >{item.label}{#if item.id === 'updates' && updateInfo}<span
+                    class="tab-update-dot"
+                    aria-label="Update verfügbar"
+                  ></span>{/if}</button
               >
-                <h3 id="active-account-heading">Aktives Konto</h3>
-                <p>
-                  Für Ansicht, neue Starts und Updates. Deine Kontoauswahl gilt
-                  sofort und wird gemerkt.
-                </p>
-                <label class="field">
-                  <span>Login und Anmeldequelle</span>
-                  <select
-                    aria-label="Aktives Konto auswählen"
-                    bind:this={accountPicker}
-                    value={accountId}
-                    disabled={mutationBusy || !snapshot?.accounts.length}
-                    onchange={(event) =>
-                      changeAccount(event.currentTarget.value)}
-                  >
-                    <option value="" disabled
-                      >{snapshot?.accounts.length
-                        ? 'Aktives Konto auswählen'
-                        : 'Noch kein Konto verbunden'}</option
+            {/each}
+          </div>
+          <div
+            class="modal-body"
+            id="settings-panel"
+            role="tabpanel"
+            aria-labelledby={`settings-tab-${settingsTab}`}
+            tabindex="0"
+          >
+            {#if settingsTab === 'accounts'}
+              {#if native}
+                <section
+                  class="active-account-settings"
+                  aria-labelledby="active-account-heading"
+                >
+                  <h3 id="active-account-heading">Aktives Konto</h3>
+                  <p>
+                    Für Ansicht und neue Starts. Deine Kontoauswahl gilt sofort
+                    und wird gemerkt.
+                  </p>
+                  <label class="field">
+                    <span>Login und Anmeldequelle</span>
+                    <select
+                      aria-label="Aktives Konto auswählen"
+                      bind:this={accountPicker}
+                      value={accountId}
+                      disabled={mutationBusy || !snapshot?.accounts.length}
+                      onchange={(event) =>
+                        changeAccount(event.currentTarget.value)}
                     >
-                    {#each snapshot?.accounts ?? [] as account}<option
-                        value={account.id}>{accountTitle(account)}</option
-                      >{/each}
-                  </select>
-                </label>
-                {#if accountSelectionNotice}<p
-                    class="account-selection-notice"
-                    role="status"
-                  >
-                    {accountSelectionNotice}
-                  </p>{/if}
-                {#if !snapshot?.accounts.length}<button
-                    class="secondary-button"
+                      <option value="" disabled
+                        >{snapshot?.accounts.length
+                          ? 'Aktives Konto auswählen'
+                          : 'Noch kein Konto verbunden'}</option
+                      >
+                      {#each snapshot?.accounts ?? [] as account}<option
+                          value={account.id}>{accountTitle(account)}</option
+                        >{/each}
+                    </select>
+                  </label>
+                  {#if accountSelectionNotice}<p
+                      class="account-selection-notice"
+                      role="status"
+                    >
+                      {accountSelectionNotice}
+                    </p>{/if}
+                  {#if !snapshot?.accounts.length}<button
+                      class="secondary-button"
+                      onclick={() => {
+                        closeModal();
+                        modal = 'connect';
+                      }}
+                      >GitHub-Konto verbinden<Icon
+                        name="plus"
+                        size={14}
+                      /></button
+                    >{/if}
+                  <ConnectedAccounts
+                    accounts={snapshot?.accounts ?? []}
+                    activeAccountId={accountId}
+                    disabled={mutationBusy}
+                    onUse={changeAccount}
+                  />
+                </section>
+              {/if}
+              <div class="settings-section">
+                <h3>Verbindung</h3>
+                <div class="connection-card">
+                  <Icon name="github" size={22} />
+                  <div>
+                    <strong
+                      >{demo
+                        ? 'Du bist im Demo-Modus'
+                        : `${snapshot?.accounts.length ?? 0} Konten verbunden`}</strong
+                    >
+                    <p>
+                      {demo
+                        ? 'Kein Account verbunden. Keine echten Starts.'
+                        : 'Tokens bleiben im Betriebssystem-Tresor.'}
+                    </p>
+                  </div>
+                  <button
+                    class="text-button"
                     onclick={() => {
                       closeModal();
                       modal = 'connect';
-                    }}
-                    >GitHub-Konto verbinden<Icon
-                      name="plus"
+                    }}>Einrichten<Icon name="chevron" size={13} /></button
+                  >
+                </div>
+              </div>
+              {#if demo}<div class="settings-section">
+                  <label class="field"
+                    ><span>Demo-Szenario</span><select
+                      aria-label="Demo-Szenario"
+                      value={scenario}
+                      onchange={(event) =>
+                        changeScenario(
+                          event.currentTarget.value as DemoScenario,
+                        )}
+                      ><option value="normal">Normal · lokale Simulation</option
+                      ><option value="offline">Offline · letzter Stand</option
+                      ><option value="forbidden"
+                        >Keine Berechtigung · 403</option
+                      ><option value="uncertain"
+                        >Unklare Antwort · Start gesperrt</option
+                      ></select
+                    ></label
+                  >
+                  <p class="field-help">
+                    Szenarien verwenden ausschließlich lokale Demo-Daten.
+                  </p>
+                  <button
+                    class="reset-button"
+                    onclick={resetDemo}
+                    disabled={mutationBusy}
+                    ><Icon name="refresh" size={13} />Demo zurücksetzen<span
+                      >Setzt auch Vorlagen & Auswahl zurück</span
+                    ></button
+                  >
+                </div>
+              {/if}
+              {#if !demo}
+                <p class="field-help account-semantics">
+                  Das aktive Konto steuert Ansicht und neue Starts. Andere
+                  Konten bleiben verbunden; ihre ausgewählten Repositories
+                  werden weiter beobachtet. Ein fehlgeschlagener Zugriff
+                  wechselt nicht automatisch das Konto.
+                </p>
+                {#each snapshot?.accounts ?? [] as account}<button
+                    class="text-button"
+                    disabled={mutationBusy}
+                    onclick={() => disconnectAccount(account.id)}
+                    >{accountName(account.id)} trennen</button
+                  >{/each}
+              {/if}
+            {:else if settingsTab === 'repositories'}
+              <div class="settings-intro">
+                <Icon name="repo" size={19} />
+                <div>
+                  <h3>Repositories im Überblick</h3>
+                  <p>Wähle, was in deinem Tray erscheint.</p>
+                </div>
+              </div>
+              <label class="field settings-repo-search"
+                ><span>Repositories filtern</span><input
+                  type="search"
+                  placeholder="Name oder Organisation …"
+                  bind:value={repoSettingsQuery}
+                /></label
+              >
+              <p class="field-help">
+                {selectedRepos.length} Repositories ausgewählt
+              </p>
+              <div class="repo-selection">
+                {#each snapshot?.accounts ?? [] as account}<div
+                    class="selection-account"
+                  >
+                    <span class="mini-avatar"
+                      >{account.login[0].toUpperCase()}</span
+                    >{account.login}<span>{account.label}</span>
+                  </div>
+                  {#each snapshot?.repos.filter((repo) => repo.accountId === account.id && fullRepo(repo)
+                        .toLowerCase()
+                        .includes(repoSettingsQuery
+                            .trim()
+                            .toLowerCase())) ?? [] as repo}<label
+                      class="repo-checkbox"
+                      ><input
+                        type="checkbox"
+                        value={repo.id}
+                        checked={selectedRepos.includes(repo.id)}
+                        onchange={(event) => {
+                          selectedRepos = event.currentTarget.checked
+                            ? [...selectedRepos, repo.id]
+                            : selectedRepos.filter((id) => id !== repo.id);
+                        }}
+                      /><span
+                        ><strong>{fullRepo(repo)}</strong><small
+                          >{repo.permission === 'write'
+                            ? 'Actions · Schreibzugriff'
+                            : repo.permission === 'denied'
+                              ? 'Actions · Kein Zugriff'
+                              : 'Actions · Nur Lesen'}</small
+                        ></span
+                      ><Icon name="repo" size={15} /></label
+                    >{/each}{/each}
+              </div>
+              {#if !demo && snapshot?.accounts.some( (account) => account.id.startsWith('github-device-') )}
+                <div class="settings-section installation-access">
+                  <button
+                    class="text-button"
+                    disabled={mutationBusy}
+                    onclick={manageBrowserRepositories}
+                    >Repository-Freigabe auf GitHub ändern<Icon
+                      name="external"
                       size={14}
                     /></button
-                  >{/if}
-              </section>
-            {/if}
-            <div class="settings-intro">
-              <Icon name="repo" size={19} />
-              <div>
-                <h3>Repositories im Überblick</h3>
-                <p>Wähle, was in deinem Tray erscheint.</p>
-              </div>
-            </div>
-            <div class="repo-selection">
-              {#each snapshot?.accounts ?? [] as account}<div
-                  class="selection-account"
-                >
-                  <span class="mini-avatar"
-                    >{account.login[0].toUpperCase()}</span
-                  >{account.login}<span>{account.label}</span>
-                </div>
-                {#each snapshot?.repos.filter((repo) => repo.accountId === account.id) ?? [] as repo}<label
-                    class="repo-checkbox"
-                    ><input
-                      type="checkbox"
-                      value={repo.id}
-                      bind:group={selectedRepos}
-                    /><span
-                      ><strong>{fullRepo(repo)}</strong><small
-                        >{repo.permission === 'write'
-                          ? 'Actions · Schreibzugriff'
-                          : repo.permission === 'denied'
-                            ? 'Actions · Kein Zugriff'
-                            : 'Actions · Nur Lesen'}</small
-                      ></span
-                    ><Icon name="repo" size={15} /></label
-                  >{/each}{/each}
-            </div>
-            {#if !demo && snapshot?.accounts.some( (account) => account.id.startsWith('github-device-') )}
-              <div class="settings-section installation-access">
-                <button
-                  class="text-button"
-                  disabled={mutationBusy}
-                  onclick={manageBrowserRepositories}
-                  >Repository-Freigabe auf GitHub ändern<Icon
-                    name="external"
-                    size={14}
-                  /></button
-                >
-                <p class="field-help">
-                  Wähle bei der App-Installation einzelne oder alle
-                  Repositories. Organisationen können eine Freigabe oder aktive
-                  SSO-Sitzung verlangen. Autorisierung und Installation sind
-                  getrennte Schritte.
-                </p>
-                <button
-                  class="secondary-button"
-                  disabled={mutationBusy}
-                  onclick={refreshRepositoryAccess}
-                  >Repository-Liste aktualisieren<Icon
-                    name="refresh"
-                    size={14}
-                  /></button
-                >
-              </div>
-            {/if}
-            <div class="settings-section">
-              <h3>Verbindung</h3>
-              <div class="connection-card">
-                <Icon name="github" size={22} />
-                <div>
-                  <strong
-                    >{demo
-                      ? 'Du bist im Demo-Modus'
-                      : `${snapshot?.accounts.length ?? 0} Konten verbunden`}</strong
                   >
-                  <p>
-                    {demo
-                      ? 'Kein Account verbunden. Keine echten Starts.'
-                      : 'Tokens bleiben im Betriebssystem-Tresor.'}
+                  <p class="field-help">
+                    Wähle bei der App-Installation einzelne oder alle
+                    Repositories. Organisationen können eine Freigabe oder
+                    aktive SSO-Sitzung verlangen. Autorisierung und Installation
+                    sind getrennte Schritte.
                   </p>
+                  <button
+                    class="secondary-button"
+                    disabled={mutationBusy}
+                    onclick={refreshRepositoryAccess}
+                    >Repository-Liste aktualisieren<Icon
+                      name="refresh"
+                      size={14}
+                    /></button
+                  >
                 </div>
-                <button
-                  class="text-button"
-                  onclick={() => {
-                    closeModal();
-                    modal = 'connect';
-                  }}>Einrichten<Icon name="chevron" size={13} /></button
-                >
-              </div>
-            </div>
-            {#if demo}<div class="settings-section">
-                <label class="field"
-                  ><span>Demo-Szenario</span><select
-                    aria-label="Demo-Szenario"
-                    value={scenario}
-                    onchange={(event) =>
-                      changeScenario(event.currentTarget.value as DemoScenario)}
-                    ><option value="normal">Normal · lokale Simulation</option
-                    ><option value="offline">Offline · letzter Stand</option
-                    ><option value="forbidden">Keine Berechtigung · 403</option
-                    ><option value="uncertain"
-                      >Unklare Antwort · Start gesperrt</option
-                    ></select
-                  ></label
-                >
-                <p class="field-help">
-                  Szenarien verwenden ausschließlich lokale Demo-Daten.
-                </p>
-                <button
-                  class="reset-button"
-                  onclick={resetDemo}
-                  disabled={mutationBusy}
-                  ><Icon name="refresh" size={13} />Demo zurücksetzen<span
-                    >Setzt auch Vorlagen & Auswahl zurück</span
-                  ></button
-                >
-              </div>
-            {/if}
-            {#if !demo}
-              <p class="field-help account-semantics">
-                Das aktive Konto steuert Ansicht, neue Starts und
-                Updateprüfungen. Andere Konten bleiben verbunden; ihre
-                ausgewählten Repositories werden weiter beobachtet. Ein
-                fehlgeschlagener Zugriff wechselt nicht automatisch das Konto.
-              </p>
-              {#each snapshot?.accounts ?? [] as account}<button
-                  class="text-button"
-                  disabled={mutationBusy}
-                  onclick={() => disconnectAccount(account.id)}
-                  >{accountName(account.id)} trennen</button
-                >{/each}
-              <div class="settings-section">
-                <h3>App-Updates</h3>
-                <p class="field-help">
-                  Version {appVersion} · Updates aus dem privaten Repository. Unsignierte
-                  EXE, manuelle Installation. Konto: {accountName(accountId)}.
-                </p>
-                <button
-                  class="secondary-button"
-                  disabled={updateBusy ||
-                    !accountId ||
-                    !snapshot?.accounts.some(
-                      (account) => account.id === accountId,
-                    )}
-                  onclick={() => checkUpdates()}
-                  >{updateBusy ? 'Prüft …' : 'Auf Updates prüfen'}</button
-                >
-                {#if !accountId}<p class="field-help">
-                    Wähle ein aktives Konto für die Updateprüfung. Es wird kein
-                    anderes Konto automatisch verwendet.
-                  </p>{/if}
-                {#if updateMessage}<p role="status" class="field-help">
-                    {updateMessage}
-                  </p>{/if}
-                {#if updateInfo}<div class="alert subtle">
-                    <span
-                      ><strong>RepoTray {updateInfo.version}</strong>
-                      <p class="update-notes">{updateInfo.notes}</p>
-                      <button
-                        class="primary-button"
-                        disabled={updateBusy}
-                        onclick={downloadUpdate}
-                        >EXE im Browser herunterladen</button
-                      ></span
-                    >
-                  </div>{/if}
-              </div>
+              {/if}
+            {:else}
+              <UpdatePanel
+                currentVersion={appVersion}
+                {native}
+                info={updateInfo}
+                phase={updatePhase}
+                progress={updateProgress}
+                error={updateMessage}
+                checkedAt={updateCheckedAt}
+                onCheck={() => checkUpdates()}
+                onDownload={downloadUpdate}
+                onInstall={installUpdate}
+              />
             {/if}
           </div>
           {#if dialogError}<div class="dialog-alert danger" role="alert">
@@ -1670,19 +1738,22 @@
             </div>{/if}
           <div class="modal-actions">
             <button class="secondary-button" onclick={closeModal}
-              >Abbrechen</button
-            ><button
-              class="primary-button"
-              onclick={saveSettings}
-              disabled={mutationBusy}
-              >{mutationBusy ? 'Speichert …' : 'Auswahl speichern'}<Icon
-                name="check"
-                size={15}
-              /></button
-            >
+              >{settingsTab === 'updates' ? 'Schließen' : 'Abbrechen'}</button
+            >{#if settingsTab === 'repositories'}<button
+                class="primary-button"
+                onclick={saveSettings}
+                disabled={mutationBusy}
+                >{mutationBusy ? 'Speichert …' : 'Auswahl speichern'}<Icon
+                  name="check"
+                  size={15}
+                /></button
+              >{/if}
           </div>
         {:else if modal === 'connect'}
           {#if native}<NativeConnect
+              accounts={snapshot?.accounts ?? []}
+              activeAccountId={accountId}
+              onSelectAccount={changeAccount}
               onConnected={connectedNative}
               onClose={closeModal}
             />{:else}<ConnectPanel

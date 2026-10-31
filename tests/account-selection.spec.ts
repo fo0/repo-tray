@@ -74,7 +74,6 @@ async function setup(page: Page, saved: string | null = null) {
             if (cmd === 'discover_local_auth')
               return { accounts: [], notices: [] };
             if (cmd === 'check_update') {
-              const account = args?.accountId;
               await new Promise((resolve) =>
                 setTimeout(
                   resolve,
@@ -84,7 +83,7 @@ async function setup(page: Page, saved: string | null = null) {
               );
               return {
                 version: '0.2.0',
-                notes: `Update für ${account}`,
+                notes: `Öffentliches Update`,
                 downloadUrl:
                   'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
               };
@@ -136,6 +135,7 @@ async function closeSettings(page: Page) {
 }
 async function chooseAccount(page: Page, id: string, keepOpen = false) {
   await settings(page);
+  await page.getByRole('tab', { name: 'Konten', exact: true }).click();
   await page
     .getByLabel('Aktives Konto auswählen', { exact: true })
     .selectOption(id);
@@ -151,7 +151,7 @@ async function updateCalls(page: Page) {
   );
 }
 
-test('native startup requires a deliberate account choice in settings and never chooses the first account for updates', async ({
+test('native startup requires an account choice for workflows while updates need no account', async ({
   page,
 }) => {
   await setup(page);
@@ -161,7 +161,7 @@ test('native startup requires a deliberate account choice in settings and never 
   await expect(
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('Kein aktives Konto');
-  expect(await updateCalls(page)).toHaveLength(0);
+  expect(await updateCalls(page)).toHaveLength(1);
   await page
     .getByRole('button', { name: 'Konto in Einstellungen wählen', exact: true })
     .click();
@@ -175,13 +175,11 @@ test('native startup requires a deliberate account choice in settings and never 
     'fixture-user · Token',
     'fixture-user · Browser',
   ]);
+  await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
     page.getByRole('button', { name: 'Auf Updates prüfen' }),
-  ).toBeDisabled();
-  await expect(
-    page.getByText(/anderes Konto automatisch verwendet/),
-  ).toBeVisible();
-  expect(await updateCalls(page)).toHaveLength(0);
+  ).toBeEnabled();
+  expect((await updateCalls(page))[0].args).toEqual({});
 });
 
 test('source-specific settings selection survives restart and pins remain tied to their original credential', async ({
@@ -257,7 +255,7 @@ test('a missing remembered account offers a settings path without falling back t
   await expect(
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('');
-  expect(await updateCalls(page)).toHaveLength(0);
+  expect(await updateCalls(page)).toHaveLength(1);
   expect(
     await page.evaluate((key) => localStorage.getItem(key), key),
   ).toBeNull();
@@ -268,18 +266,9 @@ test('disconnecting another source preserves the active account; removing the ac
 }) => {
   await setup(page, 'github-device-42');
   await settings(page);
-  await expect(
-    page.getByText('Update für github-device-42', { exact: true }).first(),
-  ).toBeVisible();
   await page
     .getByRole('button', { name: 'fixture-user · Token trennen', exact: true })
     .click();
-  await expect(
-    page.getByText('Update für github-device-42', { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole('button', { name: 'Auf Updates prüfen' }),
-  ).toBeEnabled();
   await expect(
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('github-device-42');
@@ -301,9 +290,6 @@ test('disconnecting another source preserves the active account; removing the ac
     })
     .click();
   await expect(
-    page.getByRole('button', { name: 'Auf Updates prüfen' }),
-  ).toBeDisabled();
-  await expect(
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('');
   await closeSettings(page);
@@ -316,47 +302,114 @@ test('disconnecting another source preserves the active account; removing the ac
   ).toBeNull();
 });
 
-test('switching identities in settings clears old update results and never retries through another account', async ({
+test('public update results survive account switches without using any account token', async ({
   page,
 }) => {
   await setup(page, 'github-42');
   await settings(page);
+  await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
-    page.getByText('Update für github-42', { exact: true }).first(),
+    page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
   await chooseAccount(page, 'github-device-42', true);
+  await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
-    page.getByText('Update für github-42', { exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
-  await expect(
-    page.getByText('Update für github-device-42', { exact: true }),
+    page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
-  expect((await updateCalls(page)).map((call) => call.args?.accountId)).toEqual(
-    ['github-42', 'github-device-42'],
-  );
+  expect(await updateCalls(page)).toHaveLength(1);
+  expect((await updateCalls(page))[0].args).toEqual({});
 });
 
-test('a late update response cannot overwrite a newly selected identity', async ({
+test('an in-flight public update check remains valid after switching the workflow account', async ({
   page,
 }) => {
-  await setup(page);
-  await chooseAccount(page, 'github-42', true);
+  await setup(page, 'github-42');
+  await settings(page);
+  await page.getByRole('tab', { name: 'Updates' }).click();
+  await expect(
+    page.getByText('Öffentliches Update', { exact: true }),
+  ).toBeVisible();
   await page.evaluate(() => Object.assign(window, { __updateDelay: 600 }));
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await chooseAccount(page, 'github-device-42', true);
-  await page.waitForTimeout(700);
+  await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
-    page.getByText('Update für github-42', { exact: true }),
-  ).toHaveCount(0);
-  await page.evaluate(() => Object.assign(window, { __updateDelay: 0 }));
-  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
+    page.getByRole('button', { name: 'Auf Updates prüfen' }),
+  ).toBeEnabled();
   await expect(
-    page.getByText('Update für github-device-42', { exact: true }),
+    page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
-  expect((await updateCalls(page)).map((call) => call.args?.accountId)).toEqual(
-    ['github-42', 'github-device-42'],
+  expect(
+    (await updateCalls(page)).every(
+      (call) => Object.keys(call.args ?? {}).length === 0,
+    ),
+  ).toBe(true);
+});
+
+test('stored token and active method are visible in settings and connection dialog', async ({
+  page,
+}, testInfo) => {
+  await setup(page, 'github-42');
+  await settings(page);
+  const stored = page.getByRole('region', { name: 'Verbundene Anmeldungen' });
+  const token = stored
+    .locator('.connected-auth-card')
+    .filter({ has: page.getByText('fixture-user · Token', { exact: true }) });
+  await expect(token).toContainText('Token hinterlegt · Aktiv für RepoTray');
+  await expect(stored).toContainText(
+    'Browser-Anmeldung gespeichert · Verbunden, nicht aktiv',
   );
+  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await expect(
+    page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
+  ).toContainText('Token hinterlegt · Aktiv für RepoTray');
+  await expect(
+    page.getByRole('heading', { name: 'Weiteres Konto per Token verbinden' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Token prüfen und verbinden' }),
+  ).toBeDisabled();
+  await expect(page.getByLabel('GitHub-Token')).toHaveValue('');
+  await page.setViewportSize({ width: 360, height: 840 });
+  const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
+  expect(
+    await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
+  await dialog.screenshot({
+    path: testInfo.outputPath('stored-token-feedback-360.png'),
+  });
+});
+
+test('using an already connected source makes it active without reconnecting or importing a token', async ({
+  page,
+}) => {
+  await setup(page, 'github-42');
+  await settings(page);
+  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', {
+      name: 'fixture-user · Browser für RepoTray verwenden',
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole('dialog', { name: 'GitHub verbinden' }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('status', { name: 'Aktives Konto', exact: true }),
+  ).toContainText('fixture-user · Browser');
+  const calls = await page.evaluate(
+    () =>
+      (window as unknown as { __accountCalls: { cmd: string }[] })
+        .__accountCalls,
+  );
+  expect(
+    calls.some((call) =>
+      ['connect_token', 'connect_local_auth', 'start_browser_auth'].includes(
+        call.cmd,
+      ),
+    ),
+  ).toBe(false);
 });
 
 test('active account and local method button review screenshots', async ({

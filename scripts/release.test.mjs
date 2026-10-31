@@ -189,6 +189,6 @@ test('CLI generates versions and release notes without signing configuration', (
   const result = call(['prepare', metadata, generated, notes]);
   assert.equal(result.status, 0, result.stderr);
   assertVersions(directory, plan);
-  assert.match(readFileSync(notes, 'utf8'), /unsigned/);
+  assert.match(readFileSync(notes, 'utf8'), /not Authenticode signed/);
   assert.doesNotMatch(readFileSync(notes, 'utf8'), /cryptographically signed/);
 });
