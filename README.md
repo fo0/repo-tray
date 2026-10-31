@@ -1,80 +1,114 @@
 # RepoTray
 
-GitHub Actions within reach: a compact tray panel for seeing what is running and launching the workflows you use most.
+[![Checks](https://github.com/fo0/repo-tray/actions/workflows/checks.yml/badge.svg?branch=main&event=push)](https://github.com/fo0/repo-tray/actions/workflows/checks.yml)
+[![Windows release](https://github.com/fo0/repo-tray/actions/workflows/release.yml/badge.svg?branch=main&event=workflow_dispatch)](https://github.com/fo0/repo-tray/actions/workflows/release.yml)
 
-**Independent project: [fo0/repo-tray](https://github.com/fo0/repo-tray).** Built from scratch with Tauri 2, Rust, Svelte 5 and TypeScript. OpenQuota inspired the desktop architecture; no OpenQuota source code, signing keys, updater configuration or Git history is copied.
+<img src="src-tauri/icons/source.svg" alt="" width="64" height="64" align="right" />
 
-> **Native app and browser preview differ.** The desktop app supports existing tokens, local gh CLI imports and a native GitHub App device-code browser flow. Browser login requires the publisher's actual public App configuration, which is not included; its button stays disabled until configured. All credentials stay in the OS vault. The browser preview uses labelled local fixtures only. See [browser sign-in](docs/BROWSER_AUTH.md).
+**GitHub Actions within reach.** RepoTray is a compact Windows tray companion for monitoring runs, launching workflows and keeping frequently used launches as pinned templates.
 
-## Try the panel
+Built with **Tauri 2, Rust, Svelte 5 and TypeScript**. Windows x64 is the primary target; other desktop platforms require their own native validation.
 
-Requires Node.js 24 and pnpm 11.19.0 (or Corepack).
+## What it does
+
+- **A panel beside the tray icon.** Windows placement follows the clicked icon, monitor work area and DPI. Clicking outside hides the panel while preserving open forms and ongoing work. Closing the window keeps RepoTray in the tray; **Quit** exits it.
+- **Activity across repositories.** Group selected repositories by owner, inspect active and finished runs, search, filter and open the corresponding run on GitHub.
+- **Explicit workflow launches.** Choose a workflow, branch/tag and typed inputs. Save account-bound templates and opt in to quick launch when desired.
+- **Deliberate account selection.** Choose the active credential under **Einstellungen → Aktives Konto**. The app remembers its stable nonsecret ID, distinguishes same-login sources and asks for a new selection if it disappears. It never silently falls back to another identity.
+- **Cached state and uncertain-start protection.** Offline views keep cached activity. Ambiguous dispatch responses remain quarantined across reopening and restart to avoid blindly starting the same workflow twice. An accepted dispatch is not a successful build.
+- **Manual updates.** Check for a newer release, read its changelog and explicitly open the EXE download in the standard browser.
+
+The active account controls the foreground view, new launches and update checks. Other connected accounts keep their selected-repository background monitoring; saved templates retain their original credential binding. See [account selection](docs/ACCOUNT_SELECTION.md).
+
+## Sign in
+
+The native app starts without demo accounts. Credentials are owned by the Rust service and stored in the operating system's credential vault; browser preferences contain only nonsecret selections.
+
+| Method                            | Current behavior                                                                                                                                                                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub browser sign-in**        | Native GitHub App device-flow code is implemented. A real login requires the publisher's public Client ID/app configuration and the user's authorization and installation. The button explains missing configuration and stays disabled until configured. |
+| **Personal access token**         | Enter an existing token; RepoTray verifies the identity before storing its own credential entry. Repository access, Actions permissions and organization/SSO restrictions still apply.                                                                    |
+| **Existing local gh CLI account** | On Windows, explicitly request discovery, select a supported stored account and consent before RepoTray verifies and copies that credential into its own vault namespace. Disconnect removes the RepoTray copy, not the CLI account.                      |
+| **Git Credential Manager**        | Discovery shows account metadata only. GCM credentials are not imported and Git/SSH access is not treated as GitHub API authentication.                                                                                                                   |
+
+Browser, token and imported CLI credentials remain distinct. No automatic credential-source cascade is used. See [connection and permissions](docs/GITHUB_SETUP.md), [browser publisher configuration](docs/BROWSER_AUTH.md) and [local sign-in](docs/LOCAL_AUTH.md).
+
+## Install or build
+
+Published Windows installers, when available, are listed on the [Releases page](https://github.com/fo0/repo-tray/releases). If no release is listed, build the installer from source below.
+
+The Windows x64 NSIS installer is **unsigned**. Download and run the EXE yourself; RepoTray does not automatically install updates or execute the downloaded installer. Access to private release downloads requires an authorized GitHub browser session. See [release and update behavior](docs/RELEASES.md).
+
+### Native development
+
+Prerequisites:
+
+- **Node.js 24** and **pnpm 11.19.0**, as specified in `package.json`.
+- A current stable **Rust** toolchain.
+- The [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/). On Windows, install Microsoft C++ Build Tools with **Desktop development with C++**, use the MSVC Rust toolchain and provide the WebView2 runtime. Linux/macOS need their corresponding native development dependencies.
+
+From the repository root:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm desktop:dev
+```
+
+To build the unsigned installer **on Windows**:
+
+```sh
+pnpm build:installer
+```
+
+Output is written under `src-tauri/target/release/bundle/nsis/`. Browser sign-in configuration is a separate publisher responsibility; building the app does not register a GitHub App or create authorization grants.
+
+### Browser demo
+
+The browser preview needs Node/pnpm only, without Rust or a GitHub account:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open `http://127.0.0.1:1420`. The same Svelte panel runs in the browser with a local demo bridge, without Rust or a GitHub account. Only demo repository selections and validated nonsecret pins are stored in browser storage.
+Open **http://127.0.0.1:1420**. This preview uses labelled synthetic accounts and local simulations. It does not authenticate with GitHub or start real workflows.
 
-## Desktop development
+## Checks and builds
 
-Install a current stable Rust toolchain and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS. On Windows this includes Visual Studio C++ Build Tools and WebView2. On Linux install WebKitGTK 4.1, GTK 3 and AppIndicator development packages.
+[Checks](.github/workflows/checks.yml) runs on pull requests and pushes to `main`. It checks the frontend, browser interactions, reproducible icons, Rust formatting/tests/Clippy and Windows desktop compilation, including automated Win32 popup/window-ownership tests. Normal checks do not package an installer. An unsigned validation installer can be requested explicitly through the workflow's `build_installer` input.
 
-```sh
-pnpm desktop:dev
-```
+[Release](.github/workflows/release.yml) handles explicitly requested unsigned Windows releases with generated versions and changelogs. The release badge above follows manual runs on `main`; the checks badge follows main pushes. See [release documentation](docs/RELEASES.md) for the exact triggers and publishing process.
 
-The native app runs the authenticated Rust service, initially without connected accounts. Left-click the tray icon to toggle the panel on Windows/macOS; the tray context menu also provides Show/Hide and Quit. Closing the panel keeps the app in the tray. Linux tray click events vary by desktop: use the menu when click events are unavailable. Quit from the tray menu to exit completely.
-
-```sh
-# On Windows; creates an unsigned NSIS installer
-pnpm build:installer
-```
-
-Releases publish an unsigned Windows EXE without signing keys or certificates. The app checks private GitHub releases and shows the changelog plus an explicit browser-download button. Install the downloaded EXE manually; RepoTray does not download/execute an unsigned updater or restart the app. See [release documentation](docs/RELEASES.md).
-
-## Interaction checks
-
-The browser preview uses synthetic accounts and repositories. Browser tests cover account isolation, workflow launch forms, saved templates, uncertain starts, offline states, keyboard/touch access and narrow layouts. Optional local screenshots are generated into ignored output folders; they are not source assets. See [UX checks and reproduction](docs/UX_REVIEW.md).
-
-## What is implemented
-
-- Activity grouped by selected repositories, active runs first, status filters, expandable run details and search.
-- Account context and full owner/repository identity throughout.
-- Workflow launch forms with branch/tag, typed inputs, defaults and validation.
-- Pinned launch templates; quick launch requires a deliberate opt-in.
-- Demo cases for offline operation, missing permissions and an uncertain dispatch outcome.
-- Native tray integration, account-scoped SQLite metadata cache and Rust-owned GitHub state.
-- Compact shared title/status header, approximately 12% tighter spacing and preserved text/hit-target sizes.
-- Native token/local sign-in and publisher-configured browser device flow with OS credential storage, safe refresh rotation, cancellation protection and disconnect; a separate browser-only simulated sign-in preview.
-- Authenticated GitHub transport with ETag pagination/backoff, typed YAML/ref checks and persistent uncertain-start claims.
-- Private release discovery, changelog and manual EXE download; no automatic unsigned installation.
-
-A dispatch acknowledgement means the request was accepted, not that a build succeeded. An uncertain result is locked against automatic retry, since the server might already have started the run.
-
-The native toolbar shows a compact status for the active account including its credential source; selection lives under Settings → Aktives Konto. That selection is remembered by nonsecret ID; missing accounts require reselection and no identity fallback occurs. Local sign-in is a distinct button. See [active-account semantics](docs/ACCOUNT_SELECTION.md).
-
-## CI and releases
-
-Normal CI is active in [Checks](.github/workflows/checks.yml). It verifies the frontend, browser interactions, Rust and native Windows compilation/tests. Automatic checks skip the full optimized installer build. To request an unsigned validation installer, manually run Checks with **Build an unsigned Windows validation installer** enabled (`build_installer: true`). Rust dependencies are cached separately for Linux, Windows checks and Windows installers.
-
-[Release](.github/workflows/release.yml) generates a date/time version, tag and changelog automatically from `main`; no version bump or pre-created tag is needed. Start it manually, or explicitly include `[release]` in a main commit to publish only after that commit's Checks pass. Ordinary commits skip the release build. It publishes the unsigned EXE with the standard GitHub CLI release command and then verifies the downloaded file. A built draft can be published using `existing_tag` without rebuilding. Release titles show Berlin time; numeric versions use sortable UTC `YYYY.MMDD.HHmm` (without leading zeroes in components). No signing key, certificate, new credential, paid service or repository visibility change is required.
-
-## Verification
+Local verification:
 
 ```sh
 pnpm verify
+pnpm exec playwright install chromium
 pnpm test:e2e
-cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials
-cargo clippy --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials --all-targets -- -D warnings
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
-# With native prerequisites installed:
-cargo check --manifest-path src-tauri/Cargo.toml --features desktop
+cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials --all-targets -- -D warnings
 ```
 
-Browser tests use Playwright Chromium (`pnpm exec playwright install chromium` on a development machine). They never contact GitHub. See [architecture](docs/ARCHITECTURE.md), [GitHub setup boundary](docs/GITHUB_SETUP.md), [remaining work](docs/ROADMAP.md) and [validation record](docs/VALIDATION.md).
+With Windows native prerequisites installed:
 
-## License
+```sh
+cargo check --locked --manifest-path src-tauri/Cargo.toml --features desktop
+cargo test --locked --manifest-path src-tauri/Cargo.toml --features desktop --bin repotray
+```
 
-MIT. RepoTray is an independent project and is not affiliated with GitHub.
+`pnpm verify` includes type checks, unit tests, release-helper tests, formatting, icon byte reproduction and the frontend production build. Fixture/browser tests and compilation do not establish real GitHub permissions, OS credential-store behavior, WebView2 login or interactive tray/DPI acceptance. Those require an owner-controlled native Windows session; see [verification boundaries](docs/VALIDATION.md) and [Windows popup checks](docs/WINDOWS_POPUP_VALIDATION.md).
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) and [roadmap](docs/ROADMAP.md)
+- [Account selection](docs/ACCOUNT_SELECTION.md), [browser authentication](docs/BROWSER_AUTH.md) and [local authentication](docs/LOCAL_AUTH.md)
+- [UX checks and local screenshots](docs/UX_REVIEW.md)
+- [Asset sources and reproduction](docs/ASSETS.md)
+- [Source-distribution review boundaries](docs/DISTRIBUTION.md)
+
+## License and provenance
+
+[MIT](LICENSE). Dependencies retain their own licenses. Application icons and UI glyphs are defined from repository-native geometry; their editable sources and deterministic generator are documented in [Asset sources](docs/ASSETS.md).
+
+RepoTray is an independent project and is not affiliated with GitHub. OpenQuota informed the desktop architecture.
