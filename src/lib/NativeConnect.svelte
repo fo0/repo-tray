@@ -3,26 +3,36 @@
   import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
   import LocalAuth from './LocalAuth.svelte';
-  import BrowserAuth from './BrowserAuth.svelte';
-  import type { Snapshot } from './types';
+  import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
+  import ConnectedAccounts from './ConnectedAccounts.svelte';
+  import type { Account, Snapshot } from './types';
   let {
     onConnected,
     onClose,
-  }: { onConnected: (snapshot: Snapshot) => void; onClose: () => void } =
-    $props();
+    accounts = [],
+    activeAccountId = '',
+    onSelectAccount,
+  }: {
+    onConnected: (snapshot: Snapshot) => void;
+    onClose: () => void;
+    accounts?: Account[];
+    activeAccountId?: string;
+    onSelectAccount: (id: string) => void;
+  } = $props();
   let input = $state<HTMLInputElement>();
   let busy = $state(false);
   let localBusy = $state(false);
-  let browserBusy = $state(false);
+  let hasToken = $state(false);
   let error = $state('');
   let active = true;
   async function connect(event: SubmitEvent) {
     event.preventDefault();
-    if (busy || localBusy || browserBusy) return;
+    if (busy || localBusy || !hasToken) return;
     busy = true;
     error = '';
     const token = input?.value ?? '';
     if (input) input.value = '';
+    hasToken = false;
     try {
       const snapshot = await invoke<Snapshot>('connect_token', { token });
       if (active) onConnected(snapshot);
@@ -45,12 +55,33 @@
   <div class="modal-body auth-preview">
     <div class="auth-symbol"><Icon name="github" size={28} /></div>
     <h3>Dein GitHub-Konto verbinden</h3>
-    <BrowserAuth
-      {onConnected}
+    <ConnectedAccounts
+      {accounts}
+      {activeAccountId}
       disabled={busy || localBusy}
-      onBusy={(value) => (browserBusy = value)}
+      onUse={(id) => {
+        onSelectAccount(id);
+        onClose();
+      }}
+    />
+    <BrowserSignInUnavailable />
+    <LocalAuth
+      {onConnected}
+      disabled={busy}
+      onBusy={(value) => (localBusy = value)}
+      connectedAccounts={accounts}
+      {activeAccountId}
+      onUseAccount={(id) => {
+        onSelectAccount(id);
+        onClose();
+      }}
     />
     <div class="token-path">
+      <h4>
+        {accounts.length
+          ? 'Weiteres Konto per Token verbinden'
+          : 'Mit einem GitHub-Token verbinden'}
+      </h4>
       <label class="field"
         ><span>GitHub-Token</span><input
           type="password"
@@ -60,31 +91,27 @@
           spellcheck="false"
           maxlength="2048"
           required
-          disabled={busy || localBusy || browserBusy}
+          disabled={busy || localBusy}
+          oninput={(event) =>
+            (hasToken = event.currentTarget.value.trim().length > 0)}
         /></label
       >
       <p>
         Nur im Betriebssystem-Tresor gespeichert. Für ausgewählte Repositories:
         Actions lesen/schreiben und Contents lesen. Org-Freigaben können
-        erforderlich sein. Für private App-Updates muss der Token auch
-        fo0/repo-tray lesen dürfen.
+        erforderlich sein. Gespeicherte Tokens werden hier nicht angezeigt.
       </p>
       {#if error}<div class="alert danger" role="alert">{error}</div>{/if}
       <button
         type="submit"
         class="primary-button full-width"
-        disabled={busy || localBusy || browserBusy}
+        disabled={busy || localBusy || !hasToken}
         >{busy ? 'Konto wird geprüft …' : 'Token prüfen und verbinden'}<Icon
           name="check"
           size={15}
         /></button
       >
     </div>
-    <LocalAuth
-      {onConnected}
-      disabled={busy || browserBusy}
-      onBusy={(value) => (localBusy = value)}
-    />
   </div>
   <div class="modal-actions">
     <button type="button" class="secondary-button" onclick={onClose}

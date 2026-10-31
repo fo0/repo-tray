@@ -141,7 +141,7 @@ test('local account access requires a click, explicit choice and consent before 
     page.getByText(/Actions starten: pro Repository ungeprüft\./),
   ).toBeVisible();
   const connect = page.getByRole('button', {
-    name: 'Ausgewähltes Konto prüfen und übernehmen',
+    name: 'gh-Konto mit RepoTray verbinden',
   });
   await expect(connect).toBeDisabled();
   expect((await calls()).some((c) => c.cmd === 'connect_local_auth')).toBe(
@@ -149,7 +149,7 @@ test('local account access requires a click, explicit choice and consent before 
   );
   await page
     .getByRole('checkbox', {
-      name: 'Token als eigene RepoTray-Kopie im Betriebssystem-Tresor speichern',
+      name: 'Ich möchte dieses gh-Konto in RepoTray verwenden',
     })
     .check();
   await connect.click();
@@ -191,11 +191,75 @@ test('unavailable sources stay unavailable and cancellation discards late proces
   ).toBeVisible();
   await expect(
     page.getByRole('button', {
-      name: 'Ausgewähltes Konto prüfen und übernehmen',
+      name: 'gh-Konto mit RepoTray verbinden',
     }),
   ).toHaveCount(0);
   await page.getByText('Weitere lokale Quellen', { exact: true }).click();
   await expect(
     page.getByText('Git erkannt; keine API-Anmeldung belegt.'),
   ).toBeVisible();
+});
+
+test('discovery shows recognized rather than connected until consent, then retains active source feedback', async ({
+  page,
+}, testInfo) => {
+  await expect(
+    page.getByText('Noch kein gh-Konto in RepoTray verbunden'),
+  ).toBeVisible();
+  await page
+    .getByRole('button', {
+      name: 'Bestehende Anmeldung auf diesem PC verwenden',
+    })
+    .click();
+  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
+  await page.getByLabel('Lokales Konto · gh CLI').selectOption('fixture-sam');
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: 'In gh erkannt · noch nicht mit RepoTray verbunden' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' }),
+  ).toBeDisabled();
+  await page
+    .getByRole('checkbox', {
+      name: 'Ich möchte dieses gh-Konto in RepoTray verwenden',
+    })
+    .check();
+  await page
+    .getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' })
+    .click();
+  await expect(
+    page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
+  ).toContainText('gh-Anmeldung übernommen · Aktiv für RepoTray');
+  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
+  await expect(
+    dialog.getByRole('region', { name: 'Verbundene Anmeldungen' }),
+  ).toContainText('fixture-sam · gh CLI (Kopie)');
+  await expect(
+    dialog.getByText('1 gh-Konto in RepoTray verbunden'),
+  ).toBeVisible();
+  await page
+    .getByRole('button', {
+      name: 'Bestehende Anmeldung auf diesem PC verwenden',
+    })
+    .click();
+  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
+  await page.getByLabel('Lokales Konto · gh CLI').selectOption('fixture-sam');
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: 'In RepoTray verbunden · aktives Konto' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'gh-Konto erneut übernehmen' }),
+  ).toBeDisabled();
+  await page.setViewportSize({ width: 360, height: 840 });
+  expect(
+    await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
+  await dialog.screenshot({
+    path: testInfo.outputPath('connected-gh-feedback-360.png'),
+  });
 });

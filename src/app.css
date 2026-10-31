@@ -1584,7 +1584,9 @@ svg {
   font-size: 11px;
 }
 .run-button {
-  min-height: 76px;
+  min-height: 64px;
+  padding-top: 9px;
+  padding-bottom: 9px;
 }
 .filters {
   flex-wrap: wrap;
@@ -2247,4 +2249,225 @@ svg {
 }
 .pinned-action.uncertain .pinned-copy small {
   color: var(--warning);
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 18px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #38452f;
+}
+.settings-tabs button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #a3b394;
+  font-size: 11px;
+}
+.settings-tabs button[aria-selected='true'] {
+  background: #34452a;
+  border-color: #536f3e;
+  color: #d1ecb8;
+}
+.tab-update-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c2e795;
+}
+.settings-repo-search {
+  margin-bottom: 8px;
+}
+.settings-repo-search + .field-help {
+  margin-bottom: 12px;
+}
+.update-panel {
+  color: #c9d8bb;
+}
+.update-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.update-heading h3 {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+.update-heading p,
+.update-description,
+.update-check-row,
+.update-release,
+.update-current {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.update-heading p,
+.update-description {
+  color: #9eae90;
+}
+.update-symbol {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #536b3e;
+  border-radius: 10px;
+  background: #344329;
+  color: #c2e795;
+  flex-shrink: 0;
+}
+.version-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: #afca95;
+  padding: 3px 7px;
+  border: 1px solid #485d37;
+  border-radius: 5px;
+}
+.update-description {
+  margin: 16px 0;
+}
+.update-check-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.update-release {
+  border: 1px solid #4a6138;
+  border-radius: 9px;
+  background: #25301f;
+  margin-top: 18px;
+  padding: 14px;
+}
+.update-release-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.update-release-heading strong {
+  color: #d5edbe;
+  font-size: 13px;
+}
+.update-release-heading > span {
+  color: #a1b58e;
+}
+.update-steps {
+  display: flex;
+  list-style: none;
+  gap: 8px;
+  padding: 14px 0;
+  margin: 0;
+  color: #91a37f;
+  font-size: 10px;
+}
+.update-steps li {
+  flex: 1;
+  border-top: 2px solid #46533c;
+  padding-top: 7px;
+}
+.update-steps .done {
+  border-color: #b2d98a;
+  color: #cde6b6;
+}
+.update-changelog {
+  border-top: 1px solid #3c4d30;
+  margin-bottom: 16px;
+}
+.update-changelog summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-weight: 600;
+}
+.update-changelog p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 180px;
+  overflow-y: auto;
+  color: #afc29d;
+}
+.update-current {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #c2e795;
+  margin: 14px 0;
+}
+.update-progress label {
+  display: block;
+  margin-bottom: 7px;
+}
+.update-progress progress {
+  width: 100%;
+  height: 8px;
+  accent-color: #c2e795;
+}
+.update-release .primary-button {
+  width: 100%;
+  margin-top: 10px;
+  white-space: normal;
+}
+.update-release > .field-help {
+  margin-top: 10px;
+}
+.update-panel > .alert {
+  margin-top: 14px;
+}
+
+.connected-auth {
+  margin: 16px 0;
+  text-align: left;
+}
+.connected-auth h4,
+.auth-preview .token-path h4 {
+  font-size: 12px;
+  color: #d3e3c5;
+  margin-bottom: 10px;
+}
+.connected-auth-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  margin-top: 7px;
+  border: 1px solid #4b5a3e;
+  border-radius: 7px;
+  background: #293323;
+}
+.connected-auth-card.active {
+  border-color: #8baf62;
+  background: #304027;
+}
+.connected-auth-card > svg {
+  color: #b7df89;
+  flex-shrink: 0;
+}
+.connected-auth-card > div {
+  flex: 1;
+  min-width: 0;
+}
+.connected-auth-card strong {
+  display: block;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  color: #e1eed7;
+}
+.connected-auth-card span {
+  display: block;
+  color: #b4c6a3;
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 3px;
+}
+.auth-preview .auth-not-connected {
+  color: #b4c6a3;
+  font-size: 11px;
 }

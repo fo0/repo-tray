@@ -4,7 +4,6 @@ use repotray_core::{
     cache::Cache,
     live::LiveStore,
     local_auth::{self, LocalDiscovery, ProcessRunner, Programs},
-    updates::{self, UpdateInfo},
     DispatchOutcome, DispatchRequest, Pin, RunStatus, Snapshot,
 };
 use std::{
@@ -26,9 +25,6 @@ struct NativeState {
     notifications: AtomicBool,
     auth_generation: AtomicU64,
     browser_flow: Mutex<(u64, DeviceFlow)>,
-    pending_update: Mutex<Option<UpdateInfo>>,
-    update_busy: AtomicBool,
-    update_generation: AtomicU64,
 }
 async fn work<T: Send + 'static>(
     app: tauri::AppHandle,
@@ -158,6 +154,7 @@ fn browser_auth_config() -> browser_auth::BrowserConfig {
 }
 #[tauri::command]
 async fn start_browser_auth(app: tauri::AppHandle) -> Result<BrowserReply, String> {
+    browser_auth::ensure_sign_in_enabled()?;
     let (client_id, _) = browser_auth::publisher()?;
     let ticket = app
         .state::<NativeState>()
@@ -191,6 +188,7 @@ async fn start_browser_auth(app: tauri::AppHandle) -> Result<BrowserReply, Strin
 }
 #[tauri::command]
 fn open_browser_auth(app: tauri::AppHandle, flow_id: u64) -> Result<(), String> {
+    browser_auth::ensure_sign_in_enabled()?;
     use tauri_plugin_opener::OpenerExt;
     let state = app.state::<NativeState>();
     let mut flow = state
@@ -217,6 +215,7 @@ fn open_browser_installation(app: tauri::AppHandle) -> Result<(), String> {
 }
 #[tauri::command]
 async fn poll_browser_auth(app: tauri::AppHandle, flow_id: u64) -> Result<BrowserReply, String> {
+    browser_auth::ensure_sign_in_enabled()?;
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<NativeState>();
         let current = || state.auth_generation.load(Ordering::SeqCst) == flow_id;
@@ -317,16 +316,6 @@ async fn poll_browser_auth(app: tauri::AppHandle, flow_id: u64) -> Result<Browse
 }
 #[tauri::command]
 async fn disconnect_account(app: tauri::AppHandle, account_id: String) -> Result<Snapshot, String> {
-    {
-        let state = app.state::<NativeState>();
-        if state.update_busy.load(Ordering::SeqCst) {
-            return Err("Warte, bis die Update-Aufgabe beendet ist.".into());
-        }
-        *state
-            .pending_update
-            .lock()
-            .map_err(|_| "Update-Dienst nicht verfügbar.")? = None;
-    }
     work(app, move |engine| engine.disconnect(&account_id)).await
 }
 #[tauri::command]
@@ -359,89 +348,6 @@ fn open_run(app: tauri::AppHandle, url: String) -> Result<(), String> {
         .open_url(url, None::<&str>)
         .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
 }
-struct Busy<'a>(&'a AtomicBool);
-impl Drop for Busy<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::SeqCst);
-    }
-}
-#[tauri::command]
-async fn check_update(
-    app: tauri::AppHandle,
-    account_id: String,
-) -> Result<Option<UpdateInfo>, String> {
-    let state = app.state::<NativeState>();
-    state
-        .update_busy
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .map_err(|_| "Updateprüfung läuft bereits.")?;
-    let _busy = Busy(&state.update_busy);
-    let generation = state.update_generation.fetch_add(1, Ordering::SeqCst) + 1;
-    *state
-        .pending_update
-        .lock()
-        .map_err(|_| "Update-Dienst nicht verfügbar.")? = None;
-    let handle = app.clone();
-    let info = tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
-        if !handle
-            .state::<NativeState>()
-            .engine
-            .lock()
-            .map_err(|_| "Dienst nicht verfügbar.")?
-            .snapshot()
-            .accounts
-            .iter()
-            .any(|a| a.id == account_id)
-        {
-            return Err("Wähle ein verbundenes Konto für die Updateprüfung.".into());
-        }
-        let token = browser_auth::access_token(
-            &OsKeyring::new(),
-            &account_id,
-            &mut NativeOAuthTransport::new()?,
-            repotray_core::live::now(),
-        )?;
-        updates::discover(&token, env!("CARGO_PKG_VERSION"))
-    })
-    .await
-    .map_err(|_| "Updateprüfung fehlgeschlagen.")??;
-    if state.update_generation.load(Ordering::SeqCst) != generation {
-        return Err("Updateprüfung gehört zu einem früheren Konto.".into());
-    }
-    *state
-        .pending_update
-        .lock()
-        .map_err(|_| "Update-Dienst nicht verfügbar.")? = info.clone();
-    Ok(info)
-}
-#[tauri::command]
-fn clear_update(app: tauri::AppHandle) -> Result<(), String> {
-    let state = app.state::<NativeState>();
-    state.update_generation.fetch_add(1, Ordering::SeqCst);
-    *state
-        .pending_update
-        .lock()
-        .map_err(|_| "Update-Dienst nicht verfügbar.")? = None;
-    Ok(())
-}
-#[tauri::command]
-fn open_update(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri_plugin_opener::OpenerExt;
-    let info = app
-        .state::<NativeState>()
-        .pending_update
-        .lock()
-        .map_err(|_| "Update-Dienst nicht verfügbar.")?
-        .clone()
-        .ok_or("Prüfe zuerst auf Updates.")?;
-    if !updates::validate_download_url(&info.download_url, &info.version) {
-        return Err("Download liegt außerhalb des RepoTray-Releases.".into());
-    }
-    app.opener()
-        .open_url(info.download_url, None::<&str>)
-        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
-}
-
 fn tray_image(active: bool, failed: bool) -> tauri::image::Image<'static> {
     let color = if active {
         [197, 237, 139, 255]
@@ -477,6 +383,8 @@ pub fn run() {
         .manage(crate::tray_popup::Popup::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(crate::desktop_updates::UpdateState::default())
         .setup(|app| {
             let cache_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&cache_dir)?;
@@ -489,9 +397,6 @@ pub fn run() {
                 notifications: AtomicBool::new(false),
                 auth_generation: AtomicU64::new(0),
                 browser_flow: Mutex::new((0, DeviceFlow::new())),
-                pending_update: Mutex::new(None),
-                update_busy: AtomicBool::new(false),
-                update_generation: AtomicU64::new(0),
             });
             let show = MenuItem::with_id(
                 app,
@@ -559,8 +464,7 @@ pub fn run() {
                         let Ok(mut engine) = state.engine.lock() else {
                             break;
                         };
-                        let value = engine.refresh();
-                        value
+                        engine.refresh()
                     };
                     let selected = |repo_id: &str| {
                         value
@@ -627,9 +531,9 @@ pub fn run() {
             connect_local_auth,
             cancel_connect,
             disconnect_account,
-            check_update,
-            clear_update,
-            open_update,
+            crate::desktop_updates::check_update,
+            crate::desktop_updates::download_update,
+            crate::desktop_updates::install_update,
             open_run,
             hide_panel
         ])

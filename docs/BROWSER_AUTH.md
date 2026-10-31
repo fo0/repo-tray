@@ -1,5 +1,7 @@
 # GitHub browser sign-in
 
+> **Temporarily paused:** New browser / GitHub App sign-ins are disabled in the UI and native start/open/poll commands, regardless of publisher configuration. Use a personal token or explicitly import a local gh account. Existing stored browser credentials retain their normal lifecycle. The implementation and Rust tests below are retained for later re-enabling; they do not mean new sign-in is currently available.
+
 RepoTray implements the GitHub App **device flow** in native Rust. It uses the system browser, a short code on `https://github.com/login/device`, automatic polling and the OS credential vault. There is no server, callback listener, embedded browser, client secret or private key. The browser preview remains its existing labelled demo. Native UI tests use an IPC fixture and never open GitHub.
 
 **Code implementation and fixture checks are available. Real sign-in remains configuration-dependent.** No publisher GitHub App has been registered or configured, no account has authorized/installed it, and no real end-to-end login or workflow dispatch was performed. Without publisher configuration, the native button explains that setup is missing and stays disabled. PAT and existing local gh CLI/GCM UI remain available.

@@ -1,24 +1,40 @@
-# Unsigned Windows releases and manual updates
+# Windows releases and in-app updates
 
-RepoTray publishes an unsigned Windows x64 NSIS EXE. The owner explicitly requested releases without signing keys. No Tauri updater key, Authenticode certificate, new credential or paid service is required or created. Repository visibility stays private.
+RepoTray uses the official Tauri 2 updater for its public Windows x64 releases. Users download updates inside **Einstellungen → Updates**, then explicitly choose **Installieren und neu starten**. The passive NSIS updater closes RepoTray, updates the existing installation and restarts it; there is no browser download or manual uninstall in this path. The application data directory and credential-vault namespace stay unchanged.
 
 ## Update behavior
 
-The native app reads the latest private release using a connected account's token from the OS credential store. That account needs Contents: read for `fo0/repo-tray`. Tokens never enter browser URLs, UI state, release metadata or logs.
+Update discovery is public and independent of the selected GitHub account. No PAT, OAuth login or browser session is needed. The fixed endpoint is `https://github.com/fo0/repo-tray/releases/latest/download/latest.json`. Checks run at startup, every six hours and on request. **Update ansehen** opens the Updates tab directly.
 
-The app accepts only a newer stable release with one exact `RepoTray_VERSION_x64-setup.exe` asset. It validates the API asset URL and the matching GitHub browser-download URL against this repository and version. Drafts, prereleases, foreign URLs, duplicate/missing installers and older versions are rejected. Account changes invalidate pending update results.
+The native service retains the update handle. It accepts only a newer stable version and the exact repository/version-bound Windows x64 EXE URL. Download progress is streamed to the UI; the Tauri updater verifies the complete installer's minisign signature before the app enables installation. `requireSignedVersion: true` binds the signed installer to the advertised version, and downgrades are disabled. Missing/invalid signatures, failed downloads or installation startup failures never claim success. Downloads can be retried; closing Settings or switching accounts preserves the pending update within the current process. Downloaded bytes are kept in memory and do not survive quitting the app.
 
-Update checks run after connection, at startup for restored accounts, every six hours and on request in Settings. The user sees the changelog and chooses **EXE im Browser herunterladen**. The standard browser opens the exact EXE URL; it must be signed in with a GitHub account that can read the private repository. The user runs the downloaded EXE manually. The app neither executes an unsigned update nor restarts itself.
+The user confirms download and installation separately. Merely checking for an update or downloading it cannot install it. The installer uses Tauri's recommended `passive` mode and `/UPDATE` path; Windows may still show an OS security prompt. An updater signature verifies update authenticity; it is **not** an Authenticode certificate and does not remove SmartScreen warnings for an otherwise unsigned EXE.
 
-The Tauri updater plugin and installation IPC command are removed. Tauri requires signatures for its automatic updater; this implementation does not disable or bypass that verification. There are no `.sig` files or `latest.json` updater feed. SHA-256 checksums detect transfer mismatches; they are not publisher signatures. Windows may show its usual unknown-publisher/SmartScreen prompt for the unsigned EXE.
+### One-time publisher setup
 
-References: [Tauri updater signature requirement](https://v2.tauri.app/plugin/updater/#signing-updates), [GitHub private release assets](https://docs.github.com/en/rest/releases/assets?apiVersion=2026-03-10#get-a-release-asset). OpenQuota inspired the desktop architecture; its signing configuration and keys are not used.
+Before releasing, create and securely back up one stable Tauri updater key pair locally:
+
+```sh
+pnpm tauri signer generate -w /secure/path/repotray-updater.key
+```
+
+Never commit the private key or paste it into chat. Configure these under the GitHub repository's Actions settings:
+
+- Secret `TAURI_SIGNING_PRIVATE_KEY`: the private key file contents.
+- Secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: its password, if one was used.
+- Variable `REPOTRAY_UPDATER_PUBLIC_KEY`: the matching `.pub` file contents, not a path.
+
+The workflow checks that signing configuration is present before building. It embeds the public key in the app, builds the EXE and `.exe.sig`, generates `latest.json` with the changelog and version-bound signature, and uploads all three as one release. A missing signature or signed-version mismatch stops publication. The private key is supplied only to the build step. Keep the same key pair for subsequent releases; losing or changing it breaks updates for already installed builds.
+
+The older browser-download builds cannot acquire this behavior retroactively. Install the first updater-enabled release once using the EXE; subsequent releases use the in-app flow. Previously published EXE-only releases do not provide an updater feed. This change does not create production signing keys, configure GitHub secrets or publish a release.
+
+References: [Tauri updater and signing](https://v2.tauri.app/plugin/updater/), [Windows installer](https://v2.tauri.app/distribute/windows-installer/).
 
 ## Checks and release triggers
 
 Ordinary pushes and pull requests run frontend/browser checks, Rust tests/lints, native Windows compilation and Windows core tests. They skip installer creation. To obtain a validation EXE without publishing, manually run **Actions → Checks → Run workflow** on `main` with **Build an unsigned Windows validation installer** enabled (`build_installer: true`, default off).
 
-For a published release, either run **Actions → Release → Run workflow** on `main`, or explicitly include `[release]` in a main commit/merge message. The latter runs only after that exact source commit's Checks workflow succeeds. The workflow-run gate requires a push on `main` in this same repository; pull-request runs and failed checks cannot publish. Ordinary main commits create no release build. No new token or account grant is needed: the job uses its existing repository GITHUB_TOKEN.
+For a published release, either run **Actions → Release → Run workflow** on `main`, or explicitly include `[release]` in a main commit/merge message. The latter runs only after that exact source commit's Checks workflow succeeds. The workflow-run gate requires a push on `main` in this same repository; pull-request runs and failed checks cannot publish. Ordinary main commits create no release build. Release publication uses the existing repository GITHUB_TOKEN; update signing uses the separate publisher key described above.
 
 Rust caches are separated for Linux core, Windows checks and installers. Release can restore the main installer cache. Manual runs on `main` may save it; the workflow-run path only restores caches. A first full optimized installer build can still take longer without a warm installer cache. No extra build is scheduled just to warm it.
 
@@ -28,11 +44,11 @@ Rust caches are separated for Linux core, Windows checks and installers. Release
 2. The same version is stamped into package.json, Tauri config, Cargo.toml and the root Cargo.lock entry in the build workspace. Development versions in Git stay unchanged; there is no bump commit or extra CI run. The generated `v…` tag targets the exact checked-out main source SHA.
 3. GitHub generates the changelog from merged changes. Release notes include timestamp, version and source SHA; no manual version-specific changelog entry or pre-created tag is required. The build workspace records its timestamp, version and source SHA for reproduction.
 4. The workflow rejects existing tags/releases, stale versions, source mismatches or altered metadata. Two runs created in the same minute collide safely; inspect the first outcome and start a later run only if another release is needed. Existing assets/drafts are never overwritten by a blind retry.
-5. After checks it builds with `createUpdaterArtifacts: false`. It runs the standard `gh release create TAG INSTALLER --target SOURCE_SHA --title TITLE --notes-file NOTES --latest` command. The CLI handles the upload and publication; no custom draft URL or installer-metadata gate is used. The workflow confirms that the result is published, downloads the EXE and compares its hash with the local build. A successful build is also retained as a CI artifact if publication fails.
+5. After checks it builds with `createUpdaterArtifacts: true` and the matching public key in generated `release-work/updater.config.json`. It runs `gh release create TAG INSTALLER SIGNATURE latest.json --target SOURCE_SHA --title TITLE --notes-file NOTES --latest`. The CLI handles the upload and publication; no custom draft URL or installer-metadata gate is used. The workflow confirms that the result is published, downloads the EXE and compares its hash with the local build. A successful build is also retained as a CI artifact if publication fails.
 
-If a previous run already uploaded its EXE but stopped before publication, run Release on main with `existing_tag` set to that version. It downloads that exact EXE, checks its GitHub SHA-256 digest and source commit, publishes the existing release and confirms it is no longer a draft. No installer rebuild or asset replacement occurs. The same operation can be explicitly requested in a main merge message as `[publish-existing:vYYYY.MMDD.HHmm]`; it runs only after successful Checks in this repository.
+If a previous run already uploaded its EXE but stopped before publication, run Release on main with `existing_tag` set to that version. It requires the exact EXE, its signature and `latest.json`, checks every GitHub SHA-256 digest, source commit and feed/asset consistency, publishes the existing release and confirms it is no longer a draft. No installer rebuild or asset replacement occurs. The same operation can be explicitly requested in a main merge message as `[publish-existing:vYYYY.MMDD.HHmm]`; it runs only after successful Checks in this repository.
 
-The installer is a direct `.exe` release asset. GitHub's optional CI artifact transport may wrap files in ZIPs; the user-facing release download is the EXE itself. Generated files live in ignored `release-work/`; no screenshot, key or token is published.
+The installer is a direct `.exe` release asset alongside its `.sig` and `latest.json`. GitHub's optional CI artifact transport may wrap files in ZIPs; the user-facing release download is the EXE itself. Generated files live in ignored `release-work/`; no screenshot, private key or token is published.
 
 ## Runtime acceptance
 

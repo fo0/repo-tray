@@ -104,7 +104,7 @@ test('closing the launch dialog and cancelling connection create no runs', async
     page.getByRole('button', {
       name: 'Mit GitHub anmelden',
     }),
-  ).toBeEnabled();
+  ).toBeDisabled();
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
@@ -399,78 +399,47 @@ async function openConnection(page: Page) {
   return page.getByRole('dialog', { name: 'GitHub verbinden' });
 }
 
-test('browser sign-in preview connects a clearly labelled demo account without opening GitHub', async ({
+test('browser sign-in preview is explicitly paused and offers token entry', async ({
   page,
 }) => {
-  const requests: string[] = [];
-  page.on('request', (request) => {
-    if (!new URL(request.url()).hostname.includes('127.0.0.1'))
-      requests.push(request.url());
-  });
   const dialog = await openConnection(page);
+  await expect(
+    dialog.getByRole('button', { name: /Mit GitHub anmelden/ }),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByText(
+      /Browser-Anmeldung \/ GitHub App ist vorübergehend deaktiviert/,
+    ),
+  ).toBeVisible();
   await dialog
-    .getByRole('button', { name: 'Mit GitHub anmelden', exact: true })
+    .getByText('Alternativ: Token hinterlegen', { exact: true })
     .click();
   await expect(
-    dialog.getByRole('heading', { name: 'Im Browser bestätigen' }),
-  ).toBeVisible();
-  await expect(dialog.getByText('DEMO-1234', { exact: true })).toBeVisible();
-  await expect(
-    dialog.getByRole('heading', { name: 'Im Browser bestätigen' }),
-  ).toBeFocused();
+    dialog.getByRole('button', { name: 'Token prüfen und verbinden' }),
+  ).toBeDisabled();
   expect(page.context().pages()).toHaveLength(1);
-  await dialog.getByRole('button', { name: 'Bestätigung simulieren' }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByText(/Demo-Anmeldung bestätigt/)).toBeVisible();
-  await expect(page.getByLabel('Account auswählen')).toBeFocused();
-  await expect(
-    page.getByRole('status', { name: 'Verbindungsstatus' }),
-  ).toContainText('demo-dev · simuliert');
-  expect(requests).toEqual([]);
 });
 
-test('cancelling a pending sign-in invalidates its late confirmation', async ({
+test('cancelling a pending token preview invalidates its late confirmation', async ({
   page,
 }) => {
   await page.clock.install();
   const dialog = await openConnection(page);
   await dialog
-    .getByRole('button', { name: 'Mit GitHub anmelden', exact: true })
+    .getByText('Alternativ: Token hinterlegen', { exact: true })
     .click();
-  await dialog.getByRole('button', { name: 'Bestätigung simulieren' }).click();
+  await dialog.getByLabel('Beispiel-Token').fill('demo-token');
+  await dialog
+    .getByRole('button', { name: 'Token prüfen und verbinden' })
+    .click();
   await dialog.getByRole('button', { name: 'Anmeldung abbrechen' }).click();
   await page.clock.fastForward(1000);
   await expect(
     dialog.getByRole('heading', { name: 'Anmeldung abgebrochen' }),
   ).toBeVisible();
-  await expect(
-    dialog.getByRole('heading', { name: 'Demo-Konto verbunden' }),
-  ).toHaveCount(0);
-});
-
-test('expired and denied sign-in previews offer a clean retry', async ({
-  page,
-}) => {
-  await page.clock.install();
-  const dialog = await openConnection(page);
-  await dialog
-    .getByRole('button', { name: 'Mit GitHub anmelden', exact: true })
-    .click();
-  await page.clock.fastForward(121000);
-  await expect(
-    dialog.getByRole('heading', { name: 'Code abgelaufen' }),
-  ).toBeVisible();
-  await dialog.getByRole('button', { name: 'Erneut versuchen' }).click();
-  await dialog
-    .getByRole('button', { name: 'Mit GitHub anmelden', exact: true })
-    .click();
-  await dialog
-    .getByText('Weitere Demo-Zustände ansehen', { exact: true })
-    .click();
-  await dialog.getByRole('button', { name: 'Ablehnung simulieren' }).click();
-  await expect(
-    dialog.getByRole('heading', { name: 'Freigabe abgelehnt' }),
-  ).toBeVisible();
+  await expect(page.getByText(/Demo-Token geprüft und verworfen/)).toHaveCount(
+    0,
+  );
 });
 
 test('token preview clears its masked input and never persists user input', async ({
@@ -778,11 +747,16 @@ test('confirmation notice centers text, icon and close target at narrow and stan
   await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   await dialog
-    .getByRole('button', { name: 'Mit GitHub anmelden', exact: true })
+    .getByText('Alternativ: Token hinterlegen', { exact: true })
     .click();
-  await dialog.getByRole('button', { name: 'Bestätigung simulieren' }).click();
+  await dialog.getByLabel('Beispiel-Token').fill('demo-token');
+  await dialog
+    .getByRole('button', { name: 'Token prüfen und verbinden' })
+    .click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText(/Demo-Anmeldung bestätigt/)).toBeVisible();
+  await expect(
+    page.getByText(/Demo-Token geprüft und verworfen/),
+  ).toBeVisible();
   for (const width of [480, 360]) {
     await page.setViewportSize({ width, height: 760 });
     const geometry = await page.locator('.notice-banner').evaluate((banner) => {

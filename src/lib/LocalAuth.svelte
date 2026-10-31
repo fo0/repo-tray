@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
-  import type { Snapshot } from './types';
+  import type { Account as ConnectedAccount, Snapshot } from './types';
   type Account = {
     source: 'gh' | 'gcm';
     host: string;
@@ -17,10 +17,16 @@
     onConnected,
     onBusy,
     disabled = false,
+    connectedAccounts = [],
+    activeAccountId = '',
+    onUseAccount,
   }: {
     onConnected: (snapshot: Snapshot) => void;
     onBusy: (busy: boolean) => void;
     disabled?: boolean;
+    connectedAccounts?: ConnectedAccount[];
+    activeAccountId?: string;
+    onUseAccount: (id: string) => void;
   } = $props();
   let accounts = $state<Account[]>([]);
   let notices = $state<string[]>([]);
@@ -30,10 +36,19 @@
   let checked = $state(false);
   let expanded = $state(false);
   let error = $state('');
+  let importing = $state(false);
   let active = true;
   let generation = 0;
   const chosen = $derived(
     accounts.find((a) => a.source === 'gh' && a.login === selected && a.usable),
+  );
+  const connectedGh = $derived(
+    connectedAccounts.filter((account) => account.id.startsWith('github-gh-')),
+  );
+  const chosenImported = $derived(
+    connectedGh.find(
+      (account) => account.login.toLowerCase() === chosen?.login.toLowerCase(),
+    ),
   );
   function setBusy(value: boolean) {
     busy = value;
@@ -43,6 +58,8 @@
     if (busy || disabled) return;
     const ticket = ++generation;
     setBusy(true);
+    importing = false;
+    checked = false;
     error = '';
     consent = false;
     selected = '';
@@ -58,10 +75,12 @@
       checked = true;
       const usable = accounts.filter((a) => a.usable && a.source === 'gh');
       if (usable.length === 1) selected = usable[0].login;
-    } catch {
+    } catch (cause) {
       if (active && ticket === generation)
         error =
-          'Lokale Anmeldung konnte nicht geprüft werden. Erneut versuchen.';
+          typeof cause === 'string'
+            ? cause
+            : 'Lokale Anmeldung konnte nicht geprüft werden. Erneut versuchen.';
     } finally {
       if (active && ticket === generation) setBusy(false);
     }
@@ -70,6 +89,7 @@
     if (busy || disabled || !chosen || !consent) return;
     const ticket = ++generation;
     setBusy(true);
+    importing = true;
     error = '';
     try {
       const snapshot = await invoke<Snapshot>('connect_local_auth', {
@@ -77,10 +97,12 @@
         confirmImport: true,
       });
       if (active && ticket === generation) onConnected(snapshot);
-    } catch {
+    } catch (cause) {
       if (active && ticket === generation)
         error =
-          'Lokale Anmeldung nicht übernommen. Konto, Netzwerk oder Betriebssystem-Tresor prüfen und erneut suchen.';
+          typeof cause === 'string'
+            ? cause
+            : 'Lokale Anmeldung nicht übernommen. Konto, Netzwerk oder Betriebssystem-Tresor prüfen und erneut suchen.';
     } finally {
       if (active && ticket === generation) setBusy(false);
     }
@@ -89,6 +111,10 @@
     generation++;
     setBusy(false);
     consent = false;
+    checked = false;
+    selected = '';
+    accounts = [];
+    notices = [];
     void invoke('cancel_connect').catch(() => {});
   }
   onDestroy(() => {
@@ -117,7 +143,9 @@
     <span class="local-method-copy">
       <strong>Bestehende Anmeldung auf diesem PC verwenden</strong>
       <small id="local-auth-method-hint"
-        >Anmeldeoption · gespeicherte gh-Konten</small
+        >{connectedGh.length
+          ? `${connectedGh.length} ${connectedGh.length === 1 ? 'gh-Konto' : 'gh-Konten'} in RepoTray verbunden`
+          : 'Noch kein gh-Konto in RepoTray verbunden'}</small
       >
     </span>
     <span class="local-method-chevron" class:open={expanded}
@@ -126,10 +154,14 @@
   </button>
   <div id="local-auth-options" hidden={!expanded}>
     <p>
-      Prüfe gespeicherte Konten der gh CLI und Git Credential Manager. Erst
-      dieser Klick greift auf lokale Anmeldungen zu. Unterstützt wird
-      GitHub.com.
+      Nutze deine Anmeldung in der GitHub CLI (gh). Suchen allein verbindet noch
+      kein Konto und ändert dein aktives RepoTray-Konto nicht.
     </p>
+    <ol class="local-auth-steps" aria-label="Lokale Anmeldung verbinden">
+      <li class:done={checked}>1 · Konten suchen</li>
+      <li class:done={!!chosen}>2 · Konto auswählen</li>
+      <li class:done={!!chosenImported}>3 · Verbinden</li>
+    </ol>
     <button
       type="button"
       class="secondary-button"
@@ -137,7 +169,9 @@
       onclick={scan}
     >
       {busy
-        ? 'Lokale Anmeldung wird geprüft …'
+        ? importing
+          ? 'Konto wird übernommen …'
+          : 'Lokale Anmeldung wird geprüft …'
         : checked
           ? 'Erneut prüfen'
           : 'Lokale Anmeldungen prüfen'}
@@ -147,6 +181,11 @@
       >{/if}
     <div aria-live="polite">
       {#if checked}
+        {#each notices.filter((notice) => notice.startsWith('gh ') || notice.startsWith('Diese gh')) as notice}<p
+            class="field-help"
+          >
+            {notice}
+          </p>{/each}
         {#if accounts.some((a) => a.usable && a.source === 'gh')}
           <label class="field"
             ><span>Lokales Konto · gh CLI</span>
@@ -167,6 +206,20 @@
           </label>
         {:else}<p>Keine geeignete lokale API-Anmeldung verfügbar.</p>{/if}
         {#if chosen}
+          <p class="local-source-status" role="status">
+            <Icon name="check" size={15} />{chosenImported
+              ? chosenImported.id === activeAccountId
+                ? 'In RepoTray verbunden · aktives Konto'
+                : 'In RepoTray verbunden · noch nicht aktiv'
+              : 'In gh erkannt · noch nicht mit RepoTray verbunden'}
+          </p>
+          {#if chosenImported && chosenImported.id !== activeAccountId}<button
+              type="button"
+              class="secondary-button"
+              disabled={busy || disabled}
+              onclick={() => onUseAccount(chosenImported.id)}
+              >Als aktives Konto verwenden</button
+            >{/if}
           <p>
             <strong>{chosen.login} · {chosen.host} · gh CLI</strong><br
             />{chosen.detail}
@@ -179,18 +232,24 @@
               type="checkbox"
               bind:checked={consent}
               disabled={busy || disabled}
-            />Token als eigene RepoTray-Kopie im Betriebssystem-Tresor speichern</label
+            />Ich möchte dieses gh-Konto in RepoTray verwenden</label
           >
           <p class="field-help">
-            Die gh-Anmeldung bleibt verwaltet durch gh. Trennen entfernt nur die
-            RepoTray-Kopie. Kein neues Login, Kontowechsel oder automatisches
-            Erweitern der Rechte.
+            RepoTray speichert dafür eine eigene Token-Kopie im
+            Betriebssystem-Tresor. Deine gh-Anmeldung bleibt erhalten. Erst
+            Verbinden übernimmt das Konto in RepoTray; Trennen entfernt nur
+            diese Kopie.
           </p>
           <button
             type="button"
             class="primary-button full-width"
             disabled={busy || disabled || !consent}
-            onclick={connect}>Ausgewähltes Konto prüfen und übernehmen</button
+            onclick={connect}
+            >{importing && busy
+              ? 'Konto wird verbunden …'
+              : chosenImported
+                ? 'gh-Konto erneut übernehmen'
+                : 'gh-Konto mit RepoTray verbinden'}</button
           >
         {/if}
         {#each accounts.filter((a) => !a.usable) as account}
@@ -213,6 +272,34 @@
       {/if}
       {#if error}<div class="alert warning" role="alert">{error}</div>{/if}
     </div>
+    <details class="local-auth-help">
+      <summary>gh wird nicht erkannt oder du bist unsicher?</summary>
+      <p>
+        Git und GitHub CLI (gh) sind verschiedene Programme. Eine
+        Git-/SSH-Anmeldung allein kann RepoTray nicht für die GitHub-API nutzen.
+      </p>
+      <ol>
+        <li>Prüfe im Terminal <code>gh --version</code>.</li>
+        <li>
+          Prüfe deine Anmeldung mit <code
+            >gh auth status --hostname github.com</code
+          >.
+        </li>
+        <li>
+          Falls du noch nicht angemeldet bist: <code
+            >gh auth login --hostname github.com</code
+          >.
+        </li>
+        <li>
+          Starte RepoTray nach einer neuen gh-Installation neu und klicke hier
+          auf „Lokale Anmeldungen prüfen“.
+        </li>
+      </ol>
+      <p>
+        Erkannte gh-Konten werden erst nach deiner Bestätigung mit RepoTray
+        verbunden.
+      </p>
+    </details>
   </div>
 </div>
 
@@ -285,5 +372,48 @@
   }
   select {
     width: 100%;
+  }
+  .local-auth-steps {
+    display: flex;
+    gap: 8px;
+    padding: 0;
+    margin: 14px 0;
+    list-style: none;
+    font-size: 10px;
+    color: #a5b398;
+  }
+  .local-auth-steps li {
+    flex: 1;
+    border-top: 2px solid #435638;
+    padding-top: 6px;
+  }
+  .local-auth-steps .done {
+    border-color: #b7df89;
+    color: #d2e3c5;
+  }
+  .local-source-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px;
+    border: 1px solid #607f46;
+    border-radius: 6px;
+    background: #304027;
+    color: #d2e3c5;
+  }
+  .local-auth-help {
+    margin-top: 14px;
+    font-size: 11px;
+    line-height: 1.65;
+    color: #a9bd98;
+  }
+  .local-auth-help summary {
+    cursor: pointer;
+  }
+  .local-auth-help ol {
+    padding-left: 18px;
+  }
+  .local-auth-help code {
+    overflow-wrap: anywhere;
   }
 </style>

@@ -42,6 +42,16 @@
         "displayLanguageSelector": true,
         "languages": ["English", "German"],
         "installMode": "currentUser"
+      },
+      "allowDowngrades": false
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

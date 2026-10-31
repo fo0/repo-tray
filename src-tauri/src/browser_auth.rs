@@ -3,6 +3,16 @@ use crate::auth::{DeviceAuthorization, DevicePollResult, NativeKeyring, SecretTo
 use serde::{Deserialize, Serialize};
 use std::{io::Read, sync::Mutex, time::Duration};
 
+// Temporarily paused until the publisher is ready to support GitHub App sign-in.
+// Existing stored browser credentials keep their normal lifecycle.
+pub const SIGN_IN_ENABLED: bool = false;
+pub fn ensure_sign_in_enabled() -> Result<(), String> {
+    if SIGN_IN_ENABLED {
+        Ok(())
+    } else {
+        Err("Die Browser-Anmeldung / GitHub App ist vorübergehend deaktiviert. Nutze gh CLI oder einen Token.".into())
+    }
+}
 pub const VERIFY_URL: &str = "https://github.com/login/device";
 const REAUTH: &str =
     "Browser-Anmeldung abgelaufen oder nicht sicher erneuerbar. Bitte erneut mit GitHub anmelden.";
@@ -19,7 +29,7 @@ pub struct BrowserConfig {
 }
 pub fn config() -> BrowserConfig {
     BrowserConfig {
-        configured: publisher().is_ok(),
+        configured: SIGN_IN_ENABLED && publisher().is_ok(),
     }
 }
 pub fn publisher() -> Result<(&'static str, &'static str), String> {
@@ -560,6 +570,16 @@ mod tests {
             Ok(())
         }
     }
+    #[test]
+    fn browser_sign_in_is_explicitly_paused_independently_of_publisher_configuration() {
+        assert!(!config().configured);
+        assert!(ensure_sign_in_enabled()
+            .unwrap_err()
+            .contains("vorübergehend deaktiviert"));
+        // Keep configuration parsing for existing credentials and future re-enabling.
+        assert!(validate_publisher("Iv1.synthetic", "repotray-desktop").is_ok());
+    }
+
     #[test]
     fn public_config_rejects_urls_and_accepts_current_and_legacy_client_id_formats() {
         for id in ["Iv1.synthetic", "Iv23liSynthetic1234"] {
