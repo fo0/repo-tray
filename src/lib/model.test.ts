@@ -5,6 +5,9 @@ import {
   duration,
   fullRepo,
   groupedRuns,
+  repositoryActivity,
+  historyRuns,
+  HISTORY_LIMIT,
   isActive,
   RequestEpoch,
   safeGitHubUrl,
@@ -29,6 +32,46 @@ const request = (
 });
 
 describe('activity model', () => {
+  it('orders repositories by latest activity, including completed runs, and keeps unused repositories', () => {
+    const data = snapshot();
+    data.repos[3].selected = true;
+    data.runs[3].updatedAt = '2026-10-31T10:00:00Z';
+    expect(repositoryActivity(data, '', '').map(({ repo }) => repo.id)).toEqual(
+      [
+        'demo-personal-site',
+        'demo-personal-kit',
+        'demo-team-tools',
+        'demo-extra',
+      ],
+    );
+    expect(
+      repositoryActivity(data, 'demo-work', '').map(({ repo }) => repo.id),
+    ).toEqual(['demo-team-tools', 'demo-extra']);
+    expect(
+      repositoryActivity(data, '', 'desktop build').map(({ workflows }) =>
+        workflows.map((w) => w.id),
+      ),
+    ).toEqual([[101]]);
+    expect(repositoryActivity(data, '', 'not-found')).toEqual([]);
+  });
+  it('limits completed history across repositories without evicting older open runs', () => {
+    const data = snapshot();
+    const completed = data.runs.find((run) => run.status === 'completed')!;
+    data.runs.push(
+      ...Array.from({ length: 80 }, (_, index) => ({
+        ...completed,
+        id: 10000 + index,
+        createdAt: new Date(Date.UTC(2026, 10, 1, 0, index)).toISOString(),
+      })),
+    );
+    const history = historyRuns(data, '', '', 'all');
+    expect(history.filter(isActive)).toHaveLength(3);
+    expect(history.filter((run) => !isActive(run))).toHaveLength(HISTORY_LIMIT);
+    expect(history.at(-1)?.id).toBe(10030);
+    expect(
+      historyRuns(data, 'demo-work', '', 'all').map((run) => run.repoId),
+    ).toEqual(['demo-team-tools']);
+  });
   it('groups full repository names with live counts and sorts active repositories first', () => {
     const data = snapshot();
     const groups = groupedRuns(data, '', '', 'all');

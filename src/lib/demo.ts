@@ -107,6 +107,7 @@ export function createDemoBridge(
           run.updatedAt = new Date().toISOString();
           data.updatedAt = run.updatedAt;
         }
+        if (status === 'completed') simulated.delete(run.id);
       }
     }
     return copy({

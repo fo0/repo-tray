@@ -90,10 +90,10 @@ try {
     page.getByRole('status', { name: 'Verbindungsstatus' }),
   ).toContainText('Demo');
   await page.getByLabel('Account auswählen').selectOption('demo-personal');
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   await capture(
     '04-vorlagen.png',
-    'Starten: kompakte Standardvorlage mit Repository, Konto, Ref und Bestätigungsmodus.',
+    'Favoriten: kompakte Standardvorlage mit Repository, Konto, Ref und Bestätigungsmodus.',
   );
   let dialog = await openPin('Windows build');
   await dialog.getByLabel('Branch oder Tag').selectOption('develop');

@@ -11,6 +11,65 @@ import type {
 export type ActivityFilter = 'all' | 'active' | 'failed' | 'recent';
 export const fullRepo = (repo: Repo) => `${repo.owner}/${repo.name}`;
 export const isActive = (run: Run) => run.status !== 'completed';
+export const HISTORY_LIMIT = 50;
+
+/** The repository browser includes selected repos even before their first run. */
+export function repositoryActivity(
+  snapshot: Snapshot,
+  accountId: string,
+  query: string,
+) {
+  const needle = query.trim().toLocaleLowerCase();
+  return snapshot.repos
+    .filter(
+      (repo) => repo.selected && (!accountId || repo.accountId === accountId),
+    )
+    .map((repo) => {
+      const runs = snapshot.runs.filter((run) => run.repoId === repo.id);
+      const latest = [...runs].sort(
+        (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+      )[0];
+      const workflows = snapshot.workflows.filter(
+        (workflow) =>
+          workflow.repoId === repo.id &&
+          (!needle ||
+            `${fullRepo(repo)} ${workflow.name}`
+              .toLocaleLowerCase()
+              .includes(needle)),
+      );
+      return {
+        repo,
+        workflows,
+        latest,
+        activeCount: runs.filter(isActive).length,
+      };
+    })
+    .filter(
+      ({ repo, workflows }) =>
+        !needle ||
+        fullRepo(repo).toLocaleLowerCase().includes(needle) ||
+        workflows.length > 0,
+    )
+    .sort(
+      (a, b) =>
+        (b.latest ? Date.parse(b.latest.updatedAt) : 0) -
+          (a.latest ? Date.parse(a.latest.updatedAt) : 0) ||
+        fullRepo(a.repo).localeCompare(fullRepo(b.repo)),
+    );
+}
+
+/** Keep every open run visible, with a bounded chronological completed history. */
+export function historyRuns(
+  snapshot: Snapshot,
+  accountId: string,
+  query: string,
+  filter: ActivityFilter,
+) {
+  let completed = 0;
+  return visibleRuns(snapshot, accountId, query, filter).filter(
+    (run) => isActive(run) || ++completed <= HISTORY_LIMIT,
+  );
+}
 export const isSecretName = (name: string) =>
   /(?:token|secret|password|credential|private[_-]?key|api[_-]?key)/i.test(
     name,

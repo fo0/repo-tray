@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import Icon from './lib/Icon.svelte';
+  import RepositoryList from './lib/RepositoryList.svelte';
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
@@ -19,7 +20,9 @@
     defaultInputs,
     duration,
     fullRepo,
-    groupedRuns,
+    repositoryActivity,
+    historyRuns,
+    HISTORY_LIMIT,
     isActive,
     RequestEpoch,
     safeGitHubUrl,
@@ -50,12 +53,13 @@
   let updateMessage = $state('');
   let updateEpoch = 0;
   let demoAccountConnected = $state(false);
-  let tab = $state<'activity' | 'launch'>('activity');
+  let tab = $state<'repositories' | 'activity' | 'launch'>('repositories');
   let accountId = $state('');
   let accountSelectionNotice = $state('');
   let accountSelectionReady = false;
   let query = $state('');
-  let filter = $state<ActivityFilter>('active');
+  let filter = $state<ActivityFilter>('all');
+  let favoriteIntent = $state(false);
   let expanded = $state<number | null>(null);
   let modal = $state<'settings' | 'dispatch' | 'connect' | null>(null);
   let selectedRepos = $state<string[]>([]);
@@ -95,12 +99,12 @@
   );
   const runs = $derived(
     snapshot && (!native || accountId)
-      ? visibleRuns(snapshot, accountId, query, filter)
+      ? historyRuns(snapshot, accountId, query, filter)
       : [],
   );
-  const runGroups = $derived(
+  const repoGroups = $derived(
     snapshot && (!native || accountId)
-      ? groupedRuns(snapshot, accountId, query, filter)
+      ? repositoryActivity(snapshot, accountId, query)
       : [],
   );
   const activeRuns = $derived(
@@ -497,6 +501,7 @@
   function openDispatch(pin?: Pin, workflow?: Workflow) {
     closeModal();
     modal = 'dispatch';
+    favoriteIntent = false;
     selectRepo(
       pin?.repoId ??
         workflow?.repoId ??
@@ -592,6 +597,67 @@
       closeModal();
       void dispatch(pin);
     } else openDispatch(pin);
+  }
+
+  function favoritePin(workflow: Workflow) {
+    const repo = snapshot?.repos.find((repo) => repo.id === workflow.repoId);
+    const defaults = defaultInputs(workflow);
+    return snapshot?.pins.find(
+      (pin) =>
+        pin.accountId === repo?.accountId &&
+        pin.repoId === workflow.repoId &&
+        pin.workflowId === workflow.id &&
+        pin.ref === repo?.defaultBranch &&
+        Object.keys(pin.inputs).length === Object.keys(defaults).length &&
+        Object.entries(defaults).every(
+          ([key, value]) => pin.inputs[key] === value,
+        ),
+    );
+  }
+  async function toggleFavorite(workflow: Workflow) {
+    if (!snapshot || mutationBusy || dispatching) return;
+    const existing = favoritePin(workflow);
+    if (existing) {
+      await deletePin(existing.id);
+      return;
+    }
+    const repo = snapshot.repos.find((repo) => repo.id === workflow.repoId);
+    if (!repo) return;
+    const pin: Pin = {
+      id: crypto.randomUUID(),
+      label: workflow.name,
+      accountId: repo.accountId,
+      repoId: repo.id,
+      workflowId: workflow.id,
+      ref: repo.defaultBranch,
+      inputs: defaultInputs(workflow),
+      quickStart: false,
+    };
+    const invalid = validateDispatch(snapshot, {
+      ...pin,
+      requestId: 'favorite',
+    });
+    if (invalid) {
+      openDispatch(undefined, workflow);
+      favoriteIntent = true;
+      dialogNotice =
+        'Ergänze die benötigten Angaben und speichere die Action als Vorlage.';
+      return;
+    }
+    mutationBusy = true;
+    const ticket = viewEpoch.next();
+    refreshing = false;
+    try {
+      const value = await bridge.savePin(pin);
+      if (viewEpoch.current(ticket)) {
+        acceptSnapshot(value);
+        showNotice('Action als Favorit gespeichert.');
+      }
+    } catch (cause) {
+      if (viewEpoch.current(ticket)) error = message(cause);
+    } finally {
+      mutationBusy = false;
+    }
   }
 
   async function savePin(asNew = false) {
@@ -819,6 +885,14 @@
 
     <nav class="tabs" aria-label="Ansicht">
       <button
+        class:active={tab === 'repositories'}
+        aria-current={tab === 'repositories' ? 'page' : undefined}
+        onclick={() => {
+          tab = 'repositories';
+          query = '';
+        }}><Icon name="repo" size={16} />Repositories</button
+      >
+      <button
         class:active={tab === 'activity'}
         aria-current={tab === 'activity' ? 'page' : undefined}
         onclick={() => {
@@ -828,13 +902,14 @@
         ><Icon name="activity" size={17} />Aktivität{#if activeRuns}<span
             class="tab-count">{activeRuns}</span
           >{/if}</button
-      ><button
+      >
+      <button
         class:active={tab === 'launch'}
         aria-current={tab === 'launch' ? 'page' : undefined}
         onclick={() => {
           tab = 'launch';
           query = '';
-        }}><Icon name="play" size={16} />Starten</button
+        }}><Icon name="heart" size={16} />Favoriten</button
       >
     </nav>
 
@@ -844,10 +919,14 @@
           bind:this={searchInput}
           aria-label={tab === 'activity'
             ? 'Aktivität durchsuchen'
-            : 'Workflows durchsuchen'}
+            : tab === 'repositories'
+              ? 'Repositories durchsuchen'
+              : 'Workflows durchsuchen'}
           placeholder={tab === 'activity'
             ? 'Repository, Workflow oder Branch suchen …'
-            : 'Vorlagen und Workflows suchen …'}
+            : tab === 'repositories'
+              ? 'Repository oder Action suchen …'
+              : 'Favoriten und Workflows suchen …'}
           bind:value={query}
         />{#if query}<button
             class="icon-button small"
@@ -904,6 +983,112 @@
               : 'Dein Überblick ist gleich bereit.'}
           </p>
         </div>
+      {:else if tab === 'repositories'}
+        {#if pins.length}
+          <section
+            class="repository-favorites"
+            aria-label="Angeheftete Favoriten"
+          >
+            <div class="section-heading pinned-heading">
+              <h2><Icon name="pin" size={13} />Favoriten</h2>
+              <span>{pins.length} angeheftet</span>
+            </div>
+            <div class="pinned-list">
+              {#each pins as pin (pin.id)}
+                {@const uncertain = quarantinedTargets.has(targetKey(pin))}
+                <article class="pinned-action" class:uncertain>
+                  <button
+                    class="pinned-copy"
+                    onclick={() => openDispatch(pin)}
+                    aria-label={`Favorit ${pin.label} konfigurieren`}
+                    title={`${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
+                    disabled={dispatching}
+                  >
+                    <strong>{pin.label}</strong>
+                    <small
+                      ><span>{repoName(pin.repoId)}</span><span
+                        class="pinned-ref">· {pin.ref}</span
+                      ></small
+                    >
+                  </button>
+                  {#if uncertain}<span
+                      class="pinned-warning"
+                      title="Startstatus ungeklärt · Öffnen, um den Status zu prüfen"
+                      role="img"
+                      aria-label="Startstatus ungeklärt"
+                      ><Icon name="warning" size={14} /></span
+                    >{/if}
+                  <button
+                    class="icon-button pinned-remove"
+                    aria-label={`Favorit ${pin.label} entfernen`}
+                    title="Favorit entfernen"
+                    disabled={mutationBusy || dispatching}
+                    onclick={() => deletePin(pin.id)}
+                    ><Icon name="heart" size={15} /></button
+                  >
+                  <button
+                    class="action-start pinned-start"
+                    onclick={() => launchPin(pin)}
+                    disabled={dispatching ||
+                      (pin.quickStart && (blocked || uncertain))}
+                    title={pin.quickStart
+                      ? 'Mit gespeicherten Parametern starten'
+                      : 'Gespeicherte Parameter öffnen und bestätigen'}
+                  >
+                    <Icon
+                      name={pin.quickStart ? 'bolt' : 'play'}
+                      size={12}
+                    />{pin.quickStart ? 'Schnellstart' : 'Öffnen'}
+                  </button>
+                </article>
+              {/each}
+            </div>
+          </section>
+        {/if}
+        <div class="section-heading repository-heading">
+          <h2>Deine Repositories</h2>
+          <span>Zuletzt aktiv zuerst</span>
+        </div>
+        <RepositoryList
+          groups={repoGroups}
+          onopen={(workflow) => openDispatch(undefined, workflow)}
+          onfavorite={(workflow) => void toggleFavorite(workflow)}
+          favorite={favoritePin}
+          busy={mutationBusy}
+          {dispatching}
+          {blocked}
+        />
+        {#if !repoGroups.length}<div class="empty-state">
+            <span class="empty-icon"><Icon name="repo" size={25} /></span>
+            <h2>
+              {native && !accountId
+                ? snapshot.accounts.length
+                  ? 'Wähle ein aktives Konto'
+                  : 'Verbinde dein GitHub-Konto'
+                : query
+                  ? 'Keine passenden Repositories'
+                  : 'Noch keine Repositories ausgewählt'}
+            </h2>
+            <p>
+              {native && !accountId
+                ? accountSelectionNotice ||
+                  'Wähle Konto und Repositories in den Einstellungen.'
+                : query
+                  ? 'Suche nach einem Repository oder einer Action.'
+                  : 'Wähle Repositories in den Einstellungen aus.'}
+            </p>
+            {#if query}<button class="text-button" onclick={() => (query = '')}
+                >Suche leeren<Icon name="close" size={14} /></button
+              >
+            {:else}<button class="text-button" onclick={openSettings}
+                >{native && !accountId
+                  ? 'Konto in Einstellungen wählen'
+                  : 'Repositories auswählen'}<Icon
+                  name="arrow"
+                  size={14}
+                /></button
+              >{/if}
+          </div>{/if}
       {:else if tab === 'activity'}
         <div class="filters" aria-label="Aktivitätsfilter">
           {#each [{ id: 'all', label: 'Alle' }, { id: 'active', label: 'Aktiv' }, { id: 'failed', label: 'Fehlgeschlagen' }, { id: 'recent', label: 'Abgeschlossen' }] as item}<button
@@ -923,128 +1108,114 @@
                 ? 'Fehlgeschlagene Runs'
                 : filter === 'recent'
                   ? 'Abgeschlossene Runs'
-                  : 'Workflow-Runs'}
+                  : 'Letzte Aktivitäten'}
           </h2>
           <span>{runs.length} {runs.length === 1 ? 'Run' : 'Runs'}</span>
         </div>
-        <div class="repo-run-groups">
-          {#each runGroups as group (group.repo.id)}
-            <section class="repo-runs" aria-label={fullRepo(group.repo)}>
-              <header class="run-group-header">
-                <h3><Icon name="repo" size={13} />{fullRepo(group.repo)}</h3>
-                <span class:has-active={group.activeCount > 0}
-                  ><span class="group-live-dot"></span>{group.activeCount} aktiv</span
+        <p class="history-note">
+          <span class="group-live-dot"></span>Offene Runs werden automatisch
+          aktualisiert.<br />Bis zu {HISTORY_LIMIT} abgeschlossene Runs bleiben im
+          Verlauf.
+        </p>
+        <div class="run-list history-list">
+          {#each runs as run, index (`${run.repoId}:${run.id}`)}
+            {#if filter === 'all' && !isActive(run) && (index === 0 || isActive(runs[index - 1]))}<div
+                class="list-divider"
+              >
+                <span>Zuletzt abgeschlossen</span>
+              </div>{/if}
+            <article class="run" class:expanded={expanded === run.id}>
+              <button
+                class="run-button"
+                aria-expanded={expanded === run.id}
+                aria-label={`${run.name} · ${repoName(run.repoId)} · ${statusLabel(run)}`}
+                onclick={() => (expanded = expanded === run.id ? null : run.id)}
+              >
+                <span
+                  class="status-icon"
+                  class:running={run.status === 'in_progress'}
+                  class:queued={run.status === 'queued'}
+                  class:waiting={run.status === 'waiting'}
+                  class:success={run.conclusion === 'success'}
+                  class:failure={run.conclusion === 'failure'}
+                  ><Icon
+                    name={run.status === 'in_progress'
+                      ? 'activity'
+                      : run.status === 'waiting'
+                        ? 'pause'
+                        : run.status === 'queued'
+                          ? 'clock'
+                          : run.conclusion === 'success'
+                            ? 'check'
+                            : 'close'}
+                    size={16}
+                  /></span
                 >
-              </header>
-              <div class="run-list">
-                {#each group.runs as run, index (run.id)}
-                  {#if filter === 'all' && index > 0 && !isActive(run) && isActive(group.runs[index - 1])}<div
-                      class="list-divider"
+                <span class="run-main"
+                  ><span class="run-name"
+                    >{run.name}<span class="run-number">#{run.id}</span></span
+                  ><span class="run-repo">{repoName(run.repoId)}</span><span
+                    class="run-branch"
+                    ><Icon name="branch" size={11} />{run.branch}<span
+                      class="meta-dot">·</span
+                    ><span>{duration(run)}</span></span
+                  ></span
+                >
+                <span class="run-tail"
+                  ><span
+                    class="status-label"
+                    class:running={run.status === 'in_progress'}
+                    class:failure={run.conclusion === 'failure'}
+                    >{statusLabel(run)}</span
+                  ><Icon name="chevron" size={14} /></span
+                >
+              </button>
+              {#if expanded === run.id}<div class="run-details">
+                  <div>
+                    <span>Account</span><strong
+                      >{accountName(
+                        snapshot.repos.find((repo) => repo.id === run.repoId)
+                          ?.accountId ?? '',
+                      )}</strong
                     >
-                      <span>Zuletzt abgeschlossen</span>
-                    </div>{/if}
-                  <article class="run" class:expanded={expanded === run.id}>
-                    <button
-                      class="run-button"
-                      aria-expanded={expanded === run.id}
-                      aria-label={`${run.name} · ${repoName(run.repoId)} · ${statusLabel(run)}`}
-                      onclick={() =>
-                        (expanded = expanded === run.id ? null : run.id)}
+                  </div>
+                  <div>
+                    <span>Aktualisiert</span><strong
+                      >{clock(run.updatedAt)}{demo
+                        ? ' · Demo-Zeit'
+                        : ''}</strong
                     >
-                      <span
-                        class="status-icon"
-                        class:running={run.status === 'in_progress'}
-                        class:queued={run.status === 'queued'}
-                        class:waiting={run.status === 'waiting'}
-                        class:success={run.conclusion === 'success'}
-                        class:failure={run.conclusion === 'failure'}
-                        ><Icon
-                          name={run.status === 'in_progress'
-                            ? 'activity'
-                            : run.status === 'waiting'
-                              ? 'pause'
-                              : run.status === 'queued'
-                                ? 'clock'
-                                : run.conclusion === 'success'
-                                  ? 'check'
-                                  : 'close'}
-                          size={16}
-                        /></span
-                      >
-                      <span class="run-main"
-                        ><span class="run-name"
-                          >{run.name}<span class="run-number">#{run.id}</span
-                          ></span
-                        ><span class="run-repo">{repoName(run.repoId)}</span
-                        ><span class="run-branch"
-                          ><Icon name="branch" size={11} />{run.branch}<span
-                            class="meta-dot">·</span
-                          ><span>{duration(run)}</span></span
-                        ></span
-                      >
-                      <span class="run-tail"
-                        ><span
-                          class="status-label"
-                          class:running={run.status === 'in_progress'}
-                          class:failure={run.conclusion === 'failure'}
-                          >{statusLabel(run)}</span
-                        ><Icon name="chevron" size={14} /></span
-                      >
-                    </button>
-                    {#if expanded === run.id}<div class="run-details">
-                        <div>
-                          <span>Account</span><strong
-                            >{accountName(
-                              snapshot.repos.find(
-                                (repo) => repo.id === run.repoId,
-                              )?.accountId ?? '',
-                            )}</strong
-                          >
-                        </div>
-                        <div>
-                          <span>Aktualisiert</span><strong
-                            >{clock(run.updatedAt)}{demo
-                              ? ' · Demo-Zeit'
-                              : ''}</strong
-                          >
-                        </div>
-                        <div>
-                          <span>Ergebnis</span><strong
-                            >{statusLabel(run)}</strong
-                          >
-                        </div>
-                        {#if safeGitHubUrl(run.htmlUrl)}<a
-                            class="detail-link"
-                            href={safeGitHubUrl(run.htmlUrl)!}
-                            onclick={(event) => {
-                              if (native) {
-                                event.preventDefault();
-                                void invoke('open_run', {
-                                  url: run.htmlUrl,
-                                }).catch((cause) =>
-                                  showNotice(message(cause), 'warning'),
-                                );
-                              }
-                            }}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            >Auf GitHub ansehen<Icon
-                              name="external"
-                              size={13}
-                            /></a
-                          >{:else}<button
-                            class="detail-link"
-                            disabled
-                            title="Demo-Runs haben keinen GitHub-Link"
-                            >GitHub-Link in Demo nicht verfügbar<Icon
-                              name="external"
-                              size={13}
-                            /></button
-                          >{/if}
-                      </div>{/if}
-                  </article>{/each}
-              </div>
-            </section>
+                  </div>
+                  <div>
+                    <span>Ergebnis</span><strong>{statusLabel(run)}</strong>
+                  </div>
+                  {#if safeGitHubUrl(run.htmlUrl)}<a
+                      class="detail-link"
+                      href={safeGitHubUrl(run.htmlUrl)!}
+                      onclick={(event) => {
+                        if (native) {
+                          event.preventDefault();
+                          void invoke('open_run', {
+                            url: run.htmlUrl,
+                          }).catch((cause) =>
+                            showNotice(message(cause), 'warning'),
+                          );
+                        }
+                      }}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Auf GitHub ansehen<Icon name="external" size={13} /></a
+                    >{:else}<button
+                      class="detail-link"
+                      disabled
+                      title="Demo-Runs haben keinen GitHub-Link"
+                      >GitHub-Link in Demo nicht verfügbar<Icon
+                        name="external"
+                        size={13}
+                      /></button
+                    >{/if}
+                </div>{/if}
+            </article>
           {:else}<div class="empty-state">
               <span class="empty-icon"><Icon name="activity" size={25} /></span>
               <h2>
@@ -1083,7 +1254,7 @@
         </div>
       {:else}
         <div class="section-heading launch-heading">
-          <h2><Icon name="pin" size={14} />Deine Vorlagen</h2>
+          <h2><Icon name="heart" size={14} />Deine Favoriten</h2>
           <span>{pins.length} gespeichert</span>
         </div>
         <div class="pin-list" class:has-pins={pins.length > 0}>
@@ -1649,7 +1820,7 @@
                       : 'Zugriff verweigert. Starts sind deaktiviert.'}</span
                   >
                 </div>{/if}
-              <details class="save-pin">
+              <details class="save-pin" open={favoriteIntent}>
                 <summary
                   ><Icon name="pin" size={14} />Als Vorlage speichern<Icon
                     name="down"

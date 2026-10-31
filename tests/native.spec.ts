@@ -124,7 +124,7 @@ test('native token flow clears input, labels live mode and returns to repository
   await expect(
     page.getByRole('status', { name: 'Verbindungsstatus' }),
   ).not.toContainText('Demo');
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   await page.getByRole('button', { name: 'Neu konfigurieren' }).click();
   await expect(
     page.getByRole('button', { name: 'Workflow starten', exact: true }),

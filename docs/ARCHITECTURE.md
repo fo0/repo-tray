@@ -27,11 +27,15 @@ The Windows popup tracks the actual tray rectangle and physical monitor work are
 
 ## Launch and cache safety
 
+The panel starts on **Repositories**, ordered by the latest run update. Repository disclosures expose workflow configuration, start buttons and heart favorites. **Aktivität** is a flat history with open runs first and up to 50 completed runs; **Favoriten** reuses account-bound launch templates. A heart saves default-branch/default-input configurations without enabling quick start. Missing required inputs open the template form; customized variants remain separate.
+
 Only workflows exposing `workflow_dispatch` on their default branch are eligible. YAML is parsed as data, refs are checked, inputs are typed and validated, and read-only/deselected repositories cannot launch. Pins retain account, owner/repository, workflow, ref and validated nonsecret inputs.
 
 The UI locks pending dispatches and rejects stale responses after target/account changes. The native service persists a target claim before dispatch and quarantines ambiguous responses rather than blindly resending a POST. Closing a dialog does not dispatch. A successful acknowledgement identifies the exact run; it does not establish build success.
 
 The GitHub transport serializes requests, constrains pagination to the GitHub API origin, handles ETags/304 and rate-limit backoff, and never automatically retries an uncertain dispatch. Polling focuses on selected repositories and slows when idle, offline or limited. Notification baselines avoid replaying historical failures at startup.
+
+`run_history.rs` seeds the latest 50 runs per selected repository once per process. Later polls discover active runs and runs created since the last successful discovery, including short runs that already finished. A known open run missing from the active lists is resolved by its exact ID; absence and network errors never imply completion. Completed metadata remains unchanged, and completed IDs receive no further individual status requests. Active reruns can reopen a known ID. The cache retains all open runs and at most 50 completed runs per repository; the UI applies its 50-entry completed limit across repositories. Moving discovery-window pages are not retained in the ETag cache.
 
 Use REST version `2026-03-10`. Dispatch responses include the exact run ID; legacy/malformed responses stay uncertain. See [GitHub connection](GITHUB_SETUP.md) and the [official dispatch API](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event).
 
