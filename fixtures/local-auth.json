@@ -1,0 +1,54 @@
+{
+  "hosts": {
+    "github.com": [
+      {
+        "host": "github.com",
+        "login": "fixture-alex",
+        "state": "success",
+        "active": true,
+        "tokenSource": "keyring",
+        "scopes": "repo, read:org"
+      },
+      {
+        "host": "github.com",
+        "login": "fixture-sam",
+        "state": "success",
+        "active": false,
+        "tokenSource": "keyring"
+      },
+      {
+        "host": "github.com",
+        "login": "fixture-public",
+        "state": "success",
+        "tokenSource": "keyring",
+        "scopes": "read:org"
+      },
+      {
+        "host": "github.com",
+        "login": "fixture-expired",
+        "state": "error",
+        "tokenSource": "keyring",
+        "error": "untrusted diagnostic must never be displayed"
+      },
+      {
+        "host": "github.com",
+        "login": "fixture-ci",
+        "state": "success",
+        "tokenSource": "GH_TOKEN"
+      },
+      {
+        "host": "github.com",
+        "login": "--malicious",
+        "state": "success",
+        "tokenSource": "keyring"
+      }
+    ],
+    "enterprise.example": [
+      {
+        "host": "enterprise.example",
+        "login": "fixture-enterprise",
+        "state": "success"
+      }
+    ]
+  }
+}

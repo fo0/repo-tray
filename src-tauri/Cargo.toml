@@ -1,0 +1,46 @@
+[package]
+name = "repotray"
+default-run = "repotray"
+version = "0.1.0"
+description = "A compact tray companion for GitHub Actions"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[lib]
+name = "repotray_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "repotray"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[features]
+default = []
+desktop = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-opener", "dep:tauri-plugin-notification", "dep:tauri-plugin-single-instance", "dep:windows-sys", "network", "native-credentials"]
+network = ["dep:reqwest", "dep:base64", "dep:semver"]
+# Native credentials never use a plaintext fallback.
+native-credentials = ["dep:keyring"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml_ng = "0.10"
+rusqlite = { version = "0.38", features = ["bundled"] }
+chrono = { version = "0.4", features = ["clock", "serde"] }
+keyring = { version = "4.2", default-features = false, features = ["v1"], optional = true }
+tauri = { version = "2", features = ["tray-icon", "image-png"], optional = true }
+tauri-plugin-opener = { version = "2", optional = true }
+tauri-plugin-notification = { version = "2", optional = true }
+tauri-plugin-single-instance = { version = "2", optional = true }
+
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
+base64 = { version = "0.22", optional = true }
+semver = { version = "1", optional = true }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", optional = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
