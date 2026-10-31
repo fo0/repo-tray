@@ -42,7 +42,7 @@ async function capture(name, title, interaction, expected) {
   });
 }
 async function launchTab() {
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
 }
 async function openPin(name) {
   const card = page
@@ -71,11 +71,12 @@ try {
   await expect(
     page.getByRole('button', { name: 'Einstellungen', exact: true }),
   ).toBeEnabled();
+  await page.getByRole('button', { name: /^Aktivität/ }).click();
   await capture(
     'aktivitaet',
     'Alle Repositories im Blick',
-    'App öffnen → Aktivität mit Standardfilter Aktiv.',
-    'Repo-Gruppen mit vollem Owner, aktiver Anzahl, Workflow-Status und Branch. Ausschließlich Beispieldaten.',
+    'App öffnen → Aktivität mit Standardfilter Alle.',
+    'Run-Verlauf mit vollem Owner, Workflow-Status und Branch. Ausschließlich Beispieldaten.',
   );
 
   await page.getByLabel('Account auswählen').selectOption('demo-work');
@@ -105,7 +106,7 @@ try {
   await capture(
     'vorlagen',
     'Häufige Starts als Vorlagen',
-    'Zur Ansicht Starten wechseln.',
+    'Zur Ansicht Favoriten wechseln.',
     'Windows build ist angepinnt. Öffnen führt zunächst zur Bestätigung; Schnellstart ist standardmäßig aus.',
   );
 
@@ -254,7 +255,7 @@ try {
   await capture(
     'leere-suche',
     'Auch eine erfolglose Suche hat einen nächsten Schritt',
-    'In Starten nach unmatched-query suchen.',
+    'In Favoriten nach unmatched-query suchen.',
     'Leere Repo-Gruppen verschwinden; Suche leeren bietet einen klaren Rückweg.',
   );
   await page.getByLabel('Workflows durchsuchen').fill('');

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 async function openLaunch(page: Page) {
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   await page.getByRole('button', { name: 'Neu konfigurieren' }).click();
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }
@@ -16,7 +16,7 @@ async function scenario(page: Page, value: string) {
 
 async function uncertainTemplate(page: Page, quickStart = false) {
   await page.getByLabel('Account auswählen').selectOption('demo-personal');
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   const card = page.locator('article.pin-card').filter({
     has: page.getByRole('heading', { name: 'Windows build', exact: true }),
   });
@@ -61,6 +61,7 @@ test.beforeEach(async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Einstellungen', exact: true }),
   ).toBeEnabled();
+  await page.getByRole('button', { name: /^Aktivität/ }).click();
 });
 
 test('account and owner context, filters and search stay isolated', async ({
@@ -185,7 +186,7 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'My saved build' }) });
@@ -295,7 +296,7 @@ test('offline still allows opening and editing a saved template', async ({
   page,
 }) => {
   await scenario(page, 'offline');
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
@@ -311,7 +312,7 @@ test('offline still allows opening and editing a saved template', async ({
 test('an empty launch search hides empty groups and offers a clear action', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   await page.getByLabel('Workflows durchsuchen').fill('unmatched-query');
   const state = page.locator('.empty-state').filter({
     has: page.getByRole('heading', {
@@ -362,7 +363,7 @@ test('an offline status check never claims a successful refresh of an uncertain 
 test('copying an existing template keeps the original and its values', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   const original = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });

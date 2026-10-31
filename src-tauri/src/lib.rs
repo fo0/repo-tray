@@ -15,6 +15,8 @@ pub use models::*;
 #[cfg(feature = "network")]
 pub mod live;
 #[cfg(feature = "network")]
+mod run_history;
+#[cfg(feature = "network")]
 pub mod updates;
 
 #[cfg(feature = "network")]

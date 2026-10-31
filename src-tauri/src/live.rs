@@ -99,7 +99,7 @@ impl Transport for HttpTransport {
 pub fn now() -> u64 {
     chrono::Utc::now().timestamp().max(0) as u64
 }
-fn url(path: &[&str], query: &[(&str, &str)]) -> Result<ApiUrl, String> {
+pub(crate) fn url(path: &[&str], query: &[(&str, &str)]) -> Result<ApiUrl, String> {
     let mut value =
         reqwest::Url::parse("https://api.github.com").map_err(|_| "API-Adresse ungültig.")?;
     value
@@ -144,6 +144,7 @@ pub struct LiveStore {
     cache: Cache,
     catalog_at: u64,
     poll_at: BTreeMap<String, u64>,
+    history_since: BTreeMap<String, u64>,
     tracked: BTreeMap<u64, crate::github::RunTracker>,
     outcomes: BTreeMap<String, (String, DispatchOutcome)>,
 }
@@ -181,6 +182,7 @@ impl LiveStore {
             cache,
             catalog_at: 0,
             poll_at: BTreeMap::new(),
+            history_since: BTreeMap::new(),
             tracked: BTreeMap::new(),
             outcomes: BTreeMap::new(),
         })
@@ -356,6 +358,10 @@ impl LiveStore {
         let ids: BTreeSet<_> = self.data.repos.iter().map(|r| r.id.clone()).collect();
         self.data.runs.retain(|r| ids.contains(&r.repo_id));
         self.data.workflows.retain(|w| ids.contains(&w.repo_id));
+        self.poll_at.retain(|id, _| ids.contains(id));
+        self.history_since.retain(|id, _| ids.contains(id));
+        self.tracked
+            .retain(|_, tracker| tracker.account_id != account);
         Ok(self.snapshot())
     }
     fn catalog(&mut self) -> Result<(), String> {
@@ -525,6 +531,7 @@ impl LiveStore {
                 .cloned()
                 .collect();
             let mut runs = vec![];
+            let mut polled = vec![];
             for repo in selected {
                 if metadata_due || !self.data.workflows.iter().any(|w| w.repo_id == repo.id) {
                     let workflows = self.repo_metadata(&repo)?;
@@ -551,58 +558,15 @@ impl LiveStore {
                     );
                     continue;
                 }
-                let path = [
-                    "repos",
-                    repo.owner.as_str(),
-                    repo.name.as_str(),
-                    "actions",
-                    "runs",
-                ];
-                let mut values = vec![];
-                // Active runs have separate traversals so long-running jobs cannot fall out of recent history.
-                for status in ["queued", "in_progress", "waiting", "pending", "requested"] {
-                    for page in self.pages(
-                        &repo.account_id,
-                        &path,
-                        &[("per_page", "100"), ("status", status)],
-                    )? {
-                        values.extend(
-                            page["workflow_runs"]
-                                .as_array()
-                                .ok_or("Run-Liste ungültig.")?
-                                .iter()
-                                .cloned(),
-                        );
-                    }
-                }
-                let response = self
-                    .client
-                    .execute(
-                        &ApiRequest::get(&repo.account_id, url(&path, &[("per_page", "30")])?)
-                            .map_err(|e| e.to_string())?,
-                        now(),
-                    )
-                    .map_err(|e| e.to_string())?;
-                if response.status != 200 {
-                    return Err(format!("GitHub returned HTTP {}.", response.status));
-                }
-                let recent: Value =
-                    serde_json::from_slice(&response.body).map_err(|_| "Run-Liste ungültig.")?;
-                values.extend(
-                    recent["workflow_runs"]
-                        .as_array()
-                        .ok_or("Run-Liste ungültig.")?
-                        .iter()
-                        .cloned(),
-                );
-                let mut seen = BTreeSet::new();
-                for value in values {
-                    let run = parse_run(&repo.id, &value)?;
-                    if seen.insert(run.id) {
-                        runs.push(run);
-                    }
-                }
-                self.poll_at.insert(repo.id.clone(), now());
+                let polled_at = now();
+                runs.extend(crate::run_history::refresh_repo_runs(
+                    &self.client,
+                    &repo,
+                    &self.data.runs,
+                    self.history_since.get(&repo.id).copied(),
+                    polled_at,
+                )?);
+                polled.push((repo.id.clone(), polled_at));
             }
             let mut completed = vec![];
             for (id, tracker) in &self.tracked {
@@ -614,6 +578,15 @@ impl LiveStore {
                 {
                     continue;
                 }
+                if let Some(run) = runs
+                    .iter()
+                    .find(|run| run.id == *id && run.repo_id == tracker.repo_id)
+                {
+                    if run.status == RunStatus::Completed {
+                        completed.push(*id);
+                    }
+                    continue;
+                }
                 if let Ok(response) = self
                     .client
                     .execute(&tracker.request().map_err(|e| e.to_string())?, now())
@@ -622,7 +595,7 @@ impl LiveStore {
                         if run.status == RunStatus::Completed {
                             completed.push(*id);
                         }
-                        runs.retain(|r| r.id != *id);
+                        runs.retain(|r| r.id != *id || r.repo_id != tracker.repo_id);
                         runs.push(run);
                     }
                 }
@@ -631,6 +604,10 @@ impl LiveStore {
                 self.tracked.remove(&id);
             }
             self.data.runs = runs;
+            for (repo_id, polled_at) in polled {
+                self.poll_at.insert(repo_id.clone(), polled_at);
+                self.history_since.insert(repo_id, polled_at);
+            }
             self.data.updated_at = chrono::Utc::now().to_rfc3339();
             self.data.stale = false;
             self.data.connectivity = Connectivity::Online;
@@ -671,7 +648,13 @@ impl LiveStore {
             return Err("Wähle höchstens 50 bekannte Repositories.".into());
         }
         for repo in &mut self.data.repos {
-            repo.selected = ids.contains(&repo.id);
+            let selected = ids.contains(&repo.id);
+            if selected && !repo.selected {
+                // A deselected repository's runs leave the foreground snapshot.
+                // Re-selecting must restore its initial history, not just new runs.
+                self.history_since.remove(&repo.id);
+            }
+            repo.selected = selected;
         }
         self.poll_at.clear();
         self.persist()?;
@@ -830,7 +813,7 @@ fn verify_local_identity(expected: Option<&str>, actual: &str) -> Result<(), Str
     }
     Ok(())
 }
-fn parse_run(repo: &str, value: &Value) -> Result<Run, String> {
+pub(crate) fn parse_run(repo: &str, value: &Value) -> Result<Run, String> {
     Ok(Run {
         id: number(value, "id")?,
         repo_id: repo.into(),

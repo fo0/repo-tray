@@ -207,7 +207,7 @@ test('source-specific settings selection survives restart and pins remain tied t
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('github-device-42');
   await closeSettings(page);
-  await page.getByRole('button', { name: 'Starten', exact: true }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Browser Vorlage', exact: true }),
   ).toBeVisible();

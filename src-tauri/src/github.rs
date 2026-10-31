@@ -287,6 +287,27 @@ impl<T: Transport> ApiClient<T> {
         first: ApiUrl,
         now: u64,
     ) -> Result<Vec<Vec<u8>>, ApiError> {
+        self.get_pages_with_cache(account_id, first, now, true)
+    }
+
+    /// Moving discovery windows have unique URLs; retaining their pages would grow without bound.
+    #[cfg(feature = "network")]
+    pub(crate) fn get_pages_uncached(
+        &self,
+        account_id: &str,
+        first: ApiUrl,
+        now: u64,
+    ) -> Result<Vec<Vec<u8>>, ApiError> {
+        self.get_pages_with_cache(account_id, first, now, false)
+    }
+
+    fn get_pages_with_cache(
+        &self,
+        account_id: &str,
+        first: ApiUrl,
+        now: u64,
+        cache: bool,
+    ) -> Result<Vec<Vec<u8>>, ApiError> {
         let mut state = self.state.lock().map_err(|_| ApiError::QueueUnavailable)?;
         let first_path = first.path().to_owned();
         let mut next = Some(first);
@@ -299,7 +320,11 @@ impl<T: Transport> ApiClient<T> {
                 ));
             }
             let key = (account_id.to_owned(), url.clone());
-            let cached = state.pages.get(&key).cloned();
+            let cached = if cache {
+                state.pages.get(&key).cloned()
+            } else {
+                None
+            };
             let mut request = ApiRequest::get(account_id, url)?;
             if let Some(etag) = cached.as_ref().and_then(|cached| cached.etag.as_ref()) {
                 request.headers.insert("If-None-Match".into(), etag.clone());
@@ -334,7 +359,9 @@ impl<T: Transport> ApiClient<T> {
             }
             next = page.next.clone();
             pages.push(page.body.clone());
-            state.pages.insert(key, page);
+            if cache {
+                state.pages.insert(key, page);
+            }
         }
         Ok(pages)
     }
@@ -634,6 +661,28 @@ mod tests {
                 .pop_front()
                 .expect("unexpected automatic retry")
         }
+    }
+
+    #[test]
+    #[cfg(feature = "network")]
+    fn moving_discovery_windows_follow_pagination_without_retaining_pages() {
+        let (client, requests) = client(vec![
+            Ok(response(200, &[("Link", "<https://api.github.com/repos/demo/project/actions/runs?created=2026-10-31&page=2>; rel=\"next\""), ("ETag", "\"first\"")], "{\"workflow_runs\":[]}")),
+            Ok(response(200, &[("ETag", "\"second\"")], "{\"workflow_runs\":[]}")),
+        ]);
+        let pages = client
+            .get_pages_uncached(
+                "fixture",
+                ApiUrl::parse(
+                    "https://api.github.com/repos/demo/project/actions/runs?created=2026-10-31",
+                )
+                .unwrap(),
+                0,
+            )
+            .unwrap();
+        assert_eq!(pages.len(), 2);
+        assert_eq!(requests.lock().unwrap().len(), 2);
+        assert!(client.state.lock().unwrap().pages.is_empty());
     }
 
     fn response(status: u16, headers: &[(&str, &str)], body: &str) -> ApiResponse {

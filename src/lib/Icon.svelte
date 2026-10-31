@@ -7,7 +7,7 @@
 
   // RepoTray geometry constructed from basic SVG primitives; see docs/ASSETS.md.
   type Shape = {
-    tag: 'line' | 'polyline' | 'rect' | 'circle';
+    tag: 'line' | 'polyline' | 'rect' | 'circle' | 'path';
     attributes: Record<string, number | string>;
   };
   const line = (x1: number, y1: number, x2: number, y2: number): Shape => ({
@@ -31,6 +31,14 @@
   ): Shape => ({ tag: 'rect', attributes: { x, y, width, height, rx } });
 
   const glyphs: Record<string, Shape[]> = {
+    heart: [
+      {
+        tag: 'path',
+        attributes: {
+          d: 'M20.8 4.8a5.4 5.4 0 0 0-7.6 0L12 6l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.6a5.4 5.4 0 0 0 0-7.6Z',
+        },
+      },
+    ],
     tray: [
       box(3.5, 5, 17, 15, 2.5),
       wire('3.5,13 8,13 10,16 14,16 16,13 20.5,13'),
