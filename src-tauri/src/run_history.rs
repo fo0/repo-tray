@@ -1,13 +1,69 @@
 //! Seed history once; discover open runs and follow them only until completion.
+//! Every repository refreshes on its own: a failing one keeps its last known runs.
 use crate::{
-    github::{ApiClient, ApiRequest, Transport},
-    live::{parse_run, url},
+    github::{
+        resource_gone, run_from_wire, ApiClient, ApiError, ApiRequest, RunTracker, Transport,
+    },
+    live::url,
     models::{Repo, Run, RunStatus},
 };
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const COMPLETED_LIMIT: usize = 50;
+
+/// Why one refresh scope (an account or a repository) failed. That scope keeps its last
+/// known state while the others stay fresh.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ScopeError {
+    /// 403/404/410 on a repository endpoint: that repository's Actions are not reachable.
+    Denied(String),
+    /// 401 or an unusable credential: the whole account needs attention.
+    Unauthorized(String),
+    /// Network, rate limit, server or malformed responses: retried on the next refresh.
+    Transient(String),
+}
+
+impl ScopeError {
+    /// Account-wide endpoints have no narrower scope; a denial there concerns the account.
+    pub(crate) fn for_account(self) -> Self {
+        match self {
+            Self::Denied(message) => Self::Unauthorized(message),
+            other => other,
+        }
+    }
+
+    pub(crate) fn message(&self) -> &str {
+        match self {
+            Self::Denied(message) | Self::Unauthorized(message) | Self::Transient(message) => {
+                message
+            }
+        }
+    }
+}
+
+impl From<ApiError> for ScopeError {
+    fn from(error: ApiError) -> Self {
+        let message = error.to_string();
+        match error {
+            ApiError::Http(401) => Self::Unauthorized(message),
+            ApiError::Http(403 | 404 | 410) => Self::Denied(message),
+            _ => Self::Transient(message),
+        }
+    }
+}
+
+impl From<String> for ScopeError {
+    fn from(message: String) -> Self {
+        Self::Transient(message)
+    }
+}
+
+impl From<&str> for ScopeError {
+    fn from(message: &str) -> Self {
+        Self::Transient(message.into())
+    }
+}
 
 pub(crate) fn refresh_repo_runs<T: Transport>(
     client: &ApiClient<T>,
@@ -15,19 +71,16 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
     previous: &[Run],
     since: Option<u64>,
     now: u64,
-) -> Result<Vec<Run>, String> {
+) -> Result<Vec<Run>, ScopeError> {
     let path = ["repos", &repo.owner, &repo.name, "actions", "runs"];
     let mut fresh = BTreeMap::new();
     // Separate active traversals keep long-running jobs outside the recent page visible.
     for status in ["queued", "in_progress", "waiting", "pending", "requested"] {
-        for body in client
-            .get_pages(
-                &repo.account_id,
-                url(&path, &[("per_page", "100"), ("status", status)])?,
-                now,
-            )
-            .map_err(|e| e.to_string())?
-        {
+        for body in client.get_pages(
+            &repo.account_id,
+            url(&path, &[("per_page", "100"), ("status", status)])?,
+            now,
+        )? {
             for run in parse_list(&repo.id, &body)? {
                 fresh.entry(run.id).or_insert(run);
             }
@@ -40,28 +93,22 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
             .ok_or("Run-Zeitfenster ungültig.")?
             .to_rfc3339();
         let created = format!(">={timestamp}");
-        for body in client
-            .get_pages_uncached(
-                &repo.account_id,
-                url(&path, &[("per_page", "100"), ("created", &created)])?,
-                now,
-            )
-            .map_err(|e| e.to_string())?
-        {
+        for body in client.get_pages_uncached(
+            &repo.account_id,
+            url(&path, &[("per_page", "100"), ("created", &created)])?,
+            now,
+        )? {
             for run in parse_list(&repo.id, &body)? {
                 fresh.entry(run.id).or_insert(run);
             }
         }
     } else {
-        let response = client
-            .execute(
-                &ApiRequest::get(&repo.account_id, url(&path, &[("per_page", "50")])?)
-                    .map_err(|e| e.to_string())?,
-                now,
-            )
-            .map_err(|e| e.to_string())?;
+        let response = client.get(
+            &ApiRequest::get(&repo.account_id, url(&path, &[("per_page", "50")])?)?,
+            now,
+        )?;
         if response.status != 200 {
-            return Err(format!("GitHub returned HTTP {}.", response.status));
+            return Err(ApiError::Http(response.status).into());
         }
         for run in parse_list(&repo.id, &response.body)? {
             fresh.entry(run.id).or_insert(run);
@@ -73,35 +120,41 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
         .map(|run| (run.id, run.clone()))
         .collect();
     // A run disappearing from active lists may have completed. Resolve its exact ID;
-    // never drop it or guess an outcome from its absence.
+    // never guess an outcome from its absence. Only an explicit 404/410 drops it.
+    let mut gone = vec![];
     for run in history.values() {
         if run.status == RunStatus::Completed || fresh.contains_key(&run.id) {
             continue;
         }
         let id = run.id.to_string();
-        let response = client
-            .execute(
-                &ApiRequest::get(
-                    &repo.account_id,
-                    url(
-                        &["repos", &repo.owner, &repo.name, "actions", "runs", &id],
-                        &[],
-                    )?,
-                )
-                .map_err(|e| e.to_string())?,
-                now,
-            )
-            .map_err(|e| e.to_string())?;
+        let response = client.get(
+            &ApiRequest::get(
+                &repo.account_id,
+                url(
+                    &["repos", &repo.owner, &repo.name, "actions", "runs", &id],
+                    &[],
+                )?,
+            )?,
+            now,
+        )?;
+        if resource_gone(response.status) {
+            // Deleted by retention or cleanup: it can never complete, so it leaves tracking.
+            gone.push(run.id);
+            continue;
+        }
         if response.status != 200 {
-            return Err(format!("GitHub returned HTTP {}.", response.status));
+            return Err(ApiError::Http(response.status).into());
         }
         let value: Value =
             serde_json::from_slice(&response.body).map_err(|_| "Run-Antwort ungültig.")?;
-        let updated = parse_run(&repo.id, &value)?;
+        let updated = run_from_wire(&repo.id, &value)?;
         if updated.id != run.id || updated.workflow_id != run.workflow_id {
             return Err("Run-Antwort passt nicht zur Anfrage.".into());
         }
         fresh.insert(updated.id, updated);
+    }
+    for id in gone {
+        history.remove(&id);
     }
     for (id, run) in fresh {
         // Completed cache entries are immutable. A rerun discovered as active is new work.
@@ -128,20 +181,121 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
     Ok(runs)
 }
 
-fn parse_list(repo_id: &str, body: &[u8]) -> Result<Vec<Run>, String> {
+fn parse_list(repo_id: &str, body: &[u8]) -> Result<Vec<Run>, ScopeError> {
     let page: Value = serde_json::from_slice(body).map_err(|_| "Run-Liste ungültig.")?;
     page["workflow_runs"]
         .as_array()
-        .ok_or_else(|| "Run-Liste ungültig.".to_string())?
+        .ok_or("Run-Liste ungültig.")?
         .iter()
-        .map(|value| parse_run(repo_id, value))
+        .map(|value| run_from_wire(repo_id, value).map_err(ScopeError::from))
         .collect()
+}
+
+/// One pass over the repositories that may be polled now.
+#[derive(Debug, Default)]
+pub(crate) struct RunsRefresh {
+    pub runs: Vec<Run>,
+    /// Repositories polled successfully, with the time that opens their next discovery window.
+    pub polled: Vec<(String, u64)>,
+    pub failures: Vec<(Repo, ScopeError)>,
+}
+
+/// Polls each due repository on its own. A failing repository keeps its last known runs and
+/// is retried on the next refresh; an unauthorized account skips its remaining repositories.
+pub(crate) fn refresh_selected<T: Transport>(
+    client: &ApiClient<T>,
+    repos: &[Repo],
+    previous: &[Run],
+    poll_at: &BTreeMap<String, u64>,
+    history_since: &BTreeMap<String, u64>,
+    blocked: &mut BTreeSet<String>,
+    now: u64,
+) -> RunsRefresh {
+    let mut pass = RunsRefresh::default();
+    for repo in repos {
+        let last = || {
+            previous
+                .iter()
+                .filter(|run| run.repo_id == repo.id)
+                .cloned()
+        };
+        let interval = if last().any(|run| run.status != RunStatus::Completed) {
+            15
+        } else {
+            60
+        };
+        let due = now.saturating_sub(poll_at.get(&repo.id).copied().unwrap_or(0)) >= interval;
+        if !due || blocked.contains(&repo.account_id) {
+            pass.runs.extend(last());
+            continue;
+        }
+        match refresh_repo_runs(
+            client,
+            repo,
+            previous,
+            history_since.get(&repo.id).copied(),
+            now,
+        ) {
+            Ok(runs) => {
+                pass.runs.extend(runs);
+                pass.polled.push((repo.id.clone(), now));
+            }
+            Err(error) => {
+                if matches!(error, ScopeError::Unauthorized(_)) {
+                    blocked.insert(repo.account_id.clone());
+                }
+                pass.runs.extend(last());
+                pass.failures.push((repo.clone(), error));
+            }
+        }
+    }
+    pass
+}
+
+/// Follows dispatched runs that no repository history lists yet, until they complete.
+/// A deleted run (404/410) leaves tracking; any other failure keeps the tracker for the
+/// next refresh. Trackers of repositories outside `active` wait without a request.
+pub(crate) fn follow_dispatched<T: Transport>(
+    client: &ApiClient<T>,
+    tracked: &mut BTreeMap<u64, RunTracker>,
+    active: &BTreeSet<String>,
+    runs: &mut Vec<Run>,
+    now: u64,
+) {
+    tracked.retain(|id, tracker| {
+        if !active.contains(&tracker.repo_id) {
+            return true;
+        }
+        if let Some(run) = runs
+            .iter()
+            .find(|run| run.id == *id && run.repo_id == tracker.repo_id)
+        {
+            return run.status != RunStatus::Completed;
+        }
+        // The confirmed run URL was validated on dispatch; a request that cannot be built
+        // now can never succeed later.
+        let Ok(request) = tracker.request() else {
+            return false;
+        };
+        match client.get(&request, now) {
+            Ok(response) if resource_gone(response.status) => false,
+            Ok(response) => match tracker.parse(&response) {
+                Ok(run) => {
+                    let open = run.status != RunStatus::Completed;
+                    runs.push(run);
+                    open
+                }
+                Err(_) => true,
+            },
+            Err(_) => true,
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::github::{ApiRequest, ApiResponse, TransportError};
+    use crate::github::{ApiResponse, ApiUrl, DispatchConfirmation, TransportError};
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
@@ -151,15 +305,37 @@ mod tests {
         recent: Vec<Value>,
         created: Vec<Value>,
         resolved: BTreeMap<u64, Value>,
+        gone: BTreeSet<u64>,
         fail_resolution: bool,
+        /// Further accounts besides `fixture-account` that may send requests.
+        accounts: Vec<&'static str>,
+        /// HTTP status answered for every request under `/repos/<owner>/<name>/`.
+        failing: BTreeMap<&'static str, u16>,
     }
     struct Mock(Arc<Mutex<Remote>>);
     impl Transport for Mock {
         fn send(&mut self, request: &ApiRequest) -> Result<ApiResponse, TransportError> {
-            assert_eq!(request.account_id(), "fixture-account");
             let mut remote = self.0.lock().unwrap();
+            assert!(
+                request.account_id() == "fixture-account"
+                    || remote.accounts.contains(&request.account_id()),
+                "unexpected account {}",
+                request.account_id()
+            );
             let uri = reqwest::Url::parse(request.url().as_str()).unwrap();
             remote.calls.push(uri.to_string());
+            let failing = remote
+                .failing
+                .iter()
+                .find(|(repo, _)| uri.path().starts_with(&format!("/repos/{repo}/")))
+                .map(|(_, status)| *status);
+            if let Some(status) = failing {
+                return Ok(ApiResponse {
+                    status,
+                    headers: BTreeMap::new(),
+                    body: b"{}".to_vec(),
+                });
+            }
             let query: BTreeMap<_, _> = uri.query_pairs().into_owned().collect();
             let body = if let Some(status) = query.get("status") {
                 serde_json::json!({"workflow_runs":remote.active.iter().filter(|run| run["status"] == *status).collect::<Vec<_>>()})
@@ -178,6 +354,13 @@ mod tests {
                     .unwrap()
                     .parse::<u64>()
                     .unwrap();
+                if remote.gone.contains(&id) {
+                    return Ok(ApiResponse {
+                        status: 404,
+                        headers: BTreeMap::new(),
+                        body: br#"{"message":"Not Found"}"#.to_vec(),
+                    });
+                }
                 remote
                     .resolved
                     .get(&id)
@@ -202,8 +385,19 @@ mod tests {
             permission: crate::models::Permission::Write,
         }
     }
+    fn other_repo(id: &str, account_id: &str, name: &str) -> Repo {
+        Repo {
+            id: id.into(),
+            account_id: account_id.into(),
+            name: name.into(),
+            ..repo()
+        }
+    }
     fn run(id: u64, status: &str) -> Value {
         serde_json::json!({"id":id,"workflow_id":101,"name":"Fixture action","head_branch":"main","status":status,"conclusion":if status == "completed" {Some("success")}else{None},"created_at":"2026-10-31T10:00:00Z","updated_at":"2026-10-31T10:01:00Z","html_url":format!("https://github.com/fixture-owner/fixture-name/actions/runs/{id}")})
+    }
+    fn parse_run(repo_id: &str, value: &Value) -> Result<Run, ApiError> {
+        run_from_wire(repo_id, value)
     }
     #[test]
     fn follows_open_run_to_completion_once_and_never_polls_completed_ids() {
@@ -286,6 +480,31 @@ mod tests {
         assert_eq!(open.status, RunStatus::InProgress);
     }
     #[test]
+    fn deleted_open_run_leaves_tracking_instead_of_failing_every_poll() {
+        let deleted = parse_run(&repo().id, &run(2, "in_progress")).unwrap();
+        let kept = parse_run(&repo().id, &run(3, "waiting")).unwrap();
+        let remote = Arc::new(Mutex::new(Remote {
+            active: vec![run(3, "waiting")],
+            gone: BTreeSet::from([2]),
+            ..Remote::default()
+        }));
+        let client = ApiClient::new(Mock(remote.clone()));
+        let next =
+            refresh_repo_runs(&client, &repo(), &[deleted, kept.clone()], Some(100), 115).unwrap();
+        assert_eq!(next, vec![kept.clone()]);
+        remote.lock().unwrap().calls.clear();
+        assert_eq!(
+            refresh_repo_runs(&client, &repo(), &next, Some(115), 130).unwrap(),
+            vec![kept]
+        );
+        assert!(remote
+            .lock()
+            .unwrap()
+            .calls
+            .iter()
+            .all(|uri| !uri.ends_with("/runs/2")));
+    }
+    #[test]
     fn bounds_completed_cache_without_losing_old_active_runs_or_mixing_repositories() {
         let mut previous: Vec<_> = (1..=70)
             .map(|id| parse_run(&repo().id, &run(id, "completed")).unwrap())
@@ -302,5 +521,224 @@ mod tests {
         assert_eq!(history.len(), COMPLETED_LIMIT + 1);
         assert!(history.contains(&active));
         assert!(history.iter().all(|r| r.repo_id == repo().id));
+    }
+    #[test]
+    fn one_failing_repository_keeps_its_last_runs_while_the_others_refresh() {
+        let healthy = repo();
+        let broken = other_repo("broken-repo", "fixture-account", "broken-name");
+        let denied = other_repo("denied-repo", "fixture-account", "denied-name");
+        let previous = vec![
+            parse_run(&broken.id, &run(5, "in_progress")).unwrap(),
+            parse_run(&denied.id, &run(6, "completed")).unwrap(),
+        ];
+        let remote = Arc::new(Mutex::new(Remote {
+            recent: vec![run(1, "completed")],
+            failing: BTreeMap::from([
+                ("fixture-owner/broken-name", 502),
+                ("fixture-owner/denied-name", 403),
+            ]),
+            ..Remote::default()
+        }));
+        let client = ApiClient::new(Mock(remote));
+        let mut blocked = BTreeSet::new();
+        let pass = refresh_selected(
+            &client,
+            &[broken.clone(), healthy.clone(), denied.clone()],
+            &previous,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &mut blocked,
+            100,
+        );
+        assert_eq!(pass.polled, vec![(healthy.id.clone(), 100)]);
+        assert!(pass
+            .runs
+            .iter()
+            .any(|r| r.repo_id == healthy.id && r.id == 1));
+        assert!(previous.iter().all(|old| pass.runs.contains(old)));
+        assert_eq!(
+            pass.failures,
+            vec![
+                (
+                    broken,
+                    ScopeError::Transient("GitHub returned HTTP 502.".into())
+                ),
+                (
+                    denied,
+                    ScopeError::Denied("GitHub returned HTTP 403.".into())
+                ),
+            ]
+        );
+        assert!(blocked.is_empty());
+    }
+    #[test]
+    fn unauthorized_account_skips_its_other_repositories_and_not_other_accounts() {
+        let revoked_first = other_repo("revoked-1", "fixture-revoked", "revoked-one");
+        let revoked_second = other_repo("revoked-2", "fixture-revoked", "revoked-two");
+        let healthy = repo();
+        let remote = Arc::new(Mutex::new(Remote {
+            accounts: vec!["fixture-revoked"],
+            failing: BTreeMap::from([
+                ("fixture-owner/revoked-one", 401),
+                ("fixture-owner/revoked-two", 401),
+            ]),
+            ..Remote::default()
+        }));
+        let client = ApiClient::new(Mock(remote.clone()));
+        let mut blocked = BTreeSet::new();
+        let pass = refresh_selected(
+            &client,
+            &[revoked_first.clone(), revoked_second, healthy.clone()],
+            &[],
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &mut blocked,
+            100,
+        );
+        assert_eq!(pass.failures.len(), 1);
+        assert!(matches!(
+            pass.failures[0],
+            (ref repo, ScopeError::Unauthorized(_)) if repo == &revoked_first
+        ));
+        assert_eq!(pass.polled, vec![(healthy.id, 100)]);
+        assert_eq!(blocked, BTreeSet::from(["fixture-revoked".to_string()]));
+        assert!(remote
+            .lock()
+            .unwrap()
+            .calls
+            .iter()
+            .all(|uri| !uri.contains("revoked-two")));
+    }
+    #[test]
+    fn repositories_inside_their_poll_interval_keep_runs_without_requests() {
+        let open = parse_run(&repo().id, &run(2, "in_progress")).unwrap();
+        let remote = Arc::new(Mutex::new(Remote::default()));
+        let client = ApiClient::new(Mock(remote.clone()));
+        let poll_at = BTreeMap::from([(repo().id, 100)]);
+        let pass = refresh_selected(
+            &client,
+            &[repo()],
+            std::slice::from_ref(&open),
+            &poll_at,
+            &BTreeMap::new(),
+            &mut BTreeSet::new(),
+            114,
+        );
+        assert_eq!(pass.runs, vec![open]);
+        assert!(pass.polled.is_empty() && pass.failures.is_empty());
+        assert!(remote.lock().unwrap().calls.is_empty());
+    }
+    fn tracker(id: u64, repo_id: &str) -> RunTracker {
+        RunTracker {
+            account_id: "fixture-account".into(),
+            repo_id: repo_id.into(),
+            workflow_id: 101,
+            confirmation: DispatchConfirmation {
+                workflow_run_id: id,
+                run_url: ApiUrl::parse(&format!(
+                    "https://api.github.com/repos/fixture-owner/fixture-name/actions/runs/{id}"
+                ))
+                .unwrap(),
+                html_url: format!(
+                    "https://github.com/fixture-owner/fixture-name/actions/runs/{id}"
+                ),
+            },
+        }
+    }
+    #[test]
+    fn dispatched_runs_stop_tracking_when_deleted_or_finished_with_any_conclusion() {
+        let mut timed_out = run(11, "completed");
+        timed_out["conclusion"] = serde_json::json!("timed_out");
+        let remote = Arc::new(Mutex::new(Remote {
+            resolved: BTreeMap::from([(11, timed_out), (12, run(12, "requested"))]),
+            gone: BTreeSet::from([10]),
+            ..Remote::default()
+        }));
+        let client = ApiClient::new(Mock(remote.clone()));
+        let mut tracked = BTreeMap::from([
+            (10, tracker(10, &repo().id)),
+            (11, tracker(11, &repo().id)),
+            (12, tracker(12, &repo().id)),
+            (13, tracker(13, "unselected-repo")),
+        ]);
+        let mut runs = vec![];
+        follow_dispatched(
+            &client,
+            &mut tracked,
+            &BTreeSet::from([repo().id]),
+            &mut runs,
+            100,
+        );
+        assert_eq!(tracked.keys().copied().collect::<Vec<_>>(), vec![12, 13]);
+        assert_eq!(runs.len(), 2);
+        assert!(runs
+            .iter()
+            .any(|r| r.id == 11 && r.status == RunStatus::Completed));
+        assert!(runs
+            .iter()
+            .any(|r| r.id == 12 && r.status == RunStatus::Queued));
+        assert!(remote
+            .lock()
+            .unwrap()
+            .calls
+            .iter()
+            .all(|uri| !uri.ends_with("/runs/13")));
+        // A listed open run waits without a request; a listed completed one leaves tracking.
+        remote.lock().unwrap().calls.clear();
+        runs.retain(|r| r.id != 12);
+        runs.push(parse_run(&repo().id, &run(12, "completed")).unwrap());
+        follow_dispatched(
+            &client,
+            &mut tracked,
+            &BTreeSet::from([repo().id]),
+            &mut runs,
+            115,
+        );
+        assert_eq!(tracked.keys().copied().collect::<Vec<_>>(), vec![13]);
+        assert!(remote.lock().unwrap().calls.is_empty());
+    }
+    #[test]
+    fn dispatched_run_survives_a_transient_lookup_failure() {
+        let remote = Arc::new(Mutex::new(Remote {
+            fail_resolution: true,
+            ..Remote::default()
+        }));
+        let client = ApiClient::new(Mock(remote));
+        let mut tracked = BTreeMap::from([(10, tracker(10, &repo().id))]);
+        let mut runs = vec![];
+        follow_dispatched(
+            &client,
+            &mut tracked,
+            &BTreeSet::from([repo().id]),
+            &mut runs,
+            100,
+        );
+        assert!(tracked.contains_key(&10));
+        assert!(runs.is_empty());
+    }
+    #[test]
+    fn scope_errors_separate_denied_repositories_from_accounts_and_transient_failures() {
+        assert!(matches!(
+            ScopeError::from(ApiError::Http(404)),
+            ScopeError::Denied(_)
+        ));
+        assert!(matches!(
+            ScopeError::from(ApiError::Http(401)),
+            ScopeError::Unauthorized(_)
+        ));
+        assert!(matches!(
+            ScopeError::from(ApiError::Http(403)).for_account(),
+            ScopeError::Unauthorized(_)
+        ));
+        for transient in [
+            ApiError::Http(500),
+            ApiError::RateLimited { retry_at: 1 },
+            ApiError::Transport(TransportError::BeforeSend),
+        ] {
+            assert!(matches!(
+                ScopeError::from(transient),
+                ScopeError::Transient(_)
+            ));
+        }
     }
 }

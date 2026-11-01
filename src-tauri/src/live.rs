@@ -1,10 +1,14 @@
 //! Native authenticated GitHub access. Secrets never enter Snapshot or the metadata cache.
 use crate::{
     auth::{NativeKeyring, SecretToken},
-    browser_auth::{self, BrowserCredential, BrowserTokens, NativeOAuthTransport, OAuthTransport},
+    browser_auth::{
+        self, BrowserCredential, BrowserTokens, NativeOAuthTransport, OAuthEndpoint, OAuthResponse,
+        OAuthTransport,
+    },
     cache::{AppSettings, Cache, Release},
     github::{ApiClient, ApiRequest, ApiResponse, ApiUrl, Method, Transport, TransportError},
     models::*,
+    run_history::{self, ScopeError},
     workflow::{parse_workflow_yaml, validate_inputs, validate_non_secret_inputs},
 };
 use base64::Engine as _;
@@ -20,6 +24,7 @@ pub struct HttpTransport {
     client: reqwest::blocking::Client,
     keyring: Arc<dyn NativeKeyring>,
     bootstrap: Option<SecretToken>,
+    oauth: OAuthClient,
 }
 impl HttpTransport {
     pub fn new(keyring: Arc<dyn NativeKeyring>) -> Result<Self, String> {
@@ -33,6 +38,7 @@ impl HttpTransport {
             client,
             keyring,
             bootstrap: None,
+            oauth: OAuthClient::default(),
         })
     }
 }
@@ -42,11 +48,15 @@ impl Transport for HttpTransport {
         let token = if request.account_id() == "pending" {
             self.bootstrap.as_ref()
         } else {
+            let oauth = self
+                .oauth
+                .prepare(request.account_id())
+                .map_err(|_| TransportError::BeforeSend)?;
             stored = Some(
                 browser_auth::access_token(
                     self.keyring.as_ref(),
                     request.account_id(),
-                    &mut NativeOAuthTransport::new().map_err(|_| TransportError::BeforeSend)?,
+                    oauth,
                     now(),
                 )
                 .map_err(|_| TransportError::BeforeSend)?,
@@ -94,6 +104,37 @@ impl Transport for HttpTransport {
             headers,
             body,
         })
+    }
+}
+/// The OAuth HTTP client (runtime thread, TLS config) exists only for browser accounts,
+/// whose credentials may rotate, and is built once and reused; PAT and gh accounts never
+/// build one. It is built before `access_token` runs: rotation marks the vault entry before
+/// its first request, so a failed build must happen while the credential is untouched.
+#[derive(Default)]
+struct OAuthClient(Option<NativeOAuthTransport>);
+impl OAuthClient {
+    fn prepare(&mut self, account: &str) -> Result<&mut Self, String> {
+        if browser_auth::is_browser_account(account) && self.0.is_none() {
+            self.0 = Some(NativeOAuthTransport::new()?);
+        }
+        Ok(self)
+    }
+    fn native(&mut self) -> Result<&mut NativeOAuthTransport, String> {
+        self.0
+            .as_mut()
+            .ok_or_else(|| "Anmeldedienst nicht verfügbar.".into())
+    }
+}
+impl OAuthTransport for OAuthClient {
+    fn post(
+        &mut self,
+        endpoint: OAuthEndpoint,
+        form: &[(&str, &str)],
+    ) -> Result<OAuthResponse, String> {
+        self.native()?.post(endpoint, form)
+    }
+    fn identity(&mut self, token: &SecretToken) -> Result<(u64, String), String> {
+        self.native()?.identity(token)
     }
 }
 pub fn now() -> u64 {
@@ -415,64 +456,34 @@ impl LiveStore {
             .retain(|_, tracker| tracker.account_id != account);
         Ok(self.snapshot())
     }
-    fn catalog(&mut self) -> Result<(), String> {
-        let selected: BTreeSet<_> = self
-            .data
-            .repos
-            .iter()
-            .filter(|r| r.selected)
-            .map(|r| r.id.clone())
-            .collect();
-        let mut repos = vec![];
+    /// Lists every usable account on its own. A failing account keeps its last known
+    /// repositories and sits out this refresh; the other accounts' catalogs update.
+    fn catalog(&mut self, issues: &mut RefreshIssues) {
+        let mut listings = BTreeMap::new();
         for account in &self.data.accounts {
-            let mut values = vec![];
-            if browser_auth::is_browser_account(&account.id) {
-                for installation in self.list(
-                    &account.id,
-                    &["user", "installations"],
-                    Some("installations"),
-                )? {
-                    if !installation["suspended_at"].is_null() {
-                        continue;
-                    }
-                    let installation_id = number(&installation, "id")?.to_string();
-                    for value in self.list(
-                        &account.id,
-                        &["user", "installations", &installation_id, "repositories"],
-                        Some("repositories"),
-                    )? {
-                        let permission = browser_repository_permission(&installation, &value);
-                        values.push((value, permission));
-                    }
+            if issues.blocked.contains(&account.id) {
+                continue;
+            }
+            match account_repos(&self.client, account) {
+                Ok(listing) => {
+                    listings.insert(account.id.clone(), listing);
                 }
-            } else {
-                for value in self.list(&account.id, &["user", "repos"], None)? {
-                    let permission = if value["permissions"]["push"].as_bool() == Some(true) {
-                        Permission::Write
-                    } else {
-                        Permission::Read
-                    };
-                    values.push((value, permission));
+                Err(error) => {
+                    issues.blocked.insert(account.id.clone());
+                    issues
+                        .failures
+                        .push((account.login.clone(), error.for_account()));
                 }
             }
-            for (value, permission) in values {
-                repos.push(Repo {
-                    id: format!("{}:{}", account.id, number(&value, "id")?),
-                    account_id: account.id.clone(),
-                    owner: text(&value["owner"], "login")?.into(),
-                    name: text(&value, "name")?.into(),
-                    default_branch: value["default_branch"].as_str().unwrap_or("main").into(),
-                    selected: false,
-                    permission,
-                });
-            }
         }
-        for repo in &mut repos {
-            repo.selected = selected.contains(&repo.id);
-        }
-        self.data.repos = repos;
-        self.catalog_at = now();
-        Ok(())
+        let complete = listings.len() == self.data.accounts.len();
+        self.data.repos = merge_catalog(&self.data.repos, &self.data.accounts, listings);
+        // A failed account retries its catalog after a minute, not after the full interval.
+        self.catalog_at = if complete {
+            now()
+        } else {
+            now().saturating_sub(CATALOG_SECONDS - 60)
+        };
     }
     fn yaml(
         &self,
@@ -497,22 +508,25 @@ impl LiveStore {
         parse_workflow_yaml(std::str::from_utf8(&bytes).map_err(|_| "Workflow ist kein UTF-8.")?)
             .map_err(|e| e.to_string())
     }
-    fn repo_metadata(&self, repo: &Repo) -> Result<Vec<Workflow>, String> {
+    fn repo_metadata(&self, repo: &Repo) -> Result<Vec<Workflow>, ScopeError> {
         let base = ["repos", repo.owner.as_str(), repo.name.as_str()];
-        let mut refs = vec![];
+        let mut found = vec![];
         for kind in ["branches", "tags"] {
-            for value in self.list(&repo.account_id, &[base.as_slice(), &[kind]].concat(), None)? {
-                refs.push(text(&value, "name")?.to_string());
+            let path = [base.as_slice(), &[kind]].concat();
+            let (values, _) = list_values(&self.client, &repo.account_id, &path, None, REF_PAGES)?;
+            for value in values {
+                found.push(text(&value, "name")?.to_string());
             }
         }
-        refs.sort();
-        refs.dedup();
         let mut workflows = vec![];
-        for value in self.list(
+        let (values, _) = list_values(
+            &self.client,
             &repo.account_id,
             &[base.as_slice(), &["actions", "workflows"]].concat(),
             Some("workflows"),
-        )? {
+            usize::MAX,
+        )?;
+        for value in values {
             let path = text(&value, "path")?;
             // Fail closed when YAML cannot be read/parsed; activity remains available.
             let mut parsed = self.yaml(repo, path, &repo.default_branch).ok();
@@ -549,145 +563,192 @@ impl LiveStore {
                 path: path.into(),
                 dispatch: value["state"] == "active" && parsed.as_ref().is_some_and(|p| p.dispatch),
                 inputs: parsed.map(|p| p.inputs).unwrap_or_default(),
-                refs: refs.clone(),
+                refs: vec![],
             });
+        }
+        let pinned: Vec<_> = self
+            .data
+            .pins
+            .iter()
+            .filter(|pin| pin.repo_id == repo.id)
+            .map(|pin| pin.git_ref.as_str())
+            .collect();
+        let copies = workflows.iter().filter(|w| w.dispatch).count();
+        let refs = bounded_refs(&repo.default_branch, &pinned, &found, copies);
+        for workflow in &mut workflows {
+            // Only startable workflows offer a ref choice; the others show the default branch.
+            workflow.refs = if workflow.dispatch {
+                refs.clone()
+            } else {
+                vec![repo.default_branch.clone()]
+            };
         }
         Ok(workflows)
     }
+    /// Every account and repository refreshes on its own: a failing scope keeps its last
+    /// known data while the others update. A denied repository is marked on the repository
+    /// itself; any other failure still marks the whole snapshot stale, because the models
+    /// carry no per-account or per-repository freshness yet.
     pub fn refresh(&mut self) -> Snapshot {
         if self.data.accounts.is_empty() {
             self.data = empty_snapshot();
             return self.snapshot();
         }
-        let result = (|| -> Result<(), String> {
-            for account in &self.data.accounts {
-                if browser_auth::is_browser_account(&account.id) {
-                    browser_auth::access_token(
-                        self.keyring.as_ref(),
-                        &account.id,
-                        &mut NativeOAuthTransport::new()?,
-                        now(),
-                    )?;
-                }
-            }
-            let metadata_due = now().saturating_sub(self.catalog_at) >= 600;
-            if metadata_due {
-                self.catalog()?;
-            }
-            let selected: Vec<_> = self
-                .data
-                .repos
-                .iter()
-                .filter(|r| r.selected)
-                .cloned()
-                .collect();
-            let mut runs = vec![];
-            let mut polled = vec![];
-            for repo in selected {
-                if metadata_due || !self.data.workflows.iter().any(|w| w.repo_id == repo.id) {
-                    let workflows = self.repo_metadata(&repo)?;
-                    self.data.workflows.retain(|w| w.repo_id != repo.id);
-                    self.data.workflows.extend(workflows);
-                }
-                let interval = if self
-                    .data
-                    .runs
-                    .iter()
-                    .any(|r| r.repo_id == repo.id && r.status != RunStatus::Completed)
-                {
-                    15
-                } else {
-                    60
+        let mut issues = RefreshIssues::default();
+        let mut oauth = OAuthClient::default();
+        for account in &self.data.accounts {
+            if browser_auth::is_browser_account(&account.id) {
+                let usable = match oauth.prepare(&account.id) {
+                    Ok(oauth) => {
+                        browser_auth::access_token(self.keyring.as_ref(), &account.id, oauth, now())
+                            .map(drop)
+                            .map_err(ScopeError::Unauthorized)
+                    }
+                    Err(error) => Err(ScopeError::Transient(error)),
                 };
-                if now().saturating_sub(*self.poll_at.get(&repo.id).unwrap_or(&0)) < interval {
-                    runs.extend(
-                        self.data
-                            .runs
-                            .iter()
-                            .filter(|r| r.repo_id == repo.id)
-                            .cloned(),
-                    );
-                    continue;
-                }
-                let polled_at = now();
-                runs.extend(crate::run_history::refresh_repo_runs(
-                    &self.client,
-                    &repo,
-                    &self.data.runs,
-                    self.history_since.get(&repo.id).copied(),
-                    polled_at,
-                )?);
-                polled.push((repo.id.clone(), polled_at));
-            }
-            let mut completed = vec![];
-            for (id, tracker) in &self.tracked {
-                if !self
-                    .data
-                    .repos
-                    .iter()
-                    .any(|repo| repo.id == tracker.repo_id && repo.selected)
-                {
-                    continue;
-                }
-                if let Some(run) = runs
-                    .iter()
-                    .find(|run| run.id == *id && run.repo_id == tracker.repo_id)
-                {
-                    if run.status == RunStatus::Completed {
-                        completed.push(*id);
-                    }
-                    continue;
-                }
-                if let Ok(response) = self
-                    .client
-                    .execute(&tracker.request().map_err(|e| e.to_string())?, now())
-                {
-                    if let Ok(run) = tracker.parse(&response) {
-                        if run.status == RunStatus::Completed {
-                            completed.push(*id);
-                        }
-                        runs.retain(|r| r.id != *id || r.repo_id != tracker.repo_id);
-                        runs.push(run);
-                    }
+                if let Err(error) = usable {
+                    issues.blocked.insert(account.id.clone());
+                    issues.failures.push((account.login.clone(), error));
                 }
             }
-            for id in completed {
-                self.tracked.remove(&id);
-            }
-            self.data.runs = runs;
-            for (repo_id, polled_at) in polled {
-                self.poll_at.insert(repo_id.clone(), polled_at);
-                self.history_since.insert(repo_id, polled_at);
-            }
-            self.data.updated_at = chrono::Utc::now().to_rfc3339();
-            self.data.stale = false;
-            self.data.connectivity = Connectivity::Online;
-            self.data.message = if self.data.repos.is_empty()
-                && self
-                    .data
-                    .accounts
-                    .iter()
-                    .any(|a| browser_auth::is_browser_account(&a.id))
-            {
-                Some("GitHub-Konto verbunden. Richte in den Einstellungen die App-Installation und Repository-Freigabe ein; Organisationsfreigabe oder SSO können erforderlich sein.".into())
-            } else {
-                None
-            };
-            Ok(())
-        })();
-        if let Err(error) = result {
-            self.data.stale = true;
-            self.data.connectivity = if error.contains("401") || error.contains("403") {
-                Connectivity::Forbidden
-            } else {
-                Connectivity::Offline
-            };
-            self.data.message = Some(format!("Letzter Stand · {error}"));
-        } else {
-            // Fresh live data stays fresh even when the cache write fails.
-            self.persist();
         }
+        let metadata_due = now().saturating_sub(self.catalog_at) >= CATALOG_SECONDS;
+        if metadata_due {
+            self.catalog(&mut issues);
+        }
+        let selected: Vec<_> = self
+            .data
+            .repos
+            .iter()
+            .filter(|r| r.selected)
+            .cloned()
+            .collect();
+        let mut eligible = vec![];
+        for repo in &selected {
+            if issues.blocked.contains(&repo.account_id) || repo.permission == Permission::Denied {
+                continue;
+            }
+            if metadata_due || !self.data.workflows.iter().any(|w| w.repo_id == repo.id) {
+                match self.repo_metadata(repo) {
+                    Ok(workflows) => {
+                        self.data.workflows.retain(|w| w.repo_id != repo.id);
+                        self.data.workflows.extend(workflows);
+                    }
+                    Err(error) => {
+                        self.scope_failed(&mut issues, repo, error);
+                        continue;
+                    }
+                }
+            }
+            eligible.push(repo.clone());
+        }
+        let run_history::RunsRefresh {
+            mut runs,
+            polled,
+            failures,
+        } = run_history::refresh_selected(
+            &self.client,
+            &eligible,
+            &self.data.runs,
+            &self.poll_at,
+            &self.history_since,
+            &mut issues.blocked,
+            now(),
+        );
+        // Held repositories (account unusable, access denied, metadata failed) keep their runs.
+        let eligible_ids: BTreeSet<_> = eligible.iter().map(|r| r.id.as_str()).collect();
+        runs.extend(
+            self.data
+                .runs
+                .iter()
+                .filter(|run| {
+                    !eligible_ids.contains(run.repo_id.as_str())
+                        && selected.iter().any(|repo| repo.id == run.repo_id)
+                })
+                .cloned(),
+        );
+        for (repo, error) in failures {
+            self.scope_failed(&mut issues, &repo, error);
+        }
+        let active: BTreeSet<_> = self
+            .data
+            .repos
+            .iter()
+            .filter(|r| {
+                eligible_ids.contains(r.id.as_str())
+                    && r.permission != Permission::Denied
+                    && !issues.blocked.contains(&r.account_id)
+            })
+            .map(|r| r.id.clone())
+            .collect();
+        run_history::follow_dispatched(&self.client, &mut self.tracked, &active, &mut runs, now());
+        self.data.runs = runs;
+        for (repo_id, polled_at) in polled {
+            self.poll_at.insert(repo_id.clone(), polled_at);
+            self.history_since.insert(repo_id, polled_at);
+        }
+        self.settle(issues);
         self.snapshot()
+    }
+    /// A repository-level denial marks only that repository ("Actions · Kein Zugriff"),
+    /// which also blocks dispatch to it; the next catalog listing re-reads its permission
+    /// and retries it. Every other failure is reported at snapshot level.
+    fn scope_failed(&mut self, issues: &mut RefreshIssues, repo: &Repo, error: ScopeError) {
+        if let ScopeError::Denied(_) = error {
+            if let Some(known) = self.data.repos.iter_mut().find(|r| r.id == repo.id) {
+                known.permission = Permission::Denied;
+            }
+            return;
+        }
+        if let ScopeError::Unauthorized(_) = error {
+            issues.blocked.insert(repo.account_id.clone());
+        }
+        issues
+            .failures
+            .push((format!("{}/{}", repo.owner, repo.name), error));
+    }
+    fn settle(&mut self, issues: RefreshIssues) {
+        match issues.failures.first() {
+            None => {
+                self.data.updated_at = chrono::Utc::now().to_rfc3339();
+                self.data.stale = false;
+                self.data.connectivity = Connectivity::Online;
+                self.data.message = if self.data.repos.is_empty()
+                    && self
+                        .data
+                        .accounts
+                        .iter()
+                        .any(|a| browser_auth::is_browser_account(&a.id))
+                {
+                    Some("GitHub-Konto verbunden. Richte in den Einstellungen die App-Installation und Repository-Freigabe ein; Organisationsfreigabe oder SSO können erforderlich sein.".into())
+                } else {
+                    None
+                };
+            }
+            Some((scope, error)) => {
+                self.data.stale = true;
+                self.data.connectivity = if issues
+                    .failures
+                    .iter()
+                    .any(|(_, error)| matches!(error, ScopeError::Unauthorized(_)))
+                {
+                    Connectivity::Forbidden
+                } else {
+                    Connectivity::Offline
+                };
+                let more = match issues.failures.len() - 1 {
+                    0 => String::new(),
+                    count => format!(" (+{count} weitere)"),
+                };
+                self.data.message = Some(format!(
+                    "Letzter Stand · {scope}: {}{more}",
+                    error.message()
+                ));
+            }
+        }
+        // Healthy scopes were updated even when another one failed; keep them. A failed cache
+        // write only adds a notice and never marks fresh data stale.
+        self.persist();
     }
     pub fn refresh_repositories(&mut self) -> Snapshot {
         self.catalog_at = 0;
@@ -902,31 +963,333 @@ fn verify_local_identity(expected: Option<&str>, actual: &str) -> Result<(), Str
     }
     Ok(())
 }
-pub(crate) fn parse_run(repo: &str, value: &Value) -> Result<Run, String> {
-    Ok(Run {
-        id: number(value, "id")?,
-        repo_id: repo.into(),
-        workflow_id: number(value, "workflow_id")?,
-        name: text(value, "name")?.into(),
-        branch: value["head_branch"].as_str().unwrap_or("").into(),
-        status: match value["status"].as_str() {
-            Some("completed") => RunStatus::Completed,
-            Some("in_progress") => RunStatus::InProgress,
-            Some("waiting" | "pending" | "requested") => RunStatus::Waiting,
-            _ => RunStatus::Queued,
-        },
-        conclusion: match value["conclusion"].as_str() {
-            Some("success") => Some(Conclusion::Success),
-            Some("failure" | "timed_out" | "action_required" | "startup_failure") => {
-                Some(Conclusion::Failure)
+const CATALOG_SECONDS: u64 = 600;
+/// Pages (100 names each) read per ref kind for the ref picker.
+const REF_PAGES: usize = 3;
+/// Refs offered per startable workflow, the default branch included.
+const MAX_REFS: usize = 100;
+/// Every workflow carries its own copy of the repository's refs; all copies of one
+/// repository share this budget, so 50 selected repositories stay far below the cache cap.
+const REPO_REF_BYTES: usize = 8 * 1024;
+
+/// Per-refresh bookkeeping: failing scopes and the accounts that sit this refresh out.
+#[derive(Default)]
+struct RefreshIssues {
+    blocked: BTreeSet<String>,
+    failures: Vec<(String, ScopeError)>,
+}
+
+/// A listing within `max_pages` (`usize::MAX`: the transport's whole page budget).
+/// The flag reports a cut-off listing; GitHub's first pages are returned either way.
+fn list_values<T: Transport>(
+    client: &ApiClient<T>,
+    account: &str,
+    path: &[&str],
+    key: Option<&str>,
+    max_pages: usize,
+) -> Result<(Vec<Value>, bool), ScopeError> {
+    let pages = client.get_pages_limited(
+        account,
+        url(path, &[("per_page", "100")])?,
+        now(),
+        max_pages,
+    )?;
+    let mut all = vec![];
+    for body in &pages.bodies {
+        let page: Value = serde_json::from_slice(body).map_err(|_| "GitHub-Antwort ungültig.")?;
+        all.extend(
+            key.map_or(&page, |k| &page[k])
+                .as_array()
+                .ok_or("GitHub-Liste ungültig.")?
+                .iter()
+                .cloned(),
+        );
+    }
+    Ok((all, pages.truncated))
+}
+
+/// One account's repositories as far as GitHub lists them.
+struct AccountRepos {
+    repos: Vec<Repo>,
+    truncated: bool,
+}
+
+fn account_repos<T: Transport>(
+    client: &ApiClient<T>,
+    account: &Account,
+) -> Result<AccountRepos, ScopeError> {
+    let mut values = vec![];
+    let mut truncated = false;
+    if browser_auth::is_browser_account(&account.id) {
+        let (installations, cut) = list_values(
+            client,
+            &account.id,
+            &["user", "installations"],
+            Some("installations"),
+            usize::MAX,
+        )?;
+        truncated |= cut;
+        for installation in installations {
+            if !installation["suspended_at"].is_null() {
+                continue;
             }
-            Some("cancelled" | "skipped" | "neutral" | "stale") => Some(Conclusion::Cancelled),
-            _ => None,
-        },
-        created_at: text(value, "created_at")?.into(),
-        updated_at: text(value, "updated_at")?.into(),
-        html_url: text(value, "html_url")?.into(),
-    })
+            let installation_id = number(&installation, "id")?.to_string();
+            let (repositories, cut) = list_values(
+                client,
+                &account.id,
+                &["user", "installations", &installation_id, "repositories"],
+                Some("repositories"),
+                usize::MAX,
+            )?;
+            truncated |= cut;
+            for value in repositories {
+                let permission = browser_repository_permission(&installation, &value);
+                values.push((value, permission));
+            }
+        }
+    } else {
+        let (repositories, cut) =
+            list_values(client, &account.id, &["user", "repos"], None, usize::MAX)?;
+        truncated |= cut;
+        for value in repositories {
+            let permission = if value["permissions"]["push"].as_bool() == Some(true) {
+                Permission::Write
+            } else {
+                Permission::Read
+            };
+            values.push((value, permission));
+        }
+    }
+    let mut repos = vec![];
+    for (value, permission) in values {
+        repos.push(Repo {
+            id: format!("{}:{}", account.id, number(&value, "id")?),
+            account_id: account.id.clone(),
+            owner: text(&value["owner"], "login")?.into(),
+            name: text(&value, "name")?.into(),
+            default_branch: value["default_branch"].as_str().unwrap_or("main").into(),
+            selected: false,
+            permission,
+        });
+    }
+    Ok(AccountRepos { repos, truncated })
+}
+
+/// Listed accounts take their fresh repositories (selection kept by ID); unlisted accounts
+/// keep their last known ones. A cut-off listing cannot prove that a selected repository
+/// went away, so a selected repository missing from it stays.
+fn merge_catalog(
+    previous: &[Repo],
+    accounts: &[Account],
+    mut listings: BTreeMap<String, AccountRepos>,
+) -> Vec<Repo> {
+    let selected: BTreeSet<_> = previous
+        .iter()
+        .filter(|r| r.selected)
+        .map(|r| r.id.as_str())
+        .collect();
+    let mut repos = vec![];
+    for account in accounts {
+        let known = previous.iter().filter(|r| r.account_id == account.id);
+        match listings.remove(&account.id) {
+            None => repos.extend(known.cloned()),
+            Some(listing) => {
+                for mut repo in listing.repos {
+                    repo.selected = selected.contains(repo.id.as_str());
+                    repos.push(repo);
+                }
+                if listing.truncated {
+                    repos.extend(known.filter(|r| r.selected).cloned());
+                }
+            }
+        }
+    }
+    let mut seen = BTreeSet::new();
+    repos.retain(|repo| seen.insert(repo.id.clone()));
+    repos
+}
+
+/// The refs one startable workflow offers, sorted: the default branch always, then pinned
+/// refs that still exist, then branches and tags in GitHub's order, while `MAX_REFS` and the
+/// repository's byte budget (shared by `copies` workflows) allow. Dispatch validation in UI
+/// and core checks against exactly this list.
+fn bounded_refs(
+    default_branch: &str,
+    pinned: &[&str],
+    found: &[String],
+    copies: usize,
+) -> Vec<String> {
+    let budget = REPO_REF_BYTES / copies.max(1);
+    // JSON quotes and a separator per entry.
+    let cost = |name: &str| name.len() + 3;
+    let mut used = cost(default_branch);
+    let mut refs = BTreeSet::from([default_branch.to_owned()]);
+    let existing_pins = pinned
+        .iter()
+        .copied()
+        .filter(|name| found.iter().any(|known| known == name));
+    for name in existing_pins.chain(found.iter().map(String::as_str)) {
+        if refs.len() >= MAX_REFS {
+            break;
+        }
+        if refs.contains(name) || used + cost(name) > budget {
+            continue;
+        }
+        used += cost(name);
+        refs.insert(name.to_owned());
+    }
+    refs.into_iter().collect()
+}
+
+#[cfg(test)]
+mod refresh_scope_tests {
+    use super::*;
+
+    fn account(id: &str) -> Account {
+        Account {
+            id: id.into(),
+            login: format!("{id}-login"),
+            label: "GitHub · Token".into(),
+        }
+    }
+    fn repo(account_id: &str, number: u64, selected: bool) -> Repo {
+        Repo {
+            id: format!("{account_id}:{number}"),
+            account_id: account_id.into(),
+            owner: "fixture-owner".into(),
+            name: format!("fixture-{number}"),
+            default_branch: "main".into(),
+            selected,
+            permission: Permission::Write,
+        }
+    }
+
+    #[test]
+    fn failing_account_keeps_its_repositories_while_others_refresh() {
+        let accounts = [account("github-1"), account("github-2")];
+        let previous = vec![
+            repo("github-1", 10, true),
+            repo("github-1", 11, false),
+            repo("github-2", 20, true),
+        ];
+        let listings = BTreeMap::from([(
+            "github-1".to_string(),
+            AccountRepos {
+                repos: vec![repo("github-1", 10, false), repo("github-1", 12, false)],
+                truncated: false,
+            },
+        )]);
+        let merged = merge_catalog(&previous, &accounts, listings);
+        let ids: Vec<_> = merged.iter().map(|r| (r.id.as_str(), r.selected)).collect();
+        // github-1 refreshed: 11 left, 12 is new, 10 keeps its selection.
+        // github-2 failed: its last known repositories stay as they were.
+        assert_eq!(
+            ids,
+            vec![
+                ("github-1:10", true),
+                ("github-1:12", false),
+                ("github-2:20", true)
+            ]
+        );
+    }
+
+    #[test]
+    fn truncated_listing_keeps_selected_repositories_beyond_the_cut() {
+        let accounts = [account("github-1")];
+        let previous = vec![
+            repo("github-1", 10, false),
+            repo("github-1", 99, true),
+            repo("github-1", 98, false),
+        ];
+        let listing = |truncated| {
+            BTreeMap::from([(
+                "github-1".to_string(),
+                AccountRepos {
+                    repos: vec![repo("github-1", 10, false), repo("github-1", 10, false)],
+                    truncated,
+                },
+            )])
+        };
+        let ids = |repos: Vec<Repo>| repos.into_iter().map(|r| r.id).collect::<Vec<_>>();
+        assert_eq!(
+            ids(merge_catalog(&previous, &accounts, listing(true))),
+            vec!["github-1:10", "github-1:99"]
+        );
+        assert_eq!(
+            ids(merge_catalog(&previous, &accounts, listing(false))),
+            vec!["github-1:10"]
+        );
+    }
+
+    #[test]
+    fn refs_are_bounded_and_always_offer_the_default_branch_and_existing_pins() {
+        let found: Vec<_> = (0..600).map(|i| format!("release/{i:04}")).collect();
+        let refs = bounded_refs("trunk", &["release/0599", "gone"], &found, 1);
+        assert_eq!(refs.len(), MAX_REFS);
+        assert!(refs.contains(&"trunk".to_string()));
+        assert!(refs.contains(&"release/0599".to_string()));
+        assert!(!refs.contains(&"gone".to_string()));
+        let mut sorted = refs.clone();
+        sorted.sort();
+        assert_eq!(refs, sorted);
+        // Many startable workflows share one repository budget.
+        let shared = bounded_refs("trunk", &[], &found, 20);
+        let bytes: usize = shared.iter().map(|name| name.len() + 3).sum();
+        assert!(bytes * 20 <= REPO_REF_BYTES);
+        assert!(shared.contains(&"trunk".to_string()));
+        // An oversized default branch is still offered.
+        let long = "x".repeat(REPO_REF_BYTES);
+        assert_eq!(bounded_refs(&long, &[], &found, 50), vec![long]);
+    }
+
+    /// An endlessly paginating repository listing, or a revoked token.
+    struct Listing {
+        revoked: bool,
+    }
+    impl Transport for Listing {
+        fn send(&mut self, request: &ApiRequest) -> Result<ApiResponse, TransportError> {
+            let url = request.url().as_str();
+            if self.revoked {
+                return Ok(ApiResponse {
+                    status: 401,
+                    headers: BTreeMap::new(),
+                    body: b"{}".to_vec(),
+                });
+            }
+            let page: u32 = url
+                .split("&page=")
+                .nth(1)
+                .and_then(|page| page.parse().ok())
+                .unwrap_or(1);
+            let next = format!(
+                "<https://api.github.com/user/repos?per_page=100&page={}>; rel=\"next\"",
+                page + 1
+            );
+            let body = serde_json::json!([{"id": page, "name": format!("fixture-{page}"), "owner": {"login": "fixture-owner"}, "permissions": {"push": page == 1}}]);
+            Ok(ApiResponse {
+                status: 200,
+                headers: BTreeMap::from([("Link".to_string(), next)]),
+                body: serde_json::to_vec(&body).unwrap(),
+            })
+        }
+    }
+
+    #[test]
+    fn endless_repository_listing_is_truncated_instead_of_failing_the_account() {
+        let client = ApiClient::new(Listing { revoked: false });
+        let listing = account_repos(&client, &account("github-1")).unwrap();
+        assert!(listing.truncated);
+        assert_eq!(listing.repos.len(), 20);
+        assert_eq!(listing.repos[0].permission, Permission::Write);
+        assert_eq!(listing.repos[1].permission, Permission::Read);
+        let revoked = ApiClient::new(Listing { revoked: true });
+        let error = account_repos(&revoked, &account("github-2")).err().unwrap();
+        assert!(matches!(error, ScopeError::Unauthorized(_)));
+        assert!(matches!(
+            ScopeError::Denied("GitHub returned HTTP 403.".into()).for_account(),
+            ScopeError::Unauthorized(_)
+        ));
+    }
 }
 
 #[cfg(test)]
