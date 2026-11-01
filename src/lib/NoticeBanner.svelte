@@ -9,6 +9,7 @@
     onAction,
     navigates = true,
     timeout,
+    paused = false,
     onDismiss,
   }: {
     text: string;
@@ -20,14 +21,17 @@
     navigates?: boolean;
     /** Closes after this many milliseconds; paused while hovered or focused. */
     timeout?: number;
+    /** Holds the timeout, e.g. while a dialog hides the notice; restarts in full after. */
+    paused?: boolean;
     onDismiss: () => void;
   } = $props();
   let hovered = $state(false);
   let focused = $state(false);
 
   $effect(() => {
-    if (!timeout || hovered || focused) return;
-    // Starts over once the pointer and focus have left the notice.
+    if (!timeout || hovered || focused || paused) return;
+    // Starts over once the pointer and focus have left the notice and no
+    // dialog hides it any more.
     const timer = setTimeout(() => onDismiss(), timeout);
     return () => clearTimeout(timer);
   });

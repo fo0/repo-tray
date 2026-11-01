@@ -89,3 +89,44 @@ test('a notice with an action wraps below its text at 360px', async ({
     ),
   ).toBe(false);
 });
+
+test('a notice that arrives behind a dialog waits there and times out only after the dialog closed', async ({
+  page,
+}) => {
+  const dialog = await openLaunch(page);
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Quick build');
+  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
+  await dialog
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
+    .click();
+  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await page
+    .getByRole('article')
+    .filter({ has: page.getByRole('heading', { name: 'Quick build' }) })
+    .getByRole('button', { name: 'Schnellstart', exact: true })
+    .click();
+  // The quick start settles while the settings dialog hides the panel.
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
+  await page.clock.runFor(400);
+  const hidden = page
+    .locator('.notice-banner')
+    .filter({ hasText: /Quick build: .*Demo-Run #9001/ });
+  await expect(hidden).toBeAttached();
+  await page.clock.runFor(30_000);
+  await expect(hidden).toBeAttached();
+  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  const notice = page.getByRole('status').filter({ hasText: /Demo-Run #9001/ });
+  await expect(notice).toBeVisible();
+  // The full timeout starts once the dialog is gone.
+  await page.getByRole('heading', { name: /^RepoTray/ }).hover();
+  await page
+    .getByRole('button', { name: 'Aktualisieren', exact: true })
+    .focus();
+  await page.clock.runFor(5000);
+  await expect(notice).toBeVisible();
+  await page.clock.runFor(1200);
+  await expect(notice).toHaveCount(0);
+});

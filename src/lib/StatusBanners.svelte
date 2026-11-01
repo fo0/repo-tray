@@ -16,6 +16,7 @@
     error,
     notices,
     showsAccount,
+    paused = false,
     onShowUpdate,
     onShowRun,
     onDismissNotice,
@@ -28,6 +29,8 @@
     notices: Notice[];
     /** Whether a run of this account is in the activity list right now. */
     showsAccount: (accountId: string) => boolean;
+    /** A dialog hides the notices: none closes on its own meanwhile. */
+    paused?: boolean;
     onShowUpdate: () => void;
     onShowRun: (runId: number) => void;
     onDismissNotice: (id: number) => void;
@@ -69,6 +72,7 @@
       (runId ? () => onShowRun(runId) : undefined)}
     navigates={!notice.action}
     timeout={notice.timeout}
+    {paused}
     onDismiss={() => onDismissNotice(notice.id)}
   />
 {/each}

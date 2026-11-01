@@ -28,7 +28,7 @@ export interface Notice {
   timeout?: number;
 }
 
-/** Banner notices of the panel, oldest first and bounded. */
+/** Banner notices of the panel, oldest first; successes are bounded. */
 export class Notices {
   items = $state.raw<Notice[]>([]);
   #next = 0;
@@ -43,10 +43,20 @@ export class Notices {
           ? (notice.timeout ?? SUCCESS_TIMEOUT)
           : undefined,
     };
-    this.items = [
+    const items = [
       ...this.items.filter((item) => item.key !== notice.key),
       entry,
-    ].slice(-LIMIT);
+    ];
+    // Over the limit, the oldest earlier success goes first; warnings and
+    // errors stay until they are closed.
+    while (items.length > LIMIT) {
+      const oldest = items.findIndex(
+        (item) => item.tone === 'subtle' && item !== entry,
+      );
+      if (oldest < 0) break;
+      items.splice(oldest, 1);
+    }
+    this.items = items;
     return entry.id;
   }
   dismiss(id: number) {

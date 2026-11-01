@@ -211,6 +211,7 @@
         error={panel.error}
         notices={panel.notices.items}
         showsAccount={panel.showsAccount}
+        paused={modals.kind !== null}
         onShowUpdate={() => openSettings('updates')}
         onShowRun={modals.showRun}
         onDismissNotice={(id) => panel.notices.dismiss(id)}
