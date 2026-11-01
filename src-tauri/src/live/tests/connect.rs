@@ -155,3 +155,39 @@ fn a_credential_the_vault_will_not_delete_keeps_its_account_so_it_can_be_disconn
     assert!(!h.vault.holds("github-1"));
     assert!(h.restart().snapshot().accounts.is_empty());
 }
+
+#[test]
+fn a_credential_the_vault_can_neither_read_nor_delete_keeps_its_account() {
+    let mut h = Harness::new("connect-unreadable", Remote::new(), &[]);
+    h.vault.refuse_read.store(true, Ordering::SeqCst);
+    h.vault.refuse_delete.store(true, Ordering::SeqCst);
+    let error = h
+        .live
+        .connect_account(account("github-1"), stranded("github-1"))
+        .unwrap_err();
+    let notice = "Der Zugang von fixture-github-1 liegt möglicherweise noch im Tresor – trenne das Konto, um ihn zu entfernen.";
+    assert_eq!(error, format!("{ROLLBACK_FAILED} · {notice}"));
+    assert!(h.vault.holds("github-1"));
+    assert_eq!(h.live.cache.account_ids().unwrap(), vec!["github-1"]);
+    let snapshot = h.live.snapshot();
+    assert_eq!(snapshot.accounts, vec![account("github-1")]);
+    assert!(snapshot
+        .message
+        .as_deref()
+        .is_some_and(|message| message.contains(notice)));
+    assert!(h.remote().requests.is_empty());
+}
+
+#[test]
+fn an_unreadable_vault_that_still_deletes_removes_the_new_account_row() {
+    let mut h = Harness::new("connect-unreadable-deletes", Remote::new(), &[]);
+    h.vault.refuse_read.store(true, Ordering::SeqCst);
+    let error = h
+        .live
+        .connect_account(account("github-1"), stranded("github-1"))
+        .unwrap_err();
+    assert_eq!(error, ROLLBACK_FAILED);
+    assert!(!h.vault.holds("github-1"));
+    assert!(h.live.cache.account_ids().unwrap().is_empty());
+    assert!(h.live.snapshot().accounts.is_empty());
+}

@@ -228,6 +228,8 @@ pub(super) struct Vault {
     pub(super) held: Mutex<BTreeSet<String>>,
     /// Every delete fails, as a vault that refuses to remove an entry.
     pub(super) refuse_delete: AtomicBool,
+    /// Every read fails, as a vault that is unavailable.
+    pub(super) refuse_read: AtomicBool,
 }
 impl Vault {
     pub(super) fn holds(&self, account: &str) -> bool {
@@ -236,6 +238,9 @@ impl Vault {
 }
 impl NativeKeyring for Vault {
     fn read_token(&self, account: &str) -> Result<Option<SecretToken>, AuthError> {
+        if self.refuse_read.load(Ordering::SeqCst) {
+            return Err(AuthError::KeyringUnavailable);
+        }
         Ok(self
             .holds(account)
             .then(|| SecretToken::new("synthetic-credential".into())))

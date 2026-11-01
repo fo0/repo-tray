@@ -156,20 +156,24 @@ impl<T: Transport> LiveStore<T> {
         Ok(self.snapshot())
     }
     /// Cleans up after a new account whose credential commit failed. Its row goes (best
-    /// effort; never pins, settings or claims) unless the credential is still in the vault, as
-    /// after a cancel whose rollback failed: then the entry is deleted once more, and if that
-    /// fails too the row and the account stay, so the panel can disconnect it. A row left
-    /// behind by a failed delete shows an account that asks to be reconnected or disconnected.
+    /// effort; never pins, settings or claims) unless the credential may still be in the vault,
+    /// as after a cancel whose rollback failed, or when the vault cannot even be read: then the
+    /// entry is deleted once more, and if that fails too the row and the account stay, so the
+    /// panel can disconnect it. A row left behind by a failed delete shows an account that asks
+    /// to be reconnected or disconnected.
     fn abandon_new_account(&mut self, account: Account, error: String) -> String {
-        let stranded = matches!(self.keyring.read_token(&account.id), Ok(Some(_)))
+        let read = self.keyring.read_token(&account.id);
+        let present = !matches!(read, Ok(None));
+        let stranded = present
             && browser_auth::disconnect_credential(self.keyring.as_ref(), &account.id).is_err();
         if !stranded {
             let _ = self.cache.delete_snapshot(&account.id);
             return error;
         }
         let notice = format!(
-            "Der Zugang von {} liegt noch im Tresor – trenne das Konto, um ihn zu entfernen.",
-            account.login
+            "Der Zugang von {} liegt {}noch im Tresor – trenne das Konto, um ihn zu entfernen.",
+            account.login,
+            if read.is_ok() { "" } else { "möglicherweise " }
         );
         self.data.accounts.retain(|known| known.id != account.id);
         self.data.accounts.push(account);
