@@ -122,6 +122,7 @@ export class Panel {
   }
 
   accept(value: Snapshot) {
+    this.starts.retainAccounts(value);
     this.snapshot = value;
     if (!this.native) return;
     if (!this.#accountReady) {

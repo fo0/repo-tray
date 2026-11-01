@@ -137,6 +137,33 @@ describe('Starts local guard', () => {
     expect(reads).toBe(2);
   });
 
+  it('drops a session lock once its account is gone, also after a reconnect', async () => {
+    const { panel, push } = await setup({
+      dispatchWorkflow: async () => ({
+        state: 'uncertain',
+        message: 'Unterbrochen.',
+      }),
+    });
+    const connected = panel.snapshot!;
+    await panel.starts.dispatch(request, { label: 'A' });
+    expect(panel.starts.isQuarantined(request)).toBe(true);
+    // Another account leaving keeps the lock.
+    push({
+      ...connected,
+      accounts: connected.accounts.filter((item) => item.id !== 'demo-work'),
+    });
+    expect(panel.starts.isQuarantined(request)).toBe(true);
+    push({
+      ...connected,
+      accounts: connected.accounts.filter(
+        (item) => item.id !== request.accountId,
+      ),
+    });
+    expect(panel.starts.isQuarantined(request)).toBe(false);
+    push(connected);
+    expect(panel.starts.isQuarantined(request)).toBe(false);
+  });
+
   it('never sends a start for a locked target, whatever the caller checked', async () => {
     let dispatched = 0;
     const { panel, push } = await setup({

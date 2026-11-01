@@ -7,6 +7,7 @@ import type {
   DispatchOutcome,
   DispatchRequest,
   DispatchTarget,
+  Snapshot,
   UncertainStart,
 } from './types';
 
@@ -98,6 +99,20 @@ export class Starts {
   /** Demo reset only: the demo bridge drops its claims at the same time. */
   clearQuarantine() {
     this.#session = new Map();
+  }
+
+  /**
+   * Drops this session's locks of accounts a snapshot no longer lists, as
+   * the service deletes a disconnected account's claims: the disconnect
+   * confirmation warns that its starts are unlocked then, and reconnecting
+   * the same account must not bring back a lock nothing can release.
+   */
+  retainAccounts(snapshot: Snapshot) {
+    const ids = new Set(snapshot.accounts.map((account) => account.id));
+    const kept = [...this.#session].filter(([, target]) =>
+      ids.has(target.accountId),
+    );
+    if (kept.length !== this.#session.size) this.#session = new Map(kept);
   }
 
   /**
