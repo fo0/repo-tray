@@ -419,15 +419,14 @@ pub fn discover(
                 {
                     result.accounts.push(LocalAccount { source: "gcm".into(), host: "github.com".into(), login: login.into(), usable: false, active: false,
                         detail: "Git Credential Manager: gespeichertes Git-Konto; API-Übernahme hier nicht unterstützt.".into(),
-                        actions_read: "Git-Anmeldung belegt keine Actions-API-Rechte.".into(), actions_write: "Actions starten: nicht nachgewiesen.".into() });
+                        actions_read: "Git-Anmeldung belegt keine API-Rechte für Workflows.".into(), actions_write: "Workflows starten: nicht nachgewiesen.".into() });
                 }
                 result.notices.push(if result.accounts.len() == before {
-                    "GCM erkannt; keine lesbaren Account-Namen verfügbar. Keine API-Anmeldung nachgewiesen. Nutze gh CLI oder einen API-Token."
-                } else { "GCM erkannt. Nur Account-Namen geprüft; Git-Credentials werden nicht exportiert. Nutze gh CLI oder einen API-Token." }.into());
+                    "GCM erkannt; keine lesbaren Kontonamen verfügbar. Keine API-Anmeldung nachgewiesen. Nutze gh CLI oder einen API-Token."
+                } else { "GCM erkannt. Nur Kontonamen geprüft; Git-Credentials werden nicht exportiert. Nutze gh CLI oder einen API-Token." }.into());
             }
             _ => result.notices.push(
-                "GCM erkannt; Account-Liste nicht verfügbar. Keine API-Anmeldung nachgewiesen."
-                    .into(),
+                "GCM erkannt; Kontoliste nicht verfügbar. Keine API-Anmeldung nachgewiesen.".into(),
             ),
         }
     } else {
@@ -461,7 +460,7 @@ pub fn selected_token(
         .iter()
         .any(|a| a.login == login && a.usable)
     {
-        return Err("Gewählte lokale Anmeldung ist nicht mehr verfügbar. Erneut prüfen.".into());
+        return Err("Gewählte lokale Anmeldung ist nicht mehr verfügbar. Prüfe die lokalen Anmeldungen erneut.".into());
     }
     if !current() {
         return Err(CANCELLED.into());

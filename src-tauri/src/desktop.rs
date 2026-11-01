@@ -265,7 +265,7 @@ pub fn run() {
                     if let Some(tray) = handle.tray_by_id("repotray") {
                         let _ = tray.set_icon(Some(tray_image(active, failed)));
                         let _ = tray.set_tooltip(Some(if active {
-                            "RepoTray · Actions laufen"
+                            "RepoTray · Workflows laufen"
                         } else if failed {
                             "RepoTray · Fehler"
                         } else {

@@ -277,7 +277,7 @@ impl<T: Transport> LiveStore<T> {
                 .iter()
                 .any(|w| w.id == pin.workflow_id && w.repo_id == pin.repo_id)
         {
-            return Err("Vorlage passt nicht zum Konto/Repository.".into());
+            return Err("Favorit passt nicht zum Konto oder Repository.".into());
         }
         if self
             .data
@@ -285,7 +285,7 @@ impl<T: Transport> LiveStore<T> {
             .iter()
             .any(|p| p.id == pin.id && p.account_id != pin.account_id)
         {
-            return Err("Eine Vorlage kann nicht in ein anderes Konto verschoben werden.".into());
+            return Err("Ein Favorit kann nicht in ein anderes Konto verschoben werden.".into());
         }
         self.cache
             .save_pin(&pin.account_id, &pin)

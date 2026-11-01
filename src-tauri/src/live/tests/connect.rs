@@ -4,7 +4,7 @@ use crate::auth::SecretToken;
 use crate::live::*;
 use std::sync::atomic::Ordering;
 
-const ROLLBACK_FAILED: &str = "Anmeldung abgebrochen; der vorherige Tresoreintrag konnte nicht wiederhergestellt werden. Bitte Konto erneut verbinden oder trennen.";
+const ROLLBACK_FAILED: &str = "Anmeldung abgebrochen; der vorherige Tresoreintrag konnte nicht wiederhergestellt werden. Verbinde das Konto erneut oder trenne es.";
 
 /// A commit that wrote the credential and then failed, as a cancel whose rollback failed.
 fn stranded(id: &'static str) -> impl FnOnce(&dyn NativeKeyring) -> Result<(), String> {

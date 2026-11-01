@@ -310,7 +310,7 @@ pub fn validate_request_id(request_id: &str) -> Result<(), String> {
 pub fn validate_pin_fields(pin: &Pin) -> Result<(), String> {
     if !bounded_text(&pin.id, MAX_PIN_ID_CHARS) || !bounded_text(&pin.label, MAX_PIN_LABEL_CHARS) {
         return Err(
-            "Eine Vorlage braucht eine ID und einen Namen mit höchstens 120 Zeichen.".into(),
+            "Ein Favorit braucht eine ID und einen Namen mit höchstens 120 Zeichen.".into(),
         );
     }
     if !valid_git_ref(&pin.git_ref) {

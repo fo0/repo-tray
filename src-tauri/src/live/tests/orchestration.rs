@@ -83,7 +83,7 @@ fn a_stale_snapshot_refuses_dispatch_before_any_request_or_claim() {
     h.remote().requests.clear();
     let outcome = h.live.dispatch(request("start-1", "main"));
     assert_eq!(outcome.state, DispatchState::Rejected);
-    assert_eq!(outcome.message, "Verbindung zuerst aktualisieren.");
+    assert_eq!(outcome.message, "Klicke zuerst auf Aktualisieren.");
     assert!(h.remote().requests.is_empty());
     assert!(h.live.snapshot().uncertain_starts.is_empty());
 }
@@ -156,7 +156,7 @@ fn a_denied_repository_is_named_without_staling_and_its_frozen_open_runs_leave_t
     assert_eq!(snapshot.connectivity, Connectivity::Online);
     assert_eq!(
         snapshot.message.as_deref(),
-        Some("Kein Zugriff auf Actions: fixture-owner/fixture-2 (+1 weitere) – prüfe Token-Rechte oder SSO-Freigabe.")
+        Some("Kein Zugriff auf Workflows: fixture-owner/fixture-2 (+1 weitere) – prüfe Token-Rechte oder SSO-Freigabe.")
     );
     let ids: BTreeSet<_> = snapshot.runs.iter().map(|run| run.id).collect();
     assert_eq!(

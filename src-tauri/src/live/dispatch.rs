@@ -46,7 +46,7 @@ impl<T: Transport> LiveStore<T> {
         }
         let checked = (|| -> Result<(Repo, crate::github::ApiRequest), String> {
             if self.data.stale {
-                return Err("Verbindung zuerst aktualisieren.".into());
+                return Err("Klicke zuerst auf Aktualisieren.".into());
             }
             let repo = self
                 .data
@@ -68,14 +68,14 @@ impl<T: Transport> LiveStore<T> {
                 .ok_or("Workflow ist nicht manuell startbar.")?;
             let default = self.yaml(&repo, &workflow.path, &repo.default_branch)?;
             if !default.dispatch {
-                return Err("workflow_dispatch fehlt im Default-Branch.".into());
+                return Err("workflow_dispatch fehlt im Standardbranch.".into());
             }
             if !workflow.refs.contains(&request.git_ref) {
-                return Err("Branch/Tag unbekannt. Metadaten aktualisieren.".into());
+                return Err("Branch oder Tag unbekannt. Klicke auf Aktualisieren.".into());
             }
             let actual = self.yaml(&repo, &workflow.path, &request.git_ref)?;
             if !actual.dispatch {
-                return Err("workflow_dispatch fehlt im gewählten Ref.".into());
+                return Err("workflow_dispatch fehlt im gewählten Branch oder Tag.".into());
             }
             let inputs =
                 validate_inputs(&actual.inputs, &request.inputs).map_err(|e| e.to_string())?;

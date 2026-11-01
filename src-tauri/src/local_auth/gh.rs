@@ -68,8 +68,8 @@ pub(super) fn gh_status(
         Ok((vec![LocalAccount {
             source: "gh".into(), host: "github.com".into(), login: login.into(), usable: true, active: true,
             detail: "Aktives gh-Konto über GitHub bestätigt. Noch nicht mit RepoTray verbunden.".into(),
-            actions_read: "Scopes nicht auslesbar; Actions lesen pro Repository ungeprüft.".into(),
-            actions_write: "Actions starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
+            actions_read: "Scopes nicht auslesbar; Lesezugriff auf Workflows pro Repository ungeprüft.".into(),
+            actions_write: "Workflows starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
         }], true))
     }
 }
@@ -128,8 +128,8 @@ pub(super) fn gh_accounts(bytes: &[u8]) -> Result<Vec<LocalAccount>, String> {
         accounts.push(LocalAccount {
             source: "gh".into(), host: account.host.clone(), login: account.login.clone(), active: account.active, usable,
             detail: if usable { "GitHub-API-Anmeldung bestätigt · bevorzugte Quelle" } else { "Anmeldung ungültig, abgelaufen oder keine gespeicherte lokale Anmeldung" }.into(),
-            actions_read: if repo { "Scope repo vorhanden; private Actions grundsätzlich abgedeckt. Repository-/Org-Zugriff noch ungeprüft." } else if account.scopes.is_empty() { "Scopes nicht auslesbar; Actions lesen pro Repository ungeprüft." } else { "Scope repo fehlt; Zugriff auf private Actions nicht belegt. Feinere Rechte pro Repository ungeprüft." }.into(),
-            actions_write: "Actions starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
+            actions_read: if repo { "Scope repo vorhanden; private Workflows grundsätzlich abgedeckt. Repository-/Org-Zugriff noch ungeprüft." } else if account.scopes.is_empty() { "Scopes nicht auslesbar; Lesezugriff auf Workflows pro Repository ungeprüft." } else { "Scope repo fehlt; Zugriff auf private Workflows nicht belegt. Feinere Rechte pro Repository ungeprüft." }.into(),
+            actions_write: "Workflows starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
         });
     }
     accounts.sort_by(|a, b| a.login.cmp(&b.login));

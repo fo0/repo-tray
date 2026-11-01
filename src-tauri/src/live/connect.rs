@@ -206,7 +206,7 @@ pub(super) fn credential_account_id(id: u64, local_import: bool) -> String {
 pub(super) fn verify_local_identity(expected: Option<&str>, actual: &str) -> Result<(), String> {
     if expected.is_some_and(|login| !login.eq_ignore_ascii_case(actual)) {
         return Err(
-            "GitHub hat ein anderes Konto gemeldet. Lokale Anmeldung erneut prüfen.".into(),
+            "GitHub hat ein anderes Konto gemeldet. Prüfe die lokale Anmeldung erneut.".into(),
         );
     }
     Ok(())

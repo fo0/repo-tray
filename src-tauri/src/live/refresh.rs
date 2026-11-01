@@ -250,7 +250,7 @@ impl<T: Transport> LiveStore<T> {
             .find(|account| account.id == account_id)
             .map_or_else(|| account_id.to_owned(), |account| account.login.clone())
     }
-    /// A repository-level denial marks only that repository ("Actions · Kein Zugriff"),
+    /// A repository-level denial marks only that repository (shown as having no access),
     /// which also blocks dispatch to it; the next catalog listing re-reads its permission
     /// and retries it. An unauthorized answer holds the whole account. Every other failure
     /// is reported at snapshot level.
@@ -290,7 +290,7 @@ impl<T: Transport> LiveStore<T> {
             count => format!(" (+{count} weitere)"),
         };
         Some(format!(
-            "Kein Zugriff auf Actions: {}/{}{more} – prüfe Token-Rechte oder SSO-Freigabe.",
+            "Kein Zugriff auf Workflows: {}/{}{more} – prüfe Token-Rechte oder SSO-Freigabe.",
             first.owner, first.name
         ))
     }

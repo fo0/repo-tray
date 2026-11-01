@@ -17,7 +17,7 @@ pub fn ensure_sign_in_enabled() -> Result<(), String> {
 }
 pub const VERIFY_URL: &str = "https://github.com/login/device";
 const REAUTH: &str =
-    "Browser-Anmeldung abgelaufen oder nicht sicher erneuerbar. Bitte erneut mit GitHub anmelden.";
+    "Browser-Anmeldung abgelaufen oder nicht sicher erneuerbar. Melde dich erneut mit GitHub an.";
 const INVALID: &str = "GitHub hat eine ungültige Anmeldeantwort geliefert.";
 const NETWORK: &str =
     "GitHub ist gerade nicht erreichbar. RepoTray versucht es weiter, solange der Code gültig ist.";
@@ -304,7 +304,7 @@ pub fn poll(
                     "Die Herausgeber-App ist nicht für diese Anmeldung eingerichtet.".into(),
                 )
             }
-            _ => return Err("GitHub hat die Anmeldung beendet. Bitte neu starten.".into()),
+            _ => return Err("GitHub hat die Anmeldung beendet. Starte sie neu.".into()),
         };
         return Ok(PollOutcome::Status(status));
     }
@@ -437,7 +437,7 @@ pub fn commit_credential(
         } else {
             keyring.delete_token(account)
         };
-        rollback.map_err(|_| "Anmeldung abgebrochen; der vorherige Tresoreintrag konnte nicht wiederhergestellt werden. Bitte Konto erneut verbinden oder trennen.")?;
+        rollback.map_err(|_| "Anmeldung abgebrochen; der vorherige Tresoreintrag konnte nicht wiederhergestellt werden. Verbinde das Konto erneut oder trenne es.")?;
         return Err("Anmeldung wurde abgebrochen.".into());
     }
     Ok(())
