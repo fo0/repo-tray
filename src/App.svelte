@@ -15,7 +15,6 @@
   import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
-  import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
   import { invoke } from '@tauri-apps/api/core';
   import UpdatePanel from './lib/UpdatePanel.svelte';
   import StartupSettings from './lib/StartupSettings.svelte';
@@ -33,21 +32,17 @@
   import { trapFocus } from './lib/focus';
   import {
     accountLabel,
-    clockTime,
+    avatarLetter,
     errorMessage,
     repoLabel,
   } from './lib/format';
   import {
     defaultInputs,
-    duration,
     fullRepo,
     repositoryActivity,
     historyRuns,
-    HISTORY_LIMIT,
-    isActive,
     RequestEpoch,
     safeGitHubUrl,
-    statusLabel,
     targetKey,
     validateDispatch,
     visibleRuns,
@@ -1136,7 +1131,7 @@
                     class="selection-account"
                   >
                     <span class="mini-avatar"
-                      >{account.login[0].toUpperCase()}</span
+                      >{avatarLetter(account.login, '?')}</span
                     >{account.login}<span>{account.label}</span>
                   </div>
                   {#each snapshot?.repos.filter((repo) => repo.accountId === account.id && fullRepo(repo)
