@@ -84,7 +84,7 @@ describe('dispatch validation', () => {
       },
       /Unbekannte/,
     ],
-  ] as [Partial<DispatchRequest>, RegExp][])(
+  ] satisfies [Partial<DispatchRequest>, RegExp][])(
     'rejects invalid target/inputs %j',
     (overrides, expected) => {
       expect(validateDispatch(snapshot(), request(overrides))).toMatch(

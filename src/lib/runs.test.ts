@@ -116,7 +116,7 @@ describe('activity model', () => {
     ['completed', 'failure', 'Fehlgeschlagen'],
     ['completed', 'cancelled', 'Abgebrochen'],
     ['completed', null, 'Abgebrochen'],
-  ] as [Run['status'], Run['conclusion'], string][])(
+  ] satisfies [Run['status'], Run['conclusion'], string][])(
     'labels status %s with conclusion %s as %s',
     (status, conclusion, label) => {
       const run = { ...snapshot().runs[0], status, conclusion };

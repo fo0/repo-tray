@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
-  configureMock,
+  type TauriMock,
   installTauriMock,
   readCommands,
 } from './support/tauriMock';
@@ -14,9 +14,10 @@ type NativeMock = {
   downloadDelay: number;
   installFail: boolean;
 };
+let mock: TauriMock<NativeMock>;
 
 test.beforeEach(async ({ page }) => {
-  await installTauriMock<{ fixture: typeof fixture }, NativeMock>(
+  mock = await installTauriMock<{ fixture: typeof fixture }, NativeMock>(
     page,
     ({ fixture }, state) => {
       let snapshot: typeof fixture = {
@@ -174,7 +175,7 @@ test('native token flow clears input, labels live mode and returns to repository
 test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled by its cleanup', async ({
   page,
 }) => {
-  await configureMock<NativeMock>(page, { tokenDelay: 600 });
+  await mock.configure({ tokenDelay: 600 });
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
@@ -208,7 +209,7 @@ test('public update downloads inside the app and installs only after a separate 
   await page.getByRole('tab', { name: 'Updates' }).click();
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await expect(page.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
-  await configureMock<NativeMock>(page, { downloadDelay: 700 });
+  await mock.configure({ downloadDelay: 700 });
   await page
     .getByRole('button', { name: 'Update herunterladen', exact: true })
     .click();
@@ -247,7 +248,7 @@ test('a failed download never enables installation and can be retried', async ({
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await page.getByRole('tab', { name: 'Updates' }).click();
-  await configureMock<NativeMock>(page, { downloadFail: true });
+  await mock.configure({ downloadFail: true });
   await page
     .getByRole('button', { name: 'Update herunterladen', exact: true })
     .click();
@@ -257,7 +258,7 @@ test('a failed download never enables installation and can be retried', async ({
   await expect(
     page.getByRole('button', { name: 'Installieren und neu starten' }),
   ).toHaveCount(0);
-  await configureMock<NativeMock>(page, {
+  await mock.configure({
     downloadFail: false,
     installFail: true,
   });
@@ -279,7 +280,7 @@ test('failed update checks clear stale results and a successful retry can report
   page,
 }) => {
   await page.getByRole('button', { name: 'Update ansehen' }).click();
-  await configureMock<NativeMock>(page, { updateCheckError: true });
+  await mock.configure({ updateCheckError: true });
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await expect(page.getByRole('alert')).toContainText(
     'Updateprüfung fehlgeschlagen',
@@ -287,7 +288,7 @@ test('failed update checks clear stale results and a successful retry can report
   await expect(
     page.getByRole('button', { name: 'Update herunterladen', exact: true }),
   ).toHaveCount(0);
-  await configureMock<NativeMock>(page, {
+  await mock.configure({
     updateCheckError: false,
     updateCurrent: true,
   });

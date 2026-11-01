@@ -54,17 +54,42 @@ function shell(
   });
 }
 
+/** Typed access to the mutable state of one installed mock. */
+export interface TauriMock<S extends object> {
+  /** Changes the state the factory reads on its next call. */
+  configure(values: Partial<S>): Promise<void>;
+  /** Reads one state value, e.g. a settled counter for `expect.poll`. */
+  read<K extends keyof S & string>(key: K): Promise<S[K]>;
+}
+
 /** Installs the mock for every document the page loads, including reloads. */
 export async function installTauriMock<A, S extends object>(
   page: Page,
   factory: IpcFactory<A, S>,
   options: { arg: A; state: S },
-) {
+): Promise<TauriMock<S>> {
   await page.addInitScript({
     content: `(${shell.toString()})(${factory.toString()}, ${JSON.stringify(
       options.arg,
     )}, ${JSON.stringify(options.state)});`,
   });
+  return {
+    async configure(values) {
+      await page.evaluate((values) => {
+        const mock = window.__repoTrayIpcMock;
+        if (!mock) throw new Error('The labelled IPC mock is not installed.');
+        Object.assign(mock.state, values);
+      }, values);
+    },
+    async read<K extends keyof S & string>(key: K) {
+      const value = await page.evaluate(
+        (key) => window.__repoTrayIpcMock?.state[key],
+        key,
+      );
+      // The page boundary erases types; the state was installed as an `S`.
+      return value as S[K];
+    },
+  };
 }
 
 /** Recorded calls, optionally only one command; filtered in the page. */
@@ -83,28 +108,4 @@ export function readCommands(page: Page): Promise<string[]> {
   return page.evaluate(() =>
     (window.__repoTrayIpcMock?.calls ?? []).map((call) => call.cmd),
   );
-}
-
-/** Changes the mutable mock state a factory reads on its next call. */
-export async function configureMock<S extends object>(
-  page: Page,
-  values: Partial<S>,
-) {
-  await page.evaluate(
-    (values) => {
-      Object.assign(window.__repoTrayIpcMock!.state, values);
-    },
-    values as Record<string, unknown>,
-  );
-}
-
-/** Reads one mock state value, e.g. a settled counter for `expect.poll`. */
-export function readMockState<S extends object, K extends keyof S & string>(
-  page: Page,
-  key: K,
-): Promise<S[K]> {
-  return page.evaluate(
-    (key) => window.__repoTrayIpcMock!.state[key],
-    key,
-  ) as Promise<S[K]>;
 }

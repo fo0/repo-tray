@@ -16,7 +16,7 @@ export async function openNativeActivity(page: Page) {
       JSON.stringify('demo-personal'),
     ),
   );
-  await installTauriMock<
+  const mock = await installTauriMock<
     { fixture: typeof fixture; now: number; url: string },
     ActivityMock
   >(
@@ -59,6 +59,7 @@ export async function openNativeActivity(page: Page) {
   // Paused, so the view reads exactly NOW when it subscribes to the clock.
   await page.clock.pauseAt(NOW);
   await page.getByRole('button', { name: /^Aktivität/ }).click();
+  return mock;
 }
 
 export const row = (page: Page, id: number) =>

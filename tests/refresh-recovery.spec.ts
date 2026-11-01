@@ -1,17 +1,13 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
-import {
-  configureMock,
-  installTauriMock,
-  readCommands,
-} from './support/tauriMock';
+import { installTauriMock, readCommands } from './support/tauriMock';
 
 type LoadMock = { failRefresh: boolean };
 
 test('a native load error keeps refresh available until a retry succeeds', async ({
   page,
 }) => {
-  await installTauriMock<{ fixture: typeof fixture }, LoadMock>(
+  const mock = await installTauriMock<{ fixture: typeof fixture }, LoadMock>(
     page,
     ({ fixture }, state) =>
       (cmd) => {
@@ -54,7 +50,7 @@ test('a native load error keeps refresh available until a retry succeeds', async
   );
   await expect(refresh).toBeEnabled();
 
-  await configureMock<LoadMock>(page, { failRefresh: false });
+  await mock.configure({ failRefresh: false });
   await page.keyboard.press('F5');
   await expect(
     page.getByRole('status').filter({ hasText: 'GitHub-Status aktualisiert.' }),

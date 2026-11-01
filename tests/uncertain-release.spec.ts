@@ -1,10 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
-import {
-  configureMock,
-  installTauriMock,
-  readCalls,
-} from './support/tauriMock';
+import { installTauriMock, readCalls } from './support/tauriMock';
 import { openLaunch, scenario, templateCard } from './support/demo';
 
 type ReleaseMock = { releaseError: string; claimedAt: string };
@@ -18,7 +14,7 @@ const claim = {
 
 /** Native shell after a restart: one persisted claim, account remembered. */
 async function nativeWithClaim(page: Page) {
-  await installTauriMock<
+  const mock = await installTauriMock<
     { fixture: typeof fixture; claim: typeof claim },
     ReleaseMock
   >(
@@ -62,12 +58,13 @@ async function nativeWithClaim(page: Page) {
   );
   await page.goto('/');
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  return mock;
 }
 
 test('a persisted claim locks the start after a restart until it is released explicitly', async ({
   page,
 }) => {
-  await nativeWithClaim(page);
+  const mock = await nativeWithClaim(page);
   const card = templateCard(page, 'Windows build');
   await expect(
     card.getByRole('button', { name: 'Startstatus ungeklärt', exact: true }),
@@ -92,7 +89,7 @@ test('a persisted claim locks the start after a restart until it is released exp
   expect(await readCalls(page, 'release_uncertain_start')).toEqual([]);
 
   // A refused release keeps the lock, ends the confirmation and shows the reason.
-  await configureMock<ReleaseMock>(page, {
+  await mock.configure({
     releaseError: 'Mock: Die Sperre konnte nicht aufgehoben werden.',
   });
   await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
@@ -110,7 +107,7 @@ test('a persisted claim locks the start after a restart until it is released exp
   ).toBeFocused();
   await expect(start).toBeDisabled();
 
-  await configureMock<ReleaseMock>(page, { releaseError: '' });
+  await mock.configure({ releaseError: '' });
   await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
   await confirm
     .getByRole('button', {
@@ -173,12 +170,12 @@ test('the demo releases its own uncertain start the same way', async ({
 test('a refused release refreshes the claim, so confirming again releases the newer one', async ({
   page,
 }) => {
-  await nativeWithClaim(page);
+  const mock = await nativeWithClaim(page);
   await templateCard(page, 'Windows build').locator('.pin-start').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   // Another start claimed the target again; the panel has not seen it yet.
   const newer = { ...claim, claimedAt: '2026-11-01T09:00:00Z' };
-  await configureMock<ReleaseMock>(page, { claimedAt: newer.claimedAt });
+  await mock.configure({ claimedAt: newer.claimedAt });
   const ask = dialog.getByRole('button', { name: 'Sperre aufheben…' });
   const confirm = dialog.getByRole('group', { name: 'Sperre aufheben' });
   const release = confirm.getByRole('button', {
@@ -213,14 +210,14 @@ test('a refused release refreshes the claim, so confirming again releases the ne
 test('the confirmation releases the claim it opened with, not one a later refresh brought', async ({
   page,
 }) => {
-  await nativeWithClaim(page);
+  const mock = await nativeWithClaim(page);
   await templateCard(page, 'Windows build').locator('.pin-start').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const confirm = dialog.getByRole('group', { name: 'Sperre aufheben' });
   await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
   // While the question is open, another start claims the target again and a
   // status check brings that newer claim into the panel.
-  await configureMock<ReleaseMock>(page, {
+  await mock.configure({
     claimedAt: '2026-11-01T09:00:00Z',
   });
   await dialog.getByRole('button', { name: 'Status prüfen' }).click();

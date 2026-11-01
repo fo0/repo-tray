@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
-  configureMock,
+  type TauriMock,
   installTauriMock,
   readCalls,
   readCommands,
@@ -9,11 +9,12 @@ import {
 
 /** Labelled IPC mock of an unsigned build: no updater key, notify-only updates. */
 type NotifyMock = { current: boolean; openFail: boolean };
+let mock: TauriMock<NotifyMock>;
 
 const VERSION = '2026.1101.905';
 
 test.beforeEach(async ({ page }) => {
-  await installTauriMock<
+  mock = await installTauriMock<
     { fixture: typeof fixture; version: string },
     NotifyMock
   >(
@@ -106,12 +107,12 @@ test('a failed release-page open is reported and can be retried', async ({
 }) => {
   await page.getByRole('button', { name: 'Update ansehen' }).click();
   const open = page.getByRole('button', { name: 'Release-Seite öffnen' });
-  await configureMock<NotifyMock>(page, { openFail: true });
+  await mock.configure({ openFail: true });
   await open.click();
   await expect(page.getByRole('alert')).toContainText(
     'Browser konnte nicht geöffnet werden.',
   );
-  await configureMock<NotifyMock>(page, { openFail: false });
+  await mock.configure({ openFail: false });
   await open.click();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect
@@ -122,7 +123,7 @@ test('a failed release-page open is reported and can be retried', async ({
 test('a current unsigned build reports calmly and promises no in-app installation', async ({
   page,
 }) => {
-  await configureMock<NotifyMock>(page, { current: true });
+  await mock.configure({ current: true });
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();

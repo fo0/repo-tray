@@ -1,11 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import {
-  type ActivityMock,
-  openNativeActivity,
-  row,
-  RUN_URL,
-} from './support/nativeActivity';
-import { configureMock, readCalls } from './support/tauriMock';
+import { openNativeActivity, row, RUN_URL } from './support/nativeActivity';
+import { readCalls } from './support/tauriMock';
 
 // Rows render local times; a fixed zone keeps them stable.
 test.use({ timezoneId: 'UTC' });
@@ -35,7 +30,7 @@ test('each run opens through the shell and copies its link without expanding', a
   page,
 }) => {
   await recordClipboard(page);
-  await openNativeActivity(page);
+  const mock = await openNativeActivity(page);
   const running = row(page, 8401);
   const toggle = running.locator('.run-button');
   const open = running.getByRole('link', {
@@ -63,7 +58,7 @@ test('each run opens through the shell and copies its link without expanding', a
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   expect(page.context().pages()).toHaveLength(1);
 
-  await configureMock<ActivityMock>(page, {
+  await mock.configure({
     openError: 'Browser konnte nicht geöffnet werden.',
   });
   await open.click();

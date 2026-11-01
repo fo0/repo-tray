@@ -2,12 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  configureMock,
-  installTauriMock,
-  readCalls,
-  readCommands,
-} from './support/tauriMock';
+import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
 
 type MockState = {
   status: string;
@@ -17,7 +12,7 @@ type MockState = {
   delay: number;
 };
 async function setup(page: Page, status = 'disabled') {
-  await installTauriMock<{ fixture: typeof fixture }, MockState>(
+  const mock = await installTauriMock<{ fixture: typeof fixture }, MockState>(
     page,
     ({ fixture }, state) => {
       const snapshot = {
@@ -67,15 +62,13 @@ async function setup(page: Page, status = 'disabled') {
   );
   await page.goto('/');
   await openAppSettings(page);
+  return mock;
 }
 async function openAppSettings(page: Page) {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await page.getByRole('tab', { name: 'App', exact: true }).click();
-}
-async function configure(page: Page, values: Partial<MockState>) {
-  await configureMock<MockState>(page, values);
 }
 async function mutations(page: Page) {
   return (await readCalls(page, 'set_autostart')).length;
@@ -94,7 +87,7 @@ test('explicit opt-in, persisted OS readback, disable and pending-write guard', 
   page,
 }) => {
   await page.setViewportSize({ width: 480, height: 760 });
-  await setup(page);
+  const mock = await setup(page);
   const checkbox = page.getByRole('checkbox', { name: 'Mit Windows starten' });
   await expect(checkbox).not.toBeChecked();
   expect(await mutations(page)).toBe(0);
@@ -102,7 +95,7 @@ test('explicit opt-in, persisted OS readback, disable and pending-write guard', 
     page.getByText('Aus · RepoTray startet nicht automatisch.'),
   ).toBeVisible();
   await capture(page, '01-windows-autostart-aus.png');
-  await configure(page, { delay: 350 });
+  await mock.configure({ delay: 350 });
   await checkbox.click();
   await expect(checkbox).toBeDisabled();
   await expect(checkbox).not.toBeChecked();
@@ -153,14 +146,14 @@ test('Windows veto is shown at 360px, can open Windows settings and remove only 
 test('external removal and Task Manager changes refresh on focus and explicit read', async ({
   page,
 }) => {
-  await setup(page, 'enabled');
+  const mock = await setup(page, 'enabled');
   const checkbox = page.getByRole('checkbox', { name: 'Mit Windows starten' });
   await expect(checkbox).toBeChecked();
-  await configure(page, { status: 'disabledByWindows' });
+  await mock.configure({ status: 'disabledByWindows' });
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(checkbox).not.toBeChecked();
   await expect(page.getByText(/In Windows deaktiviert/)).toBeVisible();
-  await configure(page, { status: 'disabled', registered: false });
+  await mock.configure({ status: 'disabled', registered: false });
   await page.getByRole('button', { name: 'Status prüfen' }).click();
   await expect(checkbox).toBeEnabled();
   await expect(
@@ -172,17 +165,17 @@ test('external removal and Task Manager changes refresh on focus and explicit re
 test('read/write failures stay uncertain until a fresh OS read succeeds', async ({
   page,
 }) => {
-  await setup(page);
+  const mock = await setup(page);
   const checkbox = page.getByRole('checkbox', { name: 'Mit Windows starten' });
-  await configure(page, { writeError: true });
+  await mock.configure({ writeError: true });
   await checkbox.click();
   await expect(page.getByRole('alert')).toContainText('konnte nicht geändert');
   await expect(checkbox).not.toBeChecked();
   await expect(checkbox).toBeDisabled();
-  await configure(page, { readError: true });
+  await mock.configure({ readError: true });
   await page.getByRole('button', { name: 'Status prüfen' }).click();
   await expect(page.getByRole('alert')).toContainText('konnte nicht gelesen');
-  await configure(page, {
+  await mock.configure({
     readError: false,
     writeError: false,
     status: 'enabled',
@@ -196,14 +189,14 @@ test('read/write failures stay uncertain until a fresh OS read succeeds', async 
 test('foreign registrations cannot be edited; future Windows formats stay unknown', async ({
   page,
 }) => {
-  await setup(page, 'conflict');
+  const mock = await setup(page, 'conflict');
   const checkbox = page.getByRole('checkbox', { name: 'Mit Windows starten' });
   await expect(checkbox).toBeDisabled();
   await expect(page.getByText(/Es wird nichts überschrieben/)).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Autostarteintrag entfernen' }),
   ).toHaveCount(0);
-  await configure(page, { status: 'unknownApproval', registered: true });
+  await mock.configure({ status: 'unknownApproval', registered: true });
   await page.getByRole('button', { name: 'Status prüfen' }).click();
   await expect(page.getByText(/Windows-Freigabe unbekannt/)).toBeVisible();
   await expect(checkbox).toBeDisabled();

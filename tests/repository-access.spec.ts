@@ -1,17 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
-  configureMock,
+  type TauriMock,
   installTauriMock,
   readCalls,
 } from './support/tauriMock';
 
 type AccessMock = { stale: boolean };
+let mock: TauriMock<AccessMock>;
 
 // A browser-sign-in account offers the repository-access refresh; the mock
 // revokes one repository and grants another on the first refresh.
 test.beforeEach(async ({ page }) => {
-  await installTauriMock<{ fixture: typeof fixture }, AccessMock>(
+  mock = await installTauriMock<{ fixture: typeof fixture }, AccessMock>(
     page,
     ({ fixture }, state) => {
       const accountId = 'github-device-42';
@@ -102,7 +103,7 @@ test('refreshing repository access shows granted repositories and drops revoked 
 test('a stale repository-access refresh reports its error and keeps the list', async ({
   page,
 }) => {
-  await configureMock<AccessMock>(page, { stale: true });
+  await mock.configure({ stale: true });
   await page
     .getByRole('button', { name: 'Repository-Liste aktualisieren' })
     .click();

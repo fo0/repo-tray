@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
-import { configureMock, installTauriMock } from './support/tauriMock';
+import { installTauriMock, type TauriMock } from './support/tauriMock';
 
 type GuidanceMock = { scanError: string; importError: string; empty: boolean };
+let mock: TauriMock<GuidanceMock>;
 
 /** Native connect dialog without accounts; discovery and import fail on demand. */
 test.beforeEach(async ({ page }) => {
-  await installTauriMock<{ fixture: typeof fixture }, GuidanceMock>(
+  mock = await installTauriMock<{ fixture: typeof fixture }, GuidanceMock>(
     page,
     ({ fixture }, state) => {
       const accounts = [
@@ -73,7 +74,7 @@ test('every local result names the next step: failures, empty results and accoun
   page,
 }) => {
   const scan = page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' });
-  await configureMock<GuidanceMock>(page, {
+  await mock.configure({
     scanError:
       'Mock: gh CLI konnte nicht geprüft werden. Prüfe im Terminal mit gh auth status, ob du angemeldet bist.',
   });
@@ -82,14 +83,14 @@ test('every local result names the next step: failures, empty results and accoun
     'Prüfe im Terminal mit gh auth status',
   );
   await expect(scan).toBeEnabled();
-  await configureMock<GuidanceMock>(page, { scanError: '', empty: true });
+  await mock.configure({ scanError: '', empty: true });
   await scan.click();
   await expect(
     page.getByText(
       'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut. Alternativ verbindest du dich unten mit einem Token.',
     ),
   ).toBeVisible();
-  await configureMock<GuidanceMock>(page, {
+  await mock.configure({
     empty: false,
     importError:
       'Mock: Gewählte lokale Anmeldung ist nicht mehr verfügbar. Prüfe die lokalen Anmeldungen erneut.',

@@ -1,10 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
-import {
-  configureMock,
-  installTauriMock,
-  readCalls,
-} from './support/tauriMock';
+import { installTauriMock, readCalls } from './support/tauriMock';
 
 type DisconnectMock = { failDisconnect: boolean; holdDisconnect: boolean };
 
@@ -13,7 +9,7 @@ type DisconnectMock = { failDisconnect: boolean; holdDisconnect: boolean };
  * `uncertainFor` adds a locked start for that account.
  */
 async function setup(page: Page, uncertainFor?: string) {
-  await installTauriMock<
+  const mock = await installTauriMock<
     { fixture: typeof fixture; uncertainFor: string | null },
     DisconnectMock
   >(
@@ -97,7 +93,11 @@ async function setup(page: Page, uncertainFor?: string) {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  return page.getByRole('dialog', { name: 'Einstellungen', exact: true });
+  const dialog = page.getByRole('dialog', {
+    name: 'Einstellungen',
+    exact: true,
+  });
+  return { dialog, mock };
 }
 
 const card = (page: Page, source: string) =>
@@ -109,7 +109,7 @@ const card = (page: Page, source: string) =>
 test('disconnect sits in the account card and asks first; Abbrechen keeps everything', async ({
   page,
 }) => {
-  const dialog = await setup(page);
+  const { dialog } = await setup(page);
   const token = card(page, 'Token');
   const trigger = token.getByRole('button', {
     name: 'fixture-user · Token trennen',
@@ -184,8 +184,8 @@ test('an imported gh account confirms that the gh CLI stays untouched and focus 
 test('removing the last account focuses the connect action; a failed disconnect keeps the card', async ({
   page,
 }) => {
-  await setup(page);
-  await configureMock<DisconnectMock>(page, { failDisconnect: true });
+  const { mock } = await setup(page);
+  await mock.configure({ failDisconnect: true });
   const token = card(page, 'Token');
   const trigger = token.getByRole('button', {
     name: 'fixture-user · Token trennen',
@@ -198,7 +198,7 @@ test('removing the last account focuses the connect action; a failed disconnect 
   );
   await expect(token).toBeVisible();
   await expect(trigger).toBeFocused();
-  await configureMock<DisconnectMock>(page, { failDisconnect: false });
+  await mock.configure({ failDisconnect: false });
   for (const source of ['gh CLI (Kopie)', 'Token']) {
     const current = card(page, source);
     await current.getByRole('button', { name: /trennen$/ }).click();
@@ -261,8 +261,8 @@ test('an account with locked starts warns that disconnecting releases the lock',
 test('a running disconnect keeps focus in its confirmation; Abbrechen and Escape wait for it', async ({
   page,
 }) => {
-  const dialog = await setup(page);
-  await configureMock<DisconnectMock>(page, { holdDisconnect: true });
+  const { dialog, mock } = await setup(page);
+  await mock.configure({ holdDisconnect: true });
   const token = card(page, 'Token');
   await token.getByRole('button', { name: /trennen$/ }).click();
   const confirm = token.getByRole('group', {
@@ -292,7 +292,7 @@ test('a running disconnect keeps focus in its confirmation; Abbrechen and Escape
   // Abbrechen is inert: the disconnect finishes either way.
   await cancel.click({ force: true });
   await expect(confirm).toBeVisible();
-  await configureMock<DisconnectMock>(page, { holdDisconnect: false });
+  await mock.configure({ holdDisconnect: false });
   await expect(token).toHaveCount(0);
   await expect(
     page.getByLabel('Aktives Konto auswählen', { exact: true }),

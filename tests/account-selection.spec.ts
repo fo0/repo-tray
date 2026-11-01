@@ -1,15 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
-import {
-  configureMock,
-  installTauriMock,
-  readCalls,
-  readCommands,
-} from './support/tauriMock';
+import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
 const key = 'repotray.activeAccount.v1';
 type AccountMock = { updateDelay: number };
 async function setup(page: Page, saved: string | null = null) {
-  await installTauriMock<
+  const mock = await installTauriMock<
     { fixture: typeof fixture; saved: string | null; key: string },
     AccountMock
   >(
@@ -101,6 +96,7 @@ async function setup(page: Page, saved: string | null = null) {
     { arg: { fixture, saved, key }, state: { updateDelay: 0 } },
   );
   await page.goto('/');
+  return mock;
 }
 const workspace = (page: Page) =>
   page.getByRole('dialog', { name: 'Einstellungen', exact: true });
@@ -304,13 +300,13 @@ test('public update results survive account switches without using any account t
 test('an in-flight public update check remains valid after switching the workflow account', async ({
   page,
 }) => {
-  await setup(page, 'github-42');
+  const mock = await setup(page, 'github-42');
   await openSettings(page);
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
     page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
-  await configureMock<AccountMock>(page, { updateDelay: 600 });
+  await mock.configure({ updateDelay: 600 });
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await pickAccount(page, 'github-device-42');
   await page.getByRole('tab', { name: 'Updates' }).click();

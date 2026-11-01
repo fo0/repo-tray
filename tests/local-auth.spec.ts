@@ -1,10 +1,9 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
-  configureMock,
+  type TauriMock,
   installTauriMock,
   readCalls,
-  readMockState,
 } from './support/tauriMock';
 
 type LocalMock = {
@@ -13,9 +12,10 @@ type LocalMock = {
   /** Counts discovery responses after the panel had a full task to apply them. */
   scansSettled: number;
 };
+let mock: TauriMock<LocalMock>;
 
 test.beforeEach(async ({ page }) => {
-  await installTauriMock<{ fixture: typeof fixture }, LocalMock>(
+  mock = await installTauriMock<{ fixture: typeof fixture }, LocalMock>(
     page,
     ({ fixture }, state) => {
       const empty = {
@@ -160,7 +160,7 @@ test('local account access requires a click, explicit choice and consent before 
 test('unavailable sources stay unavailable and cancellation discards late process results', async ({
   page,
 }) => {
-  await configureMock<LocalMock>(page, { scanDelay: 400 });
+  await mock.configure({ scanDelay: 400 });
   await page
     .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
     .click();
@@ -169,11 +169,9 @@ test('unavailable sources stay unavailable and cancellation discards late proces
     .getByRole('button', { name: 'Prüfung abbrechen', exact: true })
     .click();
   // The absence check proves nothing until the late result was delivered.
-  await expect
-    .poll(() => readMockState<LocalMock, 'scansSettled'>(page, 'scansSettled'))
-    .toBe(1);
+  await expect.poll(() => mock.read('scansSettled')).toBe(1);
   await expect(page.getByLabel('Lokales Konto · gh CLI')).toHaveCount(0);
-  await configureMock<LocalMock>(page, { scanDelay: 0, empty: true });
+  await mock.configure({ scanDelay: 0, empty: true });
   await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
   await expect(
     page.getByText(
