@@ -226,13 +226,19 @@ impl<T: Transport> ApiClient<T> {
     }
 }
 
+/// A backoff deadline further ahead than any backoff can last was set before the clock went
+/// back; it has ended, so a backward clock jump never pauses an account longer.
+fn backing_off(retry_at: u64, now: u64) -> bool {
+    retry_at > now && retry_at <= now.saturating_add(MAX_BACKOFF_SECONDS)
+}
+
 fn send_once<T: Transport>(
     state: &mut ClientState<T>,
     request: &ApiRequest,
     now: u64,
 ) -> Result<ApiResponse, ApiError> {
     if let Some(retry_at) = state.backoff_until.get(&request.account_id) {
-        if *retry_at > now {
+        if backing_off(*retry_at, now) {
             return Err(ApiError::RateLimited {
                 retry_at: *retry_at,
             });
@@ -314,7 +320,7 @@ fn throttled<T>(
     state
         .backoff_until
         .get(account_id)
-        .filter(|retry_at| **retry_at > now)
+        .filter(|retry_at| backing_off(**retry_at, now))
         .map(|retry_at| ApiError::RateLimited {
             retry_at: *retry_at,
         })

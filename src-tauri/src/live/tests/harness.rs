@@ -19,6 +19,10 @@ pub(super) fn clock() -> u64 {
 pub(super) fn advance(seconds: u64) {
     NOW.with(|now| now.set(now.get() + seconds));
 }
+/// The system clock jumps back, as after a time-zone or NTP correction.
+pub(super) fn rewind(seconds: u64) {
+    NOW.with(|now| now.set(now.get() - seconds));
+}
 
 pub(super) fn json(status: u16, body: Value) -> Result<ApiResponse, TransportError> {
     Ok(ApiResponse {

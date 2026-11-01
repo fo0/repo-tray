@@ -247,6 +247,49 @@ fn a_revoked_account_neither_storms_healthy_metadata_nor_retries_before_its_hold
 }
 
 #[test]
+fn a_backward_clock_jump_neither_stalls_reads_nor_extends_a_hold() {
+    let mut remote = Remote::new();
+    remote.account_status.insert("github-2".into(), 401);
+    let mut h = Harness::new("clock", remote, &["github-1", "github-2"]);
+    h.select(&["github-1:1"]);
+    // The clock goes back a day: every deadline now lies more than an interval ahead.
+    h.remote().requests.clear();
+    rewind(86_400);
+    h.live.refresh();
+    {
+        let remote = h.remote();
+        assert_eq!(remote.count("github-1", "/user/repos"), 1, "catalog");
+        assert_eq!(remote.count("github-1", "/branches"), 1, "metadata");
+        assert!(remote.count("github-1", "/actions/runs") > 0, "runs");
+        assert_eq!(remote.count("github-2", "/user/repos"), 1, "the hold ended");
+        let window = remote
+            .requests
+            .iter()
+            .filter(|(account, _, _)| account == "github-1")
+            .find_map(|(_, _, target)| {
+                let url = reqwest::Url::parse(&format!("https://api.github.com{target}")).ok()?;
+                let created = url.query_pairs().find(|(key, _)| key == "created")?;
+                Some(created.1.into_owned())
+            })
+            .expect("a discovery window");
+        let opened = chrono::DateTime::from_timestamp(clock() as i64 - 2, 0).unwrap();
+        assert_eq!(
+            window,
+            format!(">={}", opened.to_rfc3339()),
+            "the discovery window never opens in the future"
+        );
+    }
+    // From here the timers run on the new clock: no storm, and the new hold holds.
+    h.remote().requests.clear();
+    advance(RETRY_SECONDS);
+    h.live.refresh();
+    let remote = h.remote();
+    assert_eq!(remote.count("github-1", "/user/repos"), 0);
+    assert_eq!(remote.count("github-1", "/branches"), 0);
+    assert_eq!(remote.count("github-2", "/"), 0);
+}
+
+#[test]
 fn a_missing_vault_entry_holds_its_account_and_asks_to_reconnect_or_disconnect() {
     let mut remote = Remote::new();
     remote.repos.insert("github-2".into(), vec![2]);
@@ -332,4 +375,12 @@ fn schedule_timers_are_per_scope_and_unauthorized_waits_the_full_interval() {
     schedule.forget_account("c", &repos);
     assert!(schedule.held("c", 101).is_none());
     assert!(schedule.catalog_due("c", 101) && schedule.metadata_due("c:1", 201));
+    // A deadline further ahead than its interval was set before the clock went back.
+    schedule.catalog_read("d", None, 10_000);
+    schedule.metadata_read("d:1", None, 10_000);
+    schedule.hold("e", revoked.clone(), 10_000);
+    assert!(!schedule.catalog_due("d", 10_100) && !schedule.metadata_due("d:1", 10_100));
+    assert_eq!(schedule.held("e", 10_100), Some(&revoked));
+    assert!(schedule.catalog_due("d", 9_000) && schedule.metadata_due("d:1", 9_000));
+    assert_eq!(schedule.held("e", 9_000), None);
 }

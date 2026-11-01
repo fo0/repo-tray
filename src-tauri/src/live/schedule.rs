@@ -18,12 +18,18 @@ pub(super) struct Schedule {
     metadata: BTreeMap<String, u64>,
     held: BTreeMap<String, (u64, ScopeError)>,
 }
+/// Deadlines are wall-clock times. One further ahead than the longest delay any scope gets
+/// was set before the clock went back, so it counts as reached: a backward clock jump never
+/// stalls a read or extends a hold beyond one interval.
+fn reached(at: u64, now: u64) -> bool {
+    now >= at || at > now.saturating_add(CATALOG_SECONDS)
+}
 impl Schedule {
     pub(super) fn catalog_due(&self, account: &str, now: u64) -> bool {
-        self.catalog.get(account).is_none_or(|at| now >= *at)
+        self.catalog.get(account).is_none_or(|at| reached(*at, now))
     }
     pub(super) fn metadata_due(&self, repo: &str, now: u64) -> bool {
-        self.metadata.get(repo).is_none_or(|at| now >= *at)
+        self.metadata.get(repo).is_none_or(|at| reached(*at, now))
     }
     pub(super) fn catalog_read(&mut self, account: &str, failure: Option<&ScopeError>, now: u64) {
         let delay = match failure {
@@ -55,7 +61,7 @@ impl Schedule {
     pub(super) fn held(&self, account: &str, now: u64) -> Option<&ScopeError> {
         self.held
             .get(account)
-            .filter(|(until, _)| now < *until)
+            .filter(|(until, _)| !reached(*until, now))
             .map(|(_, error)| error)
     }
     /// A new, reconnected or removed account starts its timers over.

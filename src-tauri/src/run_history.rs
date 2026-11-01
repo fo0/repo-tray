@@ -282,18 +282,16 @@ pub(crate) fn refresh_selected<T: Transport>(
         } else {
             60
         };
-        let due = now.saturating_sub(poll_at.get(&repo.id).copied().unwrap_or(0)) >= interval;
+        // A poll time ahead of now means the clock went back: poll now instead of waiting it
+        // out, and never open the discovery window in the future.
+        let polled_at = poll_at.get(&repo.id).copied().unwrap_or(0);
+        let due = now < polled_at || now - polled_at >= interval;
         if !due || blocked.contains(&repo.account_id) {
             pass.runs.extend(last());
             continue;
         }
-        match refresh_repo_runs(
-            client,
-            repo,
-            previous,
-            history_since.get(&repo.id).copied(),
-            now,
-        ) {
+        let since = history_since.get(&repo.id).map(|since| (*since).min(now));
+        match refresh_repo_runs(client, repo, previous, since, now) {
             Ok(runs) => {
                 pass.runs.extend(runs);
                 pass.polled.push((repo.id.clone(), now));

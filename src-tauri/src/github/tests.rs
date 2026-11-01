@@ -444,6 +444,27 @@ fn backoff_deadlines_are_clamped_to_one_hour() {
 }
 
 #[test]
+fn a_backward_clock_jump_never_extends_a_backoff() {
+    let get = ApiRequest::get(
+        "personal",
+        ApiUrl::parse("https://api.github.com/user").unwrap(),
+    )
+    .unwrap();
+    let (client, _) = client(vec![
+        Ok(response(429, &[("Retry-After", "120")], "{}")),
+        Ok(response(200, &[], "{}")),
+    ]);
+    client.execute(&get, 10_000).unwrap();
+    assert_eq!(
+        client.execute(&get, 10_060).unwrap_err(),
+        ApiError::RateLimited { retry_at: 10_120 }
+    );
+    // Further back than any backoff lasts: the deadline was set before the jump and is over.
+    let earlier = 10_000 - MAX_BACKOFF_SECONDS;
+    assert_eq!(client.execute(&get, earlier).unwrap().status, 200);
+}
+
+#[test]
 fn a_reset_or_retry_date_in_the_past_waits_the_fallback_delay() {
     let get = ApiRequest::get(
         "personal",
