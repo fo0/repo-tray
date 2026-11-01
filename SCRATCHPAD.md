@@ -8,6 +8,8 @@ Temporary working context. **Clean up aggressively — delete when resolved.**
 
 - Out of scope: releases (`[release]`), new runtime dependencies, re-enabling browser sign-in, signing.
 - CI guard: branch pushes do not trigger Checks (push only on `main`); open the PR only at the end.
+- Local e2e: `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`, `E2E_PORT` per checkout.
+- Wave plan and deferrals: `/tmp/orca/plan.md` (session-local; deferred items go to BACKLOG.md at the end).
 
 ## Open Questions
 
