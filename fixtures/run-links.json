@@ -217,7 +217,11 @@
   },
   {
     "input": "https://github.com/a_b/c/actions/runs/1",
-    "expected": null
+    "expected": "https://github.com/a_b/c/actions/runs/1"
+  },
+  {
+    "input": "https://github.com/jdoe_fixture/tools/actions/runs/42",
+    "expected": "https://github.com/jdoe_fixture/tools/actions/runs/42"
   },
   {
     "input": "https://github.com/a.b/c/actions/runs/1",

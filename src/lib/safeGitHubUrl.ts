@@ -1,6 +1,10 @@
 const U64_MAX = 18446744073709551615n;
-/** GitHub's login charset; logins are at most 39 characters. */
-const OWNER = /^[A-Za-z0-9-]{1,39}$/;
+/**
+ * GitHub's login charset; logins are at most 39 characters. `_` is allowed:
+ * Enterprise Managed Users logins look like `handle_shortcode` and can own
+ * repositories.
+ */
+const OWNER = /^[A-Za-z0-9_-]{1,39}$/;
 /** GitHub's repository-name charset; names are at most 100 characters. */
 const REPO = /^[A-Za-z0-9_.-]{1,100}$/;
 /** A run id as written by GitHub: ASCII digits that fit a `u64`. */

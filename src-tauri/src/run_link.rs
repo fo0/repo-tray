@@ -30,12 +30,13 @@ pub fn canonical_run_url(raw: &str) -> Option<String> {
     (is_owner(owner) && is_repo(repo) && is_run_id(id)).then(|| url.into())
 }
 
-/// GitHub login charset, at most 39 characters.
+/// GitHub login charset, at most 39 characters. `_` is allowed: Enterprise Managed Users
+/// logins look like `handle_shortcode` and can own repositories.
 fn is_owner(owner: &str) -> bool {
     (1..=39).contains(&owner.len())
         && owner
             .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
 }
 
 /// GitHub repository-name charset, at most 100 characters, never `.` or `..`.
