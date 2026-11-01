@@ -1,23 +1,17 @@
 name: Release
-# Every merge to main that changes more than docs: CI, then build and publish the
-# unsigned Windows EXE with a CalVer version and GitHub-generated changelog.
+# Started by hand on main: CI for that commit, then build and publish the unsigned
+# Windows EXE with a CalVer version and GitHub-generated changelog.
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'agent_docs/**'
-      - '.claude/**'
-      - '.github/dependabot.yml'
+  workflow_dispatch:
 permissions:
   contents: read
-# One release at a time; a newer merge replaces a release that has not started yet.
 concurrency:
   group: release
   cancel-in-progress: false
 jobs:
   ci:
+    # Started on another branch, nothing runs.
+    if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read

@@ -156,7 +156,7 @@ flowchart TD
     IpcContract -->|"generate_handler!"| DesktopRs
     RustTests -->|"demo snapshots"| DemoRs
     ReleaseYml --> ReleaseScripts
-    ReleaseYml -->|"runs first on every merge"| Checks
+    ReleaseYml -->|"runs first"| Checks
     ReleaseYml -->|"publish unsigned NSIS EXE"| Releases
 
     click AppSvelte "src/App.svelte"

@@ -85,7 +85,7 @@ tests/      Playwright specs (demo + IPC mock)
 scripts/    icon generator, release/updater helpers + node:test
 fixtures/   synthetic demo data
 docs/       product docs, adr/, ARCHITECTURE.mmd
-.github/    ci.yml (pull requests), release.yml (every merge to main)
+.github/    ci.yml (pull requests), release.yml (manual)
 ```
 
 ## Commands
@@ -144,7 +144,7 @@ Never committed — local `.env` (gitignored), CI secret store, runtime tokens i
 
 ## Deployment
 
-**Trigger:** every merge to `main` that changes more than docs — runs CI, then publishes · **Pipeline:** `.github/workflows/release.yml` · **Environments:** single — GitHub Release, unsigned Windows EXE. Agent scope: branches and PRs, **a merge is a release** — merge only on an explicit user command; merge gate: `/pr merge`. Detail: `docs/RELEASES.md`.
+**Trigger:** manual _Release_ on `main` only — runs CI for that commit, then publishes; merges never release · **Pipeline:** `.github/workflows/release.yml` · **Environments:** single — GitHub Release, unsigned Windows EXE. Agent scope: branches and PRs, **no release** without an explicit user command; merge gate: `/pr merge`. Detail: `docs/RELEASES.md`.
 
 ## API / Interfaces
 
