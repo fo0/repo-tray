@@ -6,49 +6,72 @@ on:
         description: Publish an already built draft (leave empty for a new build)
         required: false
         type: string
-  workflow_run:
-    workflows: [Checks]
-    types: [completed]
-    branches: [main]
+  # Checks calls this after all its jobs passed on a main push whose message asks for
+  # a release; see its `release` job.
+  workflow_call:
 permissions:
   contents: read
 jobs:
+  require-checks:
+    # A manual build releases only a commit whose push Checks passed, and waits while
+    # they still run. The [release] path is called by Checks after its jobs passed.
+    if: github.event_name == 'workflow_dispatch' && inputs.existing_tag == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read # Read the Checks runs of the release commit.
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - name: Wait for green Checks on the release commit
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Release must be started from main' }
+          $query = "repos/$env:GITHUB_REPOSITORY/actions/workflows/checks.yml/runs?head_sha=$env:RELEASE_SOURCE_SHA&event=push&per_page=1"
+          while ($true) {
+            $json = gh api $query
+            if ($LASTEXITCODE -ne 0) { throw 'Checks status unavailable' }
+            $run = @(($json | ConvertFrom-Json).workflow_runs)[0]
+            if (!$run) { throw "No push Checks run for $env:RELEASE_SOURCE_SHA" }
+            if ($run.status -eq 'completed') {
+              if ($run.conclusion -ne 'success') { throw "Checks for $env:RELEASE_SOURCE_SHA concluded $($run.conclusion)" }
+              Write-Output "Checks passed: $($run.html_url)"
+              break
+            }
+            Write-Output "Checks are $($run.status); checking again in 30 s"
+            Start-Sleep -Seconds 30
+          }
+
   windows-release:
+    needs: require-checks
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.existing_tag == '') ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.head_repository.full_name == github.repository &&
-       contains(github.event.workflow_run.head_commit.message, '[release]'))
+      !cancelled() &&
+      ((github.event_name == 'workflow_dispatch' && inputs.existing_tag == '' &&
+        needs.require-checks.result == 'success') ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]')))
     runs-on: windows-latest
     timeout-minutes: 90
-    # Job-level, not workflow-level: every Checks completion on main starts a Release
-    # run, and a workflow-level group would let a later no-op run displace a pending
-    # real release before the job conditions are evaluated.
+    # Shared with publish-existing: release operations queue, never cancel each other.
     concurrency:
       group: repotray-release
       cancel-in-progress: false
     permissions:
-      contents: write
+      contents: write # Create and publish the release.
       actions: read # Read this run's immutable created_at for retry-stable versions.
     env:
-      RELEASE_SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      RELEASE_SOURCE_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+          ref: ${{ github.sha }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: pnpm
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
       - name: Prepare automatic release
         shell: pwsh
         env:
@@ -77,20 +100,16 @@ jobs:
           "RELEASE_TAG=$($metadata.tag)" | Out-File -Encoding utf8 -Append $env:GITHUB_ENV
           "RELEASE_VERSION=$($metadata.version)" | Out-File -Encoding utf8 -Append $env:GITHUB_ENV
           "RELEASE_TITLE=$($metadata.title)" | Out-File -Encoding utf8 -Append $env:GITHUB_ENV
+      # Checks already linted and tested this exact commit; the release only builds it.
+      - name: Install Rust stable
+        run: rustup toolchain install stable --profile minimal --no-self-update && rustup default stable
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri -> target
           shared-key: windows-installer
           cache-bin: false
-          save-if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
       - run: pnpm install --frozen-lockfile
-      - run: pnpm verify
-      - run: pnpm exec playwright install chromium
-      - run: pnpm test:e2e
-      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
-      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials
-      - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials --all-targets -- -D warnings
       - name: Build unsigned Windows installer
         id: installer
         run: pnpm tauri build --features desktop --bundles nsis --config src-tauri/tauri.release.conf.json
@@ -117,7 +136,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Release exists, but download verification failed' }
           $downloaded = Join-Path release-work/download-check $filename
           if ((Get-FileHash $downloaded -Algorithm SHA256).Hash -ne (Get-FileHash $installer -Algorithm SHA256).Hash) { throw 'Release exists, but downloaded installer differs' }
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && steps.installer.outcome == 'success'
         with:
           name: RepoTray-Windows-release
@@ -128,25 +147,21 @@ jobs:
   publish-existing:
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.existing_tag != '') ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.head_repository.full_name == github.repository &&
-       contains(github.event.workflow_run.head_commit.message, '[publish-existing:'))
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-existing:'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Same group as windows-release (see the note there).
+    # Same group as windows-release.
     concurrency:
       group: repotray-release
       cancel-in-progress: false
     permissions:
-      contents: write
+      contents: write # Publish the existing draft.
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       EXISTING_TAG: ${{ inputs.existing_tag }}
-      REQUEST_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
+      REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0

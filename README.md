@@ -99,7 +99,7 @@ cargo clippy --locked --manifest-path src-tauri/Cargo.toml --no-default-features
 With Windows native prerequisites installed:
 
 ```sh
-cargo check --locked --manifest-path src-tauri/Cargo.toml --features desktop
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --features desktop --all-targets -- -D warnings
 cargo test --locked --manifest-path src-tauri/Cargo.toml --features desktop --bin repotray
 ```
 

@@ -86,7 +86,6 @@ scripts/    icon generator, release/updater helpers + node:test
 fixtures/   synthetic demo data
 docs/       product docs, adr/, ARCHITECTURE.mmd
 .github/    checks.yml (CI), release.yml
-ci/         inactive old checks.yml — not run
 ```
 
 ## Commands
@@ -145,7 +144,7 @@ Never committed — local `.env` (gitignored), CI secret store, runtime tokens i
 
 ## Deployment
 
-**Trigger:** manual _Release_ on `main`, or `[release]` in a `main` commit/merge message after green Checks · **Pipeline:** `.github/workflows/release.yml` · **Environments:** single — GitHub Release, unsigned Windows EXE. Agent scope: branches and PRs, **no release** without an explicit user command — never write `[release]` / `[publish-existing:…]` unprompted; merge gate: `/pr merge`. Detail: `docs/RELEASES.md`.
+**Trigger:** manual _Release_ on `main`, or `[release]` in a `main` commit/merge message after green Checks · **Pipeline:** `.github/workflows/release.yml` (called by Checks for `[release]`) · **Environments:** single — GitHub Release, unsigned Windows EXE. Agent scope: branches and PRs, **no release** without an explicit user command — never write `[release]` / `[publish-existing:…]` unprompted; merge gate: `/pr merge`. Detail: `docs/RELEASES.md`.
 
 ## API / Interfaces
 
