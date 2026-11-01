@@ -117,6 +117,16 @@
     ],
     bolt: [wire('14,3 5,13 11,13 10,21 19,10 13,10 14,3')],
     arrow: [line(4, 12, 20, 12), wire('14,6 20,12 14,18')],
+    copy: [
+      box(8.5, 8.5, 12, 12),
+      {
+        tag: 'path',
+        attributes: {
+          d: 'M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3',
+        },
+      },
+    ],
+    info: [ring(12, 12, 8.5), line(12, 11, 12, 16), line(12, 8, 12, 8.01)],
   } satisfies Record<string, Shape[]>;
 
   /** Every glyph name; a typo at a call site is a type error, not a silent fallback. */

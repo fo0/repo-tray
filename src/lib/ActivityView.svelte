@@ -17,6 +17,7 @@
 
 <script lang="ts">
   import EmptyState from './EmptyState.svelte';
+  import Icon from './Icon.svelte';
   import RunRow from './RunRow.svelte';
   import { minuteClock } from './clock';
   import { plural } from './format';
@@ -95,22 +96,7 @@
       aria-label="Hinweis zum Verlauf"
       title="Hinweis zum Verlauf"
       onclick={() => (showNote = !showNote)}
-      ><svg
-        width="15"
-        height="15"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.6"
-        stroke-linecap="round"
-        aria-hidden="true"
-        ><circle cx="12" cy="12" r="8.5" /><line
-          x1="12"
-          y1="11"
-          x2="12"
-          y2="16"
-        /><line x1="12" y1="8" x2="12" y2="8.01" /></svg
-      ></button
+      ><Icon name="info" size={15} /></button
     ></span
   >
 </div>

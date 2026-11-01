@@ -126,21 +126,7 @@
         disabled={!runUrl}
         aria-label={`Link zu ${run.name} #${run.id} kopieren`}
         title={runUrl ? 'Link kopieren' : noLink}
-        onclick={() => void copyLink()}
-        ><svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.6"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-          ><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path
-            d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"
-          /></svg
-        ></button
+        onclick={() => void copyLink()}><Icon name="copy" size={14} /></button
       >
     </div>
   </div>
