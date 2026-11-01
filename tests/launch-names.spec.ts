@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import { openLaunch, scenario } from './support/demo';
 
 test.beforeEach(async ({ page }) => {

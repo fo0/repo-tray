@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import { openLaunch, scenario } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
@@ -129,4 +129,44 @@ test('a notice that arrives behind a dialog waits there and times out only after
   await expect(notice).toBeVisible();
   await page.clock.runFor(1200);
   await expect(notice).toHaveCount(0);
+});
+
+test('closing a focused notice hands focus to the next notice, then to the view tab', async ({
+  page,
+}) => {
+  await scenario(page, 'uncertain');
+  const dialog = await openLaunch(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await page.keyboard.press('Escape');
+  await page.clock.runFor(400);
+  const warning = page
+    .getByRole('status')
+    .filter({ hasText: /Desktop build: Demo: Antwort unterbrochen/ });
+  await expect(warning).toBeVisible();
+  const refreshed = await refreshNotice(page);
+  const close = (notice: typeof warning) =>
+    notice.getByRole('button', { name: 'Meldung schließen' });
+
+  await close(warning).focus();
+  await page.keyboard.press('Enter');
+  await expect(warning).toHaveCount(0);
+  await expect(close(refreshed)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(refreshed).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Favoriten', exact: true }),
+  ).toBeFocused();
+});
+
+test('F5 replaces a focused panel notice without dropping focus to the page', async ({
+  page,
+}) => {
+  const notice = await refreshNotice(page);
+  await notice.getByRole('button', { name: 'Meldung schließen' }).focus();
+  await page.keyboard.press('F5');
+  await page.clock.runFor(400);
+  await expect(notice).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Repositories', exact: true }),
+  ).toBeFocused();
 });

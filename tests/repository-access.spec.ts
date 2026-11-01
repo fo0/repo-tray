@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
   type TauriMock,

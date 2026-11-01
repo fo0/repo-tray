@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';

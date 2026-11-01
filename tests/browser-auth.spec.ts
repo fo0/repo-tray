@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCommands } from './support/tauriMock';
 

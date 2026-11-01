@@ -8,7 +8,7 @@ export interface TrapFocusOptions {
 }
 
 /** Focus was dropped (the focused element was removed or made inert). */
-function focusLost() {
+export function focusLost() {
   const active = document.activeElement;
   return !active || active === document.body || !active.isConnected;
 }
@@ -16,6 +16,22 @@ function focusLost() {
 /** The active view tab: the place to land when nothing better is left. */
 function activeViewTab() {
   return document.querySelector<HTMLElement>('[aria-current="page"]');
+}
+
+/** The first control of the notice next to this one, after it first. */
+export function neighbourNotice(node: HTMLElement) {
+  for (const sibling of [node.nextElementSibling, node.previousElementSibling])
+    if (sibling?.matches('.notice-banner'))
+      return sibling.querySelector<HTMLElement>('button');
+  return null;
+}
+
+/**
+ * Where focus goes when the notice holding it closes: the neighbour found
+ * while it was still listed, if it is still there, else the active view tab.
+ */
+export function focusAfterNotice(neighbour: HTMLElement | null) {
+  (neighbour?.isConnected ? neighbour : activeViewTab())?.focus();
 }
 
 /** Removed or disabled elements cannot take focus back. */

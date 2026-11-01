@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { NOW, openNativeActivity, row } from './support/nativeActivity';
 
 // Relative and absolute times are asserted; a fixed zone keeps them stable.

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import { openNativeActivity, row, RUN_URL } from './support/nativeActivity';
 import { readCalls } from './support/tauriMock';
 

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 
 test('settings tabs support keyboard navigation and keep updates reachable at narrow widths', async ({
   page,

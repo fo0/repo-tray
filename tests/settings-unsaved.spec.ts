@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 
 const dialog = (page: Page) =>
   page.getByRole('dialog', { name: 'Einstellungen', exact: true });

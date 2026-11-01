@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import { openDemoActivity, openLaunch, templateCard } from './support/demo';
 
 // The demo answers a start after 300 ms; a paused clock holds it in flight.

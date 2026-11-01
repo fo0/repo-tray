@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import { openConnection } from './support/demo';
 
 const tab = (page: Page, name: RegExp) => page.getByRole('button', { name });
