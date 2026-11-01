@@ -19,6 +19,9 @@
     canRefresh: boolean;
     onRefresh: () => void;
   } = $props();
+  const stamp = $derived(
+    updatedAt !== undefined ? `Stand ${clockTime(updatedAt)}` : '',
+  );
 </script>
 
 <footer class="app-footer">
@@ -34,10 +37,11 @@
     onclick={() => onRefresh()}
     disabled={refreshing || !canRefresh}
     title={demo ? 'Demo-Status aktualisieren' : 'GitHub-Status aktualisieren'}
+    aria-label={!refreshing && stamp ? `Aktualisieren · ${stamp}` : undefined}
     >{refreshing
       ? 'Aktualisiert …'
-      : updatedAt !== undefined
-        ? `Stand ${clockTime(updatedAt)}`
+      : stamp
+        ? stamp
         : canRefresh
           ? 'Erneut laden'
           : 'Lädt …'}<Icon name="refresh" size={11} /></button

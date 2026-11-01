@@ -13,12 +13,16 @@ test('the footer refresh shows the new demo timestamp and confirms it', async ({
 }) => {
   await page.clock.setFixedTime(new Date('2026-11-01T08:30:00Z'));
   await page.goto('/');
-  const footer = page.getByRole('button', { name: /^Stand \d\d:\d\d$/ });
-  // Synthetic fixture time until the first refresh.
+  const footer = page.locator('.app-footer').getByRole('button');
+  // Synthetic fixture time until the first refresh. The name says what the
+  // button does, the visible text what it shows.
   await expect(footer).toHaveText('Stand 09:45');
+  await expect(footer).toHaveAccessibleName('Aktualisieren · Stand 09:45');
+  await expect(footer).toHaveAccessibleDescription('Demo-Status aktualisieren');
   await footer.click();
   await expect(notice(page, 'Demo-Status aktualisiert.')).toBeVisible();
   await expect(footer).toHaveText('Stand 08:30');
+  await expect(footer).toHaveAccessibleName('Aktualisieren · Stand 08:30');
   await expect(footer).toBeEnabled();
 });
 

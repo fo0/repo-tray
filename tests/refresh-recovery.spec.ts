@@ -58,7 +58,9 @@ test('a native load error keeps refresh available until a retry succeeds', async
   await expect(
     page.getByRole('heading', { name: 'Daten konnten nicht geladen werden' }),
   ).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Stand / })).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: /^Aktualisieren · Stand / }),
+  ).toBeEnabled();
   expect(
     (await readCommands(page)).filter((cmd) => cmd === 'refresh_snapshot'),
   ).toHaveLength(2);
