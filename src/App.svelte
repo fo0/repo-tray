@@ -21,6 +21,12 @@
   import { bridge, native, observeSnapshots } from './lib/bridge';
   import { trapFocus } from './lib/focus';
   import {
+    accountLabel,
+    clockTime,
+    errorMessage,
+    repoLabel,
+  } from './lib/format';
+  import {
     defaultInputs,
     duration,
     fullRepo,
@@ -31,6 +37,7 @@
     RequestEpoch,
     safeGitHubUrl,
     statusLabel,
+    targetKey,
     validateDispatch,
     visibleRuns,
     type ActivityFilter,
@@ -41,7 +48,6 @@
     DispatchRequest,
     InputValue,
     Pin,
-    Repo,
     Snapshot,
     Workflow,
   } from './lib/types';
@@ -168,16 +174,6 @@
     quarantinedTargets.has(targetKey(request('context'))),
   );
 
-  function targetKey(
-    value: Pick<DispatchRequest, 'accountId' | 'repoId' | 'workflowId' | 'ref'>,
-  ) {
-    return JSON.stringify([
-      value.accountId,
-      value.repoId,
-      value.workflowId,
-      value.ref,
-    ]);
-  }
   function matchedWorkflows(id: string) {
     return (
       snapshot?.workflows.filter(
@@ -213,15 +209,12 @@
     updateMessage = '';
     try {
       updateInfo = await invoke<UpdateInfo | null>('check_update');
-      updateCheckedAt = new Date().toLocaleTimeString('de-DE', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      updateCheckedAt = clockTime();
       updatePhase = updateInfo ? 'available' : 'current';
     } catch (cause) {
       updateInfo = null;
       updatePhase = 'idle';
-      if (!silent) updateMessage = message(cause);
+      if (!silent) updateMessage = errorMessage(cause);
     }
   }
   async function downloadUpdate() {
@@ -240,7 +233,7 @@
       updatePhase = 'ready';
     } catch (cause) {
       updatePhase = 'available';
-      updateMessage = message(cause);
+      updateMessage = errorMessage(cause);
     }
   }
   async function installUpdate() {
@@ -251,7 +244,7 @@
       await invoke('install_update');
     } catch (cause) {
       updatePhase = 'ready';
-      updateMessage = message(cause);
+      updateMessage = errorMessage(cause);
     }
   }
   function connectedNative(value: Snapshot) {
@@ -274,7 +267,7 @@
         .filter((repo) => repo.selected)
         .map((repo) => repo.id);
     } catch (cause) {
-      dialogError = message(cause);
+      dialogError = errorMessage(cause);
     } finally {
       mutationBusy = false;
     }
@@ -290,22 +283,10 @@
     void tick().then(() => accountPicker?.focus());
   }
   function repoName(id: string) {
-    const repo = snapshot?.repos.find((item) => item.id === id);
-    return repo ? fullRepo(repo) : 'Repository nicht verfügbar';
+    return repoLabel(snapshot, id);
   }
   function accountName(id: string) {
-    const account = snapshot?.accounts.find((item) => item.id === id);
-    return account
-      ? native
-        ? accountTitle(account)
-        : account.login
-      : 'Kein aktives Konto';
-  }
-  function clock(value: string) {
-    return new Date(value).toLocaleTimeString('de-DE', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return accountLabel(snapshot, id, native);
   }
   function showNotice(
     value: string,
@@ -313,13 +294,6 @@
   ) {
     notice = value;
     noticeTone = tone;
-  }
-  function message(cause: unknown) {
-    return cause instanceof Error
-      ? cause.message
-      : typeof cause === 'string'
-        ? cause
-        : 'Die Aktion konnte nicht abgeschlossen werden.';
   }
   function request(id: string): DispatchRequest {
     return {
@@ -367,7 +341,7 @@
         }
       })
       .catch((cause) => {
-        if (viewEpoch.current(ticket)) error = message(cause);
+        if (viewEpoch.current(ticket)) error = errorMessage(cause);
       });
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
@@ -429,7 +403,7 @@
       }
       return value;
     } catch (cause) {
-      if (viewEpoch.current(ticket)) error = message(cause);
+      if (viewEpoch.current(ticket)) error = errorMessage(cause);
       return null;
     } finally {
       if (viewEpoch.current(ticket)) refreshing = false;
@@ -439,7 +413,7 @@
     try {
       await invoke('open_browser_installation');
     } catch (cause) {
-      dialogError = message(cause);
+      dialogError = errorMessage(cause);
     }
   }
   async function refreshRepositoryAccess() {
@@ -460,7 +434,7 @@
             'Repository-Zugriff konnte nicht aktualisiert werden.';
       }
     } catch (cause) {
-      if (viewEpoch.current(ticket)) dialogError = message(cause);
+      if (viewEpoch.current(ticket)) dialogError = errorMessage(cause);
     } finally {
       if (viewEpoch.current(ticket)) mutationBusy = false;
     }
@@ -619,8 +593,8 @@
       }
     } catch (cause) {
       if (dialogEpoch.current(ticket)) {
-        if (modal === 'dispatch') dialogError = message(cause);
-        else error = message(cause);
+        if (modal === 'dispatch') dialogError = errorMessage(cause);
+        else error = errorMessage(cause);
       }
     } finally {
       if (dialogEpoch.current(ticket)) dispatching = false;
@@ -688,7 +662,7 @@
         showNotice('Action als Favorit gespeichert.');
       }
     } catch (cause) {
-      if (viewEpoch.current(ticket)) error = message(cause);
+      if (viewEpoch.current(ticket)) error = errorMessage(cause);
     } finally {
       mutationBusy = false;
     }
@@ -719,7 +693,7 @@
         dialogNotice = 'Vorlage lokal gespeichert.';
       }
     } catch (cause) {
-      if (dialogEpoch.current(ticket)) dialogError = message(cause);
+      if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
     } finally {
       if (dialogEpoch.current(ticket)) saving = false;
     }
@@ -736,7 +710,7 @@
         showNotice('Vorlage entfernt.');
       }
     } catch (cause) {
-      if (viewEpoch.current(ticket)) error = message(cause);
+      if (viewEpoch.current(ticket)) error = errorMessage(cause);
     } finally {
       mutationBusy = false;
     }
@@ -756,7 +730,7 @@
         showNotice('Repository-Auswahl gespeichert.');
       }
     } catch (cause) {
-      if (dialogEpoch.current(ticket)) dialogError = message(cause);
+      if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
     } finally {
       if (dialogEpoch.current(ticket)) mutationBusy = false;
     }
@@ -771,7 +745,7 @@
       const data = await bridge.setDemoScenario(value);
       if (dialogEpoch.current(ticket)) snapshot = data;
     } catch (cause) {
-      if (dialogEpoch.current(ticket)) dialogError = message(cause);
+      if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
     }
   }
   async function resetDemo() {
@@ -795,7 +769,7 @@
         );
       }
     } catch (cause) {
-      if (dialogEpoch.current(ticket)) dialogError = message(cause);
+      if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
     } finally {
       if (dialogEpoch.current(ticket)) mutationBusy = false;
     }
@@ -1215,7 +1189,7 @@
                   </div>
                   <div>
                     <span>Aktualisiert</span><strong
-                      >{clock(run.updatedAt)}{demo
+                      >{clockTime(run.updatedAt)}{demo
                         ? ' · Demo-Zeit'
                         : ''}</strong
                     >
@@ -1232,7 +1206,7 @@
                           void invoke('open_run', {
                             url: run.htmlUrl,
                           }).catch((cause) =>
-                            showNotice(message(cause), 'warning'),
+                            showNotice(errorMessage(cause), 'warning'),
                           );
                         }
                       }}
@@ -1445,7 +1419,7 @@
         >{refreshing
           ? 'Aktualisiert …'
           : snapshot
-            ? `Stand ${clock(snapshot.updatedAt)}`
+            ? `Stand ${clockTime(snapshot.updatedAt)}`
             : 'Lädt …'}<Icon name="refresh" size={11} /></button
       >
     </footer>
@@ -2037,7 +2011,7 @@
                               void invoke('open_run', {
                                 url: outcome?.htmlUrl,
                               }).catch((cause) =>
-                                showNotice(message(cause), 'warning'),
+                                showNotice(errorMessage(cause), 'warning'),
                               );
                             }
                           }}
