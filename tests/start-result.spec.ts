@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openDemoActivity, openLaunch, templateCard } from './support/demo';
+import {
+  openDemoActivity,
+  openLaunch,
+  scenario,
+  templateCard,
+} from './support/demo';
 
 // The demo answers a start after 300 ms; a paused clock holds every start in
 // flight until the test releases it with `runFor`.
@@ -99,6 +104,55 @@ test('a reopened start dialog shows the result of the running start and stays lo
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(page.getByText(/Demo-Run #9001/)).toBeVisible();
   await expect(page.getByText(/9002/)).toHaveCount(0);
+});
+
+test('concurrent starts keep one banner each and both runs appear', async ({
+  page,
+}) => {
+  await holdStarts(page);
+  let dialog = await openLaunch(page);
+  await dialog.getByLabel('Branch oder Tag').selectOption('develop');
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  dialog = await openLaunch(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await page.clock.runFor(400);
+  const banners = page
+    .getByRole('status')
+    .filter({ hasText: /Desktop build: Simulierter Start angenommen/ });
+  await expect(banners).toHaveCount(2);
+  await expect(banners.filter({ hasText: 'Demo-Run #9001' })).toBeVisible();
+  await expect(banners.filter({ hasText: 'Demo-Run #9002' })).toBeVisible();
+  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await expect(page.getByText('#9001', { exact: true })).toBeVisible();
+  await expect(page.getByText('#9002', { exact: true })).toBeVisible();
+});
+
+test('a later start neither clears nor replaces the warning of another target', async ({
+  page,
+}) => {
+  await scenario(page, 'uncertain');
+  let dialog = await openLaunch(page);
+  await dialog.getByLabel('Branch oder Tag').selectOption('develop');
+  await holdStarts(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await page.clock.runFor(400);
+  const warning = page
+    .getByRole('status')
+    .filter({ hasText: /Desktop build: Demo: Antwort unterbrochen/ });
+  await expect(warning).toBeVisible();
+  await scenario(page, 'normal');
+  dialog = await openLaunch(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await expect(warning).toBeVisible();
+  await page.clock.runFor(400);
+  await expect(
+    page.getByRole('status').filter({ hasText: /Demo-Run #9001/ }),
+  ).toBeVisible();
+  await expect(warning).toBeVisible();
 });
 
 test('a quick start keeps its result when another dialog opens meanwhile', async ({

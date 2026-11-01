@@ -36,6 +36,8 @@ export class Starts {
   #panel: Panel;
   #bridge: Bridge;
   #seq = 0;
+  /** An accepted start waits for a snapshot that shows its run. */
+  #stale = false;
 
   constructor(panel: Panel, bridge: Bridge) {
     this.#panel = panel;
@@ -69,35 +71,44 @@ export class Starts {
     if (invalid) return this.#settle({ error: invalid }, payload, options);
     const seq = ++this.#seq;
     this.running = new Map(this.running).set(key, seq);
-    const viewTicket = panel.viewEpoch.next();
-    panel.refreshing = false;
     panel.error = '';
-    panel.notice = null;
-    let result: StartResult = { error: 'Start abgebrochen.' };
+    // Only this target's earlier result goes; other starts keep their banner.
+    panel.notices.clear(key);
+    let result: StartResult;
     try {
       const outcome = await this.#bridge.dispatchWorkflow(payload);
       if (outcome.state === 'uncertain')
         this.quarantined = new Set([...this.quarantined, key]);
-      if (outcome.state === 'accepted') {
-        try {
-          const value = await this.#bridge.snapshot();
-          if (panel.viewEpoch.current(viewTicket)) panel.accept(value);
-        } catch {
-          /* The next pushed snapshot shows the new run. */
-        }
-      }
+      if (outcome.state === 'accepted') this.#stale = true;
       result = { outcome };
     } catch (cause) {
       result = { error: errorMessage(cause) };
-    } finally {
-      // Record the result before freeing the target, so a watching dialog
-      // never sees a free target without its result.
-      this.settled = new Map(this.settled).set(key, { seq, result });
-      const rest = new Map(this.running);
-      rest.delete(key);
-      this.running = rest;
     }
+    // Record the result before freeing the target, so a watching dialog
+    // never sees a free target without its result.
+    this.settled = new Map(this.settled).set(key, { seq, result });
+    const rest = new Map(this.running);
+    rest.delete(key);
+    this.running = rest;
+    if (!this.any && this.#stale) await this.#catchUp();
     return this.#settle(result, payload, options);
+  }
+
+  /**
+   * One snapshot once the last running start settled: a start that begins
+   * later must not discard the run of one that was accepted earlier.
+   */
+  async #catchUp() {
+    const panel = this.#panel;
+    this.#stale = false;
+    const ticket = panel.viewEpoch.next();
+    panel.refreshing = false;
+    try {
+      const value = await this.#bridge.snapshot();
+      if (panel.viewEpoch.current(ticket)) panel.accept(value);
+    } catch {
+      /* The next pushed snapshot shows the new run. */
+    }
   }
 
   #settle(
@@ -107,6 +118,7 @@ export class Starts {
   ): StartResult | null {
     if (options.owner?.()) return result;
     const panel = this.#panel;
+    const key = targetKey(payload);
     const name =
       options.label ??
       panel.snapshot?.workflows.find(
@@ -115,15 +127,25 @@ export class Starts {
       )?.name ??
       'Workflow';
     if ('error' in result) {
-      panel.error = `${name}: ${result.error}`;
+      panel.notices.show({
+        key,
+        text: `${name}: ${result.error}`,
+        tone: 'danger',
+      });
       return null;
     }
     const { state, message, runId } = result.outcome;
-    if (state === 'accepted')
-      panel.showNotice(`${name}: ${message}`, 'subtle', runId);
-    else if (state === 'uncertain')
-      panel.showNotice(`${name}: ${message}`, 'warning');
-    else panel.showNotice(`${name}: Start abgelehnt. ${message}`, 'danger');
+    const text =
+      state === 'rejected'
+        ? `${name}: Start abgelehnt. ${message}`
+        : `${name}: ${message}`;
+    const tone =
+      state === 'accepted'
+        ? 'subtle'
+        : state === 'uncertain'
+          ? 'warning'
+          : 'danger';
+    panel.notices.show({ key, text, tone, runId });
     return null;
   }
 }

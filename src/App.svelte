@@ -9,7 +9,6 @@
   import LaunchView from './lib/LaunchView.svelte';
   import Modal from './lib/Modal.svelte';
   import NativeConnect from './lib/NativeConnect.svelte';
-  import NoticeBanner from './lib/NoticeBanner.svelte';
   import RepositoriesView from './lib/RepositoriesView.svelte';
   import SearchField from './lib/SearchField.svelte';
   import SettingsDialog from './lib/SettingsDialog.svelte';
@@ -48,7 +47,7 @@
   let searchField = $state<ReturnType<typeof SearchField>>();
   let toolbar = $state<ReturnType<typeof Toolbar>>();
   const modals = new Modals((id) => {
-    if (panel.notice?.runId) panel.notice = null;
+    panel.notices.dismissRun(id);
     tab = 'activity';
     filter = 'all';
     query = '';
@@ -208,20 +207,11 @@
         {demo}
         {snapshot}
         error={panel.error}
-        notice={panel.notice?.runId ? '' : (panel.notice?.text ?? '')}
-        noticeTone={panel.notice?.tone ?? 'subtle'}
+        notices={panel.notices.items}
         onShowUpdate={() => openSettings('updates')}
-        onDismissNotice={() => (panel.notice = null)}
+        onShowRun={modals.showRun}
+        onDismissNotice={(id) => panel.notices.dismiss(id)}
       />
-      {#if panel.notice?.runId}
-        <NoticeBanner
-          text={panel.notice.text}
-          tone={panel.notice.tone}
-          actionLabel="In Aktivität anzeigen"
-          onAction={() => modals.showRun(panel.notice?.runId ?? null)}
-          onDismiss={() => (panel.notice = null)}
-        />
-      {/if}
 
       {#if !snapshot}
         <EmptyState

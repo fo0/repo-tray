@@ -8,16 +8,11 @@ import {
 import type { Bridge } from './demo';
 import { errorMessage } from './format';
 import { RequestEpoch, validateDispatch } from './model';
+import { Notices, PANEL_NOTICE } from './notices.svelte';
 import { favoriteDraft, findFavorite, removedNotice } from './pins';
 import { Starts } from './starts.svelte';
 import type { DemoScenario, Pin, Snapshot, Workflow } from './types';
 
-export interface Notice {
-  text: string;
-  tone: NoticeTone;
-  /** An accepted start the banner can show in the activity list. */
-  runId?: number;
-}
 type BusyFlag =
   | 'pinsBusy'
   | 'templateBusy'
@@ -46,7 +41,6 @@ export class Panel {
   accountNotice = $state('');
   scenario = $state<DemoScenario>('normal');
   error = $state('');
-  notice = $state.raw<Notice | null>(null);
   refreshing = $state(false);
   // Every operation owns its busy flag; closing a dialog clears none of them.
   pinsBusy = $state(false);
@@ -58,6 +52,7 @@ export class Panel {
 
   readonly native: boolean;
   readonly starts: Starts;
+  readonly notices = new Notices();
   readonly viewEpoch = new RequestEpoch();
   #bridge: Bridge;
   #observe: PanelDeps['observe'];
@@ -104,8 +99,9 @@ export class Panel {
       : null;
   }
 
-  showNotice(text: string, tone: NoticeTone = 'subtle', runId?: number) {
-    this.notice = { text, tone, runId };
+  /** The one general notice; start results keep their own per target. */
+  showNotice(text: string, tone: NoticeTone = 'subtle') {
+    this.notices.show({ key: PANEL_NOTICE, text, tone });
   }
 
   accept(value: Snapshot) {
@@ -174,7 +170,7 @@ export class Panel {
       this.accountNotice =
         'Die Kontoauswahl konnte nicht gespeichert werden und gilt nur für diese Sitzung.';
     this.error = '';
-    this.notice = null;
+    this.notices.clear(PANEL_NOTICE);
   }
 
   /** Resolves to null when the refresh failed or a newer view change won. */
@@ -183,7 +179,7 @@ export class Panel {
     const ticket = this.viewEpoch.next();
     this.refreshing = true;
     this.error = '';
-    this.notice = null;
+    this.notices.clear(PANEL_NOTICE);
     try {
       const value = await this.#bridge.refreshSnapshot();
       if (!this.viewEpoch.current(ticket)) return null;

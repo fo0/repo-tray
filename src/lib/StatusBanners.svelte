@@ -4,6 +4,8 @@
 
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import NoticeBanner from './NoticeBanner.svelte';
+  import type { Notice } from './notices.svelte';
   import type { Snapshot } from './types';
   import type { UpdateInfo } from './updates';
 
@@ -12,19 +14,20 @@
     demo,
     snapshot,
     error,
-    notice,
-    noticeTone,
+    notices,
     onShowUpdate,
+    onShowRun,
     onDismissNotice,
   }: {
     update: UpdateInfo | null;
     demo: boolean;
     snapshot: Snapshot | null;
     error: string;
-    notice: string;
-    noticeTone: NoticeTone;
+    /** General notice and per-target start results, oldest first. */
+    notices: Notice[];
     onShowUpdate: () => void;
-    onDismissNotice: () => void;
+    onShowRun: (runId: number) => void;
+    onDismissNotice: (id: number) => void;
   } = $props();
 </script>
 
@@ -49,12 +52,13 @@
 {#if error}<div class="alert danger" role="alert">
     <Icon name="warning" size={16} /><span>{error}</span>
   </div>{/if}
-{#if notice}<div class={`alert ${noticeTone} notice-banner`} role="status">
-    <Icon name={noticeTone === 'subtle' ? 'check' : 'warning'} size={16} /><span
-      >{notice}</span
-    ><button
-      class="icon-button small"
-      aria-label="Meldung schließen"
-      onclick={() => onDismissNotice()}><Icon name="close" size={13} /></button
-    >
-  </div>{/if}
+{#each notices as notice (notice.id)}
+  {@const runId = notice.runId}
+  <NoticeBanner
+    text={notice.text}
+    tone={notice.tone}
+    actionLabel={runId ? 'In Aktivität anzeigen' : undefined}
+    onAction={runId ? () => onShowRun(runId) : undefined}
+    onDismiss={() => onDismissNotice(notice.id)}
+  />
+{/each}

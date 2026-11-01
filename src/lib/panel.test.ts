@@ -9,6 +9,9 @@ function deferred<T>() {
   return { promise, resolve };
 }
 const flush = () => new Promise((done) => setTimeout(done, 0));
+/** Banner notices without their generated id and key. */
+const notices = (panel: Panel) =>
+  panel.notices.items.map(({ text, tone, runId }) => ({ text, tone, runId }));
 const request: DispatchRequest = {
   accountId: 'demo-personal',
   repoId: 'demo-personal-kit',
@@ -48,11 +51,33 @@ describe('Panel starts', () => {
     answer.resolve({ state: 'accepted', runId: 9001, message: 'Angenommen.' });
     expect(await result).toBe(null);
     expect(panel.starts.isRunning(request)).toBe(false);
-    expect(panel.notice).toEqual({
-      text: 'Desktop build: Angenommen.',
-      tone: 'subtle',
-      runId: 9001,
+    expect(notices(panel)).toEqual([
+      { text: 'Desktop build: Angenommen.', tone: 'subtle', runId: 9001 },
+    ]);
+  });
+
+  it('records the result before it frees the target, so a watching dialog stays locked', async () => {
+    const answer = deferred<DispatchOutcome>();
+    const reload = deferred<Snapshot>();
+    const { panel, bridge } = await setup({
+      dispatchWorkflow: () => answer.promise,
     });
+    const result = panel.starts.dispatch(request, { owner: () => false });
+    const seq = panel.starts.runningSeq(request);
+    expect(seq).toBeTypeOf('number');
+    // The post-accept snapshot is still loading when the target is freed.
+    bridge.snapshot = () => reload.promise;
+    answer.resolve({ state: 'accepted', runId: 9001, message: 'Angenommen.' });
+    await flush();
+    expect(panel.starts.isRunning(request)).toBe(false);
+    expect(panel.starts.settledFor(request)).toEqual({
+      seq,
+      result: {
+        outcome: { state: 'accepted', runId: 9001, message: 'Angenommen.' },
+      },
+    });
+    reload.resolve(panel.snapshot!);
+    expect(await result).toBe(null);
   });
 
   it('hands the result to a dialog that still wants it', async () => {
@@ -62,7 +87,7 @@ describe('Panel starts', () => {
     expect(await panel.starts.dispatch(request, { owner: () => true })).toEqual(
       { outcome: { state: 'rejected', message: 'Nein.' } },
     );
-    expect(panel.notice).toBe(null);
+    expect(panel.notices.items).toEqual([]);
   });
 
   it('quarantines an uncertain target and never clears it on its own', async () => {
@@ -71,11 +96,76 @@ describe('Panel starts', () => {
     });
     await panel.starts.dispatch(request, { label: 'Vorlage' });
     expect(panel.starts.isQuarantined(request)).toBe(true);
-    expect(panel.notice).toEqual({
-      text: 'Vorlage: Offen.',
-      tone: 'warning',
-      runId: undefined,
+    expect(notices(panel)).toEqual([
+      { text: 'Vorlage: Offen.', tone: 'warning', runId: undefined },
+    ]);
+  });
+
+  it('keeps one banner per target: a later start neither clears nor overwrites another', async () => {
+    const answers = new Map<
+      string,
+      ReturnType<typeof deferred<DispatchOutcome>>
+    >();
+    const { panel } = await setup({
+      dispatchWorkflow: (payload) => {
+        const answer = deferred<DispatchOutcome>();
+        answers.set(payload.ref, answer);
+        return answer.promise;
+      },
     });
+    const a = panel.starts.dispatch(request, { label: 'A' });
+    answers.get('main')!.resolve({ state: 'uncertain', message: 'Offen.' });
+    await a;
+    const b = panel.starts.dispatch(
+      { ...request, ref: 'develop', requestId: 'request-b' },
+      { label: 'B' },
+    );
+    // Starting B keeps A's warning.
+    expect(notices(panel).map((item) => item.text)).toEqual(['A: Offen.']);
+    answers
+      .get('develop')!
+      .resolve({ state: 'accepted', runId: 9002, message: 'Angenommen.' });
+    await b;
+    expect(notices(panel)).toEqual([
+      { text: 'A: Offen.', tone: 'warning', runId: undefined },
+      { text: 'B: Angenommen.', tone: 'subtle', runId: 9002 },
+    ]);
+  });
+
+  it('fetches the post-accept snapshot once the last running start settled', async () => {
+    const answers = new Map<
+      string,
+      ReturnType<typeof deferred<DispatchOutcome>>
+    >();
+    let reads = 0;
+    const accepted = { updatedAt: 'after-accept' };
+    const { panel, bridge } = await setup({
+      dispatchWorkflow: (payload) => {
+        const answer = deferred<DispatchOutcome>();
+        answers.set(payload.ref, answer);
+        return answer.promise;
+      },
+    });
+    const base = await bridge.snapshot();
+    bridge.snapshot = async () => {
+      reads++;
+      return { ...base, ...accepted };
+    };
+    const a = panel.starts.dispatch(request, { label: 'A' });
+    const b = panel.starts.dispatch(
+      { ...request, ref: 'develop', requestId: 'request-b' },
+      { label: 'B' },
+    );
+    answers
+      .get('main')!
+      .resolve({ state: 'accepted', runId: 9001, message: 'Angenommen.' });
+    await a;
+    // B still runs: no snapshot yet, and none that B could discard.
+    expect(reads).toBe(0);
+    answers.get('develop')!.resolve({ state: 'rejected', message: 'Nein.' });
+    await b;
+    expect(reads).toBe(1);
+    expect(panel.snapshot?.updatedAt).toBe('after-accept');
   });
 });
 
@@ -110,7 +200,9 @@ describe('Panel busy state', () => {
     await deletion;
     expect(panel.pinsBusy).toBe(false);
     expect(panel.snapshot).toBe(after);
-    expect(panel.notice?.text).toBe('Favorit „Windows build“ entfernt.');
+    expect(panel.notices.items.map((item) => item.text)).toEqual([
+      'Favorit „Windows build“ entfernt.',
+    ]);
   });
 
   it('keeps operations independent: a template save does not mark pins busy', async () => {
