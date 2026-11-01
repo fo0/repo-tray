@@ -5,6 +5,7 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
+import svelteConfig from './svelte.config.js';
 
 // Code-quality rules only: formatting stays with Prettier (`pnpm lint` runs both).
 export default defineConfig(
@@ -37,7 +38,11 @@ export default defineConfig(
   {
     files: ['**/*.svelte', '**/*.svelte.ts'],
     languageOptions: {
-      parserOptions: { parser: ts.parser, extraFileExtensions: ['.svelte'] },
+      parserOptions: {
+        parser: ts.parser,
+        extraFileExtensions: ['.svelte'],
+        svelteConfig,
+      },
     },
   },
   {
