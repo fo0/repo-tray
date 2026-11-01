@@ -1,5 +1,6 @@
 # Monthly, one grouped PR per ecosystem. Workflow actions are pinned to full SHAs
-# with a version comment; Dependabot updates both together.
+# with a version comment, which Dependabot updates together; dtolnay/rust-toolchain
+# tracks its `stable` branch and is bumped by hand.
 version: 2
 updates:
   - package-ecosystem: github-actions

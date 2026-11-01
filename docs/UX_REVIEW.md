@@ -4,7 +4,7 @@ The panel is designed for quick tray access at 360–480px widths. Its shared ti
 
 ## Panel behavior
 
-The initial **Repositories** tab sorts by latest activity and uses keyboard-accessible disclosures that stay open across view switches. Action rows and start buttons open configuration; heart favorites persist across reloads and remain account-bound. Favorites also appear immediately below search; removing one updates both views and offers **Rückgängig** for a few seconds, which restores label, inputs and quick-start mode. **Aktivität** defaults to all runs, with open work followed by the latest completed history. Run times read relative (**gerade eben**, **vor 3 Min.**, **vor 2 Std.**, **gestern**, then the date) from one shared minute clock, with the exact time in the tooltip; each row offers opening the run on GitHub and **Link kopieren** without expanding.
+The initial **Repositories** tab sorts by latest activity and uses keyboard-accessible disclosures that stay open across view switches. Workflow rows and start buttons open configuration; heart favorites persist across reloads and remain account-bound. Favorites also appear immediately below search; removing one updates both views and offers **Rückgängig** for a few seconds, which restores label, inputs and quick-start mode. **Aktivität** defaults to all runs, with open work followed by the latest completed history. Run times read relative (**gerade eben**, **vor 3 Min.**, **vor 2 Std.**, **gestern**, then the date) from one shared minute clock, with the exact time in the tooltip; each row offers opening the run on GitHub and **Link kopieren** without expanding.
 
 Keyboard shortcuts: **F5** or **Ctrl+R** refresh the panel (a webview reload is always suppressed), **Ctrl+1/2/3** switch between **Repositories**, **Aktivität** and **Favoriten**, **/** focuses the search and **Esc** clears the search, then leaves it. Refresh and view shortcuts also work from the search field; while a dialog is open, the dialog owns the keyboard. The search field's **Tastenkürzel** hint lists them.
 
@@ -49,7 +49,7 @@ node scripts/capture-navigation-review.mjs
 
 Capture scripts assert demo mode and exercise only synthetic local fixtures. Output under `docs/review/` is ignored. Review captures before sharing; screenshots and browser profiles are not part of the source distribution. No existing private review material is included in the repository.
 
-The navigation capture writes `docs/review/navigation/repositories.png`, `activity.png`, `favorites.png` and a capture manifest. It shows the running browser demo, including an Action saved through its heart button.
+The navigation capture writes `docs/review/navigation/repositories.png`, `activity.png`, `favorites.png` and a capture manifest. It shows the running browser demo, including a workflow saved through its heart button.
 
 ## Native acceptance
 

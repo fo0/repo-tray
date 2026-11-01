@@ -22,7 +22,7 @@ On restart, RepoTray restores only an exact still-connected ID. A first run with
 
 ## Disconnecting an account
 
-**Trennen** sits in each card under **Bereits in RepoTray verbunden** and asks inside that card first (**… trennen?**, **Trennen** / **Abbrechen**). Confirming deletes the stored RepoTray credential copy and that connection's repository selection, favorites and uncertain-start locks. If the account still has uncertain starts, the confirmation warns that they are no longer locked afterwards and asks to check the runs on GitHub first. For an imported gh account it states that the gh CLI sign-in itself stays untouched. Focus moves to the account picker, or to **GitHub-Konto verbinden** after the last account; a failed disconnect keeps the card.
+**Trennen** sits in each card under **Bereits in RepoTray verbunden** and asks inside that card first (**… trennen?**, **Trennen** / **Abbrechen**). Confirming deletes the stored RepoTray credential copy and that connection's cached activity, repository selection, favorites and uncertain-start locks. If the account still has uncertain starts, the confirmation warns that they are no longer locked afterwards and asks to check the runs on GitHub first. For an imported gh account it states that the gh CLI sign-in itself stays untouched. Focus moves to the account picker, or to **GitHub-Konto verbinden** after the last account; a failed disconnect keeps the card.
 
 ## Unsaved repository selection
 

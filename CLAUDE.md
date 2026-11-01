@@ -69,7 +69,7 @@ Contract: `.claude/skills/orca/SKILL.md`; type table: `agent_docs/review_process
 
 ## Tech Stack
 
-TypeScript 5.9 · Svelte 5 (runes) · Vite 7 · pnpm 11.19 · Vitest 3 + Playwright · Prettier 3 + ESLint 10
+TypeScript 5.9 · Svelte 5 · Vite 7 · pnpm 11.19 · Vitest 3 + Playwright · Prettier 3 · ESLint 10
 Rust 2021 · Tauri 2 · Cargo (`src-tauri/`) · rusqlite · keyring · rustfmt + clippy
 
 ## Project Overview
@@ -114,7 +114,7 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features -
 
 ## Key Patterns
 
-- **IPC contract** — camelCase JSON; change both sides + demo; only `src/lib/ipc.ts` calls the shell (contract test pins `generate_handler!`) — `src/lib/types.ts` ↔ `src-tauri/src/models.rs`, `src/lib/demo.ts`
+- **IPC contract** — camelCase JSON; change both sides + demo; only `src/lib/ipc.ts` calls the shell — `src/lib/types.ts` ↔ `src-tauri/src/models.rs`, `src/lib/demo.ts`
 - **Dispatch quarantine** — claim persisted before POST, ambiguous never re-sent, released only by explicit user confirmation — `src-tauri/src/live/dispatch.rs`, `cache.rs`
 - **Rust transport** — serialized queue, ETag, backoff, `api.github.com` only — `src-tauri/src/github/client.rs`, `github.rs`
 

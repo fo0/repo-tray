@@ -37,7 +37,7 @@ Windows discovery covers Program Files, LocalAppData/Programs, Scoop including c
 
 ## Credential ownership and process boundaries
 
-Local imports use the stable API user ID in their own namespace `github-gh-<id>`; PAT connections use `github-<id>`. A PAT therefore never overwrites a gh connection of the same GitHub user. Disconnecting (**Trennen** in the account card, confirmed there) removes only the RepoTray copy and that connection's repository selection, favorites and uncertain-start locks, neither gh/GCM sign-ins nor their permissions; for an imported account the confirmation says that the gh CLI sign-in stays untouched. A later gh rotation does not update an already stored copy automatically.
+Local imports use the stable API user ID in their own namespace `github-gh-<id>`; PAT connections use `github-<id>`. A PAT therefore never overwrites a gh connection of the same GitHub user. Disconnecting (**Trennen** in the account card, confirmed there) removes only the RepoTray copy and that connection's cached activity, repository selection, favorites and uncertain-start locks, neither gh/GCM sign-ins nor their permissions; for an imported account the confirmation says that the gh CLI sign-in stays untouched. A later gh rotation does not update an already stored copy automatically.
 
 Child processes get a minimal environment without GitHub token variables, alternative hosts, debug/trace configuration or askpass. The explicit gh configuration and proxy and CA trust settings are kept. Stdin is closed; stdout and stderr are each capped at 64 KiB and the run time at 20 seconds. Raw process output and token values never appear in the UI, IPC, logs or snapshots. Cancelling ends the check and discards late results.
 
