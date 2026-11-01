@@ -35,9 +35,13 @@
     border-color: Highlight;
     color: HighlightText;
   }
-  .filters > button.chosen span {
+  .filters > button.chosen .tone-dot::before {
+    border-color: HighlightText;
     background: HighlightText;
-    color: Highlight;
+  }
+  /* The open „Hinweis zum Verlauf“ is a fill: draw a frame instead. */
+  .info-button[aria-expanded='true'] {
+    outline: 1px solid ButtonText;
   }
   /* The chosen „Darstellung“ keeps its frame; the radio itself is native. */
   .theme-option:has(input:checked) {
@@ -86,9 +90,45 @@
     outline-color: Highlight;
   }
 
-  /* Status icons sit on a tint, which disappears: keep the tile's outline. */
-  .live-run .status-tile {
+  /* Status icons sit on a tint, which disappears: keep the tile's outline,
+     and fill it like the run strip does, failure Mark and running Highlight. */
+  .status-tile {
     border: 1px solid CanvasText;
+  }
+  .status-tile[data-tone='fail'],
+  .status-tile[data-tone='run'] {
+    forced-color-adjust: none;
+  }
+  .status-tile[data-tone='fail'] {
+    border-color: Mark;
+    background: Mark;
+    color: MarkText;
+  }
+  .status-tile[data-tone='run'] {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  /* Status dots: a fill would turn into the canvas. Success solid, failure
+     Mark, running Highlight, other runs a text-coloured ring (the attribute
+     outranks the later fill in 19-tiles-strip.css). */
+  .tone-dot[data-tone]::before {
+    forced-color-adjust: none;
+    box-sizing: border-box;
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+  .tone-dot[data-tone='ok']::before {
+    background: CanvasText;
+  }
+  .tone-dot[data-tone='fail']::before {
+    border-color: Mark;
+    background: Mark;
+  }
+  .tone-dot[data-tone='run']::before {
+    border-color: Highlight;
+    background: Highlight;
   }
 
   /* Run strip: fills would all turn into the canvas. System colours keep the

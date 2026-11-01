@@ -98,6 +98,56 @@ test('run strip cells stay apart in forced colors', async ({ page }) => {
   expect(none.border).not.toBe(queued.border);
 });
 
+test('Verlauf status tiles and dots stay apart in forced colors', async ({
+  page,
+}) => {
+  await page.emulateMedia({ forcedColors: 'active' });
+  await page.goto('/');
+  await openPage(page, 'runs');
+  const run = (id: number) =>
+    page.locator('article.run').filter({ hasText: `#${id}` });
+  const paint = (id: number) =>
+    run(id).evaluate((node) => {
+      const tile = getComputedStyle(node.querySelector('.status-tile')!);
+      const dot = getComputedStyle(
+        node.querySelector('.run-status')!,
+        '::before',
+      );
+      return {
+        tile: tile.backgroundColor,
+        tileBorder: tile.borderTopColor,
+        dot: dot.backgroundColor,
+        dotBorder: dot.borderTopColor,
+      };
+    });
+  const running = await paint(8401);
+  const waiting = await paint(8403);
+  const failed = await paint(8404);
+  const succeeded = await paint(8405);
+  // Tints vanish: running fills Highlight and failure Mark, the rest keep a
+  // text-coloured outline; dots like the run strip, success solid.
+  expect(running.tile).toBe(await systemColor(page, 'Highlight'));
+  expect(failed.tile).toBe(await systemColor(page, 'Mark'));
+  expect(succeeded.tileBorder).toBe(await systemColor(page, 'CanvasText'));
+  expect(waiting.tileBorder).toBe(await systemColor(page, 'CanvasText'));
+  expect(running.dot).toBe(await systemColor(page, 'Highlight'));
+  expect(failed.dot).toBe(await systemColor(page, 'Mark'));
+  expect(succeeded.dot).toBe(await systemColor(page, 'CanvasText'));
+  expect(waiting.dot).toBe(await systemColor(page, 'Canvas'));
+  expect(waiting.dotBorder).toBe(await systemColor(page, 'CanvasText'));
+  expect(
+    new Set([running, failed, succeeded, waiting].map((item) => item.dot)).size,
+  ).toBe(4);
+  // The open history note's button keeps a frame where its fill vanishes.
+  const info = page.getByRole('button', {
+    name: 'Hinweis zum Verlauf',
+    exact: true,
+  });
+  await expect(info).toHaveCSS('outline-style', 'none');
+  await info.click();
+  await expect(info).toHaveCSS('outline-style', 'solid');
+});
+
 test('favorite tiles keep their heart filled and their start outlined in forced colors', async ({
   page,
 }) => {

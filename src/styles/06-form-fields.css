@@ -255,3 +255,21 @@
   margin-top: 9px;
   color: inherit;
 }
+/* „Run #… auf GitHub ansehen“ of an accepted start (RunLink). */
+.detail-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-meta);
+  color: var(--accent);
+  background: transparent;
+  padding: 6px 0 0;
+  text-decoration: none;
+  align-self: flex-start;
+  position: relative;
+}
+.detail-link::after {
+  content: '';
+  position: absolute;
+  inset: -7px -4px;
+}

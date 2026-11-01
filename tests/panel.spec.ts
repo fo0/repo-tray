@@ -8,16 +8,13 @@ test.beforeEach(async ({ page }) => {
 test('account and owner context, filters and search stay isolated', async ({
   page,
 }) => {
-  await expect(
-    page.getByText('demo-dev/launch-kit-demo', { exact: true }).first(),
-  ).toBeVisible();
+  // A row shows the repository's name; its accessible name keeps the owner.
+  const rowsOf = (repo: string) =>
+    page.getByRole('button', { name: ` · ${repo} · `, exact: false });
+  await expect(rowsOf('demo-dev/launch-kit-demo').first()).toBeVisible();
   await chooseAccount(page, 'team-demo');
-  await expect(
-    page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
-  ).toBeVisible();
-  await expect(
-    page.getByText('demo-dev/launch-kit-demo', { exact: true }),
-  ).toHaveCount(0);
+  await expect(rowsOf('example-org/runner-tools-demo').first()).toBeVisible();
+  await expect(rowsOf('demo-dev/launch-kit-demo')).toHaveCount(0);
   const search = page.getByLabel('Verlauf durchsuchen');
   await search.fill('unmatched-query');
   await expect(
@@ -28,14 +25,10 @@ test('account and owner context, filters and search stay isolated', async ({
     .getByRole('button', { name: 'Suche leeren', exact: true })
     .click();
   await expect(search).toHaveValue('');
-  await expect(
-    page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
-  ).toBeVisible();
+  await expect(rowsOf('example-org/runner-tools-demo').first()).toBeVisible();
   await chooseAccount(page, 'demo-dev');
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
-  await expect(
-    page.getByText('demo-dev/website-demo', { exact: true }).first(),
-  ).toBeVisible();
+  await expect(rowsOf('demo-dev/website-demo').first()).toBeVisible();
 });
 
 for (const width of [360, 480]) {

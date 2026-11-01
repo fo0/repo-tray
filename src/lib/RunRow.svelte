@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import RunLink, { copyLink } from './RunLink.svelte';
   import { clockTime, runDuration, runMoment } from './format';
-  import { runTone, statusLabel, TONE_ICON } from './runs';
+  import { isActive, runTone, statusLabel, TONE_ICON } from './runs';
   import { safeGitHubUrl } from './safeGitHubUrl';
   import type { NoticeTone } from './StatusBanners.svelte';
   import type { Run } from './types';
@@ -20,7 +20,7 @@
   }: {
     run: Run;
     expanded: boolean;
-    /** Repository display name. */
+    /** Full repository name, `owner/name`; the row shows the name only. */
     repo: string;
     /** Account display name; only read while expanded. */
     account: string;
@@ -48,99 +48,87 @@
       'Link konnte nicht kopiert werden. Öffne den Run auf GitHub und kopiere ihn dort.',
     );
 
-  // One status icon per tone everywhere: the same mapping as „Läuft gerade“.
-  const icon = $derived(TONE_ICON[runTone(run)]);
+  // One status icon and colour per tone everywhere, as in „Läuft gerade“.
+  const tone = $derived(runTone(run));
+  const open = $derived(isActive(run));
   const runUrl = $derived(safeGitHubUrl(run.htmlUrl));
   const moment = $derived(runMoment(run, now, demo));
+  const elapsed = $derived(runDuration(run, now, !demo));
 </script>
 
-<article class="run" class:expanded>
-  <div class="run-head">
-    <button
-      class="run-button"
-      aria-expanded={expanded}
-      aria-label={`${run.name} #${run.id} · ${repo} · ${statusLabel(run)} · ${moment.spoken}`}
-      onclick={() => onToggle()}
+<article class="run" class:expanded data-run={`${run.repoId}:${run.id}`}>
+  <button
+    class="run-button"
+    aria-expanded={expanded}
+    aria-label={`${run.name} #${run.id} · ${repo} · ${statusLabel(run)} · ${moment.spoken}`}
+    onclick={() => onToggle()}
+  >
+    <!-- A running run turns a spinner, or shows the still icon when reduced
+         motion is asked for (02-activity.css picks one). -->
+    <span class="status-tile" data-tone={tone}
+      >{#if tone === 'run'}<Icon
+          name="spinner"
+          size={15}
+          class="tile-spinner"
+        />{/if}<Icon name={TONE_ICON[tone]} size={15} /></span
     >
-      <span
-        class="status-icon"
-        class:running={run.status === 'in_progress'}
-        class:queued={run.status === 'queued'}
-        class:waiting={run.status === 'waiting'}
-        class:success={run.conclusion === 'success'}
-        class:failure={run.conclusion === 'failure'}
-        ><Icon name={icon} size={16} /></span
-      >
-      <span class="run-main"
-        ><span class="run-name"
-          >{run.name}<span class="run-number">#{run.id}</span></span
-        ><span class="run-repo">{repo}</span><span class="run-branch"
-          ><Icon name="branch" size={11} /><span class="run-ref"
-            >{run.branch}</span
-          ><span class="meta-dot">·</span><span class="run-duration"
-            >{runDuration(run, now, !demo)}</span
-          ></span
-        ></span
-      >
-      <span class="run-tail"
-        ><span class="run-state"
-          ><span
-            class="status-label"
-            class:running={run.status === 'in_progress'}
-            class:failure={run.conclusion === 'failure'}
-            >{statusLabel(run)}</span
-          ><Icon name="chevron" size={14} /></span
-        ><time class="run-time" datetime={moment.datetime} title={moment.title}
-          >{moment.relative}</time
-        ></span
-      >
-    </button>
-    <!-- Siblings of the row button, so both stay reachable without expanding. -->
-    <div class="run-actions">
-      {#if runUrl}<RunLink
-          url={runUrl}
-          label={`${run.name} #${run.id} auf GitHub öffnen`}
-          {native}
-          onError={linkError}
-          iconOnly
-        />{:else}<button
-          class="run-action"
-          disabled
-          aria-label={`${run.name} #${run.id} auf GitHub öffnen`}
-          title={noLink}><Icon name="external" size={14} /></button
-        >{/if}<button
-        class="run-action"
-        disabled={!runUrl}
-        aria-label={`Link zu ${run.name} #${run.id} kopieren`}
-        title={runUrl ? 'Link kopieren' : noLink}
-        onclick={() => void copy()}><Icon name="copy" size={14} /></button
-      >
-    </div>
-  </div>
+    <span class="run-body"
+      ><span class="run-name"
+        >{run.name}<span class="run-number">#{run.id}</span></span
+      ><span class="run-meta"
+        ><span class="run-repo" title={repo}>{repo.split('/').pop()}</span><span
+          class="branch-chip"
+          title={run.branch}
+          ><Icon name="branch" size={11} /><span>{run.branch}</span></span
+        >{#if !open}<span class="run-took"
+            ><span class="meta-dot" aria-hidden="true">·</span><span
+              class="run-duration">{elapsed}</span
+            ></span
+          >{/if}</span
+      ></span
+    >
+    <!-- Open runs count up since their start; completed ones say when. -->
+    <span class="run-side"
+      ><span class="run-status tone-dot" data-tone={tone}
+        >{statusLabel(run)}</span
+      ><time class="run-time" datetime={moment.datetime} title={moment.title}
+        >{open ? `seit ${elapsed}` : moment.relative}</time
+      ></span
+    >
+  </button>
   {#if expanded}<div class="run-details">
-      <div>
+      <div class="run-fact">
         <span>Konto</span><strong>{account}</strong>
       </div>
-      <div>
+      <div class="run-fact">
         <span>Aktualisiert</span><strong
           >{clockTime(run.updatedAt)}{demo ? ' · Demo-Zeit' : ''}</strong
         >
       </div>
-      <div>
+      <div class="run-fact">
         <span>Status</span><strong>{statusLabel(run)}</strong>
       </div>
-      {#if runUrl}<RunLink
-          url={runUrl}
-          label="Auf GitHub ansehen"
-          {native}
-          onError={linkError}
-        />{:else}<button class="detail-link" disabled title={noLink}
-          >{demo
-            ? 'GitHub-Link in Demo nicht verfügbar'
-            : 'GitHub-Link nicht verfügbar'}<Icon
-            name="external"
-            size={13}
-          /></button
-        >{/if}
+      <!-- The actions of a run appear with its details, never on the row. -->
+      <div class="run-links">
+        {#if runUrl}<RunLink
+            url={runUrl}
+            label="Auf GitHub öffnen"
+            {native}
+            onError={linkError}
+            button
+          />{:else}<button
+            class="secondary-button compact"
+            disabled
+            title={noLink}
+            ><Icon name="external" size={13} />Auf GitHub öffnen</button
+          >{/if}<button
+          class="secondary-button compact"
+          disabled={!runUrl}
+          title={runUrl ? undefined : noLink}
+          onclick={() => void copy()}
+          ><Icon name="copy" size={13} />Link kopieren</button
+        >
+        {#if !runUrl}<span class="run-link-note">{noLink}.</span>{/if}
+      </div>
     </div>{/if}
 </article>

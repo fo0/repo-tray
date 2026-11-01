@@ -60,8 +60,12 @@ test('offline and forbidden scenarios disable starts while showing cached activi
       .getByRole('button', { name: 'Abbrechen', exact: true })
       .click();
     await openPage(page, 'runs');
+    // The cached runs stay listed; a row names its repository with the
+    // owner in its accessible name.
     await expect(
-      page.getByText('demo-dev/launch-kit-demo', { exact: true }).first(),
+      page
+        .getByRole('button', { name: ' · demo-dev/launch-kit-demo · ' })
+        .first(),
     ).toBeVisible();
   }
 });

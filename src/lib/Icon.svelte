@@ -59,6 +59,8 @@
       wire('19,8 16,5 10,4 5,7 3,12 5,17 10,20 16,19 20,15'),
       wire('19,3 19,8 14,8'),
     ],
+    // Three quarters of a ring; the Verlauf turns it while a run is running.
+    spinner: [{ tag: 'path', attributes: { d: 'M12 4a8 8 0 1 1-8 8' } }],
     branch: [
       line(7, 6, 7, 18),
       wire('7,12 17,12 17,6'),

@@ -42,29 +42,27 @@
     label,
     native,
     onError,
-    iconOnly = false,
+    button = false,
   }: {
     /** Already checked with safeGitHubUrl; the shell re-validates it. */
     url: string;
-    /** Visible text, or the accessible name of the icon-only variant. */
+    /** Visible text and accessible name. */
     label: string;
     native: boolean;
     onError: (message: string) => void;
-    /** Compact row action: icon only, `label` becomes its accessible name. */
-    iconOnly?: boolean;
+    /** An expanded run's action: drawn as a button with the icon first. */
+    button?: boolean;
   } = $props();
 
   const open = (event: MouseEvent) => openRunLink(event, url, native, onError);
 </script>
 
-{#if iconOnly}<a
-    class="run-action"
+{#if button}<a
+    class="secondary-button compact"
     href={url}
     onclick={open}
     target="_blank"
-    rel="noopener noreferrer"
-    aria-label={label}
-    title="Auf GitHub öffnen"><Icon name="external" size={14} /></a
+    rel="noopener noreferrer"><Icon name="external" size={13} />{label}</a
   >{:else}<a
     class="detail-link"
     href={url}

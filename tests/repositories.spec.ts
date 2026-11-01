@@ -217,7 +217,7 @@ test('activity defaults to an interleaved history and retains a new run after it
   const run = page
     .locator('article.run')
     .filter({ has: page.getByText('#9001', { exact: true }) });
-  await expect(run.locator('.status-label')).toHaveText('Erfolgreich', {
+  await expect(run.locator('.run-status')).toHaveText('Erfolgreich', {
     timeout: 7000,
   });
   await run.locator('.run-button').click();

@@ -27,7 +27,7 @@ const copied = (page: Page) =>
 const notice = (page: Page, text: string) =>
   page.getByRole('status').filter({ hasText: text });
 
-test('each run opens through the shell and copies its link without expanding', async ({
+test('a collapsed row has no actions; the expanded one opens through the shell and copies its link', async ({
   page,
 }) => {
   await recordClipboard(page);
@@ -35,18 +35,27 @@ test('each run opens through the shell and copies its link without expanding', a
   const running = row(page, 8401);
   const toggle = running.locator('.run-button');
   const open = running.getByRole('link', {
-    name: 'Desktop build #8401 auf GitHub öffnen',
+    name: 'Auf GitHub öffnen',
     exact: true,
   });
   const copy = running.getByRole('button', {
-    name: 'Link zu Desktop build #8401 kopieren',
+    name: 'Link kopieren',
     exact: true,
   });
-  // Every name says which run it acts on; rows of one workflow differ by id.
+  // Collapsed, every row is one toggle and nothing else.
+  for (const id of [8401, 8405]) {
+    await expect(row(page, id).getByRole('button')).toHaveCount(1);
+    await expect(row(page, id).getByRole('link')).toHaveCount(0);
+  }
   await expect(toggle).toHaveAccessibleName(/^Desktop build #8401 · /);
   await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  // Only the expanded row has the actions, as real buttons with text.
+  await expect(row(page, 8405).getByRole('link')).toHaveCount(0);
   await page.keyboard.press('Tab');
   await expect(open).toBeFocused();
+  await expect(open).toHaveAttribute('href', RUN_URL);
   await page.keyboard.press('Enter');
   await expect
     .poll(() => readCalls(page, 'open_run'))
@@ -56,7 +65,7 @@ test('each run opens through the shell and copies its link without expanding', a
   await page.keyboard.press('Enter');
   await expect(notice(page, 'Link kopiert.')).toBeVisible();
   expect(await copied(page)).toEqual([RUN_URL]);
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect(page.context().pages()).toHaveLength(1);
 
   await mock.configure({
@@ -66,6 +75,11 @@ test('each run opens through the shell and copies its link without expanding', a
   await expect(
     notice(page, 'Browser konnte nicht geöffnet werden.'),
   ).toBeVisible();
+
+  // Collapsing hides the actions again.
+  await toggle.click();
+  await expect(open).toHaveCount(0);
+  await expect(copy).toHaveCount(0);
 });
 
 test('a refused clipboard explains that the link was not copied', async ({
@@ -73,23 +87,24 @@ test('a refused clipboard explains that the link was not copied', async ({
 }) => {
   await recordClipboard(page, true);
   await openNativeActivity(page);
-  await row(page, 8405)
-    .getByRole('button', { name: 'Link zu Desktop build #8405 kopieren' })
+  const finished = row(page, 8405);
+  await finished.locator('.run-button').click();
+  await finished
+    .getByRole('button', { name: 'Link kopieren', exact: true })
     .click();
   await expect(notice(page, 'Link konnte nicht kopiert werden.')).toBeVisible();
   await expect(notice(page, 'Link kopiert.')).toHaveCount(0);
 });
 
-test('demo runs offer both row actions disabled with the demo hint', async ({
+test('demo runs offer both actions disabled with the demo hint', async ({
   page,
 }) => {
   await page.goto('/');
   await openPage(page, 'runs');
   const running = row(page, 8401);
-  for (const name of [
-    'Desktop build #8401 auf GitHub öffnen',
-    'Link zu Desktop build #8401 kopieren',
-  ]) {
+  await expect(running.getByRole('button')).toHaveCount(1);
+  await running.locator('.run-button').click();
+  for (const name of ['Auf GitHub öffnen', 'Link kopieren']) {
     const action = running.getByRole('button', { name, exact: true });
     await expect(action).toBeDisabled();
     await expect(action).toHaveAttribute(
@@ -97,42 +112,59 @@ test('demo runs offer both row actions disabled with the demo hint', async ({
       'Demo-Runs haben keinen GitHub-Link',
     );
   }
+  await expect(
+    running.getByText('Demo-Runs haben keinen GitHub-Link.', { exact: true }),
+  ).toBeVisible();
 });
 
 for (const width of [360, 480]) {
-  test(`row actions fit beside the run text at ${width}px`, async ({
+  test(`rows fit status, time and actions without overflow at ${width}px`, async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width, height: 760 });
     await openNativeActivity(page);
+    await row(page, 8405).locator('.run-button').click();
+    await expect(
+      row(page, 8405).getByRole('button', { name: 'Link kopieren' }),
+    ).toBeVisible();
     const layout = await page.evaluate(() =>
       [...document.querySelectorAll('article.run')].map((run) => {
         const box = (selector: string) =>
           run.querySelector(selector)!.getBoundingClientRect();
         const button = box('.run-button');
-        const actions = box('.run-actions');
-        const time = box('.run-time');
-        const main = box('.run-main');
-        const targets = [...run.querySelectorAll('.run-action')].map((action) =>
-          action.getBoundingClientRect(),
+        const body = box('.run-body');
+        const side = box('.run-side');
+        const meta = box('.run-meta');
+        const targets = [...run.querySelectorAll('.run-links > *')].map(
+          (action) => action.getBoundingClientRect(),
         );
         return {
           rowHeight: button.height,
-          insideRow:
-            actions.bottom <= button.bottom && actions.right <= button.right,
-          belowTime: actions.top >= time.bottom,
-          besideText: actions.left >= main.right,
+          sideInside:
+            side.right <= button.right && side.bottom <= button.bottom,
+          besideText: side.left >= body.right,
+          // One meta line: as tall as its branch chip.
+          metaLines: meta.height,
+          actionsInside: targets.every(
+            (target) =>
+              target.right <= run.getBoundingClientRect().right &&
+              target.bottom <= run.getBoundingClientRect().bottom,
+          ),
           minTarget: Math.min(
+            Infinity,
             ...targets.flatMap((target) => [target.width, target.height]),
           ),
+          actions: targets.length,
         };
       }),
     );
+    expect(layout.map((item) => item.actions)).toEqual([0, 2]);
     for (const item of layout) {
       expect(item.rowHeight).toBeLessThanOrEqual(79);
-      expect(item.insideRow).toBe(true);
-      expect(item.belowTime).toBe(true);
+      expect(item.sideInside).toBe(true);
       expect(item.besideText).toBe(true);
+      expect(item.metaLines).toBeLessThanOrEqual(22);
+      expect(item.actionsInside).toBe(true);
       expect(item.minTarget).toBeGreaterThanOrEqual(24);
     }
     expect(

@@ -1,7 +1,7 @@
 /*
  * Overview visuals („Ein Blick“): status colours by run tone, the status
- * icon tiles of the running-now rows, branch chips, favorite tiles and the
- * run strip of each repository. Tokens from 00-tokens.css only.
+ * icon tiles and status dots of the run rows, branch chips, favorite tiles
+ * and the run strip of each repository. Tokens from 00-tokens.css only.
  */
 
 /* One colour per run tone (`runTone` in runs.ts). */
@@ -33,6 +33,22 @@
   height: 22px;
   border-radius: 6px;
   background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+/* A status text led by a dot in its tone's colour, e.g. „● Läuft“; an
+   empty one is the dot alone. */
+.tone-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tone-dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* A branch or tag, monospaced. */

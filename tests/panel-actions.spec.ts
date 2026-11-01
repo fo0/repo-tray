@@ -160,7 +160,32 @@ test('„Im Verlauf anzeigen“ opens the accepted run in the full Verlauf', asy
   await expect(page.getByLabel('Verlauf durchsuchen')).toHaveValue('');
   const run = page.getByRole('article').filter({ hasText: '#9001' });
   await expect(run.getByRole('button', { expanded: true })).toBeVisible();
-  await expect(
-    run.getByRole('button', { name: 'GitHub-Link in Demo nicht verfügbar' }),
-  ).toBeDisabled();
+  // The demo run has no link: both actions of its details stay disabled.
+  for (const name of ['Auf GitHub öffnen', 'Link kopieren'])
+    await expect(run.getByRole('button', { name, exact: true })).toBeDisabled();
+  await expect(run).toContainText('Demo-Runs haben keinen GitHub-Link.');
+});
+
+test('a revealed run keeps its focus when it completes and moves to „Abgeschlossen“', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const dialog = await openLaunch(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await dialog
+    .getByRole('button', { name: 'Im Verlauf anzeigen', exact: true })
+    .click();
+  const group = (name: string) =>
+    page.getByRole('group', { name, exact: true });
+  const toggle = page
+    .getByRole('article')
+    .filter({ hasText: '#9001' })
+    .getByRole('button', { expanded: true });
+  await expect(group('Jetzt')).toContainText('#9001');
+  await expect(toggle).toBeFocused();
+  // The completed run is drawn anew in the other group; focus follows it.
+  await expect(group('Abgeschlossen')).toContainText('#9001', {
+    timeout: 7000,
+  });
+  await expect(toggle).toBeFocused();
 });

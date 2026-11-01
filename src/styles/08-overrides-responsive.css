@@ -1,25 +1,15 @@
-.run-name,
 .pin-content h3,
 .field > span,
 .boolean-field strong {
   font-size: 12px;
 }
 .search-field input,
-.section-heading h3,
 .connection-card strong,
 .field input,
 .field select,
 .empty-state p,
 .outcome p {
   font-size: var(--font-size-meta);
-}
-.run-button {
-  min-height: 64px;
-  padding-top: 9px;
-  padding-bottom: 9px;
-}
-.filters {
-  flex-wrap: wrap;
 }
 
 @media (max-width: 520px) {
@@ -99,9 +89,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.filters > button {
-  min-height: 32px;
-}
 .boolean-field {
   min-height: 34px;
 }
@@ -128,23 +115,6 @@
   .content {
     padding-left: 11px;
     padding-right: 11px;
-  }
-  .filters {
-    gap: 1px;
-  }
-  .filters > button {
-    padding: 6px 6px;
-  }
-  .run-button {
-    padding-left: 9px;
-    padding-right: 7px;
-    gap: 7px;
-  }
-  .run-tail {
-    gap: 2px;
-  }
-  .run-number {
-    display: none;
   }
   .connection-card {
     gap: 6px;
