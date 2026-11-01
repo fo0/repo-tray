@@ -2,7 +2,7 @@
 use crate::{
     auth::{NativeKeyring, SecretToken},
     browser_auth::{self, BrowserCredential, BrowserTokens, NativeOAuthTransport, OAuthTransport},
-    cache::Cache,
+    cache::{AppSettings, Cache, Release},
     github::{ApiClient, ApiRequest, ApiResponse, ApiUrl, Method, Transport, TransportError},
     models::*,
     workflow::{parse_workflow_yaml, validate_inputs, validate_non_secret_inputs},
@@ -134,8 +134,10 @@ pub fn empty_snapshot() -> Snapshot {
         updated_at: chrono::Utc::now().to_rfc3339(),
         stale: false,
         message: Some("Verbinde dein GitHub-Konto in den Einstellungen.".into()),
+        uncertain_starts: vec![],
     }
 }
+const CACHE_NOTICE: &str = "Lokaler Zwischenspeicher konnte nicht aktualisiert werden.";
 
 pub struct LiveStore {
     data: Snapshot,
@@ -146,7 +148,9 @@ pub struct LiveStore {
     poll_at: BTreeMap<String, u64>,
     history_since: BTreeMap<String, u64>,
     tracked: BTreeMap<u64, crate::github::RunTracker>,
-    outcomes: BTreeMap<String, (String, DispatchOutcome)>,
+    outcomes: RecentOutcomes<String, (String, DispatchOutcome)>,
+    /// Mirrors the persisted dispatch claims; kept outside `data` so no reset can hide one.
+    claims: Vec<UncertainStart>,
 }
 impl LiveStore {
     pub fn new(cache: Cache, keyring: Arc<dyn NativeKeyring>) -> Result<Self, String> {
@@ -159,17 +163,20 @@ impl LiveStore {
                 .load_snapshot(&account)
                 .map_err(|_| "Cache konnte nicht geladen werden.")?
             {
-                if cached.snapshot.mode != Mode::Live {
+                if cached.mode != Mode::Live {
                     continue;
                 }
-                data.accounts.extend(cached.snapshot.accounts);
-                data.repos.extend(cached.snapshot.repos);
-                data.workflows.extend(cached.snapshot.workflows);
-                data.runs.extend(cached.snapshot.runs);
-                data.pins.extend(cached.snapshot.pins);
-                data.updated_at = cached.snapshot.updated_at;
+                data.accounts.extend(cached.accounts);
+                data.repos.extend(cached.repos);
+                data.workflows.extend(cached.workflows);
+                data.runs.extend(cached.runs);
+                data.pins.extend(cached.pins);
+                data.updated_at = cached.updated_at;
             }
         }
+        let claims = cache
+            .uncertain_starts()
+            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
         if !data.accounts.is_empty() {
             data.stale = true;
             data.connectivity = Connectivity::Offline;
@@ -184,11 +191,45 @@ impl LiveStore {
             poll_at: BTreeMap::new(),
             history_since: BTreeMap::new(),
             tracked: BTreeMap::new(),
-            outcomes: BTreeMap::new(),
+            outcomes: RecentOutcomes::new(MAX_RECORDED_OUTCOMES),
+            claims,
         })
     }
     pub fn snapshot(&self) -> Snapshot {
-        self.data.clone()
+        let mut snapshot = self.data.clone();
+        snapshot.uncertain_starts = self.claims.clone();
+        snapshot
+    }
+    /// Explicit user action after checking the runs on GitHub. It never dispatches, and no
+    /// code path calls it automatically.
+    pub fn release_uncertain_start(&mut self, start: UncertainStart) -> Result<Snapshot, String> {
+        let release = self
+            .cache
+            .release_uncertain_start(&start)
+            .map_err(|_| "Startsperre konnte nicht aufgehoben werden.")?;
+        self.claims = self
+            .cache
+            .uncertain_starts()
+            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
+        if release == Release::Replaced {
+            return Err(
+                "Für dieses Ziel gibt es eine neuere Startsperre. Prüfe die Runs erneut.".into(),
+            );
+        }
+        Ok(self.snapshot())
+    }
+    /// An unreadable preference keeps the default: notifications off.
+    pub fn notifications_enabled(&self) -> bool {
+        self.cache
+            .load_app_settings()
+            .is_ok_and(|settings| settings.notifications)
+    }
+    pub fn set_notifications_enabled(&mut self, enabled: bool) -> Result<(), String> {
+        let mut settings: AppSettings = self.cache.load_app_settings().unwrap_or_default();
+        settings.notifications = enabled;
+        self.cache
+            .save_app_settings(&settings)
+            .map_err(|_| "Einstellung konnte nicht gespeichert werden.".into())
     }
     fn pages(
         &self,
@@ -222,13 +263,22 @@ impl LiveStore {
         }
         Ok(all)
     }
-    fn persist(&mut self) -> Result<(), String> {
+    /// Writes the public metadata cache. A failed write never marks data stale: what is in
+    /// memory is still what GitHub returned, so the failure only becomes a notice.
+    fn persist(&mut self) {
+        let mut failed = false;
         for account in &self.data.accounts {
-            self.cache
-                .save_snapshot(&account.id, &self.data, None)
-                .map_err(|_| "Metadaten konnten nicht gespeichert werden.")?;
+            failed |= self.cache.save_snapshot(&account.id, &self.data).is_err();
         }
-        Ok(())
+        if failed {
+            self.data.message = Some(match self.data.message.take() {
+                Some(message) if !message.contains(CACHE_NOTICE) => {
+                    format!("{message} · {CACHE_NOTICE}")
+                }
+                Some(message) => message,
+                None => CACHE_NOTICE.into(),
+            });
+        }
     }
     pub fn connect_token(
         &mut self,
@@ -305,7 +355,7 @@ impl LiveStore {
         });
         self.catalog_at = 0;
         self.refresh();
-        self.persist()?;
+        self.persist();
         Ok(self.snapshot())
     }
     pub fn connect_browser(
@@ -341,7 +391,7 @@ impl LiveStore {
         });
         self.catalog_at = 0;
         self.refresh();
-        self.persist()?;
+        self.persist();
         Ok(self.snapshot())
     }
     pub fn disconnect(&mut self, account: &str) -> Result<Snapshot, String> {
@@ -352,6 +402,7 @@ impl LiveStore {
         self.cache
             .delete_account(account)
             .map_err(|_| "Kontometadaten konnten nicht entfernt werden.")?;
+        self.claims.retain(|claim| claim.account_id != account);
         self.data.accounts.retain(|a| a.id != account);
         self.data.repos.retain(|r| r.account_id != account);
         self.data.pins.retain(|p| p.account_id != account);
@@ -622,7 +673,7 @@ impl LiveStore {
             } else {
                 None
             };
-            self.persist()
+            Ok(())
         })();
         if let Err(error) = result {
             self.data.stale = true;
@@ -632,6 +683,9 @@ impl LiveStore {
                 Connectivity::Offline
             };
             self.data.message = Some(format!("Letzter Stand · {error}"));
+        } else {
+            // Fresh live data stays fresh even when the cache write fails.
+            self.persist();
         }
         self.snapshot()
     }
@@ -657,10 +711,12 @@ impl LiveStore {
             repo.selected = selected;
         }
         self.poll_at.clear();
-        self.persist()?;
+        self.persist();
         Ok(self.refresh())
     }
+    /// Pins have their own cache table, so saving or deleting one never rewrites the snapshot.
     pub fn save_pin(&mut self, pin: Pin) -> Result<Snapshot, String> {
+        validate_pin_fields(&pin)?;
         validate_non_secret_inputs(&pin.inputs).map_err(|e| e.to_string())?;
         if !self
             .data
@@ -675,12 +731,19 @@ impl LiveStore {
         {
             return Err("Vorlage passt nicht zum Konto/Repository.".into());
         }
+        if self
+            .data
+            .pins
+            .iter()
+            .any(|p| p.id == pin.id && p.account_id != pin.account_id)
+        {
+            return Err("Eine Vorlage kann nicht in ein anderes Konto verschoben werden.".into());
+        }
         self.cache
             .save_pin(&pin.account_id, &pin)
             .map_err(|e| e.to_string())?;
         self.data.pins.retain(|p| p.id != pin.id);
         self.data.pins.push(pin);
-        self.persist()?;
         Ok(self.snapshot())
     }
     pub fn delete_pin(&mut self, id: String) -> Result<Snapshot, String> {
@@ -690,10 +753,12 @@ impl LiveStore {
                 .map_err(|e| e.to_string())?;
         }
         self.data.pins.retain(|p| p.id != id);
-        self.persist()?;
         Ok(self.snapshot())
     }
     pub fn dispatch(&mut self, request: DispatchRequest) -> DispatchOutcome {
+        if let Err(error) = validate_request_id(&request.request_id) {
+            return DispatchOutcome::rejected(error);
+        }
         let fingerprint = match serde_json::to_string(&request) {
             Ok(v) => v,
             Err(_) => return DispatchOutcome::rejected("Ungültige Anfrage."),
@@ -705,7 +770,7 @@ impl LiveStore {
                 DispatchOutcome::rejected("Start-ID bereits verwendet.")
             };
         }
-        let checked = (|| -> Result<(Repo, crate::github::ApiRequest, String), String> {
+        let checked = (|| -> Result<(Repo, crate::github::ApiRequest), String> {
             if self.data.stale {
                 return Err("Verbindung zuerst aktualisieren.".into());
             }
@@ -749,55 +814,79 @@ impl LiveStore {
                 &inputs,
             )
             .map_err(|e| e.to_string())?;
-            let target =
-                serde_json::to_string(&(&repo.account_id, &repo.id, workflow.id, &request.git_ref))
-                    .map_err(|_| "Startziel ungültig.")?;
-            if !self
-                .cache
-                .claim_dispatch(&target)
-                .map_err(|_| "Startsperre konnte nicht gespeichert werden.")?
-            {
-                return Err("Start-Status ungeklärt. Erneuter Start dieses Ziels ist gesperrt; prüfe die Runs auf GitHub.".into());
-            }
-            Ok((repo, api, target))
+            Ok((repo, api))
         })();
         let outcome = match checked {
             Err(error) => DispatchOutcome::rejected(error),
-            Ok((repo, api, target)) => {
-                let outcome = self.client.dispatch(&api, &repo.owner, &repo.name, now());
-                if outcome.state != DispatchState::Uncertain {
-                    let _ = self.cache.resolve_dispatch(&target);
-                }
-                if outcome.state == DispatchState::Accepted {
-                    if let (Some(id), Some(html_url)) = (outcome.run_id, outcome.html_url.as_ref())
-                    {
-                        if let Ok(run_url) = ApiUrl::parse(&format!(
-                            "https://api.github.com/repos/{}/{}/actions/runs/{id}",
-                            repo.owner, repo.name
-                        )) {
-                            self.tracked.insert(
-                                id,
-                                crate::github::RunTracker {
-                                    account_id: repo.account_id.clone(),
-                                    repo_id: repo.id.clone(),
-                                    workflow_id: request.workflow_id,
-                                    confirmation: crate::github::DispatchConfirmation {
-                                        workflow_run_id: id,
-                                        run_url,
-                                        html_url: html_url.clone(),
-                                    },
-                                },
-                            );
-                        }
-                    }
-                    self.poll_at.clear();
-                    self.refresh();
-                }
-                outcome
-            }
+            Ok((repo, api)) => self.send_claimed(&request, repo, api),
         };
         self.outcomes
             .insert(request.request_id, (fingerprint, outcome.clone()));
+        outcome
+    }
+    /// Persists the target claim, sends exactly once, and keeps the target locked whenever
+    /// the outcome is unknown or the claim could not be removed.
+    fn send_claimed(
+        &mut self,
+        request: &DispatchRequest,
+        repo: Repo,
+        api: ApiRequest,
+    ) -> DispatchOutcome {
+        let target = DispatchTarget {
+            account_id: repo.account_id.clone(),
+            repo_id: repo.id.clone(),
+            workflow_id: request.workflow_id,
+            git_ref: request.git_ref.clone(),
+        };
+        match self
+            .cache
+            .claim_dispatch(&target, &chrono::Utc::now().to_rfc3339())
+        {
+            Err(_) => {
+                return DispatchOutcome::rejected(
+                    "Startsperre konnte nicht gespeichert werden. Es wurde nichts gestartet.",
+                )
+            }
+            Ok(None) => {
+                return DispatchOutcome::uncertain(
+                    "Der letzte Start dieses Ziels ist ungeklärt. Kein erneuter Start; prüfe die Runs auf GitHub und hebe die Sperre danach auf.",
+                )
+            }
+            Ok(Some(claim)) => self.claims.push(claim),
+        }
+        let mut outcome = self.client.dispatch(&api, &repo.owner, &repo.name, now());
+        if outcome.state != DispatchState::Uncertain {
+            match self.cache.resolve_dispatch(&target) {
+                Ok(()) => self.claims.retain(|claim| claim.target() != target),
+                Err(_) => outcome.message.push_str(
+                    " Die Startsperre konnte nicht aufgehoben werden; prüfe die Runs auf GitHub und hebe sie danach auf.",
+                ),
+            }
+        }
+        if outcome.state == DispatchState::Accepted {
+            if let (Some(id), Some(html_url)) = (outcome.run_id, outcome.html_url.as_ref()) {
+                if let Ok(run_url) = ApiUrl::parse(&format!(
+                    "https://api.github.com/repos/{}/{}/actions/runs/{id}",
+                    repo.owner, repo.name
+                )) {
+                    self.tracked.insert(
+                        id,
+                        crate::github::RunTracker {
+                            account_id: repo.account_id.clone(),
+                            repo_id: repo.id.clone(),
+                            workflow_id: request.workflow_id,
+                            confirmation: crate::github::DispatchConfirmation {
+                                workflow_run_id: id,
+                                run_url,
+                                html_url: html_url.clone(),
+                            },
+                        },
+                    );
+                }
+            }
+            self.poll_at.clear();
+            self.refresh();
+        }
         outcome
     }
 }
@@ -914,5 +1003,129 @@ mod browser_permission_tests {
             ),
             Permission::Read
         );
+    }
+}
+
+#[cfg(test)]
+mod store_tests {
+    use super::*;
+    use crate::auth::AuthError;
+
+    /// Synthetic vault: holds nothing, so no test can read or write a real credential.
+    struct EmptyVault;
+    impl NativeKeyring for EmptyVault {
+        fn read_token(&self, _: &str) -> Result<Option<SecretToken>, AuthError> {
+            Ok(None)
+        }
+        fn write_token(&self, _: &str, _: &SecretToken) -> Result<(), AuthError> {
+            Ok(())
+        }
+        fn delete_token(&self, _: &str) -> Result<(), AuthError> {
+            Ok(())
+        }
+    }
+
+    fn store(cache: Cache) -> LiveStore {
+        LiveStore::new(cache, Arc::new(EmptyVault)).unwrap()
+    }
+
+    fn account(id: &str) -> Account {
+        Account {
+            id: id.into(),
+            login: format!("fixture-{id}"),
+            label: "GitHub · Token".into(),
+        }
+    }
+
+    #[test]
+    fn claims_survive_restart_release_explicitly_and_leave_with_their_account() {
+        let path = std::env::temp_dir().join(format!(
+            "repotray-live-claims-{}-{}.db",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        {
+            let mut cache = Cache::open(&path).unwrap();
+            let mut snapshot = empty_snapshot();
+            snapshot.accounts = vec![account("github-1"), account("github-2")];
+            for id in ["github-1", "github-2"] {
+                cache.save_snapshot(id, &snapshot).unwrap();
+                let target = DispatchTarget {
+                    account_id: id.into(),
+                    repo_id: format!("{id}:7"),
+                    workflow_id: 9,
+                    git_ref: "main".into(),
+                };
+                cache
+                    .claim_dispatch(&target, "2026-11-01T10:00:00+00:00")
+                    .unwrap();
+            }
+        }
+        let mut live = store(Cache::open(&path).unwrap());
+        let starts = live.snapshot().uncertain_starts;
+        assert_eq!(starts.len(), 2);
+        let released = live.release_uncertain_start(starts[0].clone()).unwrap();
+        assert_eq!(released.uncertain_starts, vec![starts[1].clone()]);
+        live.disconnect("github-2").unwrap();
+        assert!(live.snapshot().uncertain_starts.is_empty());
+        drop(live);
+        assert!(store(Cache::open(&path).unwrap())
+            .snapshot()
+            .uncertain_starts
+            .is_empty());
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
+        }
+    }
+
+    #[test]
+    fn invalid_input_is_refused_and_the_outcome_ledger_is_bounded() {
+        let mut live = store(Cache::in_memory().unwrap());
+        let mut request = DispatchRequest {
+            account_id: "github-1".into(),
+            repo_id: "github-1:7".into(),
+            workflow_id: 9,
+            git_ref: "main".into(),
+            inputs: Inputs::new(),
+            request_id: "x".repeat(MAX_REQUEST_ID_CHARS + 1),
+        };
+        assert_eq!(
+            live.dispatch(request.clone()).state,
+            DispatchState::Rejected
+        );
+        assert!(live.outcomes.is_empty());
+        // Unknown repositories are rejected before any network call.
+        for index in 0..MAX_RECORDED_OUTCOMES + 44 {
+            request.request_id = format!("start-{index}");
+            live.dispatch(request.clone());
+        }
+        assert_eq!(live.outcomes.len(), MAX_RECORDED_OUTCOMES);
+        assert!(live.outcomes.get(&"start-0".to_string()).is_none());
+        let pin = Pin {
+            id: "pin-1".into(),
+            label: "x".repeat(MAX_PIN_LABEL_CHARS + 1),
+            account_id: "github-1".into(),
+            repo_id: "github-1:7".into(),
+            workflow_id: 9,
+            git_ref: "main".into(),
+            inputs: Inputs::new(),
+            quick_start: false,
+        };
+        assert!(live.save_pin(pin).unwrap_err().contains("120"));
+    }
+
+    #[test]
+    fn a_failed_cache_write_is_a_notice_and_never_marks_live_data_stale() {
+        let mut live = store(Cache::in_memory().unwrap());
+        // An account ID the cache refuses to store forces the write to fail.
+        live.data.accounts = vec![account("ghp_unstorable")];
+        live.data.stale = false;
+        live.data.connectivity = Connectivity::Online;
+        live.data.message = None;
+        live.persist();
+        live.persist();
+        assert!(!live.data.stale);
+        assert_eq!(live.data.connectivity, Connectivity::Online);
+        assert_eq!(live.data.message.as_deref(), Some(CACHE_NOTICE));
     }
 }

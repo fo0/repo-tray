@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -155,6 +155,55 @@ pub struct Snapshot {
     pub stale: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    /// Targets whose last start has an unknown outcome; each stays locked until released explicitly.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uncertain_starts: Vec<UncertainStart>,
+}
+
+/// The scope a dispatch claim locks: one workflow on one ref of one account's repository.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DispatchTarget {
+    pub account_id: String,
+    pub repo_id: String,
+    pub workflow_id: u64,
+    #[serde(rename = "ref")]
+    pub git_ref: String,
+}
+
+impl From<&DispatchRequest> for DispatchTarget {
+    fn from(request: &DispatchRequest) -> Self {
+        Self {
+            account_id: request.account_id.clone(),
+            repo_id: request.repo_id.clone(),
+            workflow_id: request.workflow_id,
+            git_ref: request.git_ref.clone(),
+        }
+    }
+}
+
+/// A persisted claim whose start may or may not have reached GitHub.
+/// `claimed_at` is `None` only for claims written before claim times were stored.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UncertainStart {
+    pub account_id: String,
+    pub repo_id: String,
+    pub workflow_id: u64,
+    #[serde(rename = "ref")]
+    pub git_ref: String,
+    pub claimed_at: Option<String>,
+}
+
+impl UncertainStart {
+    pub fn target(&self) -> DispatchTarget {
+        DispatchTarget {
+            account_id: self.account_id.clone(),
+            repo_id: self.repo_id.clone(),
+            workflow_id: self.workflow_id,
+            git_ref: self.git_ref.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -229,5 +278,129 @@ impl std::str::FromStr for DemoScenario {
             "uncertain" => Ok(Self::Uncertain),
             _ => Err("Unknown demo scenario.".into()),
         }
+    }
+}
+
+pub const MAX_REQUEST_ID_CHARS: usize = 200;
+pub const MAX_PIN_ID_CHARS: usize = 120;
+pub const MAX_PIN_LABEL_CHARS: usize = 120;
+/// Dispatch request IDs each store remembers for idempotent retries.
+pub const MAX_RECORDED_OUTCOMES: usize = 256;
+
+fn bounded_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+/// Shared by the demo and live stores so both enforce the same request limits.
+pub fn validate_request_id(request_id: &str) -> Result<(), String> {
+    if bounded_text(request_id, MAX_REQUEST_ID_CHARS) {
+        Ok(())
+    } else {
+        Err("Start-ID fehlt oder ist zu lang.".into())
+    }
+}
+
+/// Shared by the demo and live stores for the user-written pin fields.
+pub fn validate_pin_fields(pin: &Pin) -> Result<(), String> {
+    if bounded_text(&pin.id, MAX_PIN_ID_CHARS) && bounded_text(&pin.label, MAX_PIN_LABEL_CHARS) {
+        Ok(())
+    } else {
+        Err("Eine Vorlage braucht eine ID und einen Namen mit höchstens 120 Zeichen.".into())
+    }
+}
+
+/// Insertion-ordered, bounded map: the oldest entry is evicted once `capacity` is exceeded.
+pub struct RecentOutcomes<K, V> {
+    entries: BTreeMap<K, V>,
+    order: VecDeque<K>,
+    capacity: usize,
+}
+
+impl<K: Ord + Clone, V> RecentOutcomes<K, V> {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            entries: BTreeMap::new(),
+            order: VecDeque::new(),
+            capacity: capacity.max(1),
+        }
+    }
+
+    pub fn get(&self, key: &K) -> Option<&V> {
+        self.entries.get(key)
+    }
+
+    pub fn insert(&mut self, key: K, value: V) {
+        if self.entries.insert(key.clone(), value).is_none() {
+            self.order.push_back(key);
+        }
+        while self.order.len() > self.capacity {
+            if let Some(oldest) = self.order.pop_front() {
+                self.entries.remove(&oldest);
+            }
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pin(id: &str, label: &str) -> Pin {
+        Pin {
+            id: id.into(),
+            label: label.into(),
+            account_id: "demo-personal".into(),
+            repo_id: "demo-personal-kit".into(),
+            workflow_id: 101,
+            git_ref: "main".into(),
+            inputs: Inputs::new(),
+            quick_start: false,
+        }
+    }
+
+    #[test]
+    fn request_ids_and_pin_fields_are_bounded_in_characters() {
+        assert!(validate_request_id("start-1").is_ok());
+        assert!(validate_request_id(&"x".repeat(MAX_REQUEST_ID_CHARS)).is_ok());
+        for invalid in [
+            String::new(),
+            "  ".into(),
+            "x".repeat(MAX_REQUEST_ID_CHARS + 1),
+            "line\nbreak".into(),
+        ] {
+            assert!(validate_request_id(&invalid).is_err());
+        }
+        let label = "ä".repeat(MAX_PIN_LABEL_CHARS);
+        assert!(validate_pin_fields(&pin("pin-1", &label)).is_ok());
+        let label = "a".repeat(MAX_PIN_LABEL_CHARS + 1);
+        assert!(validate_pin_fields(&pin("pin-1", &label)).is_err());
+        let id = "p".repeat(MAX_PIN_ID_CHARS + 1);
+        assert!(validate_pin_fields(&pin(&id, "Label")).is_err());
+        assert!(validate_pin_fields(&pin(" ", "Label")).is_err());
+        assert!(validate_pin_fields(&pin("pin-1", "")).is_err());
+    }
+
+    #[test]
+    fn recent_outcomes_evict_the_oldest_entry_and_keep_updates_in_place() {
+        let mut outcomes = RecentOutcomes::new(2);
+        outcomes.insert("a", 1);
+        outcomes.insert("b", 2);
+        outcomes.insert("a", 3);
+        assert_eq!(outcomes.get(&"a"), Some(&3));
+        outcomes.insert("c", 4);
+        assert_eq!(outcomes.len(), 2);
+        assert_eq!(outcomes.get(&"a"), None);
+        assert_eq!(outcomes.get(&"b"), Some(&2));
+        assert_eq!(outcomes.get(&"c"), Some(&4));
     }
 }
