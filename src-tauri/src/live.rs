@@ -7,7 +7,7 @@
 //! exactly-once workflow starts).
 use crate::{
     auth::NativeKeyring,
-    cache::{AppSettings, Cache},
+    cache::{AppSettings, Cache, CacheError},
     github::{ApiClient, ApiError, ApiUrl, Transport},
     models::*,
     workflow::{parse_workflow_yaml, validate_non_secret_inputs},
@@ -74,6 +74,21 @@ const CACHE_NOTICE: &str = "Lokaler Zwischenspeicher konnte nicht aktualisiert w
 const ACCOUNT_SAVE_FAILED: &str =
     "Konto konnte nicht lokal gespeichert werden. Es wurde nichts verbunden; versuche es erneut.";
 const BROWSER_SETUP_NOTICE: &str = "GitHub-Konto verbunden. Richte in den Einstellungen die App-Installation und Repository-Freigabe ein; Organisationsfreigabe oder SSO können erforderlich sein.";
+
+const PIN_CREDENTIAL_REFUSED: &str =
+    "Namen oder Werte, die wie Zugangsdaten aussehen, werden nicht gespeichert.";
+const PIN_SAVE_FAILED: &str = "Favorit konnte nicht lokal gespeichert werden. Versuche es erneut.";
+const PIN_DELETE_FAILED: &str = "Favorit konnte nicht lokal entfernt werden. Versuche es erneut.";
+
+/// The panel text for a favorite the cache refused. `CacheError` text is internal English;
+/// after the store's own checks, a refused value can only be a credential-looking string.
+fn pin_save_error(error: CacheError) -> String {
+    match error {
+        CacheError::Invalid(_) => PIN_CREDENTIAL_REFUSED,
+        CacheError::Database(_) | CacheError::Serialization(_) => PIN_SAVE_FAILED,
+    }
+    .into()
+}
 
 /// Appends a notice to a panel message, once.
 fn with_notice(message: Option<String>, notice: &str) -> String {
@@ -289,7 +304,7 @@ impl<T: Transport> LiveStore<T> {
         }
         self.cache
             .save_pin(&pin.account_id, &pin)
-            .map_err(|e| e.to_string())?;
+            .map_err(pin_save_error)?;
         self.data.pins.retain(|p| p.id != pin.id);
         self.data.pins.push(pin);
         Ok(self.snapshot())
@@ -298,7 +313,7 @@ impl<T: Transport> LiveStore<T> {
         if let Some(pin) = self.data.pins.iter().find(|p| p.id == id) {
             self.cache
                 .delete_pin(&pin.account_id, &id)
-                .map_err(|e| e.to_string())?;
+                .map_err(|_| PIN_DELETE_FAILED)?;
         }
         self.data.pins.retain(|p| p.id != id);
         Ok(self.snapshot())

@@ -165,3 +165,67 @@ fn a_missing_or_unreadable_credential_fails_before_sending_and_is_not_a_network_
         assert_eq!(transport.send(&request).unwrap_err(), expected);
     }
 }
+
+#[test]
+fn a_refused_favorite_write_is_reported_in_german() {
+    let path = std::env::temp_dir().join(format!(
+        "repotray-live-pin-errors-{}-{}.db",
+        std::process::id(),
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    ));
+    let mut live = store(Cache::open(&path).unwrap());
+    live.data.accounts = vec![account("github-1")];
+    live.data.repos = vec![Repo {
+        id: "github-1:7".into(),
+        account_id: "github-1".into(),
+        owner: "fixture-owner".into(),
+        name: "fixture-repo".into(),
+        default_branch: "main".into(),
+        selected: true,
+        permission: Permission::Write,
+    }];
+    live.data.workflows = vec![Workflow {
+        id: 9,
+        repo_id: "github-1:7".into(),
+        name: "Fixture".into(),
+        path: ".github/workflows/fixture.yml".into(),
+        dispatch: true,
+        inputs: vec![],
+        refs: vec!["main".into()],
+    }];
+    let pin = Pin {
+        id: "pin-1".into(),
+        // Synthetic credential-looking label, never a real token.
+        label: "ghp_FIXTURE".into(),
+        account_id: "github-1".into(),
+        repo_id: "github-1:7".into(),
+        workflow_id: 9,
+        git_ref: "main".into(),
+        inputs: Inputs::new(),
+        quick_start: false,
+    };
+    assert_eq!(
+        live.save_pin(pin.clone()).unwrap_err(),
+        "Namen oder Werte, die wie Zugangsdaten aussehen, werden nicht gespeichert."
+    );
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER refuse_pin BEFORE INSERT ON pins
+                 BEGIN SELECT RAISE(ABORT, 'synthetic write failure'); END;",
+        )
+        .unwrap();
+    let named = Pin {
+        label: "Fixture pin".into(),
+        ..pin
+    };
+    assert_eq!(
+        live.save_pin(named).unwrap_err(),
+        "Favorit konnte nicht lokal gespeichert werden. Versuche es erneut."
+    );
+    assert!(live.data.pins.is_empty());
+    drop(live);
+    for suffix in ["", "-wal", "-shm"] {
+        let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
+    }
+}

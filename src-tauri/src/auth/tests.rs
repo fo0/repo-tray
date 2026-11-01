@@ -148,3 +148,19 @@ fn public_status_and_debug_never_contain_device_code_or_token() {
     assert!(!public.contains("deviceCode"));
     assert!(public.contains("DEMO-1234"));
 }
+
+#[test]
+fn auth_errors_reach_the_panel_in_german() {
+    assert_eq!(
+        AuthError::StalePoll.to_string(),
+        "Diese Anmeldung wurde abgebrochen oder ersetzt."
+    );
+    assert_eq!(AuthError::KeyringUnavailable.to_string(), VAULT_UNAVAILABLE);
+    for error in [
+        AuthError::Locked,
+        AuthError::InvalidAuthorization,
+        AuthError::NotPending,
+    ] {
+        assert!(error.to_string().contains("Anmeld"), "{error}");
+    }
+}

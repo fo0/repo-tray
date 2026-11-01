@@ -41,14 +41,15 @@ pub enum AuthError {
 
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Desktop commands return this text to the panel, so it is German.
         f.write_str(match self {
-            Self::Locked => "Live authentication is locked in this demo.",
-            Self::KeyringUnavailable => "The native credential store is unavailable.",
-            Self::InvalidAuthorization => "Device authorization metadata is invalid.",
-            Self::StalePoll => {
-                "The device authorization response belongs to a cancelled or previous flow."
+            Self::Locked => "Anmeldung ist in der Demo gesperrt.",
+            Self::KeyringUnavailable => VAULT_UNAVAILABLE,
+            Self::InvalidAuthorization => {
+                "Anmeldedaten von GitHub sind ungültig. Starte die Anmeldung erneut."
             }
-            Self::NotPending => "There is no active device authorization flow.",
+            Self::StalePoll => "Diese Anmeldung wurde abgebrochen oder ersetzt.",
+            Self::NotPending => "Keine Anmeldung aktiv. Starte die Anmeldung erneut.",
         })
     }
 }
