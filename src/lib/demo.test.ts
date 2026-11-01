@@ -132,6 +132,38 @@ describe('local demo bridge safety', () => {
         .state,
     ).toBe('accepted');
   });
+  it('lists an uncertain start and releases only the exact reviewed claim', async () => {
+    const bridge = createDemoBridge(undefined, 0);
+    expect((await bridge.snapshot()).uncertainStarts).toEqual([]);
+    await bridge.setDemoScenario('uncertain');
+    expect((await bridge.dispatchWorkflow(request())).state).toBe('uncertain');
+    await bridge.setDemoScenario('normal');
+    const [start, ...rest] = (await bridge.refreshSnapshot()).uncertainStarts!;
+    expect(rest).toEqual([]);
+    expect(start).toMatchObject({
+      accountId: 'demo-personal',
+      repoId: 'demo-personal-kit',
+      workflowId: 101,
+      ref: 'main',
+    });
+    expect(Date.parse(start.claimedAt!)).not.toBeNaN();
+    await expect(
+      bridge.releaseUncertainStart({ ...start, claimedAt: null }),
+    ).rejects.toThrow(/neuere Startsperre/);
+    expect((await bridge.snapshot()).uncertainStarts).toHaveLength(1);
+    expect((await bridge.releaseUncertainStart(start)).uncertainStarts).toEqual(
+      [],
+    );
+    // The uncertain request ID keeps its outcome; only a new ID starts again.
+    expect((await bridge.dispatchWorkflow(request())).state).toBe('uncertain');
+    expect(
+      (await bridge.dispatchWorkflow(request({ requestId: 'after-release' })))
+        .state,
+    ).toBe('accepted');
+    expect((await bridge.releaseUncertainStart(start)).uncertainStarts).toEqual(
+      [],
+    );
+  });
   it('simulates queue, running, completed independently of acceptance', async () => {
     vi.useFakeTimers();
     const bridge = createDemoBridge(undefined, 100);

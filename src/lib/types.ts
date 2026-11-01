@@ -63,6 +63,20 @@ export interface Snapshot {
   updatedAt: string;
   stale: boolean;
   message?: string;
+  /** Targets locked after a start with unknown outcome; omitted when none. */
+  uncertainStarts?: UncertainStart[];
+}
+/** One workflow on one ref of one account's repository. */
+export interface DispatchTarget {
+  accountId: string;
+  repoId: string;
+  workflowId: number;
+  ref: string;
+}
+/** A persisted start claim; stays locked until released explicitly. */
+export interface UncertainStart extends DispatchTarget {
+  /** RFC 3339 claim time; null for claims written by older builds. */
+  claimedAt: string | null;
 }
 export interface DispatchRequest {
   accountId: string;

@@ -4,8 +4,10 @@ import type {
   DemoScenario,
   DispatchOutcome,
   DispatchRequest,
+  DispatchTarget,
   Pin,
   Snapshot,
+  UncertainStart,
 } from './types';
 
 export interface Bridge {
@@ -15,6 +17,8 @@ export interface Bridge {
   savePin(pin: Pin): Promise<Snapshot>;
   deletePin(pinId: string): Promise<Snapshot>;
   dispatchWorkflow(request: DispatchRequest): Promise<DispatchOutcome>;
+  /** Explicit user action after checking GitHub; releases exactly this claim, never dispatches. */
+  releaseUncertainStart(start: UncertainStart): Promise<Snapshot>;
   setDemoScenario(scenario: DemoScenario): Promise<Snapshot>;
   resetDemo(): Promise<Snapshot>;
 }
@@ -25,12 +29,12 @@ export interface PreferenceStorage {
 }
 export const PREFERENCE_KEY = 'repotray.demo.preferences.v1';
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-const targetKey = (request: DispatchRequest) =>
+const targetKey = (target: DispatchTarget) =>
   JSON.stringify([
-    request.accountId,
-    request.repoId,
-    request.workflowId,
-    request.ref,
+    target.accountId,
+    target.repoId,
+    target.workflowId,
+    target.ref,
   ]);
 const fingerprint = (request: DispatchRequest) =>
   JSON.stringify([
@@ -47,7 +51,7 @@ export function createDemoBridge(
   let nextRun = 9000;
   let generation = 0;
   const pending = new Set<string>();
-  const uncertain = new Set<string>();
+  const uncertain = new Map<string, UncertainStart>();
   const claims = new Map<string, string>();
   const outcomes = new Map<string, DispatchOutcome>();
   const simulated = new Map<number, number>();
@@ -119,6 +123,7 @@ export function createDemoBridge(
             ? 'forbidden'
             : 'online',
       stale: scenario === 'offline',
+      uncertainStarts: [...uncertain.values()],
       message:
         scenario === 'offline'
           ? 'Offline: Letzter Demo-Stand bleibt sichtbar. Es wurde nichts gestartet.'
@@ -197,7 +202,14 @@ export function createDemoBridge(
             'Zugriff verweigert: Actions-Schreibberechtigung fehlt.',
           );
         if (scenario === 'uncertain') {
-          uncertain.add(key);
+          const { accountId, repoId, workflowId, ref } = request;
+          uncertain.set(key, {
+            accountId,
+            repoId,
+            workflowId,
+            ref,
+            claimedAt: new Date().toISOString(),
+          });
           const outcome: DispatchOutcome = {
             state: 'uncertain',
             message:
@@ -235,6 +247,16 @@ export function createDemoBridge(
       } finally {
         if (ticket === generation) pending.delete(key);
       }
+    },
+    async releaseUncertainStart(start) {
+      const key = targetKey(start);
+      const current = uncertain.get(key);
+      if (current && current.claimedAt !== start.claimedAt)
+        throw new Error(
+          'Für dieses Ziel gibt es eine neuere Startsperre. Prüfe die Runs erneut.',
+        );
+      uncertain.delete(key);
+      return snapshot();
     },
     async setDemoScenario(next) {
       scenario = next;

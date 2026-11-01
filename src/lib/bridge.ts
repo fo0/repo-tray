@@ -7,6 +7,7 @@ import type {
   DispatchRequest,
   Pin,
   Snapshot,
+  UncertainStart,
 } from './types';
 
 export const native = isTauri();
@@ -27,6 +28,8 @@ export const bridge: Bridge = native
       deletePin: (pinId: string) => invoke<Snapshot>('delete_pin', { pinId }),
       dispatchWorkflow: (request: DispatchRequest) =>
         invoke<DispatchOutcome>('dispatch_workflow', { request }),
+      releaseUncertainStart: (start: UncertainStart) =>
+        invoke<Snapshot>('release_uncertain_start', { start }),
       setDemoScenario: (scenario: DemoScenario) =>
         invoke<Snapshot>('set_demo_scenario', { scenario }),
       resetDemo: () => invoke<Snapshot>('reset_demo'),
