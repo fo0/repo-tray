@@ -1,3 +1,4 @@
+use super::gh::gh_accounts;
 use super::*;
 use std::sync::Mutex;
 const FIXTURE: &[u8] = include_bytes!("../../../fixtures/local-auth.json");
