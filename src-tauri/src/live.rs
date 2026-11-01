@@ -8,7 +8,7 @@
 use crate::{
     auth::NativeKeyring,
     cache::{AppSettings, Cache},
-    github::{ApiClient, ApiUrl, Transport},
+    github::{ApiClient, ApiError, ApiUrl, Transport},
     models::*,
     workflow::{parse_workflow_yaml, validate_non_secret_inputs},
 };
@@ -188,23 +188,26 @@ impl<T: Transport> LiveStore<T> {
         account: &str,
         path: &[&str],
         query: &[(&str, &str)],
-    ) -> Result<Vec<Value>, String> {
+    ) -> Result<Vec<Value>, ApiError> {
+        let url = url(path, query).map_err(|_| ApiError::Policy("API-Adresse ungültig."))?;
         self.client
-            .get_pages(account, url(path, query)?, (self.clock)())
-            .map_err(|e| e.to_string())?
+            .get_pages(account, url, (self.clock)())?
             .iter()
-            .map(|body| serde_json::from_slice(body).map_err(|_| "GitHub-Antwort ungültig.".into()))
+            .map(|body| serde_json::from_slice(body).map_err(|_| ApiError::InvalidResponse))
             .collect()
     }
-    fn one(&self, account: &str, path: &[&str], query: &[(&str, &str)]) -> Result<Value, String> {
+    fn one(&self, account: &str, path: &[&str], query: &[(&str, &str)]) -> Result<Value, ApiError> {
         self.pages(account, path, query)?
             .into_iter()
             .next()
-            .ok_or_else(|| "GitHub-Antwort fehlt.".into())
+            .ok_or(ApiError::InvalidResponse)
     }
     fn list(&self, account: &str, path: &[&str], key: Option<&str>) -> Result<Vec<Value>, String> {
         let mut all = vec![];
-        for page in self.pages(account, path, &[("per_page", "100")])? {
+        let pages = self
+            .pages(account, path, &[("per_page", "100")])
+            .map_err(|e| e.to_string())?;
+        for page in pages {
             all.extend(
                 key.map_or(&page, |k| &page[k])
                     .as_array()
@@ -239,7 +242,16 @@ impl<T: Transport> LiveStore<T> {
         }
         let mut segments = vec!["repos", &repo.owner, &repo.name, "contents"];
         segments.extend(path.split('/'));
-        let value = self.one(&repo.account_id, &segments, &[("ref", git_ref)])?;
+        let value = self
+            .one(&repo.account_id, &segments, &[("ref", git_ref)])
+            .map_err(|error| match error {
+                // Dispatch reads the default branch first; a 404 at another ref means that
+                // branch or tag is gone, typically one a favorite still names.
+                ApiError::Http(404) if git_ref != repo.default_branch => {
+                    format!("Branch oder Tag „{git_ref}“ nicht gefunden – passe den Favoriten an.")
+                }
+                other => other.to_string(),
+            })?;
         if value["encoding"] != "base64" {
             return Err("Workflow-Inhalt ungültig.".into());
         }

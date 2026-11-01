@@ -129,7 +129,10 @@ fn a_pinned_ref_beyond_a_cut_off_listing_is_offered_and_a_vanished_one_is_reject
     // The workflow read at the ref fails before any claim; nothing is sent.
     let outcome = h.live.dispatch(request("start-1", "release/gone"));
     assert_eq!(outcome.state, DispatchState::Rejected);
-    assert_eq!(outcome.message, "GitHub-Fehler 404.");
+    assert_eq!(
+        outcome.message,
+        "Branch oder Tag „release/gone“ nicht gefunden – passe den Favoriten an."
+    );
     assert_eq!(h.remote().posts(), 0);
     assert!(h.remote().claims_at_post.is_empty());
     assert!(h.live.snapshot().uncertain_starts.is_empty());
