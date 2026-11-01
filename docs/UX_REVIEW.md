@@ -12,7 +12,9 @@ Favorites also appear immediately below search in the repository view. Their com
 
 An uncertain dispatch remains quarantined across dialog reopening and app restart. Its visible warning has hover, focus and touch details; Escape and outside interaction dismiss the help without enabling another start. Saving a template during dispatch and pressing Enter in a template name cannot start another run.
 
-Keyboard focus is trapped in dialogs, sign-in state changes receive focus, and return restores the account selector. Narrow-layout checks preserve readable labels, reachable controls and bounded tooltips. Native IPC mocks exercise token input clearing, errors, disconnect, release notes and explicit manual EXE download; they do not perform real authorization or installation.
+Dialogs trap Tab and Shift+Tab and close with Escape; closing returns focus to the control that opened them, and a chained dialog returns focus to the opener of the first dialog (`tests/settings.spec.ts`). A start result receives focus when it appears. Narrow-layout checks preserve readable labels, reachable controls and bounded tooltips.
+
+Native IPC mocks exercise token input clearing, errors, disconnect and both update modes. Standard unsigned builds run a notify-only check: the panel announces a newer stable release and opens only its release page, without downloading or installing anything. Separately configured signed builds download inside the app and install only after a second confirmation. The mocks perform no real authorization, download or installation.
 
 ## Optional screenshots
 

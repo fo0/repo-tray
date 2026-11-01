@@ -18,7 +18,7 @@ Built with **Tauri 2, Rust, Svelte 5 and TypeScript**. Windows x64 is the primar
 - **Explicit workflow launches.** Choose a workflow, branch/tag and typed inputs. Save account-bound templates and opt in to quick launch when desired.
 - **Deliberate account selection.** Choose the active credential under **Einstellungen → Konten → Aktives Konto**. The app remembers its stable nonsecret ID, distinguishes same-login sources and asks for a new selection if it disappears. It never silently falls back to another identity.
 - **Cached state and uncertain-start protection.** Offline views keep cached activity. Ambiguous dispatch responses remain quarantined across reopening and restart to avoid blindly starting the same workflow twice. An accepted dispatch is not a successful build.
-- **Public releases.** Standard releases publish an unsigned Windows EXE without extra signing configuration. The in-app Tauri updater is reserved for separately configured signed builds and verifies signatures before installation.
+- **Release notifications.** Standard releases publish an unsigned Windows EXE without extra signing configuration. These builds check the public GitHub release list at startup and every 6 hours without a token, announce a newer stable release and open its release page; they never download or install anything themselves. In-app download and installation is reserved for separately configured signed builds, which verify signatures and install only after a second confirmation.
 
 The active account controls the foreground view and new launches. Public app updates are independent of that account. Other connected accounts keep their selected-repository background monitoring; saved templates retain their original credential binding. See [account selection](docs/ACCOUNT_SELECTION.md).
 
@@ -39,13 +39,13 @@ Saved connections visibly show login, source and whether they are active in Repo
 
 Published Windows installers, when available, are listed on the [Releases page](https://github.com/fo0/repo-tray/releases). If no release is listed, build the installer from source below.
 
-The standard Windows x64 NSIS installer is **unsigned** and can be built and released without signing keys. Download and run the public EXE to install or update. The separately configured signed-updater path keeps its signature verification enabled; the standard Release Action does not create those updater artifacts. See [release and update behavior](docs/RELEASES.md).
+The standard Windows x64 NSIS installer is **unsigned** and can be built and released without signing keys. Download and run the public EXE to install or update; when a newer release exists, the app announces it and links to its release page. The separately configured signed-updater path keeps its signature verification enabled; the standard Release Action does not create those updater artifacts. See [release and update behavior](docs/RELEASES.md).
 
 ### Native development
 
 Prerequisites:
 
-- **Node.js 24** and **pnpm 11.19.0**, as specified in `package.json`.
+- **Node.js 24**, as pinned in `.node-version` (and `engines` in `package.json`), and **pnpm 11.19.0** (`packageManager` in `package.json`).
 - A current stable **Rust** toolchain.
 - The [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/). On Windows, install Microsoft C++ Build Tools with **Desktop development with C++**, use the MSVC Rust toolchain and provide the WebView2 runtime. Linux/macOS need their corresponding native development dependencies.
 
@@ -77,7 +77,7 @@ Open **http://127.0.0.1:1420**. This preview uses labelled synthetic accounts an
 
 ## Checks and builds
 
-[Checks](.github/workflows/checks.yml) runs on pull requests and pushes to `main`. It checks the frontend, browser interactions, reproducible icons, Rust formatting/tests/Clippy and Windows desktop compilation, including automated Win32 popup/window-ownership tests. Normal checks do not package an installer. An unsigned validation installer can be requested explicitly through the workflow's `build_installer` input.
+[Checks](.github/workflows/checks.yml) runs on pull requests and pushes to `main`. It checks the frontend, browser interactions, reproducible icons, Rust formatting/tests/Clippy and Windows desktop compilation, including automated Win32 popup/window-ownership and isolated autostart-registry tests. A failed browser test run uploads the Playwright report and test results as an artifact. Normal checks do not package an installer. An unsigned validation installer can be requested explicitly through the workflow's `build_installer` input.
 
 [Release](.github/workflows/release.yml) handles explicitly requested unsigned Windows EXE releases with generated versions and changelogs. No additional signing key is required; see the release documentation. The release badge above follows manual runs on `main`; the checks badge follows main pushes. See [release documentation](docs/RELEASES.md) for the exact triggers and publishing process.
 
