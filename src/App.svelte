@@ -76,6 +76,8 @@
   const clearQuery = () => (query = '');
   const warn = (value: string) => panel.showNotice(value, 'warning');
 
+  /** A load error offers a retry before any snapshot exists. */
+  const canRefresh = $derived(!!snapshot || !!panel.error);
   const view = $derived(panel.viewSnapshot);
   const runs = $derived(
     view ? historyRuns(view, accountId, query, filter) : [],
@@ -190,7 +192,7 @@
   }
   const shortcuts = createShortcuts({
     blocked: () => modal !== null,
-    refresh: () => void (snapshot && panel.refresh()),
+    refresh: () => void (canRefresh && panel.refresh()),
     selectTab,
     focusSearch: () => searchField?.focus(),
     escape: (target) => !!searchField?.escape(target),
@@ -226,6 +228,7 @@
       repoCount={repos.length}
       refreshing={panel.refreshing}
       ready={!!snapshot}
+      {canRefresh}
       onAccountChange={changeAccount}
       onRefresh={() => void panel.refresh()}
       onSettings={() => openSettings()}
@@ -348,6 +351,7 @@
       {demo}
       updatedAt={snapshot?.updatedAt}
       refreshing={panel.refreshing}
+      {canRefresh}
       onRefresh={() => void panel.refresh()}
     />
   </section>

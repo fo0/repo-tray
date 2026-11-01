@@ -12,6 +12,7 @@
     repoCount,
     refreshing,
     ready,
+    canRefresh,
     onAccountChange,
     onRefresh,
     onSettings,
@@ -24,8 +25,10 @@
     accountLabel: string;
     repoCount: number;
     refreshing: boolean;
-    /** A snapshot is loaded; refresh and settings stay disabled until then. */
+    /** A snapshot is loaded; settings stay disabled until then. */
     ready: boolean;
+    /** A snapshot is loaded or a load error invites a retry. */
+    canRefresh: boolean;
     onAccountChange: (id: string) => void;
     onRefresh: () => void;
     onSettings: () => void;
@@ -85,7 +88,8 @@
       aria-keyshortcuts="F5 Control+R"
       title={`${demo ? 'Demo' : 'GitHub'}-Status aktualisieren (F5)`}
       onclick={() => onRefresh()}
-      disabled={refreshing || !ready}><Icon name="refresh" size={16} /></button
+      disabled={refreshing || !canRefresh}
+      ><Icon name="refresh" size={16} /></button
     ><button
       class="icon-button"
       aria-label="Einstellungen"

@@ -1,0 +1,69 @@
+import { expect, test } from '@playwright/test';
+import fixture from '../fixtures/demo.json' with { type: 'json' };
+import {
+  configureMock,
+  installTauriMock,
+  readCommands,
+} from './support/tauriMock';
+
+type LoadMock = { failRefresh: boolean };
+
+test('a native load error keeps refresh available until a retry succeeds', async ({
+  page,
+}) => {
+  await installTauriMock<{ fixture: typeof fixture }, LoadMock>(
+    page,
+    ({ fixture }, state) =>
+      (cmd) => {
+        if (cmd === 'snapshot') throw 'GitHub ist gerade nicht erreichbar.';
+        if (cmd === 'refresh_snapshot') {
+          if (state.failRefresh) throw 'GitHub ist gerade nicht erreichbar.';
+          return {
+            ...structuredClone(fixture),
+            mode: 'live',
+            stale: false,
+            connectivity: 'online',
+            message: undefined,
+          };
+        }
+        return null;
+      },
+    { arg: { fixture }, state: { failRefresh: true } },
+  );
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'Daten konnten nicht geladen werden' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Prüfe deine Verbindung und klicke auf Aktualisieren.'),
+  ).toBeVisible();
+  const refresh = page.getByRole('button', {
+    name: 'Aktualisieren',
+    exact: true,
+  });
+  const footer = page.getByRole('button', { name: 'Erneut laden' });
+  await expect(refresh).toBeEnabled();
+  await expect(footer).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Einstellungen', exact: true }),
+  ).toBeDisabled();
+
+  await refresh.click();
+  await expect(page.getByRole('alert')).toHaveText(
+    'GitHub ist gerade nicht erreichbar.',
+  );
+  await expect(refresh).toBeEnabled();
+
+  await configureMock<LoadMock>(page, { failRefresh: false });
+  await page.keyboard.press('F5');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'GitHub-Status aktualisiert.' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Daten konnten nicht geladen werden' }),
+  ).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Stand / })).toBeEnabled();
+  expect(
+    (await readCommands(page)).filter((cmd) => cmd === 'refresh_snapshot'),
+  ).toHaveLength(2);
+});
