@@ -1,0 +1,59 @@
+/*
+ * Design tokens („Ein Blick“, lime accent). The dark set is the default and
+ * lives on :root; a light set will override the same names, so components
+ * read only these variables and never a theme-specific value.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, from the window backdrop up to cards and menus. */
+  --page: #0a0b0d;
+  /* Sunken fields such as the search input. */
+  --bg: #0b0b0d;
+  /* The panel itself. */
+  --surface: #111114;
+  /* Cards, menus and the account button. */
+  --raised: #18181c;
+  --hover: #222228;
+  --border: #26262c;
+  --border-strong: #34343c;
+
+  /* Text, at least 4.8:1 (WCAG AA) on every surface above: --text 14:1,
+     --text-2 7:1, --text-3 (metadata) 4.8:1 on --hover. */
+  --text: #f1f1f4;
+  --text-2: #b9b9c4;
+  --text-3: #8d8d99;
+
+  /* Accent and the text or glyph drawn on it. */
+  --accent: #b5e37a;
+  --accent-soft: rgba(181, 227, 122, 0.12);
+  --on-accent: #11140f;
+
+  /* Run and connection status. */
+  --run: #6cb6ff;
+  --ok: #4ade80;
+  --fail: #f87171;
+  --wait: #fbbf24;
+  --none: #2c2c33;
+
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --menu-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+
+  /* Type scale: body text, and the smallest size metadata may use. */
+  --font-size-base: 14px;
+  --font-size-meta: 12px;
+
+  /*
+   * Old names, kept until every style file reads the tokens above. Muted text
+   * still sits on the old green-tinted cards (up to #2b3624) there, where
+   * --text-3 drops below 4.5:1; --text-legacy-muted keeps 4.5:1 on them.
+   */
+  --text-legacy-muted: #9a9aa6;
+  --panel: var(--surface);
+  --line: var(--border);
+  --muted: var(--text-3);
+  --muted-text: var(--text-legacy-muted);
+  --muted-text-raised: var(--text-legacy-muted);
+  --danger: var(--fail);
+  --warning: var(--wait);
+}

@@ -38,13 +38,28 @@
   line-height: 16px;
   overflow-wrap: anywhere;
 }
+/* One repository line at every width: the repository name shortens (the
+   title carries the full text), the account context stays readable. */
 .pin-repo {
+  display: flex;
+  min-width: 0;
   font-size: var(--font-size-meta);
   color: #a0b18e;
   line-height: 14px;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+}
+.pin-repo-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pin-account {
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Keeps the leading space of „ · account“ in the flex row. */
+  white-space: pre;
   color: var(--muted-text-raised);
 }
 .pin-meta {

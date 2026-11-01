@@ -58,5 +58,6 @@ test('without forced colors the unsaved tab dot keeps its warning color', async 
   page,
 }) => {
   const dot = await unsavedDot(page);
-  await expect(dot).toHaveCSS('background-color', 'rgb(214, 183, 123)');
+  // The --warning alias reads the status token --wait (#fbbf24).
+  await expect(dot).toHaveCSS('background-color', 'rgb(251, 191, 36)');
 });

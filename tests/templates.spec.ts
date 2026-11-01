@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from './support/test';
 import {
+  chooseAccount,
   openDemoActivity,
   openLaunch,
   scenario,
@@ -242,9 +243,7 @@ test('compact cards preserve long labels, account context and click targets at 3
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 760 });
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   const dialog = await openLaunch(page);
   const label =
     'Nightly runner health checks for the shared maintenance environment';
@@ -266,8 +265,14 @@ test('compact cards preserve long labels, account context and click targets at 3
   await expect(card.getByText('main', { exact: true })).toBeVisible();
   const sizes = await card.evaluate((element) => {
     const cardBounds = element.getBoundingClientRect();
+    const account = element.querySelector('.pin-account')!;
     return {
       overflow: element.scrollWidth > element.clientWidth,
+      // The repository name may shorten; the account context is never cut.
+      accountClipped:
+        account.scrollWidth > account.clientWidth ||
+        account.getBoundingClientRect().right >
+          element.querySelector('.pin-repo')!.getBoundingClientRect().right,
       font: parseFloat(getComputedStyle(element.querySelector('h3')!).fontSize),
       targets: [...element.querySelectorAll('button')].map((button) => {
         const r = button.getBoundingClientRect();
@@ -280,6 +285,7 @@ test('compact cards preserve long labels, account context and click targets at 3
     };
   });
   expect(sizes.overflow).toBe(false);
+  expect(sizes.accountClipped).toBe(false);
   expect(sizes.font).toBeGreaterThanOrEqual(12);
   for (const target of sizes.targets) {
     expect(target.width).toBeGreaterThanOrEqual(24);

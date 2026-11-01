@@ -1,7 +1,6 @@
 .run-name,
 .pin-content h3,
 .workflow-item strong,
-.account-picker select,
 .field > span,
 .boolean-field strong,
 .repo-checkbox strong {
@@ -28,20 +27,11 @@
   flex-wrap: wrap;
 }
 
-@media (min-width: 1400px) {
-  .desktop {
-    padding-top: 26px;
-  }
-}
 @media (max-width: 520px) {
   .desktop {
     padding: 0;
     background: var(--panel);
     justify-content: flex-start;
-  }
-  .desktop-caption,
-  .desktop-footnote {
-    display: none;
   }
   .tray {
     width: 100%;
@@ -51,9 +41,6 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
-  }
-  .app-header {
-    padding: 12px 18px;
   }
   .modal-backdrop {
     padding: 9px;
@@ -75,8 +62,20 @@
   .content {
     padding-top: 14px;
   }
-  .app-footer {
-    padding: 11px 18px;
+}
+/* The 360px minimum window: the brand heading keeps only its icon (the name
+   stays for assistive tech), so the account menu keeps room for its name. */
+@media (max-width: 400px) {
+  .brand-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .app-bar {
+    padding-left: 14px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -98,6 +97,7 @@
   align-items: center;
   gap: 5px;
   min-width: 0;
+  white-space: nowrap;
 }
 .connection-copy > span:last-child {
   overflow: hidden;
@@ -126,27 +126,12 @@
   .pin-actions {
     gap: 2px;
   }
-  .app-header {
-    padding: 11px 14px;
-    gap: 8px;
-  }
-  .brand h1 {
-    font-size: 17px;
-  }
-  .brand-icon {
-    width: 26px;
-    height: 26px;
-  }
-  .connection {
-    padding: 5px 6px;
-    gap: 5px;
+  .app-bar {
+    padding-right: 8px;
+    gap: 6px;
   }
   .connection-copy {
     gap: 4px;
-  }
-  .toolbar {
-    padding-left: 16px;
-    padding-right: 16px;
   }
   .content {
     padding-left: 11px;

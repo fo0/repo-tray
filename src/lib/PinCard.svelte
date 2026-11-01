@@ -42,9 +42,10 @@
         >{/if}
     </div>
     <!-- eslint-disable svelte/no-useless-mustaches -- the literal keeps the leading space Svelte trims at the start of an element -->
-    <p class="pin-repo">
-      {repo}<span class="pin-account" title={`Konto ${account}`}
-        >{' · '}{account}</span
+    <p class="pin-repo" title={`${repo} · ${account}`}>
+      <span class="pin-repo-name">{repo}</span><span
+        class="pin-account"
+        title={`Konto ${account}`}>{' · '}{account}</span
       >
     </p>
     <!-- eslint-enable svelte/no-useless-mustaches -->

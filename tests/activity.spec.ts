@@ -1,4 +1,5 @@
 import { expect, test } from './support/test';
+import { chooseAccount } from './support/demo';
 import { NOW, openNativeActivity, row } from './support/nativeActivity';
 
 // Relative and absolute times are asserted; a fixed zone keeps them stable.
@@ -56,19 +57,22 @@ test('demo runs keep their fixture durations and mark the demo time', async ({
   await expect(row(page, 8404).locator('time')).toHaveText('vor 25 Min.');
 });
 
-test('the native account chip opens the accounts settings', async ({
+test('the native account menu opens the accounts settings', async ({
   page,
 }) => {
   await openNativeActivity(page);
-  const chip = page.getByRole('button', {
-    name: 'Konto: demo-dev · Personal · demo – Einstellungen öffnen',
+  const trigger = page.getByRole('button', {
+    name: 'Konto: demo-dev · Personal · demo – Konto wechseln',
     exact: true,
   });
-  // The chip stays inside the labelled status the account specs read.
+  // The menu button stays inside the labelled status the account specs read.
   await expect(
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('demo-dev · Personal · demo');
-  await chip.click();
+  await trigger.click();
+  await page
+    .getByRole('menuitem', { name: 'Konten verwalten …', exact: true })
+    .click();
   const dialog = page.getByRole('dialog', {
     name: 'Einstellungen',
     exact: true,
@@ -78,16 +82,14 @@ test('the native account chip opens the accounts settings', async ({
   ).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(chip).toBeFocused();
+  await expect(trigger).toBeFocused();
 });
 
 test('a search of only spaces is no search in the activity list', async ({
   page,
 }) => {
   await page.goto('/');
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   await page.getByRole('button', { name: /^Aktivität/ }).click();
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
   await page.getByLabel('Aktivität durchsuchen').fill('   ');

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './support/test';
 import {
+  chooseAccount,
   openDemoActivity,
   openLaunch,
   scenario,
@@ -202,15 +203,14 @@ test('a start that settles after an account switch offers no hidden run', async 
   const dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
-  const account = page.getByLabel('Konto auswählen', { exact: true });
-  await account.selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   await page.clock.runFor(400);
   const banner = page.getByRole('status').filter({ hasText: /Demo-Run #9001/ });
   await expect(banner).toBeVisible();
   const show = banner.getByRole('button', { name: 'In Aktivität anzeigen' });
   // The run belongs to demo-personal, which the activity list hides now.
   await expect(show).toHaveCount(0);
-  await account.selectOption('demo-personal');
+  await chooseAccount(page, 'demo-dev');
   await expect(show).toBeVisible();
   await show.click();
   const run = page.getByRole('article').filter({ hasText: '#9001' });

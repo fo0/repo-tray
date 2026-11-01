@@ -214,20 +214,23 @@
   overflow-wrap: anywhere;
   color: #d3e2c5;
 }
+/* One repository line: the name shortens, the branch stays readable. */
 .pinned-copy small {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
   column-gap: 4px;
   font-size: var(--font-size-meta);
   line-height: 14px;
   color: #8fa57c;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 .pinned-copy small > span:first-child {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pinned-ref {
+  flex-shrink: 0;
   color: #aabd96;
 }
 .pinned-copy:hover strong {

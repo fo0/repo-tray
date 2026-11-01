@@ -2,48 +2,53 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 7px;
-  padding: 11px 21px;
-  border-top: 1px solid #30382d;
-  background: #1c221a;
-  color: #87967b;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
   font-size: var(--font-size-meta);
 }
-.app-footer > span {
+/* Connection status: Demo or GitHub, then the state, with a coloured dot. */
+.connection {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  min-width: 0;
+  line-height: 1.3;
 }
-.footer-dot {
-  width: 4px;
-  height: 4px;
-  background: #92ae76;
+.connection-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+.connection-dot.offline {
+  background: var(--wait);
+}
+.connection-dot.forbidden {
+  background: var(--fail);
+}
+.footer-stale {
+  color: var(--wait);
+  white-space: nowrap;
 }
 .app-footer > button {
   font-size: var(--font-size-meta);
-  color: var(--muted-text);
+  color: var(--text-3);
   background: transparent;
   padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 6px;
   min-height: 32px;
-  margin: -10px -8px;
+  margin: -10px -8px -10px auto;
+  white-space: nowrap;
+  border-radius: 6px;
 }
-.desktop-footnote {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  font-size: var(--font-size-meta);
-  letter-spacing: 2px;
-  color: #485541;
-  margin-top: 18px;
-}
-.tiny-line {
-  width: 19px;
-  height: 1px;
-  background: #34402e;
+.app-footer > button:hover:not(:disabled) {
+  color: var(--text-2);
 }
 .empty-state {
   text-align: center;

@@ -259,11 +259,11 @@
     line-height: 1.6;
   }
   .browser-auth .field-help {
-    font-size: 11px;
+    font-size: var(--font-size-meta);
   }
   .browser-auth > .text-button {
     min-height: 28px;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
   }
   h4 {
     margin: 0.6rem 0;

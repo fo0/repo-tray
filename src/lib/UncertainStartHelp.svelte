@@ -172,7 +172,7 @@
     background: transparent;
     color: var(--warning);
     font: inherit;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     line-height: 14px;
     text-align: left;
     cursor: help;
@@ -222,6 +222,6 @@
   }
   .uncertain-start-tip .tip-mode {
     color: #bca980;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
   }
 </style>

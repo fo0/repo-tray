@@ -1,4 +1,5 @@
 import { expect, test } from './support/test';
+import { chooseAccount } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -120,17 +121,13 @@ test('heart favorites persist and remain scoped to their original account', asyn
       has: page.getByRole('heading', { name: 'Runner health', exact: true }),
     }),
   ).toContainText('team-demo');
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-personal');
+  await chooseAccount(page, 'demo-dev');
   await expect(
     page.locator('.pin-card').filter({
       has: page.getByRole('heading', { name: 'Runner health', exact: true }),
     }),
   ).toHaveCount(0);
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   await page.getByRole('button', { name: 'Repositories', exact: true }).click();
   await repo.locator('.repository-toggle').click();
   await repo

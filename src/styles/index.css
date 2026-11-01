@@ -1,7 +1,9 @@
 /*
  * Panel stylesheet entry. Order matters: later files override earlier ones
  * (the sheet grew by appending patches), so keep the numeric prefixes in order.
+ * Tokens come first: every later file reads them.
  */
+@import './00-tokens.css';
 @import './00-base.css';
 @import './01-shell.css';
 @import './02-activity.css';

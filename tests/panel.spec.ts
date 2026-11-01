@@ -1,5 +1,5 @@
 import { expect, test } from './support/test';
-import { openDemoActivity, openLaunch } from './support/demo';
+import { chooseAccount, openDemoActivity, openLaunch } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
@@ -11,9 +11,7 @@ test('account and owner context, filters and search stay isolated', async ({
   await expect(
     page.getByText('demo-dev/launch-kit-demo', { exact: true }).first(),
   ).toBeVisible();
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   await expect(
     page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
   ).toBeVisible();
@@ -33,9 +31,7 @@ test('account and owner context, filters and search stay isolated', async ({
   await expect(
     page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
   ).toBeVisible();
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-personal');
+  await chooseAccount(page, 'demo-dev');
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
   await expect(
     page.getByText('demo-dev/website-demo', { exact: true }).first(),
@@ -49,7 +45,11 @@ for (const width of [360, 480]) {
     await page.setViewportSize({ width, height: 760 });
     const geometry = await page.evaluate(() => {
       const header = document
-        .querySelector('.app-header')!
+        .querySelector('.app-bar')!
+        .getBoundingClientRect();
+      // The connection status moved from the header into the footer.
+      const footer = document
+        .querySelector('.app-footer')!
         .getBoundingClientRect();
       const status = document
         .querySelector('.connection')!
@@ -60,7 +60,9 @@ for (const width of [360, 480]) {
       return {
         headerHeight: header.height,
         statusInside:
-          status.top >= header.top && status.bottom <= header.bottom,
+          status.top >= footer.top &&
+          status.bottom <= footer.bottom &&
+          status.right <= footer.right,
         rowHeight: run.height,
         runFont: parseFloat(
           getComputedStyle(document.querySelector('.run-name')!).fontSize,

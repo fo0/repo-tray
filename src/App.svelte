@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import ActivityView from './lib/ActivityView.svelte';
+  import AppBar from './lib/AppBar.svelte';
   import AppFooter from './lib/AppFooter.svelte';
-  import AppHeader from './lib/AppHeader.svelte';
   import ConnectPanel from './lib/ConnectPanel.svelte';
   import DispatchDialog from './lib/DispatchDialog.svelte';
   import EmptyState from './lib/EmptyState.svelte';
@@ -13,7 +13,6 @@
   import SearchField from './lib/SearchField.svelte';
   import SettingsDialog from './lib/SettingsDialog.svelte';
   import StatusBanners from './lib/StatusBanners.svelte';
-  import Toolbar from './lib/Toolbar.svelte';
   import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
   import appPackage from '../package.json';
   import { bridge, native, observeSnapshots } from './lib/bridge';
@@ -43,7 +42,7 @@
   let query = $state('');
   let filter = $state<ActivityFilter>('all');
   let searchField = $state<ReturnType<typeof SearchField>>();
-  let toolbar = $state<ReturnType<typeof Toolbar>>();
+  let appBar = $state<ReturnType<typeof AppBar>>();
   const modals = new Modals(panel, (id) => {
     panel.notices.dismissRun(id);
     tab = 'activity';
@@ -143,7 +142,7 @@
         ? 'Demo-Token geprüft und verworfen · demo-dev ist nur simuliert verbunden.'
         : 'Demo-Anmeldung bestätigt · demo-dev ist nur simuliert verbunden.',
     );
-    void tick().then(() => toolbar?.focusPicker());
+    void tick().then(() => appBar?.focusAccount());
   }
 
   /** Empty-state actions open the missing step: connect, account or repositories. */
@@ -173,30 +172,22 @@
   inert={modals.kind !== null}
   aria-hidden={modals.kind !== null ? 'true' : undefined}
 >
-  <div class="desktop-caption" aria-hidden="true">
-    <span class="caption-dot"></span> YOUR REPOS. WITHIN REACH.
-  </div>
   <section class="tray" aria-label="RepoTray">
-    <AppHeader
-      {native}
-      {demo}
-      connectivity={snapshot?.connectivity}
-      accountCount={snapshot?.accounts.length ?? 0}
-      {demoAccountConnected}
-    />
-
-    <Toolbar
-      bind:this={toolbar}
+    <AppBar
+      bind:this={appBar}
       {native}
       {demo}
       accounts={snapshot?.accounts ?? []}
       {accountId}
-      accountLabel={accountName(accountId)}
-      repoCount={repos.length}
+      {accountName}
+      connectivity={snapshot?.connectivity}
       refreshing={panel.refreshing}
       ready={!!snapshot}
       {canRefresh}
+      busy={panel.settingsBusy}
       onAccountChange={changeAccount}
+      onConnect={() => modals.show('connect')}
+      onManageAccounts={() => openSettings('accounts')}
       onRefresh={() => void refreshPanel()}
       onSettings={() => openSettings()}
     />
@@ -288,16 +279,15 @@
     <AppFooter
       stale={!!snapshot?.stale}
       {demo}
+      connectivity={snapshot?.connectivity}
+      accountCount={snapshot?.accounts.length ?? 0}
+      {demoAccountConnected}
       updatedAt={snapshot?.updatedAt}
       refreshing={panel.refreshing}
       {canRefresh}
       onRefresh={() => void refreshPanel()}
     />
   </section>
-  <div class="desktop-footnote" aria-hidden="true">
-    <span class="tiny-line"></span> MADE FOR YOUR FLOW
-    <span class="tiny-line"></span>
-  </div>
 </main>
 
 {#if modals.kind === 'settings'}

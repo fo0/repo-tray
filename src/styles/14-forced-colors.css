@@ -44,6 +44,13 @@
     color: Highlight;
   }
 
+  /* Menu items mark hover and focus with a fill; draw an outline instead. */
+  .menu-item:hover,
+  .menu-item:focus {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
   /* Pinned favourites are a filled heart. */
   .favorite-button[aria-pressed='true'] svg,
   .pinned-remove svg {

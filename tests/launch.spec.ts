@@ -1,5 +1,10 @@
 import { expect, test } from './support/test';
-import { openDemoActivity, openLaunch, scenario } from './support/demo';
+import {
+  chooseAccount,
+  openDemoActivity,
+  openLaunch,
+  scenario,
+} from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
@@ -100,9 +105,7 @@ test('a late start response cannot overwrite a newly chosen repository form', as
   let dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog.getByRole('button', { name: 'Dialog schließen' }).click();
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   await page
     .locator('.workflow-heading')
     .getByRole('button', { name: 'Starten…', exact: true })

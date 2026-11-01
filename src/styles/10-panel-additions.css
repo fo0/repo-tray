@@ -23,24 +23,6 @@
   align-self: center;
 }
 
-.active-account-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  margin-right: 12px;
-  color: #bccfaa;
-  font-size: var(--font-size-meta);
-  line-height: 1.5;
-}
-.active-account-status span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.active-account-status > svg {
-  flex-shrink: 0;
-}
 .active-account-settings {
   padding-bottom: 16px;
   margin-bottom: 18px;

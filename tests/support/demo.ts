@@ -20,6 +20,21 @@ export async function openLaunch(page: Page) {
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }
 
+/** The header button that opens the account menu. */
+export function accountMenuButton(page: Page) {
+  return page.getByRole('button', { name: / – Konto wechseln$/ });
+}
+
+/**
+ * Picks an account in the header account menu by its shown name, e.g.
+ * `team-demo` or `Alle Konten` in the demo.
+ */
+export async function chooseAccount(page: Page, name: string) {
+  await accountMenuButton(page).click();
+  await page.getByRole('menuitemradio', { name, exact: true }).click();
+  await expect(page.getByRole('menu')).toHaveCount(0);
+}
+
 /** Switches the demo scenario in settings and closes the dialog again. */
 export async function scenario(page: Page, value: string) {
   await page

@@ -127,6 +127,12 @@
       },
     ],
     info: [ring(12, 12, 8.5), line(12, 11, 12, 16), line(12, 8, 12, 8.01)],
+    userPlus: [
+      ring(10, 8, 4),
+      wire('3.5,20 4.5,17 7,15 13,15 15.5,17 16.5,20'),
+      line(19, 8, 19, 14),
+      line(16, 11, 22, 11),
+    ],
   } satisfies Record<string, Shape[]>;
 
   /** Every glyph name; a typo at a call site is a type error, not a silent fallback. */

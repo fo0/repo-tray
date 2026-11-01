@@ -1,5 +1,11 @@
 import { expect, test, type Page } from './support/test';
-import { openLaunch, scenario, templateCard } from './support/demo';
+import {
+  accountMenuButton,
+  chooseAccount,
+  openLaunch,
+  scenario,
+  templateCard,
+} from './support/demo';
 
 // The footer shows clock times; a fixed zone keeps them deterministic.
 test.use({ timezoneId: 'UTC' });
@@ -62,9 +68,7 @@ test('demo reset restores templates, scenario and account selection', async ({
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await scenario(page, 'offline');
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   const connection = page.getByRole('status', { name: 'Verbindungsstatus' });
   await expect(connection).toContainText('Offline');
 
@@ -80,8 +84,8 @@ test('demo reset restores templates, scenario and account selection', async ({
     ),
   ).toBeVisible();
   await expect(connection).not.toContainText('Offline');
-  await expect(page.getByLabel('Konto auswählen', { exact: true })).toHaveValue(
-    '',
+  await expect(accountMenuButton(page)).toHaveAccessibleName(
+    'Konto: Alle Konten – Konto wechseln',
   );
   await expect(templateCard(page, 'Reset me')).toHaveCount(0);
   await expect(templateCard(page, 'Windows build')).toBeVisible();
