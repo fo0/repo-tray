@@ -59,7 +59,7 @@ PC is needed. Keep the published installer/release unchanged.
    never maximizes, and the next tray open places it beside the icon again.
 
 The remaining native-only checks (snapshot events under the narrowed
-capabilities, update notify mode, signed download progress, WebView2 clipboard,
+capabilities, in-app update with progress and restart, WebView2 clipboard,
 High Contrast and autostart after uninstall) are listed in the
 [native Windows smoke checklist](VALIDATION.md#native-windows-smoke-checklist).
 

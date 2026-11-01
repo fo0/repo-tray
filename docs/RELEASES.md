@@ -4,11 +4,19 @@ The standard **Release** Action builds and publishes the unsigned Windows x64 NS
 
 ## App updates
 
-Standard unsigned builds run in **notify mode**. At startup and every 6 hours they read the public GitHub `releases/latest` API for `fo0/repo-tray`, unauthenticated and only on `api.github.com` (no redirects, bounded response). If a newer stable release exists, the panel announces it and **Release-Seite öffnen** opens exactly that release's tag page. The app never downloads or installs anything itself; the user downloads and runs the new EXE. Drafts and prereleases are ignored. Account selection does not affect this check (`src-tauri/src/updates.rs`, `src-tauri/src/desktop_updates.rs`, `src/lib/UpdatePanel.svelte`).
+Standard unsigned builds update inside the app ([ADR-0004](adr/0004-in-app-updates-for-unsigned-builds.md)):
 
-Builds compiled with an updater public key (`REPOTRAY_UPDATER_PUBLIC_KEY`, separately configured) use the Tauri updater instead: they download inside the app, verify the signature and install only after a second explicit confirmation. The standard Release Action generates no signed updater artifacts and publishes no `latest.json`, so the built-in signed feed (`releases/latest/download/latest.json`) currently resolves to nothing. Once signing is introduced, signed builds need a dedicated feed URL that serves only signed manifests.
+1. **Check.** At startup, every 6 hours and on **Nach Updates suchen**, the app reads the public `releases/latest` API of `fo0/repo-tray` on `api.github.com`, unauthenticated, with a bounded response. It accepts only a canonical stable `vX.Y.Z` newer than the running version whose release has the asset `RepoTray_<version>_x64-setup.exe` with GitHub's `sha256` digest and size. Drafts and prereleases are ignored; the active account does not matter.
+2. **Offer.** **Update verfügbar** shows the version and at most 5 changelog bullets from the release notes, with **Installieren**.
+3. **Download.** **Installieren** downloads the asset unauthenticated over HTTPS, following redirects only to GitHub hosts, with a progress bar.
+4. **Verify.** Size and SHA-256 must match the asset metadata; otherwise nothing runs.
+5. **Install.** The app runs the NSIS installer passively (`/P /R /UPDATE`, current-user install) and exits; the installer restarts RepoTray.
 
-A Tauri updater signature and a Windows Authenticode certificate are different mechanisms; neither is needed to publish the standard EXE.
+There is no release-page link. Trust equals a manual download from the Releases page: GitHub's TLS plus the asset digest, no publisher signature. Code: `src-tauri/src/updates.rs`, `src-tauri/src/desktop_updates.rs`, `src/lib/UpdatePanel.svelte`.
+
+Builds compiled with an updater public key (`REPOTRAY_UPDATER_PUBLIC_KEY`, separately configured) use the Tauri updater instead and verify its signature. The standard Release Action generates no signed updater artifacts and publishes no `latest.json`, so the built-in signed feed (`releases/latest/download/latest.json`) currently resolves to nothing. Once signing is introduced, signed builds need a dedicated feed URL that serves only signed manifests.
+
+A Tauri updater signature and a Windows Authenticode certificate are different mechanisms; neither is needed to publish the standard EXE or to update it in the app.
 
 ## CI and release triggers
 

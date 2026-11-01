@@ -22,4 +22,4 @@ The bundled raster icons and inline SVG glyphs are RepoTray geometry constructed
 
 ## Repository configuration
 
-Choose the final public repository identity yourself and check its release endpoints, GitHub App configuration and workflow permissions against that choice. The app's update check and release links point at `fo0/repo-tray` (`src-tauri/src/updates.rs`); a different identity needs those constants changed. Preparing a source tree does not change repository visibility, publish a release, reinitialize Git, rewrite history or configure credentials.
+Choose the final public repository identity yourself and check its release endpoints, GitHub App configuration and workflow permissions against that choice. The app's update check and installer download point at `fo0/repo-tray` (`src-tauri/src/updates.rs`); a different identity needs those constants changed. Preparing a source tree does not change repository visibility, publish a release, reinitialize Git, rewrite history or configure credentials.

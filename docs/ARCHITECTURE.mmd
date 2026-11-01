@@ -5,12 +5,11 @@ flowchart TD
         StartsTs["starts.svelte.ts per-target starts"]
         NoticesTs["notices.svelte.ts banner notices"]
         FavoritesTs["favorites.svelte.ts hearts and undo"]
-        RepoSelectionTs["repoSelection.svelte.ts tray repositories and undo"]
         ModalsTs["modals.svelte.ts dialog and focus return"]
         ViewTs["view.svelte.ts page, search and way back"]
         DispatchFormTs["dispatchForm.svelte.ts start form state"]
         UpdaterTs["updater.svelte.ts and updates.ts"]
-        Components["lib Svelte components: overview, section pages, repository picker, dialogs"]
+        Components["lib Svelte components: overview, section pages, dialogs"]
         FocusTs["focus.ts focus trap and landing"]
         Styles["src/styles ordered CSS, dark and light tokens"]
         ThemeTs["theme.ts theme preference"]
@@ -83,8 +82,6 @@ flowchart TD
     PanelTs --> StartsTs
     PanelTs --> NoticesTs
     PanelTs --> FavoritesTs
-    PanelTs --> RepoSelectionTs
-    RepoSelectionTs -->|"select_repos, one call at a time"| Bridge
     PanelTs --> AccountSel
     PanelTs --> ModelTs
     PanelTs -->|"bridge calls"| Bridge
@@ -123,8 +120,8 @@ flowchart TD
     DesktopStartup --> StartupRs
     DesktopStartup -->|"per-user value"| RunKey
     DesktopUpdates --> UpdatesRs
-    UpdatesRs -->|"notify: public releases/latest"| GitHubApi
-    DesktopUpdates -->|"signed builds only"| Releases
+    UpdatesRs -->|"public releases/latest, asset digest"| GitHubApi
+    DesktopUpdates -->|"download installer EXE, verify, run NSIS"| Releases
 
     LibRs --> LiveRs
     LibRs --> DemoRs
@@ -164,7 +161,6 @@ flowchart TD
     click StartsTs "src/lib/starts.svelte.ts"
     click NoticesTs "src/lib/notices.svelte.ts"
     click FavoritesTs "src/lib/favorites.svelte.ts"
-    click RepoSelectionTs "src/lib/repoSelection.svelte.ts"
     click ModalsTs "src/lib/modals.svelte.ts"
     click ViewTs "src/lib/view.svelte.ts"
     click DispatchFormTs "src/lib/dispatchForm.svelte.ts"
@@ -217,7 +213,7 @@ flowchart TD
     classDef external fill:#ff6347,stroke:#cc4f39,color:#fff
     classDef infra fill:#7b42bc,stroke:#5e338f,color:#fff
 
-    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,RepoSelectionTs,ModalsTs,ViewTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,ThemeTs,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
+    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,ModalsTs,ViewTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,ThemeTs,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
     class MainRs,DesktopRs,DesktopAuth,DesktopStartup,TrayPopup,DesktopUpdates,LibRs,LiveRs,LiveMods,GithubRs,GithubMods,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,StartupRs,PopupRs,RunLinkRs,UpdatesRs,DemoRs backend
     class DemoFixture,RunLinksFixture,SQLite database
     class GitHubApi,Keyring,Releases,RunKey external
