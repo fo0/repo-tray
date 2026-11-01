@@ -96,6 +96,13 @@ export class Panel {
       ) ?? []
     );
   }
+  /** Expanded repositories of the browser; kept while the view is switched. */
+  expandedRepos = $state.raw(new Set<string>());
+  toggleRepo = (repoId: string) => {
+    const next = new Set(this.expandedRepos);
+    if (!next.delete(repoId)) next.add(repoId);
+    this.expandedRepos = next;
+  };
   /** Whether this account's runs appear in the activity list right now. */
   showsAccount = (accountId: string) =>
     this.native
@@ -168,6 +175,8 @@ export class Panel {
   changeAccount(value: string) {
     this.viewEpoch.invalidate();
     this.refreshing = false;
+    // Like the expanded run, open repositories belong to the previous view.
+    this.expandedRepos = new Set();
     this.accountId =
       this.native &&
       value &&

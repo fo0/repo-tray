@@ -61,6 +61,8 @@
   busy={panel.pinsBusy}
   isStarting={panel.starts.isRunning}
   {blocked}
+  expanded={panel.expandedRepos}
+  onToggle={panel.toggleRepo}
 />
 {#if !groups.length}<EmptyState
     icon="repo"

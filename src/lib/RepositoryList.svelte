@@ -14,6 +14,8 @@
     busy,
     isStarting,
     blocked,
+    expanded,
+    onToggle,
   }: {
     groups: ReturnType<typeof repositoryActivity>;
     onopen: (workflow: Workflow) => void;
@@ -24,14 +26,10 @@
     isStarting: (target: DispatchTarget) => boolean;
     /** Why starts are off for every target (offline, forbidden); null otherwise. */
     blocked: string | null;
+    /** Expanded repository IDs; owned by the panel so they survive view switches. */
+    expanded: Set<string>;
+    onToggle: (repoId: string) => void;
   } = $props();
-  let expanded = $state<Set<string>>(new Set());
-  function toggle(id: string) {
-    const next = new Set(expanded);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    expanded = next;
-  }
 </script>
 
 <div class="repository-list">
@@ -46,7 +44,7 @@
         class="repository-toggle"
         aria-expanded={open}
         aria-controls={`actions-${group.repo.id}`}
-        onclick={() => toggle(group.repo.id)}
+        onclick={() => onToggle(group.repo.id)}
       >
         <span class="repository-symbol"><Icon name="repo" size={16} /></span>
         <span class="repository-copy">

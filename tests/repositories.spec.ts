@@ -44,6 +44,23 @@ test('repository disclosures show actions and both row and start button open the
   ).toBeHidden();
 });
 
+test('expanded repositories stay open across view switches', async ({
+  page,
+}) => {
+  const toggles = page.locator('.repository-toggle');
+  await toggles.first().click();
+  await toggles.nth(1).click();
+  await toggles.nth(1).click();
+  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await expect(toggles.first()).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggles.nth(1)).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    page.getByRole('button', { name: 'Desktop build starten…', exact: true }),
+  ).toBeVisible();
+});
+
 test('heart favorites persist and remain scoped to their original account', async ({
   page,
 }) => {
