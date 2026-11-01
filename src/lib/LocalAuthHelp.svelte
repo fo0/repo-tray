@@ -32,7 +32,7 @@
     margin-top: 14px;
     font-size: var(--font-size-meta);
     line-height: 1.65;
-    color: #a9bd98;
+    color: var(--text-2);
   }
   .local-auth-help summary {
     cursor: pointer;

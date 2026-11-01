@@ -15,6 +15,9 @@ export default defineConfig({
   use: {
     baseURL,
     viewport: { width: 500, height: 840 },
+    // The suite runs in the dark theme, the default design; tests/theme.spec.ts
+    // covers the light one and the override.
+    colorScheme: 'dark',
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
       : {},

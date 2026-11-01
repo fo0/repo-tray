@@ -1,209 +1,188 @@
-import { chromium, expect } from '@playwright/test';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+/*
+ * Favorite card review: the Favoriten page with one and two favorites, an
+ * uncertain start with its help, a quick-start favorite and the overview
+ * tiles, in both themes, with layout metrics per shot. CARD_REVIEW_DIR
+ * redirects the files.
+ */
+import { expect } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {
+  THEMES,
+  assertLocalOnly,
+  chooseAccount,
+  fileSha256,
+  launch,
+  openDemo,
+  openFavorite,
+  openPage,
+  root,
+  scenario,
+  sourceFingerprints,
+} from './capture-support.mjs';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
 const output =
   process.env.CARD_REVIEW_DIR ?? path.join(root, 'docs/review/card-revision');
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({
-  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
-    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
-    : {}),
-  headless: true,
-});
-const page = await browser.newPage({
-  viewport: { width: 480, height: 760 },
-  deviceScaleFactor: 2,
-  locale: 'de-DE',
-});
-/** @type {string[]} */
-const externalRequests = [];
-page.on('request', (request) => {
-  if (!['localhost', '127.0.0.1'].includes(new URL(request.url()).hostname))
-    externalRequests.push(request.url());
-});
+const browser = await launch();
 /**
- * Manifest entries; `metrics` is whatever the page measured.
- * @type {{ filename: string; caption: string; metrics: any; sha256: string }[]}
+ * Manifest entries with the layout each shot measured.
+ * @type {{ filename: string; theme: string; caption: string; metrics: ReturnType<typeof measure>; sha256: string }[]}
  */
 const shots = [];
-/**
- * @param {string} filename
- * @param {string} caption
- */
-async function capture(filename, caption) {
-  await page.screenshot({
-    path: path.join(output, filename),
-    animations: 'disabled',
-  });
-  const metrics = await page.evaluate(() => {
-    /**
-     * @template {Element} T
-     * @param {T | null} node
-     * @returns {T}
-     */
-    const must = (node) => {
-      if (!node) throw new Error('Expected review element is missing');
-      return node;
-    };
-    /** @param {string} selector */
-    const rect = (selector) => {
-      const r = must(document.querySelector(selector)).getBoundingClientRect();
-      return { top: r.top, bottom: r.bottom, width: r.width, height: r.height };
-    };
-    return {
-      header: rect('.app-header'),
-      toolbar: rect('.toolbar'),
-      tabs: rect('.tabs'),
-      content: rect('.content'),
-      pinList: rect('.pin-list'),
-      cards: [...document.querySelectorAll('.pin-card')].map((card) => ({
-        title: must(card.querySelector('h3')).textContent,
-        height: card.getBoundingClientRect().height,
-        width: card.getBoundingClientRect().width,
-        warning: !!card.querySelector('.uncertain-start'),
-      })),
-      workflowRow: rect('.workflow-item'),
-      workflowHeading: rect('.workflow-heading'),
-      overflow: document.documentElement.scrollWidth > innerWidth,
-      notice: (() => {
-        const banner = document.querySelector('.notice-banner');
-        if (!banner) return null;
-        /** @param {Element | null} node */
-        const center = (node) => {
-          const r = must(node).getBoundingClientRect();
-          return r.top + r.height / 2;
-        };
-        return {
+/** @type {string[]} */
+const externalRequests = [];
+
+/** Layout of the shown panel: bars, favorite cards, tiles and the notice. */
+function measure() {
+  /** @param {string} selector */
+  const rect = (selector) => {
+    const node = document.querySelector(selector);
+    if (!node) return null;
+    const r = node.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+  };
+  /** @param {Element | null} node */
+  const center = (node) => {
+    if (!node) return null;
+    const r = node.getBoundingClientRect();
+    return r.top + r.height / 2;
+  };
+  const banner = document.querySelector('.notice-banner');
+  return {
+    appBar: rect('.app-bar'),
+    search: rect('.search-field'),
+    content: rect('.content'),
+    pinList: rect('.pin-list'),
+    cards: [...document.querySelectorAll('.pin-card')].map((card) => ({
+      title: card.querySelector('h3')?.textContent ?? '',
+      height: card.getBoundingClientRect().height,
+      width: card.getBoundingClientRect().width,
+      warning: !!card.querySelector('.uncertain-start'),
+    })),
+    tiles: [...document.querySelectorAll('.tile')].map((tile) => ({
+      height: tile.getBoundingClientRect().height,
+      width: tile.getBoundingClientRect().width,
+    })),
+    overflow: document.documentElement.scrollWidth > innerWidth,
+    notice: banner
+      ? {
           height: banner.getBoundingClientRect().height,
           center: center(banner),
           textCenter: center(banner.querySelector('span')),
           iconCenter: center(banner.querySelector('svg')),
           closeCenter: center(banner.querySelector('button')),
-        };
-      })(),
-    };
-  });
-  shots.push({
-    filename,
-    caption,
-    metrics,
-    sha256: createHash('sha256')
-      .update(await readFile(path.join(output, filename)))
-      .digest('hex'),
-  });
+        }
+      : null,
+  };
 }
-/** @param {string} name */
-async function openPin(name) {
-  await page
-    .locator('article.pin-card')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-    .getByRole('button', { name: 'Öffnen', exact: true })
-    .click();
-  return page.getByRole('dialog', { name: 'Workflow starten' });
-}
+
 try {
-  await page.goto('http://127.0.0.1:1420');
-  await expect(
-    page.getByRole('status', { name: 'Verbindungsstatus' }),
-  ).toContainText('Demo');
-  await page.getByLabel('Account auswählen').selectOption('demo-personal');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
-  await capture(
-    '04-vorlagen.png',
-    'Favoriten: kompakte Standardvorlage mit Repository, Konto, Ref und Bestätigungsmodus.',
-  );
-  let dialog = await openPin('Windows build');
-  await dialog.getByLabel('Branch oder Tag').selectOption('develop');
-  await dialog.getByLabel('Build target').selectOption('linux-x64');
-  await dialog.getByLabel('Version', { exact: true }).fill('0.2.0');
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('Linux develop');
-  await dialog
-    .getByRole('button', { name: 'Als neue Vorlage speichern', exact: true })
-    .click();
-  await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
-  ).toBeVisible();
-  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  await capture(
-    '07-vorlage-gespeichert.png',
-    'Zwei gespeicherte Vorlagen: direkte Aktionen, vollständige Repo-/Kontozuordnung und Branch je Zeile.',
-  );
-  await page
-    .getByRole('button', { name: 'Einstellungen', exact: true })
-    .click();
-  await page.getByLabel('Demo-Szenario').selectOption('uncertain');
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
-  dialog = await openPin('Windows build');
-  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
-  await expect(
-    dialog.getByText('Startstatus ungeklärt', { exact: true }),
-  ).toBeVisible();
-  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
-  // Replay the existing demo sign-in solely to reproduce the previous main-view state.
-  // No login screen is captured or changed by this card review.
-  await page
-    .getByRole('button', { name: 'Einstellungen', exact: true })
-    .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
-  dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
-  await dialog
-    .getByRole('button', { name: 'Mit GitHub anmelden', exact: true })
-    .click();
-  await dialog.getByRole('button', { name: 'Bestätigung simulieren' }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByText(/Demo-Anmeldung bestätigt/)).toBeVisible();
-  await capture(
-    '17-automatisch-zur-app.png',
-    'Hauptansicht: Warnstatus in der vorhandenen Metazeile, keine zusätzliche Warnzeile; Bestätigungsmeldung vertikal zentriert.',
-  );
-  await page
-    .getByRole('button', { name: 'Start-Status ungeklärt', exact: true })
-    .click();
-  await expect(page.getByRole('tooltip')).toBeVisible();
-  await capture(
-    '23-startstatus-hilfe.png',
-    'Geöffnete Statushilfe: Grund, unveränderte Startsperre und nächster Schritt; erreichbar per Hover, Fokus und Klick.',
-  );
-  await page.keyboard.press('Escape');
-  dialog = await openPin('Linux develop');
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog
-    .getByLabel('Schnellstart ausdrücklich aktivieren', { exact: false })
-    .check();
-  await dialog
-    .getByRole('button', { name: 'Vorlage aktualisieren', exact: true })
-    .click();
-  await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
-  ).toBeVisible();
-  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  await capture(
-    '22-vorlagen-schnellstart.png',
-    'Schnellstart-Vorlage: Start, Konfigurieren und Entfernen bleiben unmittelbar erreichbar.',
-  );
-  if (externalRequests.length) throw new Error('Unexpected external requests');
-  const fingerprints = Object.fromEntries(
-    await Promise.all(
-      [
-        'src/App.svelte',
-        ...(await readdir(path.join(root, 'src/styles')))
-          .filter((file) => file.endsWith('.css'))
-          .sort()
-          .map((file) => `src/styles/${file}`),
-        'src/lib/ConnectPanel.svelte',
-      ].map(async (file) => [
-        file,
-        createHash('sha256')
-          .update(await readFile(path.join(root, file)))
-          .digest('hex'),
-      ]),
-    ),
-  );
+  for (const theme of THEMES) {
+    const demo = await openDemo(browser, { theme });
+    const { page } = demo;
+    /**
+     * @param {string} name
+     * @param {string} caption
+     */
+    const capture = async (name, caption) => {
+      const filename = `${name}-${theme}.png`;
+      await page.screenshot({
+        path: path.join(output, filename),
+        animations: 'disabled',
+      });
+      shots.push({
+        filename,
+        theme,
+        caption,
+        metrics: await page.evaluate(measure),
+        sha256: await fileSha256(path.join(output, filename)),
+      });
+    };
+
+    await chooseAccount(page, 'demo-dev');
+    await openPage(page, 'favorites');
+    await capture(
+      '04-favoriten',
+      'Favoriten: kompakte Karte mit Repository, Konto, Ref und Bestätigungsmodus.',
+    );
+
+    let dialog = await openFavorite(page, 'Windows build');
+    await dialog.getByLabel('Branch oder Tag').selectOption('develop');
+    await dialog.getByLabel('Build target').selectOption('linux-x64');
+    await dialog.getByLabel('Version', { exact: true }).fill('0.2.0');
+    await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+    await dialog.getByLabel('Name des Favoriten').fill('Linux develop');
+    await dialog
+      .getByRole('button', { name: 'Als neuen Favoriten speichern' })
+      .click();
+    await expect(
+      dialog.getByText('„Linux develop“ als Favorit gespeichert.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await dialog
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+    await capture(
+      '07-favorit-gespeichert',
+      'Zwei Favoriten: direkte Aktionen, vollständige Repo-/Kontozuordnung und Branch je Zeile.',
+    );
+
+    await scenario(page, 'uncertain');
+    dialog = await openFavorite(page, 'Windows build');
+    await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+    await expect(
+      dialog.getByText('Startstatus ungeklärt', { exact: true }),
+    ).toBeVisible();
+    await dialog
+      .getByRole('button', { name: 'Schließen', exact: true })
+      .click();
+    await capture(
+      '17-ungeklaert',
+      'Warnstatus in der vorhandenen Metazeile der Karte, keine zusätzliche Warnzeile.',
+    );
+    await page
+      .getByRole('button', {
+        name: 'Startstatus ungeklärt: Windows build',
+        exact: true,
+      })
+      .click();
+    await expect(page.getByRole('tooltip')).toBeVisible();
+    await capture(
+      '23-startstatus-hilfe',
+      'Geöffnete Statushilfe: Grund, unveränderte Startsperre und nächster Schritt; erreichbar per Hover, Fokus und Klick.',
+    );
+    await page.keyboard.press('Escape');
+
+    await scenario(page, 'normal');
+    dialog = await openFavorite(page, 'Linux develop');
+    await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+    await dialog
+      .getByLabel('Schnellstart aktivieren', { exact: false })
+      .check();
+    await dialog
+      .getByRole('button', { name: 'Favorit aktualisieren', exact: true })
+      .click();
+    await expect(dialog.getByText(/als Favorit gespeichert/)).toBeVisible();
+    await dialog
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+    await capture(
+      '22-favoriten-schnellstart',
+      'Schnellstart-Favorit: Start, Konfigurieren und Entfernen bleiben unmittelbar erreichbar.',
+    );
+
+    await openPage(page, 'overview');
+    await expect(page.locator('.tile')).not.toHaveCount(0);
+    await capture(
+      '25-favoriten-kacheln',
+      'Übersicht: Favoriten als Kacheln mit rundem Start und Herz zum Entfernen.',
+    );
+    externalRequests.push(...demo.externalRequests);
+    await demo.context.close();
+  }
+  assertLocalOnly(externalRequests);
   await writeFile(
     path.join(output, 'manifest.json'),
     JSON.stringify(
@@ -212,26 +191,23 @@ try {
         mode: 'browser-demo',
         viewport: { width: 480, height: 760 },
         deviceScaleFactor: 2,
+        themes: THEMES,
         externalRequests,
-        fingerprints,
+        fingerprints: await sourceFingerprints(),
         shots,
       },
       null,
       2,
     ) + '\n',
   );
-  const [normal, twoCards, warning] = shots;
-  if (!normal || !twoCards || !warning)
-    throw new Error('Expected the normal, two-card and warning shots');
   console.log(
     JSON.stringify({
       output,
       count: shots.length,
-      normalHeight: normal.metrics.cards[0].height,
-      twoCardList: twoCards.metrics.pinList.height,
-      warningHeight: warning.metrics.cards[0].height,
-      workflowHeight: normal.metrics.workflowRow.height,
-      headerHeight: normal.metrics.header.height,
+      cardHeights: shots
+        .filter((shot) => shot.theme === 'dark')
+        .map((shot) => shot.metrics.cards.map((card) => card.height)),
+      appBarHeight: shots[0]?.metrics.appBar?.height,
     }),
   );
 } finally {

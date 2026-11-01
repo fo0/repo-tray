@@ -246,15 +246,15 @@
     margin: 14px 0;
     list-style: none;
     font-size: var(--font-size-meta);
-    color: #a5b398;
+    color: var(--text-3);
   }
   .local-auth-steps li {
     flex: 1;
-    border-top: 2px solid #435638;
+    border-top: 2px solid var(--border-strong);
     padding-top: 6px;
   }
   .local-auth-steps .done {
-    border-color: #b7df89;
-    color: #d2e3c5;
+    border-color: var(--accent);
+    color: var(--text);
   }
 </style>

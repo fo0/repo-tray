@@ -74,7 +74,7 @@ test('a notice with an action wraps below its text at 360px', async ({
   const box = (await notice.boundingBox())!;
   const text = (await notice.locator('span').first().boundingBox())!;
   const action = (await notice
-    .getByRole('button', { name: 'In Aktivität anzeigen' })
+    .getByRole('button', { name: 'Im Verlauf anzeigen' })
     .boundingBox())!;
   const close = (await notice
     .getByRole('button', { name: 'Meldung schließen' })
@@ -134,7 +134,7 @@ test('a notice that arrives behind a dialog waits there and times out only after
   await expect(notice).toHaveCount(0);
 });
 
-test('closing a focused notice hands focus to the next notice, then to the view tab', async ({
+test('closing a focused notice hands focus to the next notice, then to the page title', async ({
   page,
 }) => {
   await scenario(page, 'uncertain');
@@ -157,7 +157,7 @@ test('closing a focused notice hands focus to the next notice, then to the view 
   await page.keyboard.press('Enter');
   await expect(refreshed).toHaveCount(0);
   await expect(
-    page.getByRole('button', { name: 'Favoriten', exact: true }),
+    page.getByRole('heading', { level: 2, name: 'Favoriten', exact: true }),
   ).toBeFocused();
 });
 
@@ -169,7 +169,6 @@ test('F5 replaces a focused panel notice without dropping focus to the page', as
   await page.keyboard.press('F5');
   await page.clock.runFor(400);
   await expect(notice).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Repositories', exact: true }),
-  ).toBeFocused();
+  // On the overview the search field is where focus lands.
+  await expect(page.getByLabel('Übersicht durchsuchen')).toBeFocused();
 });

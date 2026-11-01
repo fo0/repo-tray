@@ -50,9 +50,9 @@
     min-height: 54px;
     margin-top: 0;
     padding: 10px 12px;
-    border: 1px solid #627b4b;
-    background: #2b3b25;
-    color: #d2e3c5;
+    border: 1px solid var(--border-strong);
+    background: var(--raised);
+    color: var(--text);
     text-align: left;
     white-space: normal;
     justify-content: flex-start;
@@ -61,11 +61,11 @@
     flex-shrink: 0;
   }
   .local-method-toggle:hover:not(:disabled) {
-    border-color: #9ac572;
-    background: #34472c;
+    border-color: var(--accent-line);
+    background: var(--hover);
   }
   .local-method-toggle:focus-visible {
-    outline: 2px solid #b7df89;
+    outline: 2px solid var(--accent);
     outline-offset: 3px;
   }
   .local-method-copy {
@@ -81,7 +81,7 @@
     line-height: 1.45;
   }
   .local-method-copy small {
-    color: #a9bd98;
+    color: var(--text-2);
     font-size: var(--font-size-meta);
     line-height: 1.4;
   }

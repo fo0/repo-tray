@@ -1,7 +1,9 @@
 import { expect, test, type Locator } from './support/test';
 import {
+  chooseAccount,
   openDemoActivity,
   openLaunch,
+  openPage,
   scenario,
   templateCard,
 } from './support/demo';
@@ -30,7 +32,7 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'My saved build' }) });
@@ -91,7 +93,7 @@ test('Enter in a template name saves it without starting a run', async ({
     dialog.getByRole('button', { name: 'Start simulieren' }),
   ).toBeEnabled();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   await expect(page.getByText(/9001/)).toHaveCount(0);
 });
 
@@ -128,7 +130,7 @@ test('offline still allows opening and editing a saved template', async ({
   page,
 }) => {
   await scenario(page, 'offline');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
@@ -141,20 +143,16 @@ test('offline still allows opening and editing a saved template', async ({
   ).toBeDisabled();
 });
 
-test('an empty launch search hides empty groups and offers a clear action', async ({
+test('an empty favorites search hides every card and offers a clear action', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
-  await page
-    .getByLabel('Favoriten und Workflows durchsuchen')
-    .fill('unmatched-query');
+  await openPage(page, 'favorites');
+  await page.getByLabel('Favoriten durchsuchen').fill('unmatched-query');
   const state = page.locator('.empty-state').filter({
-    has: page.getByRole('heading', {
-      name: 'Keine passenden Favoriten oder Workflows',
-    }),
+    has: page.getByRole('heading', { name: 'Keine passenden Favoriten' }),
   });
   await expect(state).toBeVisible();
-  await expect(page.locator('.repo-group')).toHaveCount(0);
+  await expect(page.locator('.pin-card')).toHaveCount(0);
   await state.getByRole('button', { name: 'Suche leeren' }).click();
   await expect(
     page.getByRole('heading', { name: 'Windows build' }),
@@ -164,7 +162,7 @@ test('an empty launch search hides empty groups and offers a clear action', asyn
 test('copying an existing template keeps the original and its values', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   const original = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
@@ -242,9 +240,7 @@ test('compact cards preserve long labels, account context and click targets at 3
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 760 });
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   const dialog = await openLaunch(page);
   const label =
     'Nightly runner health checks for the shared maintenance environment';
@@ -266,8 +262,14 @@ test('compact cards preserve long labels, account context and click targets at 3
   await expect(card.getByText('main', { exact: true })).toBeVisible();
   const sizes = await card.evaluate((element) => {
     const cardBounds = element.getBoundingClientRect();
+    const account = element.querySelector('.pin-account')!;
     return {
       overflow: element.scrollWidth > element.clientWidth,
+      // The repository name may shorten; the account context is never cut.
+      accountClipped:
+        account.scrollWidth > account.clientWidth ||
+        account.getBoundingClientRect().right >
+          element.querySelector('.pin-repo')!.getBoundingClientRect().right,
       font: parseFloat(getComputedStyle(element.querySelector('h3')!).fontSize),
       targets: [...element.querySelectorAll('button')].map((button) => {
         const r = button.getBoundingClientRect();
@@ -280,6 +282,7 @@ test('compact cards preserve long labels, account context and click targets at 3
     };
   });
   expect(sizes.overflow).toBe(false);
+  expect(sizes.accountClipped).toBe(false);
   expect(sizes.font).toBeGreaterThanOrEqual(12);
   for (const target of sizes.targets) {
     expect(target.width).toBeGreaterThanOrEqual(24);

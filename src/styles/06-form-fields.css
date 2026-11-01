@@ -7,7 +7,7 @@
 .field > span {
   font-size: var(--font-size-meta);
   font-weight: 500;
-  color: #bbcdb0;
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -15,7 +15,7 @@
 .field > span > small {
   font-size: var(--font-size-meta);
   font-weight: 400;
-  color: var(--muted-text);
+  color: var(--text-3);
   margin-left: auto;
 }
 .field input,
@@ -23,9 +23,9 @@
   width: 100%;
   padding: 9px 10px;
   border-radius: 6px;
-  background: #181f15;
-  border: 1px solid #3e5032;
-  color: #d2e0c6;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
   font-size: var(--font-size-meta);
   height: 35px;
 }
@@ -35,7 +35,7 @@
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
-  border-color: #8fb66e;
+  border-color: var(--accent);
 }
 .field input:focus-visible,
 .field select:focus-visible,
@@ -46,7 +46,7 @@
 .field-help {
   font-size: var(--font-size-meta);
   line-height: 1.65;
-  color: #829c6e;
+  color: var(--text-3);
   margin-top: -6px;
 }
 .reset-button {
@@ -54,14 +54,14 @@
   align-items: center;
   gap: 6px;
   background: transparent;
-  color: #b4c2a6;
+  color: var(--text-2);
   padding: 14px 0 0;
   font-size: var(--font-size-meta);
   min-height: 32px;
 }
 .reset-button > span {
   font-size: var(--font-size-meta);
-  color: var(--muted-text);
+  color: var(--text-3);
   margin-left: 7px;
 }
 .dialog-alert {
@@ -76,20 +76,20 @@
   align-items: center;
   gap: 6px;
   padding: 9px;
-  border: 1px solid #3c512e;
-  background: #293820;
-  color: #aaca90;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--text-2);
   font-size: var(--font-size-meta);
   border-radius: 6px;
   margin-bottom: 18px;
 }
 .required {
-  color: #bdde94;
+  color: var(--accent);
   margin-left: 2px;
 }
 .workflow-path {
   font-size: var(--font-size-meta);
-  color: var(--muted-text);
+  color: var(--text-3);
   margin-top: -8px;
   margin-bottom: 15px;
   overflow-wrap: anywhere;
@@ -97,16 +97,16 @@
 .input-heading {
   display: flex;
   justify-content: space-between;
-  border-top: 1px solid #35462b;
+  border-top: 1px solid var(--border);
   padding-top: 16px;
   margin: 18px 0 14px;
   font-size: var(--font-size-meta);
   letter-spacing: 1.5px;
-  color: #8da879;
+  color: var(--text-3);
 }
 .input-heading > span:last-child {
   letter-spacing: 0;
-  color: var(--muted-text);
+  color: var(--text-3);
 }
 .boolean-field {
   display: flex;
@@ -121,12 +121,12 @@
   display: block;
   font-size: var(--font-size-meta);
   font-weight: 500;
-  color: #bacdae;
+  color: var(--text);
 }
 .boolean-field small {
   display: block;
   font-size: var(--font-size-meta);
-  color: var(--muted-text);
+  color: var(--text-3);
   margin-top: 5px;
 }
 .boolean-field input {
@@ -143,8 +143,8 @@
   width: 29px;
   height: 16px;
   border-radius: 10px;
-  background: #415435;
-  border: 1px solid #5b7448;
+  background: var(--hover);
+  border: 1px solid var(--text-3);
   position: relative;
 }
 .switch:after {
@@ -154,16 +154,16 @@
   position: absolute;
   left: 2px;
   top: 2px;
-  background: #8ea47c;
+  background: var(--text-3);
   border-radius: 50%;
   transition: all 0.15s;
 }
 .boolean-field input:checked + .switch {
-  background: #abc986;
-  border-color: #c1df9b;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .boolean-field input:checked + .switch:after {
-  background: #2b3c20;
+  background: var(--on-accent);
   left: 15px;
 }
 .boolean-field input:focus-visible + .switch {
@@ -171,7 +171,7 @@
   outline-offset: 3px;
 }
 .save-pin {
-  border: 1px solid #3b4e2f;
+  border: 1px solid var(--border);
   border-radius: 7px;
   margin-top: 16px;
   overflow: hidden;
@@ -181,11 +181,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #a5bd93;
+  color: var(--text-2);
   font-size: var(--font-size-meta);
   cursor: pointer;
   list-style: none;
-  background: #26331f;
+  background: var(--raised);
 }
 .save-pin summary::-webkit-details-marker {
   display: none;
@@ -198,7 +198,7 @@
 }
 .save-pin-body {
   padding: 13px 10px;
-  border-top: 1px solid #3c4e30;
+  border-top: 1px solid var(--border);
 }
 .quick-opt-in {
   display: flex;
@@ -206,12 +206,12 @@
   gap: 8px;
   font-size: var(--font-size-meta);
   line-height: 1.5;
-  color: #b0c59e;
+  color: var(--text-2);
 }
 .quick-opt-in small {
   display: block;
   font-size: var(--font-size-meta);
-  color: #829f6c;
+  color: var(--text-3);
   margin-top: 5px;
   max-width: 280px;
 }
@@ -227,10 +227,10 @@
   gap: 8px;
   padding: 11px;
   margin-top: 14px;
-  border: 1px solid #4e653c;
+  border: 1px solid var(--ok-line);
   border-radius: 7px;
-  background: #2d3d24;
-  color: #bddb9f;
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 .outcome strong {
   font-size: var(--font-size-meta);
@@ -242,16 +242,34 @@
   margin-top: 6px;
 }
 .outcome.uncertain {
-  background: #3b3421;
-  border-color: #605033;
-  color: #dfc592;
+  background: var(--wait-soft);
+  border-color: var(--wait-line);
+  color: var(--wait);
 }
 .outcome.rejected {
-  background: #3b2d22;
-  border-color: #604333;
-  color: #dba98d;
+  background: var(--fail-soft);
+  border-color: var(--fail-line);
+  color: var(--fail);
 }
 .outcome .text-button {
   margin-top: 9px;
   color: inherit;
+}
+/* „Run #… auf GitHub ansehen“ of an accepted start (RunLink). */
+.detail-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-meta);
+  color: var(--accent);
+  background: transparent;
+  padding: 6px 0 0;
+  text-decoration: none;
+  align-self: flex-start;
+  position: relative;
+}
+.detail-link::after {
+  content: '';
+  position: absolute;
+  inset: -7px -4px;
 }

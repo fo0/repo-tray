@@ -5,13 +5,13 @@
 .connect-body h3 {
   font-size: 14px;
   font-weight: 500;
-  color: #d1dec6;
+  color: var(--text);
   letter-spacing: -0.2px;
 }
 .connect-body > p {
   font-size: var(--font-size-meta);
   line-height: 1.8;
-  color: #91a77f;
+  color: var(--text-2);
   margin-top: 11px;
 }
 .full-width {
@@ -26,16 +26,13 @@
     transform: rotate(360deg);
   }
 }
-.group-live-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #65735c;
-}
-.app-header[data-tauri-drag-region] {
+/* Native window drag: a press on the bar's free space or on the brand (which
+   lets the pointer through to the bar) moves the window; the account menu,
+   refresh and settings keep their pointer events and stay clickable. */
+.app-bar[data-tauri-drag-region] {
   user-select: none;
   cursor: default;
 }
-.app-header[data-tauri-drag-region] > * {
+.app-bar[data-tauri-drag-region] > .brand {
   pointer-events: none;
 }

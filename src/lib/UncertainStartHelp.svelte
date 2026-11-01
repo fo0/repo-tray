@@ -170,9 +170,9 @@
     padding: 5px 0;
     border: 0;
     background: transparent;
-    color: var(--warning);
+    color: var(--wait);
     font: inherit;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     line-height: 14px;
     text-align: left;
     cursor: help;
@@ -184,10 +184,10 @@
     flex-shrink: 0;
   }
   .uncertain-start:hover {
-    color: #efd29a;
+    text-decoration: underline;
   }
   .uncertain-start:focus-visible {
-    outline: 2px solid var(--warning);
+    outline: 2px solid var(--wait);
     outline-offset: 2px;
     border-radius: 3px;
   }
@@ -199,11 +199,12 @@
     max-height: calc(100dvh - 24px);
     overflow: auto;
     padding: 12px;
-    border: 1px solid #7c643c;
+    border: 1px solid var(--wait-line);
     border-radius: 8px;
-    background: #302a1d;
-    color: #dcc391;
-    box-shadow: 0 8px 28px #0008;
+    background:
+      linear-gradient(var(--wait-soft), var(--wait-soft)), var(--raised);
+    color: var(--text);
+    box-shadow: var(--menu-shadow);
     font-size: 12px;
     line-height: 1.55;
   }
@@ -215,13 +216,13 @@
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: #f0d39c;
+    color: var(--wait);
   }
   .uncertain-start-tip p {
     margin: 7px 0 0;
   }
   .uncertain-start-tip .tip-mode {
-    color: #bca980;
-    font-size: 11px;
+    color: var(--text-2);
+    font-size: var(--font-size-meta);
   }
 </style>

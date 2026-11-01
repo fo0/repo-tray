@@ -1,34 +1,24 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import ActivityView from './lib/ActivityView.svelte';
+  import AppBar from './lib/AppBar.svelte';
   import AppFooter from './lib/AppFooter.svelte';
-  import AppHeader from './lib/AppHeader.svelte';
   import ConnectPanel from './lib/ConnectPanel.svelte';
   import DispatchDialog from './lib/DispatchDialog.svelte';
-  import EmptyState from './lib/EmptyState.svelte';
-  import LaunchView from './lib/LaunchView.svelte';
   import Modal from './lib/Modal.svelte';
   import NativeConnect from './lib/NativeConnect.svelte';
-  import RepositoriesView from './lib/RepositoriesView.svelte';
+  import PanelBody from './lib/PanelBody.svelte';
   import SearchField from './lib/SearchField.svelte';
   import SettingsDialog from './lib/SettingsDialog.svelte';
   import StatusBanners from './lib/StatusBanners.svelte';
-  import Toolbar from './lib/Toolbar.svelte';
-  import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
   import appPackage from '../package.json';
   import { bridge, native, observeSnapshots } from './lib/bridge';
   import { accountLabel, repoLabel } from './lib/format';
-  import {
-    historyRuns,
-    repositoryActivity,
-    visibleRuns,
-    type ActivityFilter,
-  } from './lib/runs';
   import { Modals } from './lib/modals.svelte';
   import { Panel } from './lib/panel.svelte';
   import { createShortcuts } from './lib/shortcuts';
   import type { Snapshot } from './lib/types';
   import { Updater } from './lib/updater.svelte';
+  import { PanelView } from './lib/view.svelte';
 
   const appVersion = appPackage.version;
   const panel = new Panel({ bridge, native, observe: observeSnapshots });
@@ -36,68 +26,29 @@
   const snapshot = $derived(panel.snapshot);
   const demo = $derived(panel.demo);
   const accountId = $derived(panel.accountId);
-  const repos = $derived(panel.repos);
 
   let demoAccountConnected = $state(false);
-  let tab = $state<ViewTab>('repositories');
-  let query = $state('');
-  let filter = $state<ActivityFilter>('all');
   let searchField = $state<ReturnType<typeof SearchField>>();
-  let toolbar = $state<ReturnType<typeof Toolbar>>();
-  const modals = new Modals(panel, (id) => {
-    panel.notices.dismissRun(id);
-    tab = 'activity';
-    filter = 'all';
-    query = '';
-    panel.expandedRun = id;
-  });
+  let appBar = $state<ReturnType<typeof AppBar>>();
+  const view = new PanelView(panel);
+  const modals = new Modals(panel, view.showRun);
   const { openSettings } = modals;
 
-  const needle = $derived(query.trim().toLowerCase());
-  /** Whitespace alone filters nothing, so it is no search in any view. */
-  const searching = $derived(needle !== '');
-  const matches = (text: string) =>
-    !needle || text.toLowerCase().includes(needle);
   const repoName = (id: string) => repoLabel(snapshot, id);
   const accountName = (id: string) => accountLabel(snapshot, id, native);
   const repoAccountName = (id: string) =>
     accountName(
       snapshot?.repos.find((repo) => repo.id === id)?.accountId ?? '',
     );
-  const matchedWorkflows = (id: string) =>
-    snapshot?.workflows.filter(
-      (workflow) =>
-        workflow.repoId === id && matches(`${workflow.name} ${repoName(id)}`),
-    ) ?? [];
   /** Empty-state „Suche leeren“: its button goes, focus moves to the field. */
   const clearQuery = () => {
-    query = '';
+    view.query = '';
     searchField?.focus();
   };
   const warn = (value: string) => panel.showNotice(value, 'warning');
 
   /** A load error offers a retry before any snapshot exists. */
   const canRefresh = $derived(!!snapshot || !!panel.error);
-  const view = $derived(panel.viewSnapshot);
-  const runs = $derived(
-    view ? historyRuns(view, accountId, query, filter) : [],
-  );
-  const activeRuns = $derived(
-    view ? visibleRuns(view, accountId, '', 'active').length : 0,
-  );
-  const failedRuns = $derived(
-    view ? visibleRuns(view, accountId, '', 'failed').length : 0,
-  );
-  const pins = $derived(
-    snapshot?.pins.filter(
-      (pin) =>
-        repos.some((repo) => repo.id === pin.repoId) &&
-        matches(`${pin.label} ${repoName(pin.repoId)}`),
-    ) ?? [],
-  );
-  const launchRepos = $derived(
-    repos.filter((repo) => matchedWorkflows(repo.id).length > 0),
-  );
 
   onMount(() => {
     const stop = panel.load(() => {
@@ -120,7 +71,7 @@
   }
   function changeAccount(value: string) {
     panel.changeAccount(value);
-    query = '';
+    view.reset();
     if (modals.kind === 'dispatch') modals.close();
   }
   function connectedNative(value: Snapshot) {
@@ -129,10 +80,13 @@
     // An explicit connection selects that entry; the service lists it last.
     const account = value.accounts.at(-1);
     changeAccount(account?.id ?? '');
-    // A new account starts without selected repositories: that is the next step.
-    if (account && !panel.repos.length)
-      openSettings('repositories', account.login);
-    else openSettings();
+    // A new account starts without selected repositories: the picker is the
+    // next step. Its page is set before the dialog closes, so the dialog's
+    // focus return lands in it instead of on a vanished opener.
+    if (account && !panel.repos.length) {
+      void view.open('picker', { connected: account.login, opener: null });
+      modals.close();
+    } else openSettings();
     void updater.check(true);
   }
   function connectedDemo(method: 'browser' | 'token') {
@@ -143,24 +97,22 @@
         ? 'Demo-Token geprüft und verworfen · demo-dev ist nur simuliert verbunden.'
         : 'Demo-Anmeldung bestätigt · demo-dev ist nur simuliert verbunden.',
     );
-    void tick().then(() => toolbar?.focusPicker());
+    void tick().then(() => appBar?.focusAccount());
   }
 
   /** Empty-state actions open the missing step: connect, account or repositories. */
   function openNextStep() {
     if (native && !snapshot?.accounts.length) modals.show('connect');
-    else openSettings(panel.needsAccount ? 'accounts' : 'repositories');
-  }
-  function selectTab(next: ViewTab) {
-    tab = next;
-    query = '';
+    else if (panel.needsAccount) appBar?.openAccountMenu();
+    else void view.open('picker', { from: view.page });
   }
   const shortcuts = createShortcuts({
     blocked: () => modals.kind !== null,
     refresh: () => void (canRefresh && refreshPanel()),
-    selectTab,
+    toggleSection: view.toggle,
     focusSearch: () => searchField?.focus(),
-    escape: (target) => !!searchField?.escape(target),
+    // Search first, then the open page; menus handle their own Escape.
+    escape: (target) => !!searchField?.escape(target) || view.back(),
   });
 </script>
 
@@ -173,131 +125,69 @@
   inert={modals.kind !== null}
   aria-hidden={modals.kind !== null ? 'true' : undefined}
 >
-  <div class="desktop-caption" aria-hidden="true">
-    <span class="caption-dot"></span> YOUR REPOS. WITHIN REACH.
-  </div>
-  <section class="tray" aria-label="RepoTray">
-    <AppHeader
-      {native}
-      {demo}
-      connectivity={snapshot?.connectivity}
-      accountCount={snapshot?.accounts.length ?? 0}
-      {demoAccountConnected}
-    />
-
-    <Toolbar
-      bind:this={toolbar}
+  <section class="tray" aria-label="RepoTray" data-page={view.page}>
+    <AppBar
+      bind:this={appBar}
       {native}
       {demo}
       accounts={snapshot?.accounts ?? []}
       {accountId}
-      accountLabel={accountName(accountId)}
-      repoCount={repos.length}
+      {accountName}
+      connectivity={snapshot?.connectivity}
       refreshing={panel.refreshing}
       ready={!!snapshot}
       {canRefresh}
+      busy={panel.settingsBusy}
       onAccountChange={changeAccount}
+      onConnect={() => modals.show('connect')}
+      onManageAccounts={() => openSettings('accounts')}
       onRefresh={() => void refreshPanel()}
       onSettings={() => openSettings()}
     />
 
-    <ViewTabs {tab} {activeRuns} onSelect={selectTab} />
-
-    <div class="content">
-      <SearchField bind:this={searchField} {tab} bind:query />
-
-      <StatusBanners
-        update={updater.info}
-        {demo}
-        {snapshot}
-        error={panel.error}
-        notices={panel.notices.items}
-        showsAccount={panel.showsAccount}
-        paused={modals.kind !== null}
-        onShowUpdate={() => openSettings('updates')}
-        onShowRun={modals.showRun}
-        onDismissNotice={(id) => panel.notices.dismiss(id)}
-      />
-
-      {#if !snapshot}
-        <EmptyState
-          icon="tray"
-          iconSize={26}
-          title={!panel.error
-            ? 'Workflows werden geladen …'
-            : demo
-              ? 'Demo nicht geladen'
-              : 'Daten konnten nicht geladen werden'}
-          text={!panel.error
-            ? 'Dein Überblick ist gleich bereit.'
-            : demo
-              ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
-              : 'Prüfe deine Verbindung und lade erneut (F5).'}
+    <PanelBody
+      {panel}
+      {modals}
+      {view}
+      {repoName}
+      {accountName}
+      {repoAccountName}
+      onClearQuery={clearQuery}
+      onNextStep={openNextStep}
+    >
+      {#snippet top()}
+        <SearchField
+          bind:this={searchField}
+          page={view.page}
+          bind:query={view.query}
         />
-      {:else if tab === 'repositories'}
-        <RepositoriesView
-          {panel}
-          {modals}
-          {pins}
-          groups={view ? repositoryActivity(view, accountId, query) : []}
-          {repoName}
-          {accountName}
-          {searching}
-          onClearQuery={clearQuery}
-          onOpenSettings={openNextStep}
-        />
-      {:else if tab === 'activity'}
-        <ActivityView
-          {runs}
-          {filter}
-          expanded={panel.expandedRun}
-          {activeRuns}
-          {failedRuns}
+        <StatusBanners
+          update={updater.info}
           {demo}
-          {native}
-          needsAccount={panel.needsAccount}
-          hasAccounts={!!snapshot.accounts.length}
-          hasRepos={repos.length > 0}
-          {searching}
-          accountNotice={panel.accountNotice}
-          {repoName}
-          {repoAccountName}
-          onFilter={(next) => (filter = next)}
-          onToggle={panel.toggleRun}
-          onOpenSettings={openNextStep}
-          onClearQuery={clearQuery}
-          onNotice={(text, tone) => panel.showNotice(text, tone)}
+          {snapshot}
+          error={panel.error}
+          notices={panel.notices.items}
+          showsAccount={panel.showsAccount}
+          paused={modals.kind !== null}
+          onShowUpdate={() => openSettings('updates')}
+          onShowRun={modals.showRun}
+          onDismissNotice={(id) => panel.notices.dismiss(id)}
         />
-      {:else}
-        <LaunchView
-          {panel}
-          {modals}
-          {pins}
-          {launchRepos}
-          workflowsFor={matchedWorkflows}
-          {repoName}
-          {accountName}
-          {searching}
-          hasRepos={repos.length > 0}
-          onClearQuery={clearQuery}
-          onOpenSettings={openNextStep}
-        />
-      {/if}
-    </div>
+      {/snippet}
+    </PanelBody>
 
     <AppFooter
       stale={!!snapshot?.stale}
       {demo}
+      connectivity={snapshot?.connectivity}
+      accountCount={snapshot?.accounts.length ?? 0}
+      {demoAccountConnected}
       updatedAt={snapshot?.updatedAt}
       refreshing={panel.refreshing}
       {canRefresh}
       onRefresh={() => void refreshPanel()}
     />
   </section>
-  <div class="desktop-footnote" aria-hidden="true">
-    <span class="tiny-line"></span> MADE FOR YOUR FLOW
-    <span class="tiny-line"></span>
-  </div>
 </main>
 
 {#if modals.kind === 'settings'}
@@ -311,9 +201,7 @@
     {updater}
     {appVersion}
     initialTab={modals.settingsTab}
-    connected={modals.settingsConnected}
     busy={panel.settingsBusy}
-    saving={panel.selectionBusy}
     returnFocus={modals.returnFocus}
     onClose={modals.close}
     onConnect={() => modals.show('connect')}
@@ -321,9 +209,6 @@
     onScenario={panel.changeScenario}
     onReset={panel.resetDemo}
     onDisconnect={panel.disconnectAccount}
-    onSaveSelection={panel.saveSelection}
-    onRefreshAccess={panel.refreshAccess}
-    onManageInstallation={panel.manageInstallation}
   />
 {:else if modals.kind === 'connect'}
   <Modal

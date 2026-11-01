@@ -120,7 +120,7 @@
           type="button"
           class="text-button"
           onclick={() => onShowRun(runId)}
-          >In Aktivität anzeigen<Icon name="arrow" size={13} /></button
+          >Im Verlauf anzeigen<Icon name="arrow" size={13} /></button
         >
       {/if}
       {#if outcome.state === 'uncertain'}{@render checkStatus()}{/if}

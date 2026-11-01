@@ -1,30 +1,11 @@
 :root {
   font-family:
-    Inter,
-    'Segoe UI',
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
-  color: #e8e9e5;
-  background: #111312;
+    'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, sans-serif;
+  color: var(--text);
+  background: var(--page);
   font-synthesis: none;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: 400;
-  --panel: #1b1e1c;
-  --line: #303530;
-  /* Muted text tokens, each at least 4.5:1 (WCAG AA) on the surfaces it is
-     used on: --muted 4.97:1 on --panel; --muted-text 4.6:1 or more on base and
-     hover surfaces up to #293025; --muted-text-raised 4.5:1 or more on raised
-     green surfaces up to #2b3624 (pins, selection rows, cards). */
-  --muted: #858e86;
-  --muted-text: #8c9b80;
-  --muted-text-raised: #90a085;
-  /* Smallest text size; metadata never goes below it. */
-  --font-size-meta: 11px;
-  --accent: #c4ed89;
-  --danger: #f08e8e;
-  --warning: #d6b77b;
-  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -85,7 +66,7 @@ select {
 }
 input::placeholder,
 textarea::placeholder {
-  color: var(--muted-text);
+  color: var(--text-3);
   opacity: 1;
 }
 button svg,

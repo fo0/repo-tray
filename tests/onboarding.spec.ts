@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { expectPage } from './support/demo';
 import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
 
 /** Native first launch: no account; a token connects one with unselected repositories. */
@@ -76,7 +77,7 @@ async function connectToken(page: Page) {
     .click();
 }
 
-test('the first-launch action opens the connect dialog directly and a first connect continues with repositories', async ({
+test('the first-launch action opens the connect dialog directly and a first connect continues in the repository picker', async ({
   page,
 }) => {
   const empty = page.locator('.empty-state').filter({
@@ -91,32 +92,39 @@ test('the first-launch action opens the connect dialog directly and a first conn
   await expect(connect(page)).toBeVisible();
   await expect(settings(page)).toHaveCount(0);
   await connectToken(page);
-  await expect(settings(page)).toBeVisible();
+  // The picker replaces the dialog, not the settings; its search has focus.
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expectPage(page, 'picker');
+  await expect(page.getByLabel('Repositories filtern')).toBeFocused();
   await expect(
-    settings(page).getByRole('tab', { name: 'Repositories' }),
-  ).toHaveAttribute('aria-selected', 'true');
-  await expect(settings(page).getByRole('status')).toContainText(
-    'fixture-new ist verbunden. Wähle jetzt die Repositories',
+    page.getByRole('status').filter({ hasText: 'fixture-new ist verbunden' }),
+  ).toContainText(
+    'fixture-new ist verbunden. Wähle jetzt die Repositories, die in deinem Tray erscheinen sollen.',
   );
   // The connection itself chose the account; no silent pick happened before.
-  // The panel behind the open dialog is hidden from the accessibility tree.
   await expect(
-    page.getByRole('status', {
-      name: 'Aktives Konto',
-      exact: true,
-      includeHidden: true,
-    }),
+    page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('fixture-new · Token');
-  await settings(page)
-    .getByRole('checkbox', { name: /fixture-new\/alpha/ })
-    .check();
-  await settings(page)
-    .getByRole('button', { name: 'Auswahl speichern' })
-    .click();
-  await expect(settings(page)).toHaveCount(0);
+  // Nothing was selected silently: every repository waits for a choice.
+  const toggle = (state: string, name: string) =>
+    page.getByRole('button', {
+      name: `${state}: fixture-new/${name}`,
+      exact: true,
+    });
+  await expect(toggle('Hinzufügen', 'alpha')).toBeVisible();
+  await expect(toggle('Hinzufügen', 'beta')).toBeVisible();
+  expect(await readCalls(page, 'select_repos')).toEqual([]);
+  await toggle('Hinzufügen', 'alpha').click();
+  await expect(toggle('Im Tray', 'alpha')).toBeVisible();
   expect((await readCalls(page, 'select_repos'))[0]?.args).toEqual({
     repoIds: ['github-7:alpha'],
   });
+  // Back on the overview, the repository is there; the banner is gone.
+  await page.getByRole('button', { name: 'Zurück zur Übersicht' }).click();
+  await expectPage(page, 'overview');
+  await expect(
+    page.getByRole('region', { name: 'fixture-new/alpha', exact: true }),
+  ).toBeVisible();
 });
 
 test('settings without an account show one empty state with one action', async ({
@@ -147,7 +155,7 @@ test('settings without an account show one empty state with one action', async (
   ).toBeNull();
 });
 
-test('the repository empty state opens the repository tab, and removing the last account asks to connect', async ({
+test('the repository empty state opens the picker, and removing the last account asks to connect', async ({
   page,
 }) => {
   await page
@@ -158,19 +166,28 @@ test('the repository empty state opens the repository tab, and removing the last
     .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
   await connectToken(page);
-  await settings(page)
-    .getByRole('button', { name: 'Dialog schließen' })
-    .click();
-  await page
-    .getByRole('button', { name: 'Repositories auswählen', exact: true })
-    .click();
-  await expect(
-    settings(page).getByRole('tab', { name: 'Repositories' }),
-  ).toHaveAttribute('aria-selected', 'true');
+  await expectPage(page, 'picker');
+  await page.getByRole('button', { name: 'Zurück zur Übersicht' }).click();
+  const next = page.getByRole('button', {
+    name: 'Repositories auswählen',
+    exact: true,
+  });
+  await expect(page.locator('.empty-state')).toContainText(
+    'Noch keine Repositories ausgewählt',
+  );
+  await next.click();
+  await expectPage(page, 'picker');
   // Opened from the panel, not after a connect: no connect message.
-  await expect(settings(page).getByRole('status')).toHaveCount(0);
-  await settings(page)
-    .getByRole('tab', { name: 'Konten', exact: true })
+  await expect(
+    page.getByRole('status').filter({ hasText: 'ist verbunden' }),
+  ).toHaveCount(0);
+  // Back where it came from, with focus on the same action.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expectPage(page, 'overview');
+  await expect(next).toBeFocused();
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await settings(page)
     .getByRole('button', { name: 'fixture-new · Token trennen', exact: true })
@@ -191,11 +208,19 @@ test('the repository empty state opens the repository tab, and removing the last
   ).toBeVisible();
 });
 
-test('every view without an account names the same next step: connect', async ({
+test('every page without an account names the same next step: connect', async ({
   page,
 }) => {
-  for (const tab of ['Repositories', 'Aktivität', 'Favoriten']) {
-    await page.getByRole('button', { name: new RegExp(`^${tab}`) }).click();
+  // Without an account the overview shows only that step, no sections to
+  // maximize; the shortcuts still reach every page.
+  for (const [name, key] of [
+    ['overview', null],
+    ['repos', 'Control+1'],
+    ['runs', 'Control+2'],
+    ['favorites', 'Control+3'],
+  ] as const) {
+    if (key) await page.keyboard.press(key);
+    await expectPage(page, name);
     const empty = page.locator('.empty-state');
     await expect(
       empty.getByRole('heading', { name: 'Verbinde dein GitHub-Konto' }),

@@ -1,5 +1,11 @@
 import { expect, test } from './support/test';
-import { openDemoActivity, openLaunch, scenario } from './support/demo';
+import {
+  chooseAccount,
+  openDemoActivity,
+  openLaunch,
+  openPage,
+  scenario,
+} from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
@@ -11,7 +17,7 @@ test('closing the launch dialog and cancelling connection create no runs', async
   const dialog = await openLaunch(page);
   await expect(dialog.getByLabel('Version')).toHaveValue('0.1.0');
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   await expect(page.getByText(/9001/)).toHaveCount(0);
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
@@ -53,9 +59,13 @@ test('offline and forbidden scenarios disable starts while showing cached activi
     await dialog
       .getByRole('button', { name: 'Abbrechen', exact: true })
       .click();
-    await page.getByRole('button', { name: /^Aktivität/ }).click();
+    await openPage(page, 'runs');
+    // The cached runs stay listed; a row names its repository with the
+    // owner in its accessible name.
     await expect(
-      page.getByText('demo-dev/launch-kit-demo', { exact: true }).first(),
+      page
+        .getByRole('button', { name: ' · demo-dev/launch-kit-demo · ' })
+        .first(),
     ).toBeVisible();
   }
 });
@@ -74,8 +84,7 @@ test('unknown response remains quarantined when the form is reopened', async ({
   ).toBeDisabled();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
   await page
-    .locator('.workflow-heading')
-    .getByRole('button', { name: 'Starten…', exact: true })
+    .getByRole('button', { name: 'Workflow starten …', exact: true })
     .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(
@@ -100,12 +109,9 @@ test('a late start response cannot overwrite a newly chosen repository form', as
   let dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog.getByRole('button', { name: 'Dialog schließen' }).click();
+  await chooseAccount(page, 'team-demo');
   await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
-  await page
-    .locator('.workflow-heading')
-    .getByRole('button', { name: 'Starten…', exact: true })
+    .getByRole('button', { name: 'Workflow starten …', exact: true })
     .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Repository')).toHaveValue('demo-team-tools');

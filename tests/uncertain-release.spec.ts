@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCalls } from './support/tauriMock';
-import { openLaunch, scenario, templateCard } from './support/demo';
+import { openLaunch, openPage, scenario, templateCard } from './support/demo';
 
 type ReleaseMock = {
   releaseError: string;
@@ -67,7 +67,7 @@ async function nativeWithClaim(page: Page) {
     ),
   );
   await page.goto('/');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   return mock;
 }
 
@@ -175,7 +175,7 @@ test('the demo releases its own uncertain start the same way', async ({
   ).toBeEnabled();
   // Releasing started nothing.
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   await expect(page.getByText(/9001/)).toHaveCount(0);
   await scenario(page, 'normal');
   dialog = await openLaunch(page);

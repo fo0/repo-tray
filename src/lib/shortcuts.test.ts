@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  SHORTCUT_HINT,
   createShortcuts,
   isTypingTarget,
+  sectionKey,
   shortcutFor,
   type ShortcutActions,
 } from './shortcuts';
@@ -33,17 +35,17 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press('p', { ctrlKey: true, code: 'KeyR' }))).toBeNull();
     expect(shortcutFor(press('r'))).toBeNull();
   });
-  it('maps Ctrl+1/2/3 from the digit row or keypad to the view tabs', () => {
+  it('maps Ctrl+1/2/3 from the digit row or keypad to the section pages', () => {
     expect(shortcutFor(press('1', { ctrlKey: true }))).toEqual({
-      kind: 'tab',
-      tab: 'repositories',
+      kind: 'section',
+      page: 'repos',
     });
     expect(shortcutFor(press('&', { ctrlKey: true, code: 'Digit2' }))).toEqual({
-      kind: 'tab',
-      tab: 'activity',
+      kind: 'section',
+      page: 'runs',
     });
     expect(shortcutFor(press('3', { ctrlKey: true, code: 'Numpad3' }))).toEqual(
-      { kind: 'tab', tab: 'launch' },
+      { kind: 'section', page: 'favorites' },
     );
     expect(shortcutFor(press('4', { ctrlKey: true }))).toBeNull();
     expect(shortcutFor(press('1'))).toBeNull();
@@ -61,6 +63,18 @@ describe('shortcutFor', () => {
   it('leaves Alt and AltGr combinations to the keyboard layout', () => {
     expect(shortcutFor(press('1', { ctrlKey: true, altKey: true }))).toBeNull();
     expect(shortcutFor(press('F5', { altKey: true }))).toBeNull();
+  });
+});
+
+describe('sectionKey and SHORTCUT_HINT', () => {
+  it('name the same digit per section as the key map', () => {
+    expect(sectionKey('repos')).toBe(1);
+    expect(sectionKey('runs')).toBe(2);
+    expect(sectionKey('favorites')).toBe(3);
+    expect(SHORTCUT_HINT).toContain(
+      'Strg+1, 2, 3 – Repositories, Verlauf, Favoriten',
+    );
+    expect(SHORTCUT_HINT).toContain('zurück zur Übersicht');
   });
 });
 
@@ -86,7 +100,7 @@ describe('createShortcuts', () => {
     const actions = {
       blocked: () => blocked,
       refresh: vi.fn(),
-      selectTab: vi.fn(),
+      toggleSection: vi.fn(),
       focusSearch: vi.fn(),
       escape: vi.fn(() => escapes),
     } satisfies ShortcutActions;
@@ -113,7 +127,7 @@ describe('createShortcuts', () => {
     value: ReturnType<typeof event>,
   ) => handle(value as unknown as KeyboardEvent);
 
-  it('refreshes instead of reloading and switches tabs', () => {
+  it('refreshes instead of reloading and toggles section pages', () => {
     const { actions, handle } = setup();
     const reload = event('F5');
     run(handle, reload);
@@ -122,7 +136,7 @@ describe('createShortcuts', () => {
     const tab = event('2', { ctrlKey: true });
     run(handle, tab);
     expect(tab.preventDefault).toHaveBeenCalled();
-    expect(actions.selectTab).toHaveBeenCalledWith('activity');
+    expect(actions.toggleSection).toHaveBeenCalledWith('runs');
     run(handle, event('/'));
     expect(actions.focusSearch).toHaveBeenCalledTimes(1);
   });
@@ -141,9 +155,9 @@ describe('createShortcuts', () => {
     const tab = event('3', { ctrlKey: true }, 'INPUT');
     run(handle, tab);
     expect(tab.preventDefault).toHaveBeenCalled();
-    expect(actions.selectTab).toHaveBeenCalledWith('launch');
+    expect(actions.toggleSection).toHaveBeenCalledWith('favorites');
     run(handle, event('1', { ctrlKey: true }, 'SELECT'));
-    expect(actions.selectTab).toHaveBeenLastCalledWith('repositories');
+    expect(actions.toggleSection).toHaveBeenLastCalledWith('repos');
     const escape = event('Escape', {}, 'INPUT');
     run(handle, escape);
     expect(actions.escape).toHaveBeenCalledWith(escape.target);
@@ -159,7 +173,7 @@ describe('createShortcuts', () => {
     // AltGr arrives as Ctrl+Alt and types a character.
     run(handle, event('2', { ctrlKey: true, altKey: true }, 'INPUT'));
     expect(actions.refresh).not.toHaveBeenCalled();
-    expect(actions.selectTab).not.toHaveBeenCalled();
+    expect(actions.toggleSection).not.toHaveBeenCalled();
   });
   it('leaves the keyboard to an open dialog but still blocks a reload', () => {
     const { actions, handle } = setup(true);
@@ -175,7 +189,7 @@ describe('createShortcuts', () => {
     expect(actions.refresh).not.toHaveBeenCalled();
     expect(actions.focusSearch).not.toHaveBeenCalled();
     expect(actions.escape).not.toHaveBeenCalled();
-    expect(actions.selectTab).not.toHaveBeenCalled();
+    expect(actions.toggleSection).not.toHaveBeenCalled();
   });
   it('skips keys another handler already took or an IME is composing', () => {
     const { actions, handle } = setup();

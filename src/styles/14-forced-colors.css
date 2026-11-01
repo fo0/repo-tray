@@ -27,11 +27,7 @@
     outline-color: Highlight;
   }
 
-  /* Current view, selected settings tab and active filter. */
-  .tabs > button.active:after {
-    forced-color-adjust: none;
-    background: Highlight;
-  }
+  /* Selected settings tab and active filter. */
   .settings-tabs button[aria-selected='true'],
   .filters > button.chosen {
     forced-color-adjust: none;
@@ -39,15 +35,122 @@
     border-color: Highlight;
     color: HighlightText;
   }
-  .filters > button.chosen span {
+  .filters > button.chosen .tone-dot::before {
+    border-color: HighlightText;
     background: HighlightText;
-    color: Highlight;
+  }
+  /* The open „Hinweis zum Verlauf“ is a fill: draw a frame instead. */
+  .info-button[aria-expanded='true'] {
+    outline: 1px solid ButtonText;
+  }
+  /* The chosen „Darstellung“ keeps its frame; the radio itself is native. */
+  .theme-option:has(input:checked) {
+    border-color: Highlight;
   }
 
-  /* Pinned favourites are a filled heart. */
+  /* The live dot of „Läuft gerade“ is a background fill. */
+  .live-dot {
+    forced-color-adjust: none;
+    background: Highlight;
+    box-shadow: none;
+  }
+
+  /* Menu items mark hover and focus with a fill; draw an outline instead. */
+  .menu-item:hover,
+  .menu-item:focus {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  /* „Im Tray“ is a tinted row and a grey border: that toggle draws itself
+     like a selected tab instead (`.pick` outranks its later colours). */
+  .pick .pick-toggle.added,
+  .pick .pick-toggle.added .pick-icon {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+
+  /* Favourites are a filled heart, on workflow rows and on tiles. */
   .favorite-button[aria-pressed='true'] svg,
-  .pinned-remove svg {
+  .tile .tile-heart svg {
     fill: ButtonText;
+  }
+
+  /* The round start of a tile is an accent fill: draw its ring instead. */
+  .tile .tile-start {
+    border-color: ButtonText;
+  }
+  .tile .tile-start[aria-disabled='true'] {
+    border-color: GrayText;
+    color: GrayText;
+  }
+  .tile .tile-open:focus-visible::after {
+    outline-color: Highlight;
+  }
+
+  /* Status icons sit on a tint, which disappears: keep the tile's outline,
+     and fill it like the run strip does, failure Mark and running Highlight. */
+  .status-tile {
+    border: 1px solid CanvasText;
+  }
+  .status-tile[data-tone='fail'],
+  .status-tile[data-tone='run'] {
+    forced-color-adjust: none;
+  }
+  .status-tile[data-tone='fail'] {
+    border-color: Mark;
+    background: Mark;
+    color: MarkText;
+  }
+  .status-tile[data-tone='run'] {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  /* Status dots: a fill would turn into the canvas. Success solid, failure
+     Mark, running Highlight, other runs a text-coloured ring (the attribute
+     outranks the later fill in 19-tiles-strip.css). */
+  .tone-dot[data-tone]::before {
+    forced-color-adjust: none;
+    box-sizing: border-box;
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+  .tone-dot[data-tone='ok']::before {
+    background: CanvasText;
+  }
+  .tone-dot[data-tone='fail']::before {
+    border-color: Mark;
+    background: Mark;
+  }
+  .tone-dot[data-tone='run']::before {
+    border-color: Highlight;
+    background: Highlight;
+  }
+
+  /* Run strip: fills would all turn into the canvas. System colours keep the
+     cells apart: success solid, failure Mark, running Highlight, other runs
+     a text-coloured ring and empty cells a grey one. */
+  .run-strip .strip-cell[data-tone] {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+  .run-strip .strip-cell[data-tone='none'] {
+    border-color: GrayText;
+  }
+  .run-strip .strip-cell[data-tone='ok'] {
+    background: CanvasText;
+  }
+  .run-strip .strip-cell[data-tone='fail'] {
+    background: Mark;
+  }
+  .run-strip .strip-cell[data-tone='run'] {
+    border-color: Highlight;
+    background: Highlight;
   }
 
   /* Focus rings that rely on a tinted border get a system-colour outline. */

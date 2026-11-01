@@ -1,9 +1,16 @@
-import { tick } from 'svelte';
 import type { DispatchSeed } from './DispatchDialog.svelte';
 import type { SettingsTab } from './SettingsDialog.svelte';
 import type { Panel } from './panel.svelte';
-import { focusRevealedRun } from './focus';
 import type { Pin, Workflow } from './types';
+
+/**
+ * Opens the Verlauf with the run expanded and focused; `opener` is the
+ * element that opened the closed dialog, if any, for the way back.
+ */
+export type RevealRun = (
+  runId: number | null,
+  opener?: HTMLElement | null,
+) => unknown;
 
 export type ModalKind = 'settings' | 'dispatch' | 'connect';
 
@@ -14,16 +21,14 @@ export type ModalKind = 'settings' | 'dispatch' | 'connect';
 export class Modals {
   kind = $state<ModalKind | null>(null);
   settingsTab = $state<SettingsTab>('accounts');
-  /** Login of a just-connected account whose repositories come next. */
-  settingsConnected = $state('');
   dispatchSeed = $state.raw<DispatchSeed>({});
   /** Element that opened the first of possibly chained dialogs. */
   opener: HTMLElement | null = null;
   #panel: Panel;
-  #reveal: (runId: number | null) => void;
+  #reveal: RevealRun;
 
-  /** `reveal` switches the view to the full activity list with the run expanded. */
-  constructor(panel: Panel, reveal: (runId: number | null) => void) {
+  /** `reveal` switches to the full Verlauf with the run expanded (`PanelView.showRun`). */
+  constructor(panel: Panel, reveal: RevealRun) {
     this.#panel = panel;
     this.#reveal = reveal;
   }
@@ -41,9 +46,8 @@ export class Modals {
           : null;
     this.kind = kind;
   };
-  openSettings = (initial: SettingsTab = 'accounts', connected = '') => {
+  openSettings = (initial: SettingsTab = 'accounts') => {
     this.settingsTab = initial;
-    this.settingsConnected = connected;
     this.show('settings');
   };
   openDispatch = (pin?: Pin, workflow?: Workflow, favoriteIntent = false) => {
@@ -59,11 +63,12 @@ export class Modals {
     if ((await this.#panel.favorites.toggle(workflow)) === 'incomplete')
       this.openDispatch(undefined, workflow, true);
   };
-  /** Shows an accepted start in the full activity list and focuses its row. */
+  /** Shows an accepted start in the full Verlauf and focuses its row. */
   showRun = async (id: number | null) => {
+    // From a dialog, its opener is where the way back leads; from a notice,
+    // the reveal takes the focused element itself.
+    const opener = this.kind ? this.opener : undefined;
     this.close();
-    this.#reveal(id);
-    await tick();
-    focusRevealedRun();
+    await this.#reveal(id, opener);
   };
 }

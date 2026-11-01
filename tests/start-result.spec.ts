@@ -1,7 +1,10 @@
 import { expect, test, type Page } from './support/test';
 import {
+  chooseAccount,
+  expectPage,
   openDemoActivity,
   openLaunch,
+  openPage,
   scenario,
   templateCard,
 } from './support/demo';
@@ -52,11 +55,9 @@ for (const [name, close] of Object.entries(closers)) {
       .filter({ hasText: /Simulierter Start angenommen · Demo-Run #9001/ });
     await expect(banner).toBeVisible();
     await banner
-      .getByRole('button', { name: 'In Aktivität anzeigen', exact: true })
+      .getByRole('button', { name: 'Im Verlauf anzeigen', exact: true })
       .click();
-    await expect(
-      page.getByRole('button', { name: /^Aktivität/ }),
-    ).toHaveAttribute('aria-current', 'page');
+    await expectPage(page, 'runs');
     const run = page.getByRole('article').filter({ hasText: '#9001' });
     await expect(run.getByRole('button', { expanded: true })).toBeVisible();
     await expect(run.getByRole('button', { expanded: true })).toBeFocused();
@@ -64,12 +65,12 @@ for (const [name, close] of Object.entries(closers)) {
   });
 }
 
-test('closing the start dialog while its opener is locked moves focus to the view tab', async ({
+test('closing the start dialog while its opener is locked moves focus to the overview’s search field', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'overview');
   await holdStarts(page);
-  // The pinned row opens the dialog and is disabled while its target starts.
+  // The tile's name opens the dialog and is disabled while its target starts.
   await page
     .getByRole('region', { name: 'Favoriten', exact: true })
     .getByRole('button', {
@@ -84,19 +85,17 @@ test('closing the start dialog while its opener is locked moves focus to the vie
   ).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(
-    page.getByRole('button', { name: 'Repositories', exact: true }),
-  ).toBeFocused();
+  await expect(page.getByLabel('Übersicht durchsuchen')).toBeFocused();
   await page.clock.runFor(400);
 });
 
-test('„In Aktivität anzeigen“ in the dialog focuses the expanded run', async ({
+test('„Im Verlauf anzeigen“ in the dialog focuses the expanded run', async ({
   page,
 }) => {
   const dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog
-    .getByRole('button', { name: 'In Aktivität anzeigen', exact: true })
+    .getByRole('button', { name: 'Im Verlauf anzeigen', exact: true })
     .click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const run = page.getByRole('article').filter({ hasText: '#9001' });
@@ -111,8 +110,7 @@ test('a reopened start dialog shows the result of the running start and stays lo
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
   await page
-    .locator('.workflow-heading')
-    .getByRole('button', { name: 'Starten…', exact: true })
+    .getByRole('button', { name: 'Workflow starten …', exact: true })
     .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const start = dialog.getByRole('button', {
@@ -164,7 +162,7 @@ test('concurrent starts keep one banner each and both runs appear', async ({
   await expect(banners).toHaveCount(2);
   await expect(banners.filter({ hasText: 'Demo-Run #9001' })).toBeVisible();
   await expect(banners.filter({ hasText: 'Demo-Run #9002' })).toBeVisible();
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   await expect(page.getByText('#9001', { exact: true })).toBeVisible();
   await expect(page.getByText('#9002', { exact: true })).toBeVisible();
 });
@@ -202,15 +200,14 @@ test('a start that settles after an account switch offers no hidden run', async 
   const dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
-  const account = page.getByLabel('Konto auswählen', { exact: true });
-  await account.selectOption('demo-work');
+  await chooseAccount(page, 'team-demo');
   await page.clock.runFor(400);
   const banner = page.getByRole('status').filter({ hasText: /Demo-Run #9001/ });
   await expect(banner).toBeVisible();
-  const show = banner.getByRole('button', { name: 'In Aktivität anzeigen' });
-  // The run belongs to demo-personal, which the activity list hides now.
+  const show = banner.getByRole('button', { name: 'Im Verlauf anzeigen' });
+  // The run belongs to demo-personal, which the Verlauf hides now.
   await expect(show).toHaveCount(0);
-  await account.selectOption('demo-personal');
+  await chooseAccount(page, 'demo-dev');
   await expect(show).toBeVisible();
   await show.click();
   const run = page.getByRole('article').filter({ hasText: '#9001' });

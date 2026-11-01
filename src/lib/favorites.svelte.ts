@@ -1,5 +1,6 @@
 import { tick } from 'svelte';
 import type { Bridge } from './demo';
+import { focusLost, hasDom, landing } from './focus';
 import { errorMessage } from './format';
 import { validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
@@ -29,21 +30,20 @@ export function samePin(a: Pin, b: Pin) {
 }
 
 // Focus moves only where a removed or restored card would otherwise drop it
-// to <body>; the unit tests run without a DOM.
-const hasDom = () => typeof document !== 'undefined';
-const focusLost = () => {
-  const active = document.activeElement;
-  return !active || active === document.body || !active.isConnected;
-};
+// to <body>.
 const pinCard = (id: string) =>
   document.querySelector<HTMLElement>(`[data-pin-id="${CSS.escape(id)}"]`);
 const enabled = (card: HTMLElement | null, selector = 'button') =>
   [...(card?.querySelectorAll<HTMLButtonElement>(selector) ?? [])].find(
     (button) => !button.disabled,
   );
-/** The active view tab: where focus lands when no card is left. */
-const viewTab = () =>
-  document.querySelector<HTMLElement>('[aria-current="page"]');
+/**
+ * Where focus lands when no card is left: the favorites section's maximize
+ * button on the overview, else the page's landing (the Favoriten title).
+ */
+const noCardLeft = () =>
+  document.querySelector<HTMLElement>('[data-maximize="favorites"]') ??
+  landing();
 /** The nearest other card in one direction, by its pin id. */
 function sibling(card: HTMLElement, forward: boolean) {
   let next = forward ? card.nextElementSibling : card.previousElementSibling;
@@ -98,7 +98,7 @@ export class Favorites {
 
   /**
    * Removes at once and offers „Rückgängig“ for a few seconds. Focus on the
-   * removed card moves to the next card, or to the view tab.
+   * removed card moves to the next card, else to the favorites section.
    */
   remove = async (pinId: string) => {
     const pin = this.#panel.snapshot?.pins.find((item) => item.id === pinId);
@@ -122,7 +122,7 @@ export class Favorites {
       const target = enabled(next, '[data-pin-remove]') ?? enabled(next);
       if (target) return target.focus();
     }
-    viewTab()?.focus();
+    noCardLeft()?.focus();
   };
 
   /** Quick-starts a favorite; false when it needs the start dialog instead. */
@@ -195,11 +195,11 @@ export class Favorites {
     if (done !== null) await this.#focusCard(pin.id);
   }
 
-  /** Focus left with the undo button goes to the card, or the view tab. */
+  /** Focus left with the undo button goes to the card, else the section. */
   async #focusCard(pinId: string) {
     if (!hasDom()) return;
     await tick();
-    if (focusLost()) (enabled(pinCard(pinId)) ?? viewTab())?.focus();
+    if (focusLost()) (enabled(pinCard(pinId)) ?? noCardLeft())?.focus();
   }
 
   /** A mutation always reports and accepts its own answer. */

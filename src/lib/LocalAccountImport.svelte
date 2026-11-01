@@ -78,10 +78,10 @@
     align-items: center;
     gap: 7px;
     padding: 9px;
-    border: 1px solid #607f46;
+    border: 1px solid var(--accent-line);
     border-radius: 6px;
-    background: #304027;
-    color: #d2e3c5;
+    background: var(--accent-soft);
+    color: var(--text);
   }
   .import-consent {
     display: flex;

@@ -1,12 +1,15 @@
 import { expect, test, type Page } from './support/test';
-import { openConnection } from './support/demo';
+import {
+  PAGE_TITLES,
+  accountMenuButton,
+  maximizeButton,
+  openConnection,
+} from './support/demo';
 
-const tab = (page: Page, name: RegExp) => page.getByRole('button', { name });
-const views = {
-  repositories: /^Repositories$/,
-  activity: /^Aktivität/,
-  launch: /^Favoriten$/,
-};
+/** The title of a maximized page; the overview has none. */
+const pageTitle = (page: Page) => page.locator('.page-title');
+const heading = (page: Page, name: keyof typeof PAGE_TITLES) =>
+  page.getByRole('heading', { level: 2, name: PAGE_TITLES[name], exact: true });
 const refreshed = (page: Page) =>
   page.getByRole('status').filter({ hasText: 'Demo-Status aktualisiert.' });
 
@@ -53,29 +56,33 @@ test('F5 and Ctrl+R refresh the panel instead of reloading the webview', async (
   ).toBe(true);
 });
 
-test('Ctrl+1/2/3 switch between the views', async ({ page }) => {
+test('Ctrl+1/2/3 maximize a section; its own key returns to the overview', async ({
+  page,
+}) => {
   await page.keyboard.press('Control+2');
-  await expect(tab(page, views.activity)).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(heading(page, 'runs')).toBeFocused();
   await page.keyboard.press('Control+3');
-  await expect(tab(page, views.launch)).toHaveAttribute('aria-current', 'page');
+  await expect(heading(page, 'favorites')).toBeFocused();
   await page.keyboard.press('Control+1');
-  await expect(tab(page, views.repositories)).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
-  await expect(tab(page, views.activity)).toHaveAttribute(
-    'aria-keyshortcuts',
-    'Control+2',
-  );
+  await expect(heading(page, 'repos')).toBeFocused();
+  await page.keyboard.press('Control+1');
+  await expect(pageTitle(page)).toHaveCount(0);
+  await expect(maximizeButton(page, 'repos')).toBeFocused();
+  for (const [name, key] of [
+    ['repos', 'Control+1'],
+    ['runs', 'Control+2'],
+    ['favorites', 'Control+3'],
+  ] as const)
+    await expect(maximizeButton(page, name)).toHaveAttribute(
+      'aria-keyshortcuts',
+      key,
+    );
 });
 
 test('/ focuses the search; typing keeps plain keys, Escape clears then leaves', async ({
   page,
 }) => {
-  const search = page.getByLabel('Repositories durchsuchen');
+  const search = page.getByLabel('Übersicht durchsuchen');
   await page.keyboard.press('/');
   await expect(search).toBeFocused();
   await expect(search).toHaveValue('');
@@ -91,7 +98,7 @@ test('/ focuses the search; typing keeps plain keys, Escape clears then leaves',
 test('F5, Ctrl+R and Ctrl+1/2/3 still work from the search field', async ({
   page,
 }) => {
-  const search = page.getByLabel('Repositories durchsuchen');
+  const search = page.getByLabel('Übersicht durchsuchen');
   await page.keyboard.press('/');
   await page.keyboard.type('demo');
   await page.keyboard.press('F5');
@@ -107,32 +114,31 @@ test('F5, Ctrl+R and Ctrl+1/2/3 still work from the search field', async ({
   await expect(refreshed(page)).toBeVisible();
   await search.focus();
   await page.keyboard.press('Control+2');
-  await expect(tab(page, views.activity)).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(heading(page, 'runs')).toBeFocused();
+  // The query stays with the panel, not with the page.
+  await expect(page.getByLabel('Verlauf durchsuchen')).toHaveValue('demo');
   expect(await prevented(page)).toEqual(['/', 'F5', 'r', '2']);
 });
 
 test('an open dialog keeps the keyboard and never reloads', async ({
   page,
 }) => {
+  await page.keyboard.press('Control+2');
+  await expect(heading(page, 'runs')).toBeFocused();
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
   await expect(dialog).toBeVisible();
-  await page.keyboard.press('Control+2');
+  await page.keyboard.press('Control+3');
   await page.keyboard.press('/');
   await page.keyboard.press('F5');
-  expect(await prevented(page)).toEqual(['F5']);
+  expect(await prevented(page)).toEqual(['2', 'F5']);
   await expect(refreshed(page)).toHaveCount(0);
+  // Escape closes only the dialog; the page behind it stays open.
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(tab(page, views.repositories)).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(heading(page, 'runs')).toBeVisible();
 });
 
 test('the search hint lists the keyboard shortcuts', async ({ page }) => {
@@ -147,18 +153,18 @@ test('the search hint lists the keyboard shortcuts', async ({ page }) => {
   ).toHaveAttribute('aria-keyshortcuts', 'F5 Control+R');
 });
 
-// Focus regressions: SearchField.focus() and Toolbar.focusPicker().
+// Focus regressions: SearchField.focus() and AppBar.focusAccount().
 test('pressing / on a run row moves focus into the search field', async ({
   page,
 }) => {
   await page.keyboard.press('Control+2');
   await page.locator('.run-button').first().focus();
   await page.keyboard.press('/');
-  await expect(page.getByLabel('Aktivität durchsuchen')).toBeFocused();
-  await expect(page.getByLabel('Aktivität durchsuchen')).toHaveValue('');
+  await expect(page.getByLabel('Verlauf durchsuchen')).toBeFocused();
+  await expect(page.getByLabel('Verlauf durchsuchen')).toHaveValue('');
 });
 
-test('finishing the demo token connect focuses the account picker', async ({
+test('finishing the demo token connect focuses the account menu button', async ({
   page,
 }) => {
   const dialog = await openConnection(page);
@@ -170,7 +176,5 @@ test('finishing the demo token connect focuses the account picker', async ({
     .getByRole('button', { name: 'Token prüfen und verbinden' })
     .click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(
-    page.getByLabel('Konto auswählen', { exact: true }),
-  ).toBeFocused();
+  await expect(accountMenuButton(page)).toBeFocused();
 });

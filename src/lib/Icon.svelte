@@ -59,6 +59,8 @@
       wire('19,8 16,5 10,4 5,7 3,12 5,17 10,20 16,19 20,15'),
       wire('19,3 19,8 14,8'),
     ],
+    // Three quarters of a ring; the Verlauf turns it while a run is running.
+    spinner: [{ tag: 'path', attributes: { d: 'M12 4a8 8 0 1 1-8 8' } }],
     branch: [
       line(7, 6, 7, 18),
       wire('7,12 17,12 17,6'),
@@ -81,6 +83,10 @@
       line(12, 14, 12, 21),
     ],
     plus: [line(12, 4, 12, 20), line(4, 12, 20, 12)],
+    minus: [line(5, 12, 19, 12)],
+    // Three dots: the actions menu of a row.
+    more: [ring(5.5, 12, 1.2), ring(12, 12, 1.2), ring(18.5, 12, 1.2)],
+    back: [line(20, 12, 4, 12), wire('10,6 4,12 10,18')],
     external: [
       box(3.5, 8.5, 12, 12),
       wire('13,3.5 20.5,3.5 20.5,11'),
@@ -117,6 +123,19 @@
     ],
     bolt: [wire('14,3 5,13 11,13 10,21 19,10 13,10 14,3')],
     arrow: [line(4, 12, 20, 12), wire('14,6 20,12 14,18')],
+    // Two corner arrows pointing out (fill the panel) or in (back to the overview).
+    maximize: [
+      wire('14,4 20,4 20,10'),
+      line(20, 4, 13.5, 10.5),
+      wire('10,20 4,20 4,14'),
+      line(4, 20, 10.5, 13.5),
+    ],
+    minimize: [
+      wire('14,4 14,10 20,10'),
+      line(14, 10, 20.5, 3.5),
+      wire('10,20 10,14 4,14'),
+      line(10, 14, 3.5, 20.5),
+    ],
     copy: [
       box(8.5, 8.5, 12, 12),
       {
@@ -127,6 +146,12 @@
       },
     ],
     info: [ring(12, 12, 8.5), line(12, 11, 12, 16), line(12, 8, 12, 8.01)],
+    userPlus: [
+      ring(10, 8, 4),
+      wire('3.5,20 4.5,17 7,15 13,15 15.5,17 16.5,20'),
+      line(19, 8, 19, 14),
+      line(16, 11, 22, 11),
+    ],
   } satisfies Record<string, Shape[]>;
 
   /** Every glyph name; a typo at a call site is a type error, not a silent fallback. */

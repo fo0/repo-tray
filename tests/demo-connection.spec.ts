@@ -119,6 +119,7 @@ test('confirmation notice centers text, icon and close target at narrow and stan
     });
     for (const center of geometry.children)
       expect(Math.abs(center - geometry.center)).toBeLessThanOrEqual(0.5);
-    expect(geometry.height).toBeLessThanOrEqual(53);
+    // At most two lines of 12px text (the metadata minimum) plus padding.
+    expect(geometry.height).toBeLessThanOrEqual(55);
   }
 });

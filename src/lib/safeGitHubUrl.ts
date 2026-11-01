@@ -54,3 +54,14 @@ export function safeGitHubUrl(value: string): string | null {
     return null;
   return url.href;
 }
+
+/**
+ * A repository's page on GitHub, built in the panel for „Link kopieren“, or
+ * null unless owner and name use GitHub's charsets (so nothing needs
+ * encoding). The shell opens no repository pages: `open_run` takes runs only.
+ */
+export function safeRepoUrl(owner: string, name: string): string | null {
+  return OWNER.test(owner) && REPO.test(name) && name !== '.' && name !== '..'
+    ? `https://github.com/${owner}/${name}`
+    : null;
+}

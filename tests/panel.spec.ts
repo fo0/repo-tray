@@ -1,5 +1,5 @@
 import { expect, test } from './support/test';
-import { openDemoActivity, openLaunch } from './support/demo';
+import { chooseAccount, openDemoActivity, openLaunch } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
@@ -8,19 +8,14 @@ test.beforeEach(async ({ page }) => {
 test('account and owner context, filters and search stay isolated', async ({
   page,
 }) => {
-  await expect(
-    page.getByText('demo-dev/launch-kit-demo', { exact: true }).first(),
-  ).toBeVisible();
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-work');
-  await expect(
-    page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
-  ).toBeVisible();
-  await expect(
-    page.getByText('demo-dev/launch-kit-demo', { exact: true }),
-  ).toHaveCount(0);
-  const search = page.getByLabel('Aktivität durchsuchen');
+  // A row shows the repository's name; its accessible name keeps the owner.
+  const rowsOf = (repo: string) =>
+    page.getByRole('button', { name: ` · ${repo} · `, exact: false });
+  await expect(rowsOf('demo-dev/launch-kit-demo').first()).toBeVisible();
+  await chooseAccount(page, 'team-demo');
+  await expect(rowsOf('example-org/runner-tools-demo').first()).toBeVisible();
+  await expect(rowsOf('demo-dev/launch-kit-demo')).toHaveCount(0);
+  const search = page.getByLabel('Verlauf durchsuchen');
   await search.fill('unmatched-query');
   await expect(
     page.getByRole('heading', { name: 'Keine passenden Runs' }),
@@ -30,16 +25,10 @@ test('account and owner context, filters and search stay isolated', async ({
     .getByRole('button', { name: 'Suche leeren', exact: true })
     .click();
   await expect(search).toHaveValue('');
-  await expect(
-    page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
-  ).toBeVisible();
-  await page
-    .getByLabel('Konto auswählen', { exact: true })
-    .selectOption('demo-personal');
+  await expect(rowsOf('example-org/runner-tools-demo').first()).toBeVisible();
+  await chooseAccount(page, 'demo-dev');
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
-  await expect(
-    page.getByText('demo-dev/website-demo', { exact: true }).first(),
-  ).toBeVisible();
+  await expect(rowsOf('demo-dev/website-demo').first()).toBeVisible();
 });
 
 for (const width of [360, 480]) {
@@ -49,7 +38,11 @@ for (const width of [360, 480]) {
     await page.setViewportSize({ width, height: 760 });
     const geometry = await page.evaluate(() => {
       const header = document
-        .querySelector('.app-header')!
+        .querySelector('.app-bar')!
+        .getBoundingClientRect();
+      // The connection status moved from the header into the footer.
+      const footer = document
+        .querySelector('.app-footer')!
         .getBoundingClientRect();
       const status = document
         .querySelector('.connection')!
@@ -60,7 +53,9 @@ for (const width of [360, 480]) {
       return {
         headerHeight: header.height,
         statusInside:
-          status.top >= header.top && status.bottom <= header.bottom,
+          status.top >= footer.top &&
+          status.bottom <= footer.bottom &&
+          status.right <= footer.right,
         rowHeight: run.height,
         runFont: parseFloat(
           getComputedStyle(document.querySelector('.run-name')!).fontSize,

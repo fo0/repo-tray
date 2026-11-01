@@ -11,7 +11,7 @@
   gap: 4px;
   padding: 0 18px 12px;
   flex-shrink: 0;
-  border-bottom: 1px solid #38452f;
+  border-bottom: 1px solid var(--border);
 }
 .startup-panel h3 {
   margin: 0 0 18px;
@@ -21,15 +21,15 @@
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  border: 1px solid #536f3e;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #283524;
+  background: var(--raised);
   cursor: pointer;
 }
 .startup-option input {
   margin: 3px 0 0;
   flex-shrink: 0;
-  accent-color: #c2e795;
+  accent-color: var(--accent);
 }
 .startup-option strong {
   display: block;
@@ -40,7 +40,7 @@
   display: block;
   font-size: 12px;
   line-height: 1.6;
-  color: #a3b394;
+  color: var(--text-2);
 }
 .startup-status {
   font-size: 12px;
@@ -48,7 +48,7 @@
   margin: 14px 0;
 }
 .startup-saved {
-  color: #c2e795;
+  color: var(--ok);
 }
 .startup-actions {
   display: flex;
@@ -69,28 +69,22 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  color: #a3b394;
+  color: var(--text-2);
   font-size: var(--font-size-meta);
 }
 .settings-tabs button[aria-selected='true'] {
-  background: #34452a;
-  border-color: #536f3e;
-  color: #d1ecb8;
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--text);
 }
 .tab-update-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #c2e795;
-}
-.settings-repo-search {
-  margin-bottom: 8px;
-}
-.settings-repo-search + .field-help {
-  margin-bottom: 12px;
+  background: var(--accent);
 }
 .update-panel {
-  color: #c9d8bb;
+  color: var(--text);
 }
 .update-heading {
   display: flex;
@@ -108,32 +102,32 @@
   line-height: 1.6;
 }
 .update-heading p {
-  color: #9eae90;
+  color: var(--text-2);
 }
 .update-symbol {
   display: grid;
   place-items: center;
   width: 42px;
   height: 42px;
-  border: 1px solid #536b3e;
+  border: 1px solid var(--accent-line);
   border-radius: 10px;
-  background: #344329;
-  color: #c2e795;
+  background: var(--accent-soft);
+  color: var(--accent);
   flex-shrink: 0;
 }
 .version-badge {
   margin-left: auto;
   font-size: var(--font-size-meta);
-  color: #afca95;
+  color: var(--text-2);
   padding: 3px 7px;
-  border: 1px solid #485d37;
+  border: 1px solid var(--border-strong);
   border-radius: 5px;
 }
 .update-description {
   margin: 16px 0;
   font-size: var(--font-size-meta);
   line-height: 1.6;
-  color: #9eae90;
+  color: var(--text-2);
 }
 .update-check-row {
   display: flex;
@@ -142,9 +136,9 @@
   gap: 10px;
 }
 .update-release {
-  border: 1px solid #4a6138;
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: #25301f;
+  background: var(--raised);
   margin-top: 18px;
   padding: 14px;
 }
@@ -154,11 +148,11 @@
   gap: 2px;
 }
 .update-release-heading strong {
-  color: #d5edbe;
+  color: var(--text);
   font-size: 13px;
 }
 .update-release-heading > span {
-  color: #a1b58e;
+  color: var(--text-2);
 }
 .update-steps {
   display: flex;
@@ -166,20 +160,20 @@
   gap: 8px;
   padding: 14px 0;
   margin: 0;
-  color: #91a37f;
+  color: var(--text-3);
   font-size: var(--font-size-meta);
 }
 .update-steps li {
   flex: 1;
-  border-top: 2px solid #46533c;
+  border-top: 2px solid var(--border-strong);
   padding-top: 7px;
 }
 .update-steps .done {
-  border-color: #b2d98a;
-  color: #cde6b6;
+  border-color: var(--accent);
+  color: var(--text);
 }
 .update-changelog {
-  border-top: 1px solid #3c4d30;
+  border-top: 1px solid var(--border);
   margin-bottom: 16px;
 }
 .update-changelog summary {
@@ -192,13 +186,13 @@
   overflow-wrap: anywhere;
   max-height: 180px;
   overflow-y: auto;
-  color: #afc29d;
+  color: var(--text-2);
 }
 .update-current {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #c2e795;
+  color: var(--ok);
   margin: 14px 0;
   font-size: var(--font-size-meta);
   line-height: 1.6;
@@ -210,7 +204,7 @@
 .update-progress progress {
   width: 100%;
   height: 8px;
-  accent-color: #c2e795;
+  accent-color: var(--accent);
 }
 .update-release .primary-button {
   width: 100%;
@@ -222,4 +216,46 @@
 }
 .update-panel > .alert {
   margin-top: 14px;
+}
+
+/* App tab: „Darstellung“ (System / Hell / Dunkel) above the startup option. */
+.theme-setting {
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.theme-setting h3 {
+  margin: 0 0 12px;
+}
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: var(--font-size-meta);
+  cursor: pointer;
+}
+.theme-option:hover {
+  background: var(--hover);
+}
+.theme-option:has(input:checked) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.theme-option input {
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+.theme-setting .theme-help {
+  margin-top: 10px;
 }

@@ -1,7 +1,9 @@
 /*
  * Panel stylesheet entry. Order matters: later files override earlier ones
  * (the sheet grew by appending patches), so keep the numeric prefixes in order.
+ * Tokens come first: every later file reads them.
  */
+@import './00-tokens.css';
 @import './00-base.css';
 @import './01-shell.css';
 @import './02-activity.css';
@@ -17,6 +19,8 @@
 @import './12-settings-startup-updates.css';
 @import './13-connected-auth.css';
 @import './14-forced-colors.css';
-@import './15-activity-comfort.css';
 @import './16-launch-flow.css';
 @import './17-settings-onboarding.css';
+@import './18-overview.css';
+@import './19-tiles-strip.css';
+@import './20-repo-picker.css';

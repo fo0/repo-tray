@@ -10,6 +10,7 @@ import { errorMessage } from './format';
 import { call } from './ipc';
 import { RequestEpoch } from './model';
 import { Notices, PANEL_NOTICE } from './notices.svelte';
+import { RepoSelection } from './repoSelection.svelte';
 import { Starts } from './starts.svelte';
 import type { DemoScenario, Pin, Snapshot } from './types';
 
@@ -54,6 +55,7 @@ export class Panel {
   readonly native: boolean;
   readonly starts: Starts;
   readonly favorites: Favorites;
+  readonly selection: RepoSelection;
   readonly notices = new Notices();
   readonly viewEpoch = new RequestEpoch();
   #bridge: PanelDeps['bridge'];
@@ -74,6 +76,9 @@ export class Panel {
     this.starts = new Starts(this, bridge);
     this.favorites = new Favorites(this, bridge, (run) =>
       this.#mutation('pinsBusy', run),
+    );
+    this.selection = new RepoSelection(this, bridge, (run) =>
+      this.#mutation('selectionBusy', run),
     );
   }
 
@@ -97,19 +102,19 @@ export class Panel {
       ) ?? []
     );
   }
-  /** Expanded repositories of the browser; kept while the view is switched. */
+  /** Expanded repositories; shared by the overview and the Repositories page. */
   expandedRepos = $state.raw(new Set<string>());
   toggleRepo = (repoId: string) => {
     const next = new Set(this.expandedRepos);
     if (!next.delete(repoId)) next.add(repoId);
     this.expandedRepos = next;
   };
-  /** The run whose details are open in the activity list, if any. */
+  /** The run whose details are open in the Verlauf, if any. */
   expandedRun = $state<number | null>(null);
   toggleRun = (runId: number) => {
     this.expandedRun = this.expandedRun === runId ? null : runId;
   };
-  /** Whether this account's runs appear in the activity list right now. */
+  /** Whether this account's runs appear in the Verlauf right now. */
   showsAccount = (accountId: string) =>
     this.native
       ? accountId === this.accountId
@@ -199,6 +204,7 @@ export class Panel {
     this.notices.clear(PANEL_NOTICE);
     // „Rückgängig“ belongs to the previous account's view.
     this.favorites.clearUndo();
+    this.selection.clearUndo();
   }
 
   /** Resolves to null when the refresh failed or a newer view change won. */
@@ -236,13 +242,6 @@ export class Panel {
       this.favorites.saved(pin);
       return true;
     }));
-
-  saveSelection = (repoIds: string[]) =>
-    this.#mutation('selectionBusy', async (ticket) => {
-      const value = await this.#bridge.selectRepos(repoIds);
-      if (this.viewEpoch.current(ticket)) this.accept(value);
-      this.showNotice('Repository-Auswahl gespeichert.');
-    });
 
   disconnectAccount = (accountId: string) =>
     this.#mutation('accountBusy', async () => {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './support/test';
-import { openLaunch, templateCard } from './support/demo';
+import { openLaunch, openPage, templateCard } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -22,9 +22,9 @@ test('clearing the search keeps focus in the search field', async ({
   await expect(search(page)).toHaveValue('');
   await expect(search(page)).toBeFocused();
 
-  // The empty state's „Suche leeren“ goes back to the field in every view.
-  for (const tab of ['Repositories', 'Aktivität', 'Favoriten']) {
-    await page.getByRole('button', { name: new RegExp(`^${tab}`) }).click();
+  // The empty state's „Suche leeren“ goes back to the field on every page.
+  for (const name of ['overview', 'repos', 'runs', 'favorites'] as const) {
+    await openPage(page, name);
     await search(page).fill('unmatched-query');
     await page
       .locator('.empty-state')
@@ -90,7 +90,7 @@ test('the dialog start keeps focus while it runs, then hands it to the result', 
 test('closing the start dialog returns focus to a locked start button, which stays focusable', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   // The demo answers after 300 ms; a paused clock holds the start in flight.
   await page.clock.install();
   await page.clock.pauseAt(Date.now() + 2000);
