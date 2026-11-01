@@ -1,5 +1,6 @@
 import type {
   DispatchRequest,
+  DispatchTarget,
   InputValue,
   Pin,
   Repo,
@@ -13,10 +14,6 @@ export const fullRepo = (repo: Repo) => `${repo.owner}/${repo.name}`;
 export const isActive = (run: Run) => run.status !== 'completed';
 export const HISTORY_LIMIT = 50;
 
-export type DispatchTarget = Pick<
-  DispatchRequest,
-  'accountId' | 'repoId' | 'workflowId' | 'ref'
->;
 /** Identity of a dispatch target; inputs and request ID are deliberately not part of it. */
 export function targetKey(value: DispatchTarget): string {
   return JSON.stringify([
