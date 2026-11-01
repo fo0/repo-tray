@@ -37,8 +37,7 @@ The same revamp also decides:
 
 ### Neutral
 
-- The `ViewTabs`, `LaunchView`, `WorkflowList` and `RepositoriesView` components are gone; `PanelBody`, `Overview`, `SectionHeader`, `SectionPage`, `LiveRuns`, `FavoritesPage` and `ReposPage` replace them. `ReposTab` gave way to `RepoPicker`, `NotInTray` and `RepoMenu` on `RepoSelection` (`src/lib/repoSelection.svelte.ts`).
-- The overview's favorites keep the compact pinned rows until step 3 replaces them with tiles.
+- The `ViewTabs`, `LaunchView`, `WorkflowList` and `RepositoriesView` components are gone; `PanelBody`, `Overview`, `SectionHeader`, `SectionPage`, `LiveRuns`, `FavoritesPage` and `ReposPage` replace them. `AppHeader` and `Toolbar` merged into `AppBar` with `AccountMenu`, `PinnedFavorites` gave way to `FavoriteTiles`, and `ReposTab` to `RepoPicker`, `NotInTray` and `RepoMenu` on `RepoSelection` (`src/lib/repoSelection.svelte.ts`).
 
 ## Alternatives Considered
 

@@ -1,6 +1,6 @@
 import { tick } from 'svelte';
 import type { Bridge } from './demo';
-import { focusLost, landing } from './focus';
+import { focusLost, hasDom, landing } from './focus';
 import { errorMessage } from './format';
 import { validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
@@ -30,8 +30,7 @@ export function samePin(a: Pin, b: Pin) {
 }
 
 // Focus moves only where a removed or restored card would otherwise drop it
-// to <body>; the unit tests run without a DOM.
-const hasDom = () => typeof document !== 'undefined';
+// to <body>.
 const pinCard = (id: string) =>
   document.querySelector<HTMLElement>(`[data-pin-id="${CSS.escape(id)}"]`);
 const enabled = (card: HTMLElement | null, selector = 'button') =>

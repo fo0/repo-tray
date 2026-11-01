@@ -1,5 +1,10 @@
 import { expect, test } from './support/test';
-import { chooseAccount, expectPage, openPage } from './support/demo';
+import {
+  chooseAccount,
+  expectPage,
+  openPage,
+  settleTransitions,
+} from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -240,6 +245,7 @@ for (const width of [360, 480]) {
     await toggle.focus();
     await page.keyboard.press('Enter');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await settleTransitions(page); // the opened row's chevron turns
     const layout = await page.evaluate(() => {
       const box = (element: Element) => {
         const r = element.getBoundingClientRect();

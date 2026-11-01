@@ -38,8 +38,11 @@ export function focusAfterNotice(neighbour: HTMLElement | null) {
   (neighbour?.isConnected ? neighbour : landing())?.focus();
 }
 
+/** Focus moves only in the panel; the unit tests run without a DOM. */
+export const hasDom = () => typeof document !== 'undefined';
+
 /** Removed or disabled elements cannot take focus back. */
-function usable(target: HTMLElement | null | undefined) {
+export function usable(target: HTMLElement | null | undefined) {
   return (
     !!target?.isConnected &&
     !(target instanceof HTMLButtonElement && target.disabled)

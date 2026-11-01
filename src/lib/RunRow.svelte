@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Icon, { type IconName } from './Icon.svelte';
+  import Icon from './Icon.svelte';
   import RunLink, { copyLink } from './RunLink.svelte';
   import { clockTime, runDuration, runMoment } from './format';
-  import { statusLabel } from './runs';
+  import { runTone, statusLabel, TONE_ICON } from './runs';
   import { safeGitHubUrl } from './safeGitHubUrl';
   import type { NoticeTone } from './StatusBanners.svelte';
   import type { Run } from './types';
@@ -48,17 +48,8 @@
       'Link konnte nicht kopiert werden. Öffne den Run auf GitHub und kopiere ihn dort.',
     );
 
-  const icon: IconName = $derived(
-    run.status === 'in_progress'
-      ? 'activity'
-      : run.status === 'waiting'
-        ? 'pause'
-        : run.status === 'queued'
-          ? 'clock'
-          : run.conclusion === 'success'
-            ? 'check'
-            : 'close',
-  );
+  // One status icon per tone everywhere: the same mapping as „Läuft gerade“.
+  const icon = $derived(TONE_ICON[runTone(run)]);
   const runUrl = $derived(safeGitHubUrl(run.htmlUrl));
   const moment = $derived(runMoment(run, now, demo));
 </script>

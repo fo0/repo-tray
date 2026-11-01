@@ -121,3 +121,19 @@ export function templateCard(page: Page, name: string) {
     has: page.getByRole('heading', { name, exact: true }),
   });
 }
+
+/**
+ * Waits for running CSS transitions, e.g. a chevron that turns when its row
+ * opens: a turning box measures wider than the settled one. Endless
+ * animations such as the running strip cell's pulse are left alone.
+ */
+export async function settleTransitions(page: Page) {
+  await page.evaluate(() =>
+    Promise.allSettled(
+      document
+        .getAnimations()
+        .filter((animation) => animation instanceof CSSTransition)
+        .map((animation) => animation.finished),
+    ),
+  );
+}

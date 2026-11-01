@@ -1,5 +1,5 @@
 import { tick } from 'svelte';
-import { focusRevealedRun, landing } from './focus';
+import { focusRevealedRun, hasDom, landing, usable } from './focus';
 import type { Notices } from './notices.svelte';
 import type { ActivityFilter } from './runs';
 
@@ -24,8 +24,6 @@ export interface RunReveal {
   readonly notices: Pick<Notices, 'dismissRun'>;
 }
 
-// Focus moves only in the panel; the unit tests run without a DOM.
-const hasDom = () => typeof document !== 'undefined';
 /** The focused element, or null when focus rests on the page itself. */
 function focused() {
   const active = document.activeElement;
@@ -33,10 +31,6 @@ function focused() {
     ? active
     : null;
 }
-/** Removed or disabled elements cannot take focus back. */
-const usable = (element: HTMLElement | null | undefined) =>
-  !!element?.isConnected &&
-  !(element instanceof HTMLButtonElement && element.disabled);
 /**
  * The overview is rebuilt when a page closes, so an opener on it comes back
  * as a new element: `data-focus-key` names it across that rebuild.

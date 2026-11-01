@@ -1,7 +1,7 @@
 import { tick } from 'svelte';
 import type { Bridge } from './demo';
 import { UNDO_TIMEOUT } from './favorites.svelte';
-import { focusLost, landing } from './focus';
+import { focusLost, hasDom, landing } from './focus';
 import { accountLabel, errorMessage } from './format';
 import { fullRepo } from './model';
 import type { Panel } from './panel.svelte';
@@ -48,9 +48,7 @@ export function notInTray(
     .sort((a, b) => fullRepo(a).localeCompare(fullRepo(b)));
 }
 
-// Focus moves only where a row that held it left the list; the unit tests
-// run without a DOM.
-const hasDom = () => typeof document !== 'undefined';
+// Focus moves only where a row that held it left the list.
 const toggleOf = (id: string | null) =>
   id
     ? document.querySelector<HTMLElement>(
