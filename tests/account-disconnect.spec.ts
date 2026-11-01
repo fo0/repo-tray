@@ -120,6 +120,9 @@ test('an imported gh account confirms that the gh CLI stays untouched and focus 
   page,
 }) => {
   await setup(page);
+  await expect(
+    page.getByText('2 Konten verbunden', { exact: true }),
+  ).toBeVisible();
   const gh = card(page, 'gh CLI (Kopie)');
   await gh
     .getByRole('button', {
@@ -133,6 +136,9 @@ test('an imported gh account confirms that the gh CLI stays untouched and focus 
   );
   await confirm.getByRole('button', { name: 'Trennen', exact: true }).click();
   await expect(gh).toHaveCount(0);
+  await expect(
+    page.getByText('1 Konto verbunden', { exact: true }),
+  ).toBeVisible();
   expect((await readCalls(page, 'disconnect_account'))[0].args).toEqual({
     accountId: 'github-gh-42',
   });

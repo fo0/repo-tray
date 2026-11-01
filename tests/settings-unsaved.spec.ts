@@ -66,12 +66,12 @@ test('edits survive tab switches, the tab shows them and „Weiter bearbeiten“
   page,
 }) => {
   await editSelection(page);
+  // The marker is part of the tab's name, like „Update verfügbar“.
   const repositories = dialog(page).getByRole('tab', {
-    name: 'Repositories',
-    exact: true,
+    name: /^Repositories/,
   });
-  await expect(repositories).toHaveAccessibleDescription(
-    'Auswahl nicht gespeichert',
+  await expect(repositories).toHaveAccessibleName(
+    'Repositories Auswahl nicht gespeichert',
   );
   await dialog(page).getByRole('tab', { name: 'Updates', exact: true }).click();
   // Every tab closes with „Schließen“: nothing else is pending there.
@@ -89,9 +89,7 @@ test('edits survive tab switches, the tab shows them and „Weiter bearbeiten“
   await expect(dialog(page)).toHaveCount(0);
   await reopenRepositories(page);
   await expect(sandbox(page)).toBeChecked();
-  await expect(
-    dialog(page).getByRole('tab', { name: 'Repositories', exact: true }),
-  ).not.toHaveAttribute('aria-describedby');
+  await expect(repositories).toHaveAccessibleName('Repositories');
 });
 
 test('undoing an edit needs no question, and adding an account asks before it replaces the dialog', async ({

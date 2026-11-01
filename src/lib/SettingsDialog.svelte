@@ -96,10 +96,11 @@
       current.some((id) => !saved.includes(id))
     );
   });
-  /** Tab states, marked visually and announced as the tab's description. */
-  const badges = $derived<Partial<Record<SettingsTab, string>>>(
-    dirty ? { repositories: 'Auswahl nicht gespeichert' } : {},
-  );
+  /** Tab states: a dot whose text is part of the tab's name, like the activity count. */
+  const badges = $derived<Partial<Record<SettingsTab, string>>>({
+    ...(dirty && { repositories: 'Auswahl nicht gespeichert' }),
+    ...(updater.info && { updates: 'Update verfügbar' }),
+  });
   /** Leaving action that waits for „Verwerfen“; null while nobody is asked. */
   let discarding = $state.raw<(() => void) | null>(null);
   let saveButton = $state<HTMLButtonElement>();
@@ -202,20 +203,13 @@
         aria-selected={tab === item.id}
         aria-controls="settings-panel"
         tabindex={tab === item.id ? 0 : -1}
-        aria-describedby={badges[item.id]
-          ? `settings-tab-${item.id}-badge`
-          : undefined}
         onclick={() => (tab = item.id)}
-        >{item.label}{#if item.id === 'updates' && updater.info}<span
+        >{item.label}{#if badges[item.id]}<span
             class="tab-update-dot"
+            class:unsaved={item.id === 'repositories'}
             role="img"
-            aria-label="Update verfügbar"
-          ></span>{:else if badges[item.id]}<span
-            class="tab-update-dot"
-            aria-hidden="true"
-          ></span><span id={`settings-tab-${item.id}-badge`} hidden
-            >{badges[item.id]}</span
-          >{/if}</button
+            aria-label={badges[item.id]}
+          ></span>{/if}</button
       >
     {/each}
   </div>

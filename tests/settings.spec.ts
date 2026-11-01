@@ -116,7 +116,8 @@ test('repository search preserves hidden selections and edits across settings ta
   await expect(page.getByRole('checkbox')).toHaveCount(1);
   await page.getByRole('checkbox').check();
   await page.getByRole('tab', { name: 'Updates', exact: true }).click();
-  await page.getByRole('tab', { name: 'Repositories', exact: true }).click();
+  // The unsaved edit marks the tab: „Repositories Auswahl nicht gespeichert“.
+  await page.getByRole('tab', { name: /^Repositories/ }).click();
   await expect(page.getByRole('checkbox')).toBeChecked();
   await page.getByLabel('Repositories filtern').clear();
   await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(4);
@@ -126,4 +127,29 @@ test('repository search preserves hidden selections and edits across settings ta
     .click();
   await page.getByRole('tab', { name: 'Repositories', exact: true }).click();
   await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(4);
+});
+
+test('every settings tab closes with „Schließen“; only the repository tab adds a save action', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Einstellungen',
+    exact: true,
+  });
+  for (const name of ['Konten', 'Repositories', 'App', 'Updates']) {
+    await dialog.getByRole('tab', { name, exact: true }).click();
+    await expect(
+      dialog.getByRole('button', { name: 'Schließen', exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Abbrechen', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByRole('button', { name: 'Auswahl speichern' }),
+    ).toHaveCount(name === 'Repositories' ? 1 : 0);
+  }
 });

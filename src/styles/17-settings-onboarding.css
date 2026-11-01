@@ -68,9 +68,7 @@
 .unsaved-hint {
   color: var(--warning);
 }
-.settings-tabs
-  [aria-describedby='settings-tab-repositories-badge']
-  .tab-update-dot {
+.tab-update-dot.unsaved {
   background: var(--warning);
 }
 .settings-discard .inline-confirm {
@@ -84,6 +82,11 @@
   }
   .text-button.danger-text {
     color: LinkText;
+  }
+  /* Tab dots are fills and would vanish. */
+  .tab-update-dot {
+    forced-color-adjust: none;
+    background: CanvasText;
   }
 }
 
