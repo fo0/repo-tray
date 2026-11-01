@@ -1,49 +1,34 @@
 name: Release
+# Every merge to main that changes more than docs: CI, then build and publish the
+# unsigned Windows EXE with a CalVer version and GitHub-generated changelog.
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'agent_docs/**'
+      - '.claude/**'
+      - '.github/dependabot.yml'
 permissions:
   contents: read
+# One release at a time; a newer merge replaces a release that has not started yet.
+concurrency:
+  group: release
+  cancel-in-progress: false
 jobs:
-  require-checks:
-    # Releases only a commit whose push Checks passed, and waits while they still run,
-    # so the release itself never repeats them.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  ci:
+    uses: ./.github/workflows/ci.yml
     permissions:
-      actions: read # Read the Checks runs of the release commit.
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_SOURCE_SHA: ${{ github.sha }}
-    steps:
-      - name: Wait for green Checks on the release commit
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Release must be started from main' }
-          while ($true) {
-            $json = gh api --method GET "repos/$env:GITHUB_REPOSITORY/actions/workflows/checks.yml/runs" -f "head_sha=$env:RELEASE_SOURCE_SHA" -f event=push -f per_page=1
-            if ($LASTEXITCODE -ne 0) { throw 'Checks status unavailable' }
-            $run = @(($json | ConvertFrom-Json).workflow_runs)[0]
-            if (!$run) { throw "No push Checks run for $env:RELEASE_SOURCE_SHA" }
-            if ($run.status -eq 'completed') {
-              if ($run.conclusion -ne 'success') { throw "Checks for $env:RELEASE_SOURCE_SHA concluded $($run.conclusion)" }
-              Write-Output "Checks passed: $($run.html_url)"
-              break
-            }
-            Write-Output "Checks are $($run.status); checking again in 30 s"
-            Start-Sleep -Seconds 30
-          }
+      contents: read
+      pull-requests: read # Required by CI's change filter, unused on main.
 
-  windows-release:
-    needs: require-checks
+  release:
+    needs: ci
     runs-on: windows-latest
-    timeout-minutes: 90
-    # One release at a time: a running one is never cancelled, a newer request
-    # replaces one that is still pending.
-    concurrency:
-      group: repotray-release
-      cancel-in-progress: false
+    timeout-minutes: 60
     permissions:
-      contents: write # Create and publish the release.
+      contents: write # Create the tag and publish the release.
       actions: read # Read this run's immutable created_at for retry-stable versions.
     env:
       RELEASE_SOURCE_SHA: ${{ github.sha }}
@@ -52,7 +37,6 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ github.sha }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -86,7 +70,6 @@ jobs:
           "RELEASE_TAG=$($metadata.tag)" | Out-File -Encoding utf8 -Append $env:GITHUB_ENV
           "RELEASE_VERSION=$($metadata.version)" | Out-File -Encoding utf8 -Append $env:GITHUB_ENV
           "RELEASE_TITLE=$($metadata.title)" | Out-File -Encoding utf8 -Append $env:GITHUB_ENV
-      # require-checks proved this exact commit green; the release only builds it.
       - name: Install Rust stable
         run: rustup toolchain install stable --profile minimal --no-self-update && rustup default stable
       - name: Cache Rust dependencies
@@ -97,7 +80,7 @@ jobs:
           cache-bin: false
       - run: pnpm install --frozen-lockfile
       - name: Build unsigned Windows installer
-        id: installer
+        id: build
         run: pnpm tauri build --features desktop --bundles nsis --config src-tauri/tauri.release.conf.json
       - name: Verify installer download and publish release
         shell: pwsh
@@ -122,10 +105,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Release exists, but download verification failed' }
           $downloaded = Join-Path release-work/download-check $filename
           if ((Get-FileHash $downloaded -Algorithm SHA256).Hash -ne (Get-FileHash $installer -Algorithm SHA256).Hash) { throw 'Release exists, but downloaded installer differs' }
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && steps.installer.outcome == 'success'
+      - name: Keep the built EXE when publishing failed
+        if: failure() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: RepoTray-Windows-release
-          path: |
-            src-tauri/target/release/bundle/nsis/*.exe
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          retention-days: 7
           if-no-files-found: error

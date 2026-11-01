@@ -1,22 +1,18 @@
-name: Checks
+name: CI
 on:
-  push:
-    branches: [main]
   pull_request:
-  # A manual run checks everything, whatever the branch changed.
-  workflow_dispatch:
+  # Release runs this first on every merge to main.
+  workflow_call:
 permissions:
   contents: read
 concurrency:
-  # PR runs share a group per ref so a new push supersedes the old run. Every other
-  # run gets its own group: main push runs are the evidence a manual Release waits
-  # for, so a newer push must not cancel them.
-  group: checks-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  # A new push to a pull request supersedes its running CI; release runs never cancel.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   changes:
     # Pull requests run the Rust and Windows jobs only when they touch what those jobs
-    # check. Pushes and manual runs always check everything.
+    # check. Release runs always check everything.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -37,7 +33,7 @@ jobs:
           files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)')
           touches() { grep -qE "$1" <<< "$files" && echo true || echo false; }
           # Rust tests embed fixtures/; release:test reads scripts/ and release.yml.
-          echo "rust=$(touches '^(src-tauri/|fixtures/|\.github/workflows/checks\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "rust=$(touches '^(src-tauri/|fixtures/|\.github/workflows/ci\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "desktop=$(touches '^(src-tauri/|fixtures/|scripts/|\.github/workflows/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.node-version$)')" >> "$GITHUB_OUTPUT"
   panel:
     runs-on: ubuntu-latest

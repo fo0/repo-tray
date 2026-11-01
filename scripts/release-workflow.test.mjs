@@ -82,10 +82,6 @@ if (process.env.RELEASE_TEST_COMMAND === 'pnpm') {
 } else if (args[0] === 'api') {
   const endpoint = args.find((arg) => arg.startsWith('repos/'));
   if (endpoint.includes('/actions/runs/')) console.log('2026-11-01T00:15:00Z');
-  else if (endpoint.endsWith('/actions/workflows/checks.yml/runs')) {
-    if (!args.includes('head_sha=' + process.env.RELEASE_SOURCE_SHA) || !args.includes('event=push')) fail('Checks queried for another commit or event');
-    console.log(JSON.stringify({ workflow_runs: state.checks ? [state.checks] : [] }));
-  }
   else if (endpoint.includes('/generate-notes')) console.log(state.emptyNotes ? '' : '## Changes\n- Test release');
   else if (endpoint.includes('/releases?')) console.log('[[]]');
   else fail('Unexpected GitHub API endpoint: ' + endpoint);
@@ -241,48 +237,13 @@ test(
   options,
   (t) => {
     const f = fixture(t, { emptyNotes: true });
-    const result = f.run('windows-release');
+    const result = f.run('release');
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.equal(f.state().built, true);
     assert.equal(f.state().created, true);
     assert.equal(f.state().uploads.length, 1);
   },
 );
-
-test(
-  'a manual release proceeds once the push Checks of its commit passed',
-  options,
-  (t) => {
-    const f = fixture(t, {
-      checks: { status: 'completed', conclusion: 'success' },
-    });
-    const result = f.run('require-checks');
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-  },
-);
-
-for (const [name, checks, expected] of /** @type {const} */ ([
-  [
-    'failed',
-    { status: 'completed', conclusion: 'failure' },
-    'concluded failure',
-  ],
-  ['missing', undefined, 'No push Checks run'],
-])) {
-  test(
-    `a manual release refuses a commit with ${name} Checks`,
-    options,
-    (t) => {
-      const f = fixture(t, { checks });
-      const result = f.run('require-checks');
-      assert.notEqual(result.status, 0);
-      assert.ok(
-        `${result.stderr}${result.stdout}`.includes(expected),
-        result.stderr || result.stdout,
-      );
-    },
-  );
-}
 
 for (const [name, changes, expected] of /** @type {const} */ ([
   ['fails', { downloadFails: true }, 'download verification failed'],
@@ -297,7 +258,7 @@ for (const [name, changes, expected] of /** @type {const} */ ([
     options,
     (t) => {
       const f = fixture(t, changes);
-      const result = f.run('windows-release');
+      const result = f.run('release');
       assert.notEqual(result.status, 0);
       assert.ok(
         `${result.stderr}${result.stdout}`.includes(expected),

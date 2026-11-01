@@ -64,11 +64,10 @@ flowchart TD
     end
 
     subgraph "CI and Release"
-        Checks("checks.yml")
+        Checks("ci.yml")
         RustTests["cargo tests"]
         IpcContract["ipc.contract.test.ts"]
         ReleaseYml("release.yml")
-        InstallerYml("installer.yml")
         ReleaseScripts["release.mjs and updater.mjs"]
     end
 
@@ -157,7 +156,7 @@ flowchart TD
     IpcContract -->|"generate_handler!"| DesktopRs
     RustTests -->|"demo snapshots"| DemoRs
     ReleaseYml --> ReleaseScripts
-    ReleaseYml -->|"waits for green push run"| Checks
+    ReleaseYml -->|"runs first on every merge"| Checks
     ReleaseYml -->|"publish unsigned NSIS EXE"| Releases
 
     click AppSvelte "src/App.svelte"
@@ -207,10 +206,9 @@ flowchart TD
     click RunLinkRs "src-tauri/src/run_link.rs"
     click UpdatesRs "src-tauri/src/updates.rs"
     click DemoRs "src-tauri/src/demo.rs"
-    click Checks ".github/workflows/checks.yml"
+    click Checks ".github/workflows/ci.yml"
     click IpcContract "src/lib/ipc.contract.test.ts"
     click ReleaseYml ".github/workflows/release.yml"
-    click InstallerYml ".github/workflows/installer.yml"
     click ReleaseScripts "scripts/release.mjs"
 
     classDef frontend fill:#42b883,stroke:#35495e,color:#fff
@@ -223,4 +221,4 @@ flowchart TD
     class MainRs,DesktopRs,DesktopAuth,DesktopStartup,TrayPopup,DesktopUpdates,LibRs,LiveRs,LiveMods,GithubRs,GithubMods,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,StartupRs,PopupRs,RunLinkRs,UpdatesRs,DemoRs backend
     class DemoFixture,RunLinksFixture,SQLite database
     class GitHubApi,Keyring,Releases,RunKey external
-    class Checks,RustTests,IpcContract,ReleaseYml,InstallerYml,ReleaseScripts infra
+    class Checks,RustTests,IpcContract,ReleaseYml,ReleaseScripts infra

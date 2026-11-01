@@ -1,6 +1,6 @@
 # RepoTray
 
-[![Checks](https://github.com/fo0/repo-tray/actions/workflows/checks.yml/badge.svg?branch=main&event=push)](https://github.com/fo0/repo-tray/actions/workflows/checks.yml)
+[![Release](https://github.com/fo0/repo-tray/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/fo0/repo-tray/actions/workflows/release.yml)
 [![Windows release](https://github.com/fo0/repo-tray/actions/workflows/release.yml/badge.svg?branch=main&event=workflow_dispatch)](https://github.com/fo0/repo-tray/actions/workflows/release.yml)
 
 <img src="src-tauri/icons/source.svg" alt="" width="64" height="64" align="right" />
@@ -79,9 +79,9 @@ pnpm dev
 
 Open **http://127.0.0.1:1420**. This preview uses labelled synthetic accounts and local simulations. It does not authenticate with GitHub or start real workflows.
 
-## Checks and builds
+## CI and releases
 
-[Checks](.github/workflows/checks.yml) runs on pull requests and pushes to `main`. It checks the frontend, browser interactions, reproducible icons, Rust formatting/tests/Clippy and Windows desktop compilation, including automated Win32 popup/window-ownership and isolated autostart-registry tests. A failed browser test run uploads the Playwright report and test results as an artifact. Pull requests skip the Rust and Windows jobs when they touch nothing those jobs check. Checks never packages an installer; the manual [Installer](.github/workflows/installer.yml) workflow builds an unsigned validation EXE from any branch, and [Release](.github/workflows/release.yml) publishes from `main` once that commit's Checks passed.
+[CI](.github/workflows/ci.yml) runs on pull requests: frontend, browser interactions, reproducible icons, Rust formatting/tests/Clippy and Windows desktop Clippy with Win32 popup/window-ownership and isolated autostart-registry tests. Pull requests skip the Rust and Windows jobs when they touch nothing those jobs check. A failed browser test run uploads the Playwright report as an artifact. [Release](.github/workflows/release.yml) runs on every merge to `main` that changes more than docs: the full CI for that commit, then the unsigned Windows EXE with a generated changelog on the [Releases page](https://github.com/fo0/repo-tray/releases).
 
 [Release](.github/workflows/release.yml) handles explicitly requested unsigned Windows EXE releases with generated versions and changelogs. No additional signing key is required; see the release documentation. The release badge above follows manual runs on `main`; the checks badge follows main pushes. See [release documentation](docs/RELEASES.md) for the exact triggers and publishing process.
 
