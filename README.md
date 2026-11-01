@@ -81,7 +81,7 @@ Open **http://127.0.0.1:1420**. This preview uses labelled synthetic accounts an
 
 ## Checks and builds
 
-[Checks](.github/workflows/checks.yml) runs on pull requests and pushes to `main`. It checks the frontend, browser interactions, reproducible icons, Rust formatting/tests/Clippy and Windows desktop compilation, including automated Win32 popup/window-ownership and isolated autostart-registry tests. A failed browser test run uploads the Playwright report and test results as an artifact. Normal checks do not package an installer. An unsigned validation installer can be requested explicitly through the workflow's `build_installer` input.
+[Checks](.github/workflows/checks.yml) runs on pull requests and pushes to `main`. It checks the frontend, browser interactions, reproducible icons, Rust formatting/tests/Clippy and Windows desktop compilation, including automated Win32 popup/window-ownership and isolated autostart-registry tests. A failed browser test run uploads the Playwright report and test results as an artifact. Pull requests skip the Rust and Windows jobs when they touch nothing those jobs check. Checks never packages an installer; the manual [Installer](.github/workflows/installer.yml) workflow builds an unsigned validation EXE from any branch, and [Release](.github/workflows/release.yml) publishes from `main` once that commit's Checks passed.
 
 [Release](.github/workflows/release.yml) handles explicitly requested unsigned Windows EXE releases with generated versions and changelogs. No additional signing key is required; see the release documentation. The release badge above follows manual runs on `main`; the checks badge follows main pushes. See [release documentation](docs/RELEASES.md) for the exact triggers and publishing process.
 

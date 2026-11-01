@@ -12,16 +12,11 @@ A Tauri updater signature and a Windows Authenticode certificate are different m
 
 ## Checks and release triggers
 
-Pushes to `main` run every job: frontend/browser checks, Rust tests/lints, native Windows clippy and Windows tests. Pull requests always run the frontend job; the Rust job runs only when they touch `src-tauri/`, `fixtures/` or the Checks workflow, the Windows job only when they touch those, `scripts/`, any workflow, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` or `.node-version`; renamed files count with their old and new path. Neither builds an installer. To obtain a validation EXE without publishing, manually run **Actions → Checks → Run workflow** on `main` with **Build an unsigned Windows validation installer** enabled (`build_installer: true`, default off).
+Pushes to `main` run every job: frontend/browser checks, Rust tests/lints, native Windows clippy and Windows tests. Pull requests always run the frontend job; the Rust job runs only when they touch `src-tauri/`, `fixtures/` or the Checks workflow, the Windows job only when they touch those, `scripts/`, any workflow, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` or `.node-version`; renamed files count with their old and new path. A manual **Actions → Checks → Run workflow** checks everything on the chosen branch. Checks never builds an installer: for a validation EXE without publishing, run **Actions → Installer → Run workflow** on any branch; it uploads the unsigned NSIS EXE as a 14-day artifact.
 
-For a published release, either run **Actions → Release → Run workflow** on `main`, or explicitly include `[release]` in a main commit/merge message. Both build only a commit whose Checks passed, and neither repeats those checks:
+For a published release, run **Actions → Release → Run workflow** on `main`; it is the only release path. It first waits (up to 30 minutes, on a Linux runner) for the push Checks run of the `main` commit it builds and stops if that run failed, was cancelled or does not exist, so it can be started right after a merge. It never repeats those checks; the Windows job only builds and publishes. Commits and merges never start a release. Release publication uses the existing repository GITHUB_TOKEN; no additional signing secret is required.
 
-- `[release]` makes the `release` job of that push's Checks run call `release.yml` once every other Checks job succeeded. Pull-request runs and failed checks cannot publish.
-- A manual run first waits (up to 30 minutes, on a Linux runner) for the push Checks run of the `main` commit it builds, and stops if that run failed or does not exist.
-
-Ordinary main commits start no release run at all. Release publication uses the existing repository GITHUB_TOKEN; no additional signing secret is required.
-
-Rust caches are separated for Linux core, Windows checks and installers; only runs on `main` save them. Release restores and refreshes the installer cache; a manual installer build on `main` shares it. A first full optimized installer build can still take longer without a warm installer cache. No extra build is scheduled just to warm it.
+Rust caches are separated for Linux core, Windows checks and installers; only runs on `main` save them. Release restores and refreshes the installer cache; an Installer run on `main` shares it. A first full optimized installer build can still take longer without a warm installer cache. No extra build is scheduled just to warm it.
 
 ## Automatic version and changelog
 
@@ -31,7 +26,7 @@ Rust caches are separated for Linux core, Windows checks and installers; only ru
 4. New builds reject existing tags/releases, stale versions, source mismatches or altered build plans. Two runs created in the same minute collide safely; inspect the first outcome and start a later run only if another release is needed. Existing assets/drafts are never overwritten by a blind retry.
 5. It builds with `createUpdaterArtifacts: false` from `src-tauri/tauri.release.conf.json`. It runs `gh release create TAG INSTALLER --target SOURCE_SHA --title TITLE --notes-file NOTES --latest`. The CLI handles the upload and publication; no custom draft URL or installer-metadata gate is used. The workflow confirms that the result is published, downloads the EXE and compares its hash with the local build. A successful build is also retained as a CI artifact if publication fails.
 
-If publication fails after the upload, `gh release create` can leave a draft with the EXE. Delete that draft, then re-run the failed release job (same run, same version) or start a new release; the workflow never overwrites or republishes an existing draft or asset. When a `[release]` build fails inside Checks, that Checks run is red, so a manual Release of the same commit is refused — re-run its failed jobs instead.
+If publication fails after the upload, `gh release create` can leave a draft with the EXE. Delete that draft, then re-run the failed release job (same run, same version) or start a new release; the workflow never overwrites or republishes an existing draft or asset.
 
 The installer is a direct `.exe` release asset; no signature or updater-manifest sidecar is required. GitHub's optional CI artifact transport may wrap files in ZIPs; the user-facing release download is the EXE itself. Generated files live in ignored `release-work/`; no screenshot, private key or token is published.
 
