@@ -60,6 +60,8 @@
   let toolbar = $state<ReturnType<typeof Toolbar>>();
 
   const needle = $derived(query.trim().toLowerCase());
+  /** Whitespace alone filters nothing, so it is no search in any view. */
+  const searching = $derived(needle !== '');
   const matches = (text: string) =>
     !needle || text.toLowerCase().includes(needle);
   const repoName = (id: string) => repoLabel(snapshot, id);
@@ -288,7 +290,7 @@
           needsAccount={panel.needsAccount}
           hasAccounts={!!snapshot.accounts.length}
           accountNotice={panel.accountNotice}
-          searching={!!query}
+          {searching}
           onConfigure={(pin) => openDispatch(pin)}
           onRemove={panel.deletePin}
           onLaunch={launchPin}
@@ -309,7 +311,7 @@
           needsAccount={panel.needsAccount}
           hasAccounts={!!snapshot.accounts.length}
           hasRepos={repos.length > 0}
-          searching={!!query}
+          {searching}
           accountNotice={panel.accountNotice}
           {repoName}
           {repoAccountName}
@@ -331,7 +333,7 @@
           dispatching={panel.starts.any}
           busy={panel.pinsBusy}
           blocked={panel.blocked}
-          searching={!!query.trim()}
+          {searching}
           hasRepos={repos.length > 0}
           needsAccount={panel.needsAccount}
           onLaunch={launchPin}

@@ -238,6 +238,28 @@ test('the native account chip opens the accounts settings', async ({
   await expect(chip).toBeFocused();
 });
 
+test('a search of only spaces is no search in the activity list', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-work');
+  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
+  await page.getByLabel('Aktivität durchsuchen').fill('   ');
+  await expect(
+    page.getByRole('heading', { name: 'Hier ist gerade Ruhe' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Keine passenden Runs' }),
+  ).toHaveCount(0);
+  await page.getByLabel('Aktivität durchsuchen').fill('unmatched-query');
+  await expect(
+    page.getByRole('heading', { name: 'Keine passenden Runs' }),
+  ).toBeVisible();
+});
+
 test('the history note opens on demand from the info button', async ({
   page,
 }) => {
