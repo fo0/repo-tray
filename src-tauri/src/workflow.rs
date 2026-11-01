@@ -30,6 +30,15 @@ fn error(message: impl Into<String>) -> WorkflowError {
     WorkflowError(message.into())
 }
 
+/// An input name as messages show it: no control characters, at most 64 characters.
+fn shown(name: &str) -> String {
+    let mut shown: String = name.chars().filter(|c| !c.is_control()).take(64).collect();
+    if name.chars().count() > 64 {
+        shown.push('…');
+    }
+    shown
+}
+
 fn field<'a>(mapping: &'a Mapping, name: &str) -> Option<&'a Value> {
     mapping.get(Value::String(name.into()))
 }
@@ -39,11 +48,11 @@ fn field<'a>(mapping: &'a Mapping, name: &str) -> Option<&'a Value> {
 pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError> {
     check_yaml_envelope(source)?;
     let document: Value = serde_yaml_ng::from_str(source)
-        .map_err(|_| error("Workflow YAML is malformed or contains duplicate keys."))?;
+        .map_err(|_| error("Workflow-YAML ist fehlerhaft oder enthält doppelte Schlüssel."))?;
     check_tree(&document, 0)?;
     let root = document
         .as_mapping()
-        .ok_or_else(|| error("A workflow must be a YAML mapping."))?;
+        .ok_or_else(|| error("Workflow-YAML hat keine gültige Struktur."))?;
     let on = field(root, "on").or_else(|| root.get(Value::Bool(true)));
     let dispatch = match on {
         None | Some(Value::Null) => None,
@@ -51,7 +60,9 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
         Some(Value::String(_)) => None,
         Some(Value::Sequence(events)) => {
             if !events.iter().all(|event| matches!(event, Value::String(_))) {
-                return Err(error("Workflow event lists must contain strings."));
+                return Err(error(
+                    "Die Event-Liste unter „on“ darf nur Event-Namen enthalten.",
+                ));
             }
             events
                 .iter()
@@ -59,7 +70,7 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
                 .then_some(&Value::Null)
         }
         Some(Value::Mapping(events)) => field(events, "workflow_dispatch"),
-        _ => return Err(error("Unsupported workflow event declaration.")),
+        _ => return Err(error("Die Event-Angabe unter „on“ wird nicht unterstützt.")),
     };
     let Some(dispatch) = dispatch else {
         return Ok(ParsedWorkflow {
@@ -70,12 +81,20 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
     let inputs = match dispatch {
         Value::Null => None,
         Value::Mapping(settings) => field(settings, "inputs"),
-        _ => return Err(error("workflow_dispatch must be a mapping or empty.")),
+        _ => {
+            return Err(error(
+                "„workflow_dispatch“ muss leer sein oder Einstellungen enthalten.",
+            ))
+        }
     };
     let inputs = match inputs {
         None | Some(Value::Null) => vec![],
         Some(Value::Mapping(inputs)) => parse_specs(inputs)?,
-        _ => return Err(error("Workflow inputs must be a mapping.")),
+        _ => {
+            return Err(error(
+                "„inputs“ unter „workflow_dispatch“ muss benannte Eingaben enthalten.",
+            ))
+        }
     };
     Ok(ParsedWorkflow {
         dispatch: true,
@@ -85,19 +104,22 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
 
 fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
     if inputs.len() > MAX_INPUTS {
-        return Err(error(
-            "Workflow input count exceeds the local safety limit.",
-        ));
+        return Err(error(format!(
+            "Der Workflow hat mehr als {MAX_INPUTS} Eingaben – mehr unterstützt RepoTray nicht."
+        )));
     }
     let mut result = Vec::with_capacity(inputs.len());
     for (name, settings) in inputs {
         let name = name
             .as_str()
             .filter(|name| !name.is_empty() && name.len() <= 128)
-            .ok_or_else(|| error("Workflow input names must be short strings."))?;
-        let settings = settings
-            .as_mapping()
-            .ok_or_else(|| error("Each workflow input must be a mapping."))?;
+            .ok_or_else(|| error("Eingabenamen müssen Texte mit 1 bis 128 Zeichen sein."))?;
+        let settings = settings.as_mapping().ok_or_else(|| {
+            error(format!(
+                "Eingabe „{}“ ist ungültig deklariert.",
+                shown(name)
+            ))
+        })?;
         let input_type = match field(settings, "type") {
             None => InputType::String,
             Some(Value::String(kind)) => match kind.as_str() {
@@ -106,19 +128,39 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
                 "choice" => InputType::Choice,
                 "number" => InputType::Number,
                 "environment" => InputType::Environment,
-                _ => return Err(error("Unsupported workflow input type.")),
+                _ => {
+                    return Err(error(format!(
+                        "Eingabe „{}“ hat einen nicht unterstützten Typ.",
+                        shown(name)
+                    )))
+                }
             },
-            _ => return Err(error("Input types must be strings.")),
+            _ => {
+                return Err(error(format!(
+                    "Der Typ von Eingabe „{}“ muss ein Text sein.",
+                    shown(name)
+                )))
+            }
         };
         let required = match field(settings, "required") {
             None => false,
             Some(Value::Bool(required)) => *required,
-            _ => return Err(error("Input required flags must be booleans.")),
+            _ => {
+                return Err(error(format!(
+                    "„required“ von Eingabe „{}“ muss true oder false sein.",
+                    shown(name)
+                )))
+            }
         };
         let label = match field(settings, "description") {
             None | Some(Value::Null) => name.to_owned(),
             Some(Value::String(description)) => description.clone(),
-            _ => return Err(error("Input descriptions must be strings.")),
+            _ => {
+                return Err(error(format!(
+                    "Die Beschreibung von Eingabe „{}“ muss ein Text sein.",
+                    shown(name)
+                )))
+            }
         };
         let options = match field(settings, "options") {
             None | Some(Value::Null) => vec![],
@@ -129,21 +171,38 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
                         .as_str()
                         .filter(|value| !value.is_empty())
                         .map(str::to_owned)
-                        .ok_or_else(|| error("Choice options must be nonempty strings."))
+                        .ok_or_else(|| {
+                            error(format!(
+                                "Die Optionen von Eingabe „{}“ müssen nicht leere Texte sein.",
+                                shown(name)
+                            ))
+                        })
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-            _ => return Err(error("Only choice inputs may declare string options.")),
+            _ => {
+                return Err(error(format!(
+                    "Eingabe „{}“: Optionen sind nur als Liste bei Typ „choice“ erlaubt.",
+                    shown(name)
+                )))
+            }
         };
         if input_type == InputType::Choice
             && (options.is_empty()
                 || options.iter().collect::<BTreeSet<_>>().len() != options.len())
         {
-            return Err(error("Choice inputs need distinct options."));
+            return Err(error(format!(
+                "Eingabe „{}“ braucht mindestens eine Option und keine doppelten.",
+                shown(name)
+            )));
         }
         let default = field(settings, "default")
             .map(|value| {
-                serde_yaml_ng::from_value::<InputValue>(value.clone())
-                    .map_err(|_| error("Input defaults must be strings, numbers, or booleans."))
+                serde_yaml_ng::from_value::<InputValue>(value.clone()).map_err(|_| {
+                    error(format!(
+                        "Der Standardwert von Eingabe „{}“ muss Text, Zahl oder true/false sein.",
+                        shown(name)
+                    ))
+                })
             })
             .transpose()?;
         let spec = InputSpec {
@@ -166,10 +225,13 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
 pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs, WorkflowError> {
     let names: BTreeSet<_> = specs.iter().map(|spec| spec.name.as_str()).collect();
     if names.len() != specs.len() {
-        return Err(error("Workflow contains duplicate input names."));
+        return Err(error("Der Workflow enthält doppelte Eingabenamen."));
     }
-    if supplied.keys().any(|name| !names.contains(name.as_str())) {
-        return Err(error("An unknown workflow input was supplied."));
+    if let Some(name) = supplied.keys().find(|name| !names.contains(name.as_str())) {
+        return Err(error(format!(
+            "Der Workflow kennt die Eingabe „{}“ nicht (mehr).",
+            shown(name)
+        )));
     }
     let mut normalized = Inputs::new();
     for spec in specs {
@@ -179,7 +241,9 @@ pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs,
                 validate_value(spec, value)?;
                 normalized.insert(spec.name.clone(), value.clone());
             }
-            None if spec.required => return Err(error("A required workflow input is missing.")),
+            None if spec.required => {
+                return Err(error(format!("Pflichtfeld „{}“ fehlt.", shown(&spec.name))))
+            }
             None => {}
         }
     }
@@ -187,20 +251,27 @@ pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs,
 }
 
 fn validate_value(spec: &InputSpec, value: &InputValue) -> Result<(), WorkflowError> {
-    let valid = match (spec.r#type, value) {
-        (InputType::Boolean, InputValue::Boolean(_)) => true,
-        (InputType::Number, InputValue::Number(_)) => true,
-        (InputType::String | InputType::Environment, InputValue::String(_)) => true,
-        (InputType::Choice, InputValue::String(value)) => spec.options.contains(value),
-        _ => false,
+    let name = shown(&spec.name);
+    let expected = match (spec.r#type, value) {
+        (InputType::Boolean, InputValue::Boolean(_))
+        | (InputType::Number, InputValue::Number(_))
+        | (InputType::String | InputType::Environment, InputValue::String(_)) => None,
+        (InputType::Choice, InputValue::String(value)) if spec.options.contains(value) => None,
+        (InputType::Choice, InputValue::String(_)) => {
+            return Err(error(format!(
+                "Der Wert von „{name}“ ist keine der erlaubten Optionen."
+            )))
+        }
+        (InputType::Boolean, _) => Some("true oder false"),
+        (InputType::Number, _) => Some("eine Zahl"),
+        (InputType::String | InputType::Environment, _) => Some("einen Text"),
+        (InputType::Choice, _) => Some("eine der Optionen"),
     };
-    if !valid {
-        return Err(error(
-            "A workflow input has the wrong type or choice value.",
-        ));
+    if let Some(expected) = expected {
+        return Err(error(format!("Eingabe „{name}“ erwartet {expected}.")));
     }
     if spec.required && value.is_empty() {
-        return Err(error("A required workflow input must not be empty."));
+        return Err(error(format!("Pflichtfeld „{name}“ darf nicht leer sein.")));
     }
     Ok(())
 }
@@ -243,7 +314,7 @@ pub fn validate_non_secret_inputs(inputs: &Inputs) -> Result<(), WorkflowError> 
             || matches!(value, InputValue::String(value) if looks_like_credential(value))
     }) {
         return Err(error(
-            "Secret inputs cannot be saved in pins or the local cache.",
+            "Geheime Eingaben wie Token oder Passwörter können nicht in Favoriten gespeichert werden.",
         ));
     }
     Ok(())
@@ -251,7 +322,7 @@ pub fn validate_non_secret_inputs(inputs: &Inputs) -> Result<(), WorkflowError> 
 
 fn check_yaml_envelope(source: &str) -> Result<(), WorkflowError> {
     if source.len() > MAX_WORKFLOW_BYTES {
-        return Err(error("Workflow YAML exceeds the 64 KiB safety limit."));
+        return Err(error("Workflow-YAML ist größer als 64 KiB."));
     }
     let mut block_indent = None;
     let mut flow_depth = 0usize;
@@ -270,7 +341,7 @@ fn check_yaml_envelope(source: &str) -> Result<(), WorkflowError> {
             block_indent = None;
         }
         if !single && !double && (indentation > MAX_YAML_DEPTH * 2 || line.starts_with('\t')) {
-            return Err(error("Workflow YAML nesting exceeds the safety limit."));
+            return Err(error("Workflow-YAML ist zu tief verschachtelt."));
         }
         let mut node_start = true;
         let bytes = line.as_bytes();
@@ -308,10 +379,10 @@ fn check_yaml_envelope(source: &str) -> Result<(), WorkflowError> {
                 break;
             }
             if node_start && (byte == b'&' || byte == b'*') {
-                return Err(error("YAML anchors and aliases are disabled."));
+                return Err(error("YAML-Anker und -Aliase werden nicht unterstützt."));
             }
             if node_start && byte == b'!' {
-                return Err(error("Explicit YAML tags are disabled."));
+                return Err(error("YAML-Tags werden nicht unterstützt."));
             }
             if node_start && (byte == b'|' || byte == b'>') {
                 block_indent = Some(indentation);
@@ -320,7 +391,7 @@ fn check_yaml_envelope(source: &str) -> Result<(), WorkflowError> {
             if node_start && (byte == b'[' || byte == b'{') {
                 flow_depth += 1;
                 if flow_depth > MAX_YAML_DEPTH {
-                    return Err(error("Workflow YAML nesting exceeds the safety limit."));
+                    return Err(error("Workflow-YAML ist zu tief verschachtelt."));
                 }
             } else if flow_depth > 0 && (byte == b']' || byte == b'}') {
                 flow_depth = flow_depth.saturating_sub(1);
@@ -345,10 +416,10 @@ fn check_yaml_envelope(source: &str) -> Result<(), WorkflowError> {
 
 fn check_tree(value: &Value, depth: usize) -> Result<(), WorkflowError> {
     if depth > MAX_YAML_DEPTH {
-        return Err(error("Workflow YAML nesting exceeds the safety limit."));
+        return Err(error("Workflow-YAML ist zu tief verschachtelt."));
     }
     match value {
-        Value::Tagged(_) => Err(error("Custom YAML tags are disabled.")),
+        Value::Tagged(_) => Err(error("YAML-Tags werden nicht unterstützt.")),
         Value::Sequence(values) => values
             .iter()
             .try_for_each(|value| check_tree(value, depth + 1)),
@@ -413,20 +484,78 @@ mod tests {
 
     #[test]
     fn rejects_unknown_inputs_wrong_types_missing_required_and_invalid_choices() {
-        let parsed = parse_workflow_yaml("on:\n  workflow_dispatch:\n    inputs:\n      flag: {type: boolean, required: true}\n      target: {type: choice, options: [linux, windows]}\n").unwrap();
-        assert!(validate_inputs(&parsed.inputs, &Inputs::new()).is_err());
-        for supplied in [
-            serde_json::json!({"flag": "true"}),
-            serde_json::json!({"flag": true, "unknown": "x"}),
-            serde_json::json!({"flag": true, "target": "macos"}),
+        let parsed = parse_workflow_yaml("on:\n  workflow_dispatch:\n    inputs:\n      flag: {type: boolean, required: true}\n      target: {type: choice, options: [linux, windows]}\n      note: {type: string, required: true, default: x}\n").unwrap();
+        assert_eq!(
+            validate_inputs(&parsed.inputs, &Inputs::new()).unwrap_err(),
+            error("Pflichtfeld „flag“ fehlt.")
+        );
+        let long = "u".repeat(80);
+        for (supplied, message) in [
+            (
+                serde_json::json!({"flag": "true"}),
+                "Eingabe „flag“ erwartet true oder false.".to_string(),
+            ),
+            (
+                serde_json::json!({"flag": true, "unknown": "x"}),
+                "Der Workflow kennt die Eingabe „unknown“ nicht (mehr).".to_string(),
+            ),
+            (
+                serde_json::json!({"flag": true, long.clone(): "x"}),
+                format!(
+                    "Der Workflow kennt die Eingabe „{}…“ nicht (mehr).",
+                    "u".repeat(64)
+                ),
+            ),
+            (
+                serde_json::json!({"flag": true, "target": "macos"}),
+                "Der Wert von „target“ ist keine der erlaubten Optionen.".to_string(),
+            ),
+            (
+                serde_json::json!({"flag": true, "target": 1}),
+                "Eingabe „target“ erwartet eine der Optionen.".to_string(),
+            ),
+            (
+                serde_json::json!({"flag": true, "note": ""}),
+                "Pflichtfeld „note“ darf nicht leer sein.".to_string(),
+            ),
         ] {
             let supplied: Inputs = serde_json::from_value(supplied).unwrap();
-            assert!(validate_inputs(&parsed.inputs, &supplied).is_err());
+            assert_eq!(
+                validate_inputs(&parsed.inputs, &supplied).unwrap_err(),
+                error(message)
+            );
         }
-        assert!(parse_workflow_yaml(
-            "on: {workflow_dispatch: {inputs: {x: {type: boolean, default: 'false'}}}}"
-        )
-        .is_err());
+        assert_eq!(
+            parse_workflow_yaml(
+                "on: {workflow_dispatch: {inputs: {x: {type: boolean, default: 'false'}}}}"
+            )
+            .unwrap_err(),
+            error("Eingabe „x“ erwartet true oder false.")
+        );
+        for (source, message) in [
+            (
+                "on: [",
+                "Workflow-YAML ist fehlerhaft oder enthält doppelte Schlüssel.",
+            ),
+            (
+                "on: {workflow_dispatch: {inputs: {x: {type: file}}}}",
+                "Eingabe „x“ hat einen nicht unterstützten Typ.",
+            ),
+            (
+                "on: {workflow_dispatch: {inputs: {x: {type: choice, options: [a, a]}}}}",
+                "Eingabe „x“ braucht mindestens eine Option und keine doppelten.",
+            ),
+            (
+                "on: &a workflow_dispatch",
+                "YAML-Anker und -Aliase werden nicht unterstützt.",
+            ),
+        ] {
+            assert_eq!(
+                parse_workflow_yaml(source).unwrap_err(),
+                error(message),
+                "{source}"
+            );
+        }
     }
 
     #[test]
