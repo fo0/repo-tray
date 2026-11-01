@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import { minuteClock } from './clock';
   import { runDuration } from './format';
-  import { statusLabel, runTone, TONE_ICON } from './runs';
+  import { runLabel, runTone, shortRepo, statusLabel, TONE_ICON } from './runs';
   import type { Run } from './types';
 
   let {
@@ -33,16 +33,19 @@
       <button
         class="live-run"
         data-focus-key={`run:${run.repoId}:${run.id}`}
-        aria-label={`${run.name} #${run.id} · ${repo} · ${statusLabel(run)} · ${elapsed}`}
+        aria-label={`${runLabel(run, repo)} · ${statusLabel(run)} · ${elapsed}`}
         title="Im Verlauf anzeigen"
         onclick={() => onShow(run.id)}
       >
         <span class="status-tile" data-tone={tone}
           ><Icon name={TONE_ICON[tone]} size={13} /></span
         >
+        <!-- The repository leads: every repository may name its workflow
+             „Release“. The owner is in its tooltip and the accessible name. -->
         <span class="live-title"
-          ><strong>{run.name}</strong><span class="live-repo"
-            >· {repo.split('/').pop()}</span
+          ><strong title={repo}>{shortRepo(repo)}</strong><span
+            class="live-workflow"
+            >· {run.name}<span class="live-number">#{run.id}</span></span
           ></span
         >
         <span class="branch-chip"
