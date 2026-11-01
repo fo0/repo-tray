@@ -15,6 +15,8 @@ export interface Notice {
   tone: NoticeTone;
   /** An accepted start the banner can show in the activity list. */
   runId?: number;
+  /** Account of that run; the activity action only fits while it is shown. */
+  accountId?: string;
 }
 
 /** Banner notices of the panel, oldest first and bounded. */

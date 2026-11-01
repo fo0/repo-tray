@@ -15,6 +15,7 @@
     snapshot,
     error,
     notices,
+    showsAccount,
     onShowUpdate,
     onShowRun,
     onDismissNotice,
@@ -25,6 +26,8 @@
     error: string;
     /** General notice and per-target start results, oldest first. */
     notices: Notice[];
+    /** Whether a run of this account is in the activity list right now. */
+    showsAccount: (accountId: string) => boolean;
     onShowUpdate: () => void;
     onShowRun: (runId: number) => void;
     onDismissNotice: (id: number) => void;
@@ -53,7 +56,10 @@
     <Icon name="warning" size={16} /><span>{error}</span>
   </div>{/if}
 {#each notices as notice (notice.id)}
-  {@const runId = notice.runId}
+  {@const runId =
+    notice.runId && (!notice.accountId || showsAccount(notice.accountId))
+      ? notice.runId
+      : undefined}
   <NoticeBanner
     text={notice.text}
     tone={notice.tone}

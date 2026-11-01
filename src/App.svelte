@@ -208,6 +208,7 @@
         {snapshot}
         error={panel.error}
         notices={panel.notices.items}
+        showsAccount={panel.showsAccount}
         onShowUpdate={() => openSettings('updates')}
         onShowRun={modals.showRun}
         onDismissNotice={(id) => panel.notices.dismiss(id)}

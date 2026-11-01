@@ -155,6 +155,28 @@ test('a later start neither clears nor replaces the warning of another target', 
   await expect(warning).toBeVisible();
 });
 
+test('a start that settles after an account switch offers no hidden run', async ({
+  page,
+}) => {
+  await holdStarts(page);
+  const dialog = await openLaunch(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  const account = page.getByLabel('Konto auswählen', { exact: true });
+  await account.selectOption('demo-work');
+  await page.clock.runFor(400);
+  const banner = page.getByRole('status').filter({ hasText: /Demo-Run #9001/ });
+  await expect(banner).toBeVisible();
+  const show = banner.getByRole('button', { name: 'In Aktivität anzeigen' });
+  // The run belongs to demo-personal, which the activity list hides now.
+  await expect(show).toHaveCount(0);
+  await account.selectOption('demo-personal');
+  await expect(show).toBeVisible();
+  await show.click();
+  const run = page.getByRole('article').filter({ hasText: '#9001' });
+  await expect(run.getByRole('button', { expanded: true })).toBeVisible();
+});
+
 test('a quick start keeps its result when another dialog opens meanwhile', async ({
   page,
 }) => {

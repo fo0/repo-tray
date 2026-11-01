@@ -92,6 +92,11 @@ export class Panel {
       ) ?? []
     );
   }
+  /** Whether this account's runs appear in the activity list right now. */
+  showsAccount = (accountId: string) =>
+    this.native
+      ? accountId === this.accountId
+      : !this.accountId || accountId === this.accountId;
   /** Native views stay empty until an account is chosen deliberately. */
   get viewSnapshot() {
     return this.snapshot && (!this.native || this.accountId)
