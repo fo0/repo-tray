@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import ConnectedAccounts from './ConnectedAccounts.svelte';
   import Icon from './Icon.svelte';
   import { accountTitle } from './accountSelection';
-  import { accountLabel, plural } from './format';
+  import { plural } from './format';
   import type { DemoScenario, Snapshot } from './types';
 
   const scenarios: { value: DemoScenario; label: string }[] = [
@@ -39,9 +40,20 @@
     onConnect: () => void;
     onScenario: (value: DemoScenario) => void;
     onReset: () => void;
-    onDisconnect: (id: string) => void;
+    /** Resolves once the disconnect settled; errors are shown by the dialog. */
+    onDisconnect: (id: string) => Promise<unknown>;
   } = $props();
   const accounts = $derived(snapshot?.accounts ?? []);
+  let picker = $state<HTMLSelectElement>();
+  let connectButton = $state<HTMLButtonElement>();
+
+  /** After a removed card, focus goes to the next decision: pick or connect. */
+  async function disconnect(id: string) {
+    await onDisconnect(id);
+    if (accounts.some((account) => account.id === id)) return;
+    await tick();
+    (accounts.length ? picker : connectButton)?.focus();
+  }
 
   function chooseScenario(value: string) {
     const next = scenarios.find((item) => item.value === value);
@@ -62,6 +74,7 @@
     <label class="field">
       <span>Login und Anmeldequelle</span>
       <select
+        bind:this={picker}
         aria-label="Aktives Konto auswählen"
         value={accountId}
         disabled={busy || !accounts.length}
@@ -82,6 +95,7 @@
       </p>{/if}
     {#if !accounts.length}<button
         class="secondary-button"
+        bind:this={connectButton}
         onclick={() => onConnect()}
         >GitHub-Konto verbinden<Icon name="plus" size={14} /></button
       >{/if}
@@ -90,6 +104,7 @@
       activeAccountId={accountId}
       disabled={busy}
       onUse={onChangeAccount}
+      onDisconnect={disconnect}
     />
   </section>
 {/if}
@@ -141,10 +156,4 @@
     verbunden; ihre ausgewählten Repositories werden weiter beobachtet. Ein
     fehlgeschlagener Zugriff wechselt nicht automatisch das Konto.
   </p>
-  {#each accounts as account}<button
-      class="text-button"
-      disabled={busy}
-      onclick={() => onDisconnect(account.id)}
-      >{accountLabel(snapshot, account.id, native)} trennen</button
-    >{/each}
 {/if}

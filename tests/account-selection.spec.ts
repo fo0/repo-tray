@@ -132,6 +132,16 @@ async function chooseAccount(page: Page, id: string) {
   await pickAccount(page, id);
   await closeSettings(page);
 }
+/** Disconnects a connection from its settings card, confirming in place. */
+async function disconnect(page: Page, title: string) {
+  await page
+    .getByRole('button', { name: `${title} trennen`, exact: true })
+    .click();
+  await page
+    .getByRole('group', { name: 'fixture-user trennen?' })
+    .getByRole('button', { name: 'Trennen', exact: true })
+    .click();
+}
 function updateCalls(page: Page) {
   return readCalls(page, 'check_update');
 }
@@ -243,9 +253,7 @@ test('disconnecting another source preserves the active account; removing the ac
 }) => {
   await setup(page, 'github-device-42');
   await openSettings(page);
-  await page
-    .getByRole('button', { name: 'fixture-user · Token trennen', exact: true })
-    .click();
+  await disconnect(page, 'fixture-user · Token');
   await expect(
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('github-device-42');
@@ -260,12 +268,7 @@ test('disconnecting another source preserves the active account; removing the ac
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('fixture-user · Browser');
   await openSettings(page);
-  await page
-    .getByRole('button', {
-      name: 'fixture-user · Browser trennen',
-      exact: true,
-    })
-    .click();
+  await disconnect(page, 'fixture-user · Browser');
   await expect(
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('');

@@ -1,0 +1,75 @@
+/* Settings and onboarding: in-place confirmations, the account empty state,
+   unsaved-selection markers and tab badges. */
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 9px 11px;
+  border: 1px solid #a05a52;
+  border-radius: 6px;
+  background: #5a2c27;
+  color: #ffd9d2;
+  font-size: var(--font-size-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.danger-button:hover:not(:disabled) {
+  background: #6d342e;
+}
+.text-button.danger-text {
+  color: #e7a596;
+}
+.text-button.danger-text:hover:not(:disabled) {
+  color: #ffc4b7;
+}
+
+/* A confirmation that replaces an action in place. */
+.inline-confirm {
+  flex-basis: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px solid #6b4038;
+  border-radius: 6px;
+  background: #33241f;
+  text-align: left;
+}
+.inline-confirm p {
+  margin: 0 0 10px;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+  color: #e3c3b9;
+}
+.inline-confirm p span {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.inline-confirm p strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: #ffe1d9;
+}
+.inline-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.connected-auth-card {
+  flex-wrap: wrap;
+}
+
+@media (forced-colors: active) {
+  .danger-button,
+  .inline-confirm {
+    border-color: CanvasText;
+  }
+  .text-button.danger-text {
+    color: LinkText;
+  }
+}
