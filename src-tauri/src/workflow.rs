@@ -8,10 +8,11 @@ use std::fmt;
 pub const MAX_WORKFLOW_BYTES: usize = 64 * 1024;
 /// The most inputs a workflow may declare; a favorite never needs to store more.
 pub const MAX_INPUTS: usize = 25;
-/// Character limits of a favorite's input names and text values. Together with
-/// `MAX_INPUTS` they keep every favorite far below the cache entry limit.
-pub const MAX_PIN_INPUT_NAME_CHARS: usize = 100;
-pub const MAX_PIN_INPUT_VALUE_CHARS: usize = 1_000;
+/// Longest input name a workflow may declare; favorites accept the same names.
+pub const MAX_INPUT_NAME_BYTES: usize = 128;
+/// Longest text value a favorite stores. With `MAX_INPUTS` and worst-case JSON escaping
+/// (25 × 8,000 × 6 bytes ≈ 1.2 MB) every favorite stays below the 2 MiB cache entry limit.
+pub const MAX_PIN_INPUT_VALUE_CHARS: usize = 8_000;
 const MAX_YAML_DEPTH: usize = 48;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -117,8 +118,12 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
     for (name, settings) in inputs {
         let name = name
             .as_str()
-            .filter(|name| !name.is_empty() && name.len() <= 128)
-            .ok_or_else(|| error("Eingabenamen müssen Texte mit 1 bis 128 Zeichen sein."))?;
+            .filter(|name| !name.is_empty() && name.len() <= MAX_INPUT_NAME_BYTES)
+            .ok_or_else(|| {
+                error(format!(
+                    "Eingabenamen müssen Texte mit 1 bis {MAX_INPUT_NAME_BYTES} Zeichen sein."
+                ))
+            })?;
         let settings = settings.as_mapping().ok_or_else(|| {
             error(format!(
                 "Eingabe „{}“ ist ungültig deklariert.",
@@ -259,9 +264,10 @@ pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs,
 fn validate_value(spec: &InputSpec, value: &InputValue) -> Result<(), WorkflowError> {
     let name = shown(&spec.name);
     // An input without a choice right now (such as a cut-off environment list) takes no
-    // value: a guessed one could start the workflow somewhere unintended.
+    // value: a guessed one could start the workflow somewhere unintended. The workflow
+    // author's own default is not a guess, so it stays startable.
     if let Some(note) = &spec.note {
-        if !value.is_empty() {
+        if !value.is_empty() && spec.default.as_ref() != Some(value) {
             return Err(error(format!("„{name}“: {note}")));
         }
     }
@@ -328,20 +334,17 @@ pub fn validate_pin_inputs(inputs: &Inputs) -> Result<(), WorkflowError> {
             "Ein Favorit speichert höchstens {MAX_INPUTS} Eingaben."
         )));
     }
-    if inputs
-        .keys()
-        .any(|name| name.chars().count() > MAX_PIN_INPUT_NAME_CHARS)
-    {
-        return Err(error(
-            "Eingabenamen eines Favoriten dürfen höchstens 100 Zeichen lang sein.",
-        ));
+    if inputs.keys().any(|name| name.len() > MAX_INPUT_NAME_BYTES) {
+        return Err(error(format!(
+            "Eingabenamen eines Favoriten dürfen höchstens {MAX_INPUT_NAME_BYTES} Zeichen lang sein."
+        )));
     }
     if inputs.values().any(|value| {
         matches!(value, InputValue::String(text) if text.chars().count() > MAX_PIN_INPUT_VALUE_CHARS)
     }) {
-        return Err(error(
-            "Eingabewerte eines Favoriten dürfen höchstens 1.000 Zeichen lang sein.",
-        ));
+        return Err(error(format!(
+            "Eingabewerte eines Favoriten dürfen höchstens {MAX_PIN_INPUT_VALUE_CHARS} Zeichen lang sein."
+        )));
     }
     Ok(())
 }

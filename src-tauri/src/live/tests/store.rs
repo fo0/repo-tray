@@ -219,7 +219,7 @@ fn a_refused_favorite_write_is_reported_in_german() {
     };
     assert_eq!(
         live.save_pin(oversized).unwrap_err(),
-        "Eingabewerte eines Favoriten dürfen höchstens 1.000 Zeichen lang sein."
+        "Eingabewerte eines Favoriten dürfen höchstens 8000 Zeichen lang sein."
     );
     // Should an entry still exceed the cache limit, it is named as too large.
     assert_eq!(

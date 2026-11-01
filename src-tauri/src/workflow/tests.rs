@@ -171,11 +171,31 @@ fn an_input_without_a_choice_takes_no_value_and_blocks_only_when_required() {
 }
 
 #[test]
+fn an_input_without_a_choice_still_takes_its_declared_default() {
+    let mut inputs = parse_workflow_yaml(
+        "on:\n  workflow_dispatch:\n    inputs:\n      target: {type: environment, default: production}\n",
+    )
+    .unwrap()
+    .inputs;
+    inputs[0].note = Some("Fixture-Hinweis.".into());
+    let supplied =
+        |value: &str| Inputs::from([("target".to_string(), InputValue::String(value.into()))]);
+    assert!(validate_inputs(&inputs, &supplied("production")).is_ok());
+    assert!(validate_inputs(&inputs, &Inputs::new()).is_ok());
+    assert_eq!(
+        validate_inputs(&inputs, &supplied("staging"))
+            .unwrap_err()
+            .0,
+        "„target“: Fixture-Hinweis."
+    );
+}
+
+#[test]
 fn pin_inputs_are_bounded_in_count_and_characters() {
     let text = |chars: usize| InputValue::String("ä".repeat(chars));
     let widest: Inputs = (0..MAX_INPUTS)
         .map(|index| {
-            let name = format!("{index:0>width$}", width = MAX_PIN_INPUT_NAME_CHARS);
+            let name = format!("{index:0>width$}", width = MAX_INPUT_NAME_BYTES);
             (name, text(MAX_PIN_INPUT_VALUE_CHARS))
         })
         .collect();
@@ -186,14 +206,14 @@ fn pin_inputs_are_bounded_in_count_and_characters() {
         validate_pin_inputs(&crowded).unwrap_err().0,
         "Ein Favorit speichert höchstens 25 Eingaben."
     );
-    let long_name = Inputs::from([("n".repeat(MAX_PIN_INPUT_NAME_CHARS + 1), text(1))]);
+    let long_name = Inputs::from([("n".repeat(MAX_INPUT_NAME_BYTES + 1), text(1))]);
     assert_eq!(
         validate_pin_inputs(&long_name).unwrap_err().0,
-        "Eingabenamen eines Favoriten dürfen höchstens 100 Zeichen lang sein."
+        "Eingabenamen eines Favoriten dürfen höchstens 128 Zeichen lang sein."
     );
     let long_value = Inputs::from([("notes".to_string(), text(MAX_PIN_INPUT_VALUE_CHARS + 1))]);
     assert_eq!(
         validate_pin_inputs(&long_value).unwrap_err().0,
-        "Eingabewerte eines Favoriten dürfen höchstens 1.000 Zeichen lang sein."
+        "Eingabewerte eines Favoriten dürfen höchstens 8000 Zeichen lang sein."
     );
 }
