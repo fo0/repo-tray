@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import AppFooter from './lib/AppFooter.svelte';
+  import AppHeader from './lib/AppHeader.svelte';
   import Icon from './lib/Icon.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
   import appPackage from '../package.json';
@@ -740,44 +741,13 @@
     <span class="caption-dot"></span> YOUR REPOS. WITHIN REACH.
   </div>
   <section class="tray" aria-label="RepoTray">
-    <header
-      class="app-header"
-      data-tauri-drag-region={native ? true : undefined}
-    >
-      <div class="brand">
-        <span class="brand-icon"><Icon name="tray" size={18} /></span>
-        <h1>RepoTray<span class="brand-period">.</span></h1>
-      </div>
-      <div
-        class="connection"
-        role="status"
-        aria-label="Verbindungsstatus"
-        title={demo
-          ? 'Demo-Modus: keine echte GitHub-Verbindung. Alle Daten und Starts sind simuliert.'
-          : 'GitHub-Verbindung · Token im Betriebssystem-Tresor'}
-      >
-        <span
-          class="connection-dot"
-          class:offline={snapshot?.connectivity === 'offline'}
-          class:forbidden={snapshot?.connectivity === 'forbidden'}
-        ></span>
-        <span class="connection-copy"
-          ><span class="demo-tag">{demo ? 'Demo' : 'GitHub'}</span><span
-            aria-hidden="true">·</span
-          ><span
-            >{snapshot?.connectivity === 'offline'
-              ? 'Offline'
-              : snapshot?.connectivity === 'forbidden'
-                ? 'Kein Zugriff'
-                : !demo && snapshot?.accounts.length
-                  ? 'Verbunden'
-                  : demoAccountConnected
-                    ? 'demo-dev · simuliert'
-                    : 'keine GitHub-Verbindung'}</span
-          ></span
-        >
-      </div>
-    </header>
+    <AppHeader
+      {native}
+      {demo}
+      connectivity={snapshot?.connectivity}
+      accountCount={snapshot?.accounts.length ?? 0}
+      {demoAccountConnected}
+    />
 
     <div class="toolbar">
       {#if native}
