@@ -3,7 +3,7 @@
   import ReleaseLock from './ReleaseLock.svelte';
   import RunLink from './RunLink.svelte';
   import { safeGitHubUrl } from './model';
-  import type { DispatchOutcome } from './types';
+  import type { DispatchOutcome, UncertainStart } from './types';
 
   let {
     outcome,
@@ -15,6 +15,7 @@
     native,
     checking,
     releasable,
+    claim,
     releasing,
     onCheckStatus,
     onRelease,
@@ -34,9 +35,11 @@
     checking: boolean;
     /** The snapshot holds the persisted claim, so it can be released. */
     releasable: boolean;
+    /** The persisted claim the confirmation holds on to when it opens. */
+    claim?: UncertainStart;
     releasing: boolean;
     onCheckStatus: () => void;
-    onRelease: () => Promise<void>;
+    onRelease: (claim?: UncertainStart) => Promise<void>;
     onShowRun: (runId: number) => void;
     onLinkError: (message: string) => void;
   } = $props();
@@ -78,7 +81,11 @@
     class="text-button"
     onclick={() => onCheckStatus()}
     disabled={checking}>Status prüfen<Icon name="refresh" size={12} /></button
-  >{#if releasable}<ReleaseLock {releasing} {onRelease} />{/if}{/snippet}
+  >{#if releasable}<ReleaseLock
+      {releasing}
+      {claim}
+      {onRelease}
+    />{/if}{/snippet}
 
 {#if outcome}<div
     class="outcome"

@@ -251,6 +251,7 @@
         native={panel.native}
         checking={panel.refreshing}
         releasable={!!claim}
+        {claim}
         releasing={panel.starts.isReleasing(target)}
         onCheckStatus={checkStatus}
         onRelease={release}

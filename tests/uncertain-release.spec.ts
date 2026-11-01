@@ -209,3 +209,33 @@ test('a refused release refreshes the claim, so confirming again releases the ne
   ).toEqual([{ start: claim }, { start: newer }]);
   expect(await readCalls(page, 'dispatch_workflow')).toEqual([]);
 });
+
+test('the confirmation releases the claim it opened with, not one a later refresh brought', async ({
+  page,
+}) => {
+  await nativeWithClaim(page);
+  await templateCard(page, 'Windows build').locator('.pin-start').click();
+  const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
+  const confirm = dialog.getByRole('group', { name: 'Sperre aufheben' });
+  await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
+  // While the question is open, another start claims the target again and a
+  // status check brings that newer claim into the panel.
+  await configureMock<ReleaseMock>(page, {
+    claimedAt: '2026-11-01T09:00:00Z',
+  });
+  await dialog.getByRole('button', { name: 'Status prüfen' }).click();
+  await expect.poll(() => readCalls(page, 'refresh_snapshot')).toHaveLength(1);
+  await confirm
+    .getByRole('button', {
+      name: 'Ich habe die Runs auf GitHub geprüft – Sperre aufheben',
+    })
+    .click();
+  // The service refuses the stale claim instead of silently releasing the newer one.
+  await expect(dialog.getByRole('alert')).toContainText(
+    'gibt es eine neuere Startsperre',
+  );
+  expect(
+    (await readCalls(page, 'release_uncertain_start')).map((call) => call.args),
+  ).toEqual([{ start: claim }]);
+  expect(await readCalls(page, 'dispatch_workflow')).toEqual([]);
+});
