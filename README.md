@@ -12,6 +12,7 @@ Built with **Tauri 2, Rust, Svelte 5 and TypeScript**. Windows x64 is the primar
 ## What it does
 
 - **A panel beside the tray icon.** Windows placement follows the clicked icon, monitor work area and DPI. Clicking outside hides the panel while preserving open forms and ongoing work. Closing the window keeps RepoTray in the tray; **Quit** exits it.
+- **Optional Windows login startup.** Enable **Einstellungen → App → Mit Windows starten** to launch directly in the tray after user login. It is off by default, reads the Windows registration and respects Windows' startup veto. Manual launches still open the panel. See [setup, updates and validation](docs/WINDOWS_AUTOSTART.md).
 - **Repositories first.** Saved favorites appear directly below search, followed by compact repositories ordered by their most recent run activity. Expand a repository to configure or start an Action, or save its default configuration with the heart button. Favorites also have their own **Favoriten** tab.
 - **A separate activity history.** **Aktivität** shows every open run and the latest 50 completed runs across the selected account's repositories. Completed entries stay cached; status polling follows open runs until their final state and discovers newly created runs.
 - **Explicit workflow launches.** Choose a workflow, branch/tag and typed inputs. Save account-bound templates and opt in to quick launch when desired.

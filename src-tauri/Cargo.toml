@@ -18,7 +18,7 @@ required-features = ["desktop"]
 
 [features]
 default = []
-desktop = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-opener", "dep:tauri-plugin-notification", "dep:tauri-plugin-single-instance", "dep:tauri-plugin-updater", "dep:windows-sys", "network", "native-credentials"]
+desktop = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-opener", "dep:tauri-plugin-notification", "dep:tauri-plugin-single-instance", "dep:tauri-plugin-updater", "dep:windows-sys", "dep:winreg", "network", "native-credentials"]
 network = ["dep:reqwest", "dep:base64", "dep:semver"]
 # Native credentials never use a plaintext fallback.
 native-credentials = ["dep:keyring"]
@@ -44,4 +44,5 @@ tauri-plugin-updater = { version = "2.14.1", optional = true }
 tauri-build = { version = "2", features = [], optional = true }
 
 [target.'cfg(windows)'.dependencies]
+winreg = { version = "0.56", optional = true }
 windows-sys = { version = "0.61", optional = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

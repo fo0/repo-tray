@@ -17,3 +17,6 @@ src-tauri/gen/schemas/
 docs/review/
 
 release-work/
+
+# Local verification tools and logs.
+.local-tools/

@@ -123,7 +123,8 @@
           </p>
           <p class="field-help">
             RepoTray wird kurz geschlossen, aktualisiert und anschließend wieder
-            geöffnet. Eine manuelle Deinstallation ist nicht nötig.
+            gestartet. War die App per Autostart gestartet, bleibt sie danach im
+            Tray. Eine manuelle Deinstallation ist nicht nötig.
           </p>
           <button class="primary-button" disabled={busy} onclick={onInstall}
             >{phase === 'installing'

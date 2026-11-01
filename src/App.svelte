@@ -7,6 +7,7 @@
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
   import { Channel, invoke } from '@tauri-apps/api/core';
   import UpdatePanel from './lib/UpdatePanel.svelte';
+  import StartupSettings from './lib/StartupSettings.svelte';
   import type { UpdateInfo, UpdatePhase, UpdateProgress } from './lib/updates';
   import NativeConnect from './lib/NativeConnect.svelte';
   import ConnectedAccounts from './lib/ConnectedAccounts.svelte';
@@ -64,6 +65,7 @@
   const settingsTabs = [
     { id: 'accounts', label: 'Konten' },
     { id: 'repositories', label: 'Repositories' },
+    { id: 'app', label: 'App' },
     { id: 'updates', label: 'Updates' },
   ] as const;
   type SettingsTab = (typeof settingsTabs)[number]['id'];
@@ -1718,6 +1720,8 @@
                   >
                 </div>
               {/if}
+            {:else if settingsTab === 'app'}
+              <StartupSettings {native} />
             {:else}
               <UpdatePanel
                 currentVersion={appVersion}
@@ -1738,7 +1742,9 @@
             </div>{/if}
           <div class="modal-actions">
             <button class="secondary-button" onclick={closeModal}
-              >{settingsTab === 'updates' ? 'Schließen' : 'Abbrechen'}</button
+              >{settingsTab === 'updates' || settingsTab === 'app'
+                ? 'Schließen'
+                : 'Abbrechen'}</button
             >{#if settingsTab === 'repositories'}<button
                 class="primary-button"
                 onclick={saveSettings}

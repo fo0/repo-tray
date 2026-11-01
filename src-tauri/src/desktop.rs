@@ -374,18 +374,23 @@ fn tray_image(active: bool, failed: bool) -> tauri::image::Image<'static> {
 }
 
 pub fn run() {
+    let show_panel = repotray_core::startup::show_on_launch(std::env::args_os());
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Err(error) = crate::tray_popup::show(app) {
-                eprintln!("RepoTray popup: {error}");
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            // A duplicate login launch must neither show nor hide the existing panel.
+            if repotray_core::startup::show_on_launch(args) {
+                if let Err(error) = crate::tray_popup::show(app) {
+                    eprintln!("RepoTray popup: {error}");
+                }
             }
         }))
+        .manage(crate::desktop_startup::StartupState::default())
         .manage(crate::tray_popup::Popup::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(crate::desktop_updates::UpdateState::default())
-        .setup(|app| {
+        .setup(move |app| {
             let cache_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&cache_dir)?;
             let cache = Cache::open(cache_dir.join("repotray-live.db"))?;
@@ -436,8 +441,10 @@ pub fn run() {
                     crate::tray_popup::tray_event(tray.app_handle(), event);
                 })
                 .build(app)?;
-            // The config starts hidden to avoid a flash at the old/default position.
-            crate::tray_popup::show(app.handle()).map_err(std::io::Error::other)?;
+            // Keep visible:false throughout a login launch; there is no show/hide flash.
+            if show_panel {
+                crate::tray_popup::show(app.handle()).map_err(std::io::Error::other)?;
+            }
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 let mut previous: HashMap<_, _> = baseline
@@ -531,6 +538,9 @@ pub fn run() {
             connect_local_auth,
             cancel_connect,
             disconnect_account,
+            crate::desktop_startup::autostart_status,
+            crate::desktop_startup::set_autostart,
+            crate::desktop_startup::open_startup_settings,
             crate::desktop_updates::check_update,
             crate::desktop_updates::download_update,
             crate::desktop_updates::install_update,
