@@ -39,13 +39,25 @@
   padding-top: 14px;
 }
 .token-path summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   cursor: pointer;
   color: #afc59c;
   font-size: 12px;
   min-height: 32px;
+}
+/* The token disclosure brings its own chevron icon. Nested disclosures
+   ("Weitere lokale Quellen", the gh help) keep the native marker, which a
+   flex summary would hide, so their open/closed state stays visible. */
+.token-path > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.token-path details > summary {
+  display: list-item;
+  padding: 7px 0;
+}
+.token-path details > summary::marker {
+  color: var(--accent);
 }
 .token-path form {
   margin-top: 12px;
