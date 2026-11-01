@@ -3,47 +3,41 @@
   import ActivityView from './lib/ActivityView.svelte';
   import AppFooter from './lib/AppFooter.svelte';
   import AppHeader from './lib/AppHeader.svelte';
+  import ConnectPanel from './lib/ConnectPanel.svelte';
   import EmptyState from './lib/EmptyState.svelte';
-  import LaunchView from './lib/LaunchView.svelte';
   import Icon from './lib/Icon.svelte';
+  import LaunchView from './lib/LaunchView.svelte';
+  import Modal from './lib/Modal.svelte';
+  import NativeConnect from './lib/NativeConnect.svelte';
+  import NoticeBanner from './lib/NoticeBanner.svelte';
   import PinnedFavorites from './lib/PinnedFavorites.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
   import RunLink from './lib/RunLink.svelte';
   import SearchField from './lib/SearchField.svelte';
-  import StatusBanners, { type NoticeTone } from './lib/StatusBanners.svelte';
-  import Toolbar from './lib/Toolbar.svelte';
-  import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
-  import appPackage from '../package.json';
-  const appVersion = appPackage.version;
-  import { invoke } from '@tauri-apps/api/core';
-  import { Updater } from './lib/updater.svelte';
-  import NativeConnect from './lib/NativeConnect.svelte';
-  import ConnectPanel from './lib/ConnectPanel.svelte';
   import SettingsDialog, {
     type SettingsTab,
   } from './lib/SettingsDialog.svelte';
-  import {
-    readActiveAccount,
-    rememberActiveAccount,
-    restoreActiveAccount,
-  } from './lib/accountSelection';
+  import StatusBanners from './lib/StatusBanners.svelte';
+  import Toolbar from './lib/Toolbar.svelte';
+  import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
+  import appPackage from '../package.json';
   import { bridge, native, observeSnapshots } from './lib/bridge';
-  import Modal from './lib/Modal.svelte';
   import { accountLabel, errorMessage, repoLabel } from './lib/format';
   import {
     defaultInputs,
     fullRepo,
-    repositoryActivity,
     historyRuns,
+    repositoryActivity,
     RequestEpoch,
     safeGitHubUrl,
     targetKey,
-    validateDispatch,
     visibleRuns,
     type ActivityFilter,
+    validateDispatch,
   } from './lib/model';
+  import { Panel } from './lib/panel.svelte';
+  import { pinRequest } from './lib/pins';
   import type {
-    DemoScenario,
     DispatchOutcome,
     DispatchRequest,
     DispatchTarget,
@@ -52,38 +46,37 @@
     Snapshot,
     Workflow,
   } from './lib/types';
+  import { Updater } from './lib/updater.svelte';
 
-  // Snapshots are replaced wholesale, never mutated: no deep proxy needed.
-  let snapshot = $state.raw<Snapshot | null>(null);
-  const demo = $derived(snapshot?.mode !== 'live');
+  const appVersion = appPackage.version;
+  const panel = new Panel({ bridge, native, observe: observeSnapshots });
   const updater = new Updater(native);
-  /** Tab the settings dialog opens on. */
-  let settingsTab = $state<SettingsTab>('accounts');
-  let demoAccountConnected = $state(false);
-  let tab = $state<ViewTab>('repositories');
-  let accountId = $state('');
-  let accountSelectionNotice = $state('');
-  let accountSelectionReady = false;
-  let query = $state('');
-  let filter = $state<ActivityFilter>('all');
-  let favoriteIntent = $state(false);
-  let expanded = $state<number | null>(null);
+  const snapshot = $derived(panel.snapshot);
+  const demo = $derived(panel.demo);
+  const accountId = $derived(panel.accountId);
+  const repos = $derived(panel.repos);
+  const blocked = $derived(panel.blocked);
+
   type ModalKind = 'settings' | 'dispatch' | 'connect';
   let modal = $state<ModalKind | null>(null);
   /** Element that opened the first of possibly chained dialogs. */
   let opener: HTMLElement | null = null;
-  let scenario = $state<DemoScenario>('normal');
-  let refreshing = $state(false);
-  let saving = $state(false);
-  let dispatching = $state(false);
-  let error = $state('');
-  let notice = $state('');
-  let noticeTone = $state<NoticeTone>('subtle');
+  /** Tab the settings dialog opens on. */
+  let settingsTab = $state<SettingsTab>('accounts');
+  let demoAccountConnected = $state(false);
+  let tab = $state<ViewTab>('repositories');
+  let query = $state('');
+  let filter = $state<ActivityFilter>('all');
+  let expanded = $state<number | null>(null);
+  let searchField = $state<ReturnType<typeof SearchField>>();
+  let toolbar = $state<ReturnType<typeof Toolbar>>();
+
+  // Start dialog form state.
+  let favoriteIntent = $state(false);
   let dialogError = $state('');
   let dialogNotice = $state('');
   let dialogNoticeTone = $state<'subtle' | 'warning'>('subtle');
   let outcome = $state<DispatchOutcome | null>(null);
-  let quarantinedTargets = $state<Set<string>>(new Set());
   let repoId = $state('');
   let workflowId = $state<number>(0);
   let ref = $state('main');
@@ -91,51 +84,33 @@
   let pinLabel = $state('');
   let pinQuickStart = $state(false);
   let editingPinId = $state<string | null>(null);
-  let mutationBusy = $state(false);
-  let searchField = $state<ReturnType<typeof SearchField>>();
-  let toolbar = $state<ReturnType<typeof Toolbar>>();
-  const viewEpoch = new RequestEpoch();
+  let outcomeBox = $state<HTMLElement>();
+  let errorBox = $state<HTMLElement>();
+  /** Bumped whenever the dialog's target or lifetime changes. */
   const dialogEpoch = new RequestEpoch();
 
-  /** Native mode without a deliberately chosen account shows no repository data. */
-  const needsAccount = $derived(native && !accountId);
-  const repos = $derived(
-    snapshot?.repos.filter(
-      (repo) =>
-        repo.selected &&
-        (native
-          ? repo.accountId === accountId
-          : !accountId || repo.accountId === accountId),
-    ) ?? [],
-  );
-  /** Native views stay empty until an account is chosen deliberately. */
-  const viewSnapshot = $derived(
-    snapshot && (!native || accountId) ? snapshot : null,
-  );
+  const needle = $derived(query.trim().toLowerCase());
+  const view = $derived(panel.viewSnapshot);
   const runs = $derived(
-    viewSnapshot ? historyRuns(viewSnapshot, accountId, query, filter) : [],
+    view ? historyRuns(view, accountId, query, filter) : [],
   );
   const repoGroups = $derived(
-    viewSnapshot ? repositoryActivity(viewSnapshot, accountId, query) : [],
+    view ? repositoryActivity(view, accountId, query) : [],
   );
   const activeRuns = $derived(
-    viewSnapshot
-      ? visibleRuns(viewSnapshot, accountId, '', 'active').length
-      : 0,
+    view ? visibleRuns(view, accountId, '', 'active').length : 0,
   );
   const failedRuns = $derived(
-    viewSnapshot
-      ? visibleRuns(viewSnapshot, accountId, '', 'failed').length
-      : 0,
+    view ? visibleRuns(view, accountId, '', 'failed').length : 0,
   );
   const pins = $derived(
     snapshot?.pins.filter(
       (pin) =>
         repos.some((repo) => repo.id === pin.repoId) &&
-        (!query.trim() ||
+        (!needle ||
           `${pin.label} ${repoName(pin.repoId)}`
             .toLowerCase()
-            .includes(query.trim().toLowerCase())),
+            .includes(needle)),
     ) ?? [],
   );
   const launchRepos = $derived(
@@ -150,74 +125,30 @@
   const chosenWorkflow = $derived(
     workflows.find((workflow) => workflow.id === workflowId),
   );
+  const target = $derived<DispatchTarget>({
+    accountId: chosenRepo?.accountId ?? '',
+    repoId,
+    workflowId,
+    ref,
+  });
   const validation = $derived(
     snapshot && chosenRepo && chosenWorkflow
       ? validateDispatch(snapshot, request('validation'))
       : 'Wähle Repository und Workflow.',
   );
-  const blocked = $derived(snapshot?.connectivity !== 'online');
-  const targetUncertain = $derived(isQuarantined(request('context')));
+  const targetUncertain = $derived(panel.starts.isQuarantined(target));
+  /** A start for this target is running, from this dialog or a quick start. */
+  const starting = $derived(panel.starts.isRunning(target));
 
-  function isQuarantined(target: DispatchTarget) {
-    return quarantinedTargets.has(targetKey(target));
-  }
   function matchedWorkflows(id: string) {
     return (
       snapshot?.workflows.filter(
         (workflow) =>
           workflow.repoId === id &&
-          (!query.trim() ||
-            `${workflow.name} ${repoName(id)}`
-              .toLowerCase()
-              .includes(query.trim().toLowerCase())),
+          (!needle ||
+            `${workflow.name} ${repoName(id)}`.toLowerCase().includes(needle)),
       ) ?? []
     );
-  }
-  async function checkStartStatus() {
-    const target = targetKey(request('status'));
-    const latest = await refresh();
-    if (modal === 'dispatch' && targetKey(request('status')) === target) {
-      if (!latest || latest.stale || latest.connectivity !== 'online') {
-        dialogNotice = '';
-        dialogError =
-          'Status konnte nicht geprüft werden. Starts bleiben gesperrt.';
-      } else {
-        dialogError = '';
-        dialogNoticeTone = 'warning';
-        dialogNotice =
-          'Status geprüft. Die Startannahme bleibt ungeklärt; ein erneuter Start ist weiterhin gesperrt.';
-      }
-    }
-  }
-
-  function connectedNative(value: Snapshot) {
-    viewEpoch.invalidate();
-    acceptSnapshot(value);
-    changeAccount(value.accounts.at(-1)?.id ?? '');
-    openSettings();
-    void updater.check(true);
-  }
-  async function disconnectAccount(id: string) {
-    if (mutationBusy) return;
-    mutationBusy = true;
-    try {
-      const value = await invoke<Snapshot>('disconnect_account', {
-        accountId: id,
-      });
-      acceptSnapshot(value);
-    } finally {
-      mutationBusy = false;
-    }
-  }
-  function connectedDemo(method: 'browser' | 'token') {
-    demoAccountConnected = true;
-    closeModal();
-    showNotice(
-      method === 'token'
-        ? 'Demo-Token geprüft und verworfen · demo-dev ist nur simuliert verbunden.'
-        : 'Demo-Anmeldung bestätigt · demo-dev ist nur simuliert verbunden.',
-    );
-    void tick().then(() => toolbar?.focusPicker());
   }
   function repoName(id: string) {
     return repoLabel(snapshot, id);
@@ -225,162 +156,65 @@
   function accountName(id: string) {
     return accountLabel(snapshot, id, native);
   }
-  function repoAccountName(repoId: string) {
+  function repoAccountName(id: string) {
     return accountName(
-      snapshot?.repos.find((repo) => repo.id === repoId)?.accountId ?? '',
+      snapshot?.repos.find((repo) => repo.id === id)?.accountId ?? '',
     );
-  }
-  function showNotice(value: string, tone: NoticeTone = 'subtle') {
-    notice = value;
-    noticeTone = tone;
   }
   function clearQuery() {
     query = '';
   }
   function warn(value: string) {
-    showNotice(value, 'warning');
+    panel.showNotice(value, 'warning');
   }
   function request(id: string): DispatchRequest {
-    return {
-      accountId: chosenRepo?.accountId ?? '',
-      repoId,
-      workflowId,
-      ref,
-      inputs: { ...inputs },
-      requestId: id,
-    };
-  }
-
-  function acceptSnapshot(value: Snapshot) {
-    snapshot = value;
-    if (!native) return;
-    if (!accountSelectionReady) {
-      const restored = restoreActiveAccount(
-        value.accounts,
-        readActiveAccount(),
-      );
-      accountId = restored.id;
-      accountSelectionNotice = restored.missing
-        ? 'Das gespeicherte Konto ist nicht mehr verbunden. Wähle ein aktives Konto neu aus.'
-        : '';
-      if (restored.missing) rememberActiveAccount('');
-      accountSelectionReady = true;
-    } else if (
-      accountId &&
-      !value.accounts.some((account) => account.id === accountId)
-    ) {
-      changeAccount('');
-      accountSelectionNotice =
-        'Das aktive Konto wurde entfernt. Wähle ein anderes Konto bewusst aus.';
-    }
+    return { ...target, inputs: { ...inputs }, requestId: id };
   }
 
   onMount(() => {
-    const ticket = viewEpoch.next();
-    bridge
-      .snapshot()
-      .then((value) => {
-        if (viewEpoch.current(ticket)) {
-          acceptSnapshot(value);
-          if (native) void updater.check(true);
-        }
-      })
-      .catch((cause) => {
-        if (viewEpoch.current(ticket)) error = errorMessage(cause);
-      });
-    let disposed = false;
-    let unsubscribe: (() => void) | undefined;
-    void observeSnapshots((value) => {
-      if (!disposed && !saving && !mutationBusy && !dispatching)
-        acceptSnapshot(value);
-    }).then((stop) => {
-      if (disposed) stop();
-      else unsubscribe = stop;
+    const stop = panel.load(() => {
+      if (native) void updater.check(true);
     });
     const updateTimer = native
       ? setInterval(() => void updater.check(true), 6 * 60 * 60 * 1000)
       : undefined;
     return () => {
       clearInterval(updateTimer);
-      disposed = true;
-      unsubscribe?.();
-      viewEpoch.invalidate();
-      refreshing = false;
+      stop();
       dialogEpoch.invalidate();
     };
   });
 
   function changeAccount(value: string) {
-    viewEpoch.invalidate();
-    refreshing = false;
-    dialogEpoch.invalidate();
-    accountId =
-      native &&
-      value &&
-      !snapshot?.accounts.some((account) => account.id === value)
-        ? ''
-        : value;
-    accountSelectionNotice = '';
-    if (native && !rememberActiveAccount(accountId))
-      accountSelectionNotice =
-        'Die Kontoauswahl gilt für diese Sitzung; sie konnte nicht gespeichert werden.';
+    panel.changeAccount(value);
     query = '';
     expanded = null;
-    error = '';
-    notice = '';
-    refreshing = false;
     if (modal === 'dispatch') closeModal();
   }
-  async function refresh() {
-    if (refreshing) return;
-    const ticket = viewEpoch.next();
-    refreshing = true;
-    error = '';
-    notice = '';
-    try {
-      const value = await bridge.refreshSnapshot();
-      if (viewEpoch.current(ticket)) {
-        acceptSnapshot(value);
-        if (!value.stale)
-          showNotice(
-            demo ? 'Demo-Status aktualisiert.' : 'GitHub-Status aktualisiert.',
-          );
-      }
-      return value;
-    } catch (cause) {
-      if (viewEpoch.current(ticket)) error = errorMessage(cause);
-      return null;
-    } finally {
-      if (viewEpoch.current(ticket)) refreshing = false;
-    }
+  function connectedNative(value: Snapshot) {
+    panel.viewEpoch.invalidate();
+    panel.accept(value);
+    changeAccount(value.accounts.at(-1)?.id ?? '');
+    openSettings();
+    void updater.check(true);
   }
-  async function manageBrowserRepositories() {
-    await invoke('open_browser_installation');
+  function connectedDemo(method: 'browser' | 'token') {
+    demoAccountConnected = true;
+    closeModal();
+    panel.showNotice(
+      method === 'token'
+        ? 'Demo-Token geprüft und verworfen · demo-dev ist nur simuliert verbunden.'
+        : 'Demo-Anmeldung bestätigt · demo-dev ist nur simuliert verbunden.',
+    );
+    void tick().then(() => toolbar?.focusPicker());
   }
-  async function refreshRepositoryAccess() {
-    if (mutationBusy) return null;
-    const ticket = viewEpoch.next();
-    mutationBusy = true;
-    try {
-      const value = await invoke<Snapshot>('refresh_repositories');
-      if (!viewEpoch.current(ticket)) return null;
-      acceptSnapshot(value);
-      return value;
-    } catch (cause) {
-      if (!viewEpoch.current(ticket)) return null;
-      throw cause;
-    } finally {
-      if (viewEpoch.current(ticket)) mutationBusy = false;
-    }
-  }
+
+  /** Dialog state only; running operations keep their own busy state. */
   function resetDialog() {
     dialogEpoch.invalidate();
     dialogError = '';
     dialogNotice = '';
     outcome = null;
-    dispatching = false;
-    saving = false;
-    mutationBusy = false;
   }
   function closeModal() {
     resetDialog();
@@ -400,6 +234,16 @@
     settingsTab = initial;
     showModal('settings');
   }
+  /** Shows an accepted start in the full activity list. */
+  function showRun(id: number | null) {
+    closeModal();
+    if (panel.notice?.runId) panel.notice = null;
+    tab = 'activity';
+    filter = 'all';
+    query = '';
+    expanded = id;
+  }
+
   function selectWorkflow(value: number) {
     dialogEpoch.invalidate();
     workflowId = value;
@@ -415,8 +259,6 @@
     if (workflow && !workflow.refs.includes(ref)) ref = workflow.refs[0] ?? '';
     pinLabel = workflow?.name ?? '';
     pinQuickStart = false;
-    dispatching = false;
-    saving = false;
   }
   function selectRepo(value: string) {
     repoId = value;
@@ -453,143 +295,59 @@
     outcome = null;
     dialogError = '';
     dialogNotice = '';
-    dispatching = false;
   }
   function setInput(name: string, value: InputValue) {
     inputs = { ...inputs, [name]: value };
     dialogError = '';
   }
 
-  async function dispatch(pin?: Pin) {
-    if (dispatching || saving) return;
-    const payload = pin
-      ? {
-          accountId: pin.accountId,
-          repoId: pin.repoId,
-          workflowId: pin.workflowId,
-          ref: pin.ref,
-          inputs: { ...pin.inputs },
-          requestId: crypto.randomUUID(),
-        }
-      : request(crypto.randomUUID());
-    if (!snapshot) return;
-    const invalid = validateDispatch(snapshot, payload);
-    if (invalid) {
-      if (modal === 'dispatch') dialogError = invalid;
-      else error = invalid;
-      return;
-    }
+  async function startFromDialog() {
+    if (starting || panel.templateBusy) return;
     const ticket = dialogEpoch.next();
-    const viewTicket = viewEpoch.next();
-    refreshing = false;
-    dispatching = true;
+    outcome = null;
     dialogError = '';
     dialogNotice = '';
-    error = '';
-    notice = '';
-    outcome = null;
-    try {
-      const result = await bridge.dispatchWorkflow(payload);
-      if (result.state === 'uncertain')
-        quarantinedTargets = new Set([
-          ...quarantinedTargets,
-          targetKey(payload),
-        ]);
-      if (!dialogEpoch.current(ticket)) return;
-      outcome = result;
-      if (modal !== 'dispatch')
-        showNotice(
-          result.message,
-          result.state === 'accepted'
-            ? 'subtle'
-            : result.state === 'uncertain'
-              ? 'warning'
-              : 'danger',
-        );
-      if (result.state === 'accepted') {
-        const value = await bridge.snapshot();
-        if (dialogEpoch.current(ticket) && viewEpoch.current(viewTicket))
-          acceptSnapshot(value);
-      }
-    } catch (cause) {
-      if (dialogEpoch.current(ticket)) {
-        if (modal === 'dispatch') dialogError = errorMessage(cause);
-        else error = errorMessage(cause);
-      }
-    } finally {
-      if (dialogEpoch.current(ticket)) dispatching = false;
+    const result = await panel.starts.dispatch(request(crypto.randomUUID()), {
+      // Closing, replacing or retargeting the dialog hands the result to the banner.
+      owner: () => modal === 'dispatch' && dialogEpoch.current(ticket),
+    });
+    if (!result) return;
+    if ('error' in result) dialogError = result.error;
+    else outcome = result.outcome;
+    await tick();
+    const box = outcome ? outcomeBox : errorBox;
+    box?.scrollIntoView({ block: 'nearest' });
+    box?.focus({ preventScroll: true });
+  }
+  async function checkStartStatus() {
+    const key = targetKey(target);
+    const latest = await panel.refresh();
+    if (modal !== 'dispatch' || targetKey(target) !== key) return;
+    if (!latest || latest.stale || latest.connectivity !== 'online') {
+      dialogNotice = '';
+      dialogError =
+        'Status konnte nicht geprüft werden. Starts bleiben gesperrt.';
+    } else {
+      dialogError = '';
+      dialogNoticeTone = 'warning';
+      dialogNotice =
+        'Status geprüft. Die Startannahme bleibt ungeklärt; ein erneuter Start ist weiterhin gesperrt.';
     }
   }
   function launchPin(pin: Pin) {
-    if (pin.quickStart) {
-      closeModal();
-      void dispatch(pin);
-    } else openDispatch(pin);
-  }
-
-  function favoritePin(workflow: Workflow) {
-    const repo = snapshot?.repos.find((repo) => repo.id === workflow.repoId);
-    const defaults = defaultInputs(workflow);
-    return snapshot?.pins.find(
-      (pin) =>
-        pin.accountId === repo?.accountId &&
-        pin.repoId === workflow.repoId &&
-        pin.workflowId === workflow.id &&
-        pin.ref === repo?.defaultBranch &&
-        Object.keys(pin.inputs).length === Object.keys(defaults).length &&
-        Object.entries(defaults).every(
-          ([key, value]) => pin.inputs[key] === value,
-        ),
-    );
+    if (pin.quickStart)
+      void panel.starts.dispatch(pinRequest(pin), { label: pin.label });
+    else openDispatch(pin);
   }
   async function toggleFavorite(workflow: Workflow) {
-    if (!snapshot || mutationBusy || dispatching) return;
-    const existing = favoritePin(workflow);
-    if (existing) {
-      await deletePin(existing.id);
-      return;
-    }
-    const repo = snapshot.repos.find((repo) => repo.id === workflow.repoId);
-    if (!repo) return;
-    const pin: Pin = {
-      id: crypto.randomUUID(),
-      label: workflow.name,
-      accountId: repo.accountId,
-      repoId: repo.id,
-      workflowId: workflow.id,
-      ref: repo.defaultBranch,
-      inputs: defaultInputs(workflow),
-      quickStart: false,
-    };
-    const invalid = validateDispatch(snapshot, {
-      ...pin,
-      requestId: 'favorite',
-    });
-    if (invalid) {
-      openDispatch(undefined, workflow);
-      favoriteIntent = true;
-      dialogNotice =
-        'Ergänze die benötigten Angaben und speichere die Action als Vorlage.';
-      return;
-    }
-    mutationBusy = true;
-    const ticket = viewEpoch.next();
-    refreshing = false;
-    try {
-      const value = await bridge.savePin(pin);
-      if (viewEpoch.current(ticket)) {
-        acceptSnapshot(value);
-        showNotice('Action als Favorit gespeichert.');
-      }
-    } catch (cause) {
-      if (viewEpoch.current(ticket)) error = errorMessage(cause);
-    } finally {
-      mutationBusy = false;
-    }
+    if ((await panel.toggleFavorite(workflow)) !== 'incomplete') return;
+    openDispatch(undefined, workflow);
+    favoriteIntent = true;
+    dialogNotice =
+      'Ergänze die benötigten Angaben und speichere die Action als Vorlage.';
   }
-
-  async function savePin(asNew = false) {
-    if (!snapshot || !chosenRepo || saving || dispatching) return;
+  async function saveTemplate(asNew = false) {
+    if (!chosenRepo || panel.templateBusy || starting) return;
     const pin: Pin = {
       id: !asNew && editingPinId ? editingPinId : crypto.randomUUID(),
       label: pinLabel,
@@ -601,75 +359,16 @@
       quickStart: pinQuickStart,
     };
     const ticket = dialogEpoch.next();
-    saving = true;
     dialogError = '';
     dialogNotice = '';
     try {
-      const value = await bridge.savePin(pin);
-      if (dialogEpoch.current(ticket)) {
-        acceptSnapshot(value);
-        editingPinId = pin.id;
-        dialogNoticeTone = 'subtle';
-        dialogNotice = 'Vorlage lokal gespeichert.';
-      }
+      if (!(await panel.saveTemplate(pin)) || !dialogEpoch.current(ticket))
+        return;
+      editingPinId = pin.id;
+      dialogNoticeTone = 'subtle';
+      dialogNotice = 'Vorlage lokal gespeichert.';
     } catch (cause) {
       if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
-    } finally {
-      if (dialogEpoch.current(ticket)) saving = false;
-    }
-  }
-  async function deletePin(pinId: string) {
-    if (mutationBusy) return;
-    mutationBusy = true;
-    const ticket = viewEpoch.next();
-    refreshing = false;
-    try {
-      const value = await bridge.deletePin(pinId);
-      if (viewEpoch.current(ticket)) {
-        acceptSnapshot(value);
-        showNotice('Vorlage entfernt.');
-      }
-    } catch (cause) {
-      if (viewEpoch.current(ticket)) error = errorMessage(cause);
-    } finally {
-      mutationBusy = false;
-    }
-  }
-  async function saveSettings(repoIds: string[]) {
-    if (mutationBusy) return;
-    mutationBusy = true;
-    const ticket = viewEpoch.next();
-    refreshing = false;
-    try {
-      const value = await bridge.selectRepos(repoIds);
-      if (viewEpoch.current(ticket)) acceptSnapshot(value);
-      showNotice('Repository-Auswahl gespeichert.');
-    } finally {
-      mutationBusy = false;
-    }
-  }
-  async function changeScenario(value: DemoScenario) {
-    const ticket = viewEpoch.next();
-    refreshing = false;
-    scenario = value;
-    const data = await bridge.setDemoScenario(value);
-    if (viewEpoch.current(ticket)) snapshot = data;
-  }
-  async function resetDemo() {
-    const ticket = viewEpoch.next();
-    refreshing = false;
-    mutationBusy = true;
-    try {
-      const value = await bridge.resetDemo();
-      if (viewEpoch.current(ticket)) acceptSnapshot(value);
-      accountId = '';
-      scenario = 'normal';
-      quarantinedTargets = new Set();
-      showNotice(
-        'Demo zurückgesetzt. Lokale Vorlagen und Auswahl wurden zurückgesetzt.',
-      );
-    } finally {
-      mutationBusy = false;
     }
   }
 </script>
@@ -709,10 +408,10 @@
       {accountId}
       accountLabel={accountName(accountId)}
       repoCount={repos.length}
-      {refreshing}
+      refreshing={panel.refreshing}
       ready={!!snapshot}
       onAccountChange={changeAccount}
-      onRefresh={refresh}
+      onRefresh={() => void panel.refresh()}
       onSettings={() => openSettings()}
     />
 
@@ -732,33 +431,44 @@
         update={updater.info}
         {demo}
         {snapshot}
-        {error}
-        {notice}
-        {noticeTone}
+        error={panel.error}
+        notice={panel.notice?.runId ? '' : (panel.notice?.text ?? '')}
+        noticeTone={panel.notice?.tone ?? 'subtle'}
         onShowUpdate={() => openSettings('updates')}
-        onDismissNotice={() => (notice = '')}
+        onDismissNotice={() => (panel.notice = null)}
       />
+      {#if panel.notice?.runId}
+        <NoticeBanner
+          text={panel.notice.text}
+          tone={panel.notice.tone}
+          actionLabel="In Aktivität anzeigen"
+          onAction={() => showRun(panel.notice?.runId ?? null)}
+          onDismiss={() => (panel.notice = null)}
+        />
+      {/if}
 
       {#if !snapshot}
         <EmptyState
           icon="tray"
           iconSize={26}
-          title={error ? 'Demo nicht geladen' : 'Workflows werden sortiert …'}
-          text={error
+          title={panel.error
+            ? 'Demo nicht geladen'
+            : 'Workflows werden sortiert …'}
+          text={panel.error
             ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
             : 'Dein Überblick ist gleich bereit.'}
         />
       {:else if tab === 'repositories'}
         <PinnedFavorites
           {pins}
-          isUncertain={isQuarantined}
+          isUncertain={panel.starts.isQuarantined}
           {repoName}
           {accountName}
-          {dispatching}
-          busy={mutationBusy}
+          dispatching={panel.starts.any}
+          busy={panel.pinsBusy}
           {blocked}
           onConfigure={(pin) => openDispatch(pin)}
-          onRemove={deletePin}
+          onRemove={panel.deletePin}
           onLaunch={launchPin}
         />
         <div class="section-heading repository-heading">
@@ -769,23 +479,23 @@
           groups={repoGroups}
           onopen={(workflow) => openDispatch(undefined, workflow)}
           onfavorite={(workflow) => void toggleFavorite(workflow)}
-          favorite={favoritePin}
-          busy={mutationBusy}
-          {dispatching}
+          favorite={panel.favoritePin}
+          busy={panel.pinsBusy}
+          dispatching={panel.starts.any}
           {blocked}
         />
         {#if !repoGroups.length}<EmptyState
             icon="repo"
             iconSize={25}
-            title={needsAccount
+            title={panel.needsAccount
               ? snapshot.accounts.length
                 ? 'Wähle ein aktives Konto'
                 : 'Verbinde dein GitHub-Konto'
               : query
                 ? 'Keine passenden Repositories'
                 : 'Noch keine Repositories ausgewählt'}
-            text={needsAccount
-              ? accountSelectionNotice ||
+            text={panel.needsAccount
+              ? panel.accountNotice ||
                 'Wähle Konto und Repositories in den Einstellungen.'
               : query
                 ? 'Suche nach einem Repository oder einer Action.'
@@ -793,7 +503,7 @@
             action={query
               ? { label: 'Suche leeren', icon: 'close', run: clearQuery }
               : {
-                  label: needsAccount
+                  label: panel.needsAccount
                     ? 'Konto in Einstellungen wählen'
                     : 'Repositories auswählen',
                   icon: 'arrow',
@@ -809,11 +519,11 @@
           {failedRuns}
           {demo}
           {native}
-          {needsAccount}
+          needsAccount={panel.needsAccount}
           hasAccounts={!!snapshot.accounts.length}
           hasRepos={repos.length > 0}
           searching={!!query}
-          accountNotice={accountSelectionNotice}
+          accountNotice={panel.accountNotice}
           {repoName}
           {repoAccountName}
           onFilter={(next) => (filter = next)}
@@ -826,19 +536,19 @@
           {pins}
           {launchRepos}
           workflowsFor={matchedWorkflows}
-          isUncertain={isQuarantined}
+          isUncertain={panel.starts.isQuarantined}
           {repoName}
           {accountName}
           {demo}
-          {dispatching}
-          busy={mutationBusy}
+          dispatching={panel.starts.any}
+          busy={panel.pinsBusy}
           {blocked}
           searching={!!query.trim()}
           hasRepos={repos.length > 0}
-          {needsAccount}
+          needsAccount={panel.needsAccount}
           onLaunch={launchPin}
           onConfigure={(pin) => openDispatch(pin)}
-          onRemove={deletePin}
+          onRemove={panel.deletePin}
           onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
           onNew={() => openDispatch()}
           onClearQuery={clearQuery}
@@ -851,8 +561,8 @@
       stale={!!snapshot?.stale}
       {demo}
       updatedAt={snapshot?.updatedAt}
-      {refreshing}
-      onRefresh={refresh}
+      refreshing={panel.refreshing}
+      onRefresh={() => void panel.refresh()}
     />
   </section>
   <div class="desktop-footnote" aria-hidden="true">
@@ -867,22 +577,23 @@
     {native}
     {demo}
     {accountId}
-    accountNotice={accountSelectionNotice}
-    {scenario}
+    accountNotice={panel.accountNotice}
+    scenario={panel.scenario}
     {updater}
     {appVersion}
     initialTab={settingsTab}
-    busy={mutationBusy}
+    busy={panel.settingsBusy}
+    saving={panel.selectionBusy}
     returnFocus={() => opener}
     onClose={closeModal}
     onConnect={() => showModal('connect')}
     onChangeAccount={changeAccount}
-    onScenario={changeScenario}
-    onReset={resetDemo}
-    onDisconnect={disconnectAccount}
-    onSaveSelection={saveSettings}
-    onRefreshAccess={refreshRepositoryAccess}
-    onManageInstallation={manageBrowserRepositories}
+    onScenario={panel.changeScenario}
+    onReset={panel.resetDemo}
+    onDisconnect={panel.disconnectAccount}
+    onSaveSelection={panel.saveSelection}
+    onRefreshAccess={panel.refreshAccess}
+    onManageInstallation={panel.manageInstallation}
   />
 {:else if modal === 'connect'}
   <Modal
@@ -929,7 +640,7 @@
             aria-label="Repository"
             value={repoId}
             onchange={(event) => selectRepo(event.currentTarget.value)}
-            disabled={dispatching}
+            disabled={starting}
             >{#if !repos.length}<option value=""
                 >Keine Repositories ausgewählt</option
               >{/if}{#each repos as repo}<option value={repo.id}
@@ -942,7 +653,7 @@
             value={workflowId}
             onchange={(event) =>
               selectWorkflow(Number(event.currentTarget.value))}
-            disabled={dispatching}
+            disabled={starting}
             >{#if !workflows.length}<option value={0}
                 >Kein Workflow verfügbar</option
               >{/if}{#each workflows as workflow}<option value={workflow.id}
@@ -958,7 +669,7 @@
             aria-label="Branch oder Tag"
             value={ref}
             onchange={(event) => changeRef(event.currentTarget.value)}
-            disabled={dispatching}
+            disabled={starting}
             >{#each chosenWorkflow?.refs ?? [] as branch}<option value={branch}
                 >{branch}{branch === chosenRepo?.defaultBranch
                   ? ' · Standardbranch'
@@ -983,7 +694,7 @@
                 checked={inputs[input.name] === true}
                 onchange={(event) =>
                   setInput(input.name, event.currentTarget.checked)}
-                disabled={dispatching}
+                disabled={starting}
               /><span class="switch" aria-hidden="true"></span></label
             >
           {:else}<label class="field"
@@ -995,7 +706,7 @@
                   value={String(inputs[input.name] ?? '')}
                   onchange={(event) =>
                     setInput(input.name, event.currentTarget.value)}
-                  disabled={dispatching}
+                  disabled={starting}
                   >{#if !input.required}<option value="">Nicht gesetzt</option
                     >{/if}{#each input.options as option}<option value={option}
                       >{option}</option
@@ -1012,7 +723,7 @@
                         : Number(event.currentTarget.value),
                     )}
                   step="any"
-                  disabled={dispatching}
+                  disabled={starting}
                 />{:else}<input
                   type="text"
                   aria-label={input.label}
@@ -1020,7 +731,7 @@
                   oninput={(event) =>
                     setInput(input.name, event.currentTarget.value)}
                   autocomplete="off"
-                  disabled={dispatching}
+                  disabled={starting}
                 />{/if}</label
             >{/if}
         {/each}
@@ -1053,13 +764,13 @@
                     if (
                       pinLabel.trim() &&
                       !validation &&
-                      !dispatching &&
-                      !saving
+                      !starting &&
+                      !panel.templateBusy
                     )
-                      void savePin();
+                      void saveTemplate();
                   }
                 }}
-                disabled={dispatching || saving}
+                disabled={starting || panel.templateBusy}
                 maxlength="80"
                 placeholder="z. B. Windows build"
               /></label
@@ -1067,7 +778,7 @@
               ><input
                 type="checkbox"
                 bind:checked={pinQuickStart}
-                disabled={dispatching || saving}
+                disabled={starting || panel.templateBusy}
               /><span
                 >Schnellstart ausdrücklich aktivieren<small
                   >Startet diese Vorlage ohne erneute Bestätigung. Nur für diese
@@ -1082,12 +793,12 @@
             <button
               type="button"
               class="secondary-button compact"
-              onclick={() => void savePin()}
-              disabled={saving ||
-                dispatching ||
+              onclick={() => void saveTemplate()}
+              disabled={panel.templateBusy ||
+                starting ||
                 !!validation ||
                 !pinLabel.trim()}
-              ><Icon name="pin" size={13} />{saving
+              ><Icon name="pin" size={13} />{panel.templateBusy
                 ? 'Speichert …'
                 : editingPinId
                   ? 'Vorlage aktualisieren'
@@ -1096,9 +807,9 @@
             {#if editingPinId}<button
                 type="button"
                 class="text-button copy-template"
-                onclick={() => void savePin(true)}
-                disabled={saving ||
-                  dispatching ||
+                onclick={() => void saveTemplate(true)}
+                disabled={panel.templateBusy ||
+                  starting ||
                   !!validation ||
                   !pinLabel.trim()}
                 >Als neue Vorlage speichern<Icon
@@ -1108,7 +819,12 @@
               >{/if}
           </div>
         </details>
-        {#if dialogError}<div class="alert danger" role="alert">
+        {#if dialogError}<div
+            class="alert danger"
+            role="alert"
+            tabindex="-1"
+            bind:this={errorBox}
+          >
             <Icon name="warning" size={16} /><span>{dialogError}</span>
           </div>{/if}
         {#if dialogNotice}<div
@@ -1135,7 +851,7 @@
                 type="button"
                 class="text-button"
                 onclick={checkStartStatus}
-                disabled={refreshing}
+                disabled={panel.refreshing}
                 >Status prüfen<Icon name="refresh" size={12} /></button
               >
             </div>
@@ -1146,6 +862,8 @@
             class:uncertain={outcome.state === 'uncertain'}
             class:rejected={outcome.state === 'rejected'}
             role="status"
+            tabindex="-1"
+            bind:this={outcomeBox}
           >
             <Icon
               name={outcome.state === 'accepted' ? 'check' : 'warning'}
@@ -1173,14 +891,7 @@
                 <button
                   type="button"
                   class="text-button"
-                  onclick={() => {
-                    const id = outcome?.runId ?? null;
-                    closeModal();
-                    tab = 'activity';
-                    filter = 'all';
-                    query = '';
-                    expanded = id;
-                  }}
+                  onclick={() => showRun(outcome?.runId ?? null)}
                   >In Aktivität anzeigen<Icon name="arrow" size={13} /></button
                 >
               {/if}
@@ -1188,27 +899,41 @@
                   type="button"
                   class="text-button"
                   onclick={checkStartStatus}
-                  disabled={refreshing}
+                  disabled={panel.refreshing}
                   >Status prüfen<Icon name="refresh" size={12} /></button
                 >{/if}
             </div>
           </div>{/if}
       </div>
+      {#if starting}<p
+          class="dialog-alert alert subtle"
+          id="start-continues"
+          role="status"
+        >
+          <Icon name="refresh" size={14} /><span
+            >Der Start läuft weiter, auch wenn du den Dialog schließt. Das
+            Ergebnis erscheint dann im Panel.</span
+          >
+        </p>{/if}
       <div class="modal-actions">
-        <button type="button" class="secondary-button" onclick={closeModal}
-          >{outcome ? 'Schließen' : 'Abbrechen'}</button
+        <button
+          type="button"
+          class="secondary-button"
+          onclick={closeModal}
+          aria-describedby={starting ? 'start-continues' : undefined}
+          >{outcome || starting ? 'Schließen' : 'Abbrechen'}</button
         ><button
           type="button"
           class="primary-button"
-          onclick={() => void dispatch()}
-          disabled={dispatching ||
+          onclick={() => void startFromDialog()}
+          disabled={starting ||
             targetUncertain ||
-            saving ||
+            panel.templateBusy ||
             !!validation ||
             blocked ||
             outcome?.state === 'uncertain' ||
             outcome?.state === 'accepted'}
-          >{dispatching
+          >{starting
             ? demo
               ? 'Simuliert …'
               : 'Startet …'

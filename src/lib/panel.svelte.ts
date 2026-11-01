@@ -1,0 +1,299 @@
+import { invoke } from '@tauri-apps/api/core';
+import type { NoticeTone } from './StatusBanners.svelte';
+import {
+  readActiveAccount,
+  rememberActiveAccount,
+  restoreActiveAccount,
+} from './accountSelection';
+import type { Bridge } from './demo';
+import { errorMessage } from './format';
+import { RequestEpoch, validateDispatch } from './model';
+import { favoriteDraft, findFavorite } from './pins';
+import { Starts } from './starts.svelte';
+import type { DemoScenario, Pin, Snapshot, Workflow } from './types';
+
+export interface Notice {
+  text: string;
+  tone: NoticeTone;
+  /** An accepted start the banner can show in the activity list. */
+  runId?: number;
+}
+type BusyFlag =
+  | 'pinsBusy'
+  | 'templateBusy'
+  | 'selectionBusy'
+  | 'accountBusy'
+  | 'accessBusy'
+  | 'resetBusy';
+export interface PanelDeps {
+  bridge: Bridge;
+  native: boolean;
+  observe: (callback: (snapshot: Snapshot) => void) => Promise<() => void>;
+}
+
+/**
+ * Panel data and every mutation. Dialogs keep only their form state, so
+ * closing one never drops a running operation's result or busy state.
+ */
+export class Panel {
+  // Snapshots are replaced wholesale, never mutated: no deep proxy needed.
+  snapshot = $state.raw<Snapshot | null>(null);
+  accountId = $state('');
+  /** Why the active account has to be chosen (again). */
+  accountNotice = $state('');
+  scenario = $state<DemoScenario>('normal');
+  error = $state('');
+  notice = $state.raw<Notice | null>(null);
+  refreshing = $state(false);
+  // Every operation owns its busy flag; closing a dialog clears none of them.
+  pinsBusy = $state(false);
+  templateBusy = $state(false);
+  selectionBusy = $state(false);
+  accountBusy = $state(false);
+  accessBusy = $state(false);
+  resetBusy = $state(false);
+
+  readonly native: boolean;
+  readonly starts: Starts;
+  readonly viewEpoch = new RequestEpoch();
+  #bridge: Bridge;
+  #observe: PanelDeps['observe'];
+  #accountReady = false;
+
+  demo = $derived(this.snapshot?.mode !== 'live');
+  blocked = $derived(this.snapshot?.connectivity !== 'online');
+  settingsBusy = $derived(
+    this.selectionBusy || this.accountBusy || this.accessBusy || this.resetBusy,
+  );
+  /** A mutation could still change state; pushed snapshots wait meanwhile. */
+  mutating = $derived(this.settingsBusy || this.pinsBusy || this.templateBusy);
+
+  constructor({ bridge, native, observe }: PanelDeps) {
+    this.#bridge = bridge;
+    this.native = native;
+    this.#observe = observe;
+    this.starts = new Starts(this, bridge);
+  }
+
+  /** Native mode without a deliberately chosen account shows no repository data. */
+  get needsAccount() {
+    return this.native && !this.accountId;
+  }
+  /** Selected repositories of the active account. */
+  get repos() {
+    return (
+      this.snapshot?.repos.filter(
+        (repo) =>
+          repo.selected &&
+          (this.native
+            ? repo.accountId === this.accountId
+            : !this.accountId || repo.accountId === this.accountId),
+      ) ?? []
+    );
+  }
+  /** Native views stay empty until an account is chosen deliberately. */
+  get viewSnapshot() {
+    return this.snapshot && (!this.native || this.accountId)
+      ? this.snapshot
+      : null;
+  }
+
+  showNotice(text: string, tone: NoticeTone = 'subtle', runId?: number) {
+    this.notice = { text, tone, runId };
+  }
+
+  accept(value: Snapshot) {
+    this.snapshot = value;
+    if (!this.native) return;
+    if (!this.#accountReady) {
+      const restored = restoreActiveAccount(
+        value.accounts,
+        readActiveAccount(),
+      );
+      this.accountId = restored.id;
+      this.accountNotice = restored.missing
+        ? 'Das gespeicherte Konto ist nicht mehr verbunden. Wähle ein aktives Konto neu aus.'
+        : '';
+      if (restored.missing) rememberActiveAccount('');
+      this.#accountReady = true;
+    } else if (
+      this.accountId &&
+      !value.accounts.some((account) => account.id === this.accountId)
+    ) {
+      this.changeAccount('');
+      this.accountNotice =
+        'Das aktive Konto wurde entfernt. Wähle ein anderes Konto bewusst aus.';
+    }
+  }
+
+  /** Loads the first snapshot and follows pushed ones; returns the cleanup. */
+  load(onLoaded?: () => void) {
+    const ticket = this.viewEpoch.next();
+    this.#bridge
+      .snapshot()
+      .then((value) => {
+        if (!this.viewEpoch.current(ticket)) return;
+        this.accept(value);
+        onLoaded?.();
+      })
+      .catch((cause) => {
+        if (this.viewEpoch.current(ticket)) this.error = errorMessage(cause);
+      });
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    void this.#observe((value) => {
+      if (!disposed && !this.mutating && !this.starts.any) this.accept(value);
+    }).then((stop) => {
+      if (disposed) stop();
+      else unsubscribe = stop;
+    });
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+      this.viewEpoch.invalidate();
+      this.refreshing = false;
+    };
+  }
+
+  changeAccount(value: string) {
+    this.viewEpoch.invalidate();
+    this.refreshing = false;
+    this.accountId =
+      this.native &&
+      value &&
+      !this.snapshot?.accounts.some((account) => account.id === value)
+        ? ''
+        : value;
+    this.accountNotice = '';
+    if (this.native && !rememberActiveAccount(this.accountId))
+      this.accountNotice =
+        'Die Kontoauswahl gilt für diese Sitzung; sie konnte nicht gespeichert werden.';
+    this.error = '';
+    this.notice = null;
+  }
+
+  /** Resolves to null when the refresh failed or a newer view change won. */
+  async refresh(): Promise<Snapshot | null> {
+    if (this.refreshing) return null;
+    const ticket = this.viewEpoch.next();
+    this.refreshing = true;
+    this.error = '';
+    this.notice = null;
+    try {
+      const value = await this.#bridge.refreshSnapshot();
+      if (!this.viewEpoch.current(ticket)) return null;
+      this.accept(value);
+      if (!value.stale)
+        this.showNotice(
+          this.demo
+            ? 'Demo-Status aktualisiert.'
+            : 'GitHub-Status aktualisiert.',
+        );
+      return value;
+    } catch (cause) {
+      if (this.viewEpoch.current(ticket)) this.error = errorMessage(cause);
+      return null;
+    } finally {
+      if (this.viewEpoch.current(ticket)) this.refreshing = false;
+    }
+  }
+
+  favoritePin = (workflow: Workflow) => findFavorite(this.snapshot, workflow);
+
+  /** Resolves to 'incomplete' when the favorite needs input in the dialog. */
+  async toggleFavorite(workflow: Workflow): Promise<'incomplete' | void> {
+    if (!this.snapshot || this.pinsBusy || this.starts.any) return;
+    const existing = this.favoritePin(workflow);
+    if (existing) return void (await this.deletePin(existing.id));
+    const pin = favoriteDraft(this.snapshot, workflow);
+    if (!pin) return;
+    if (validateDispatch(this.snapshot, { ...pin, requestId: 'favorite' }))
+      return 'incomplete';
+    await this.#pinMutation(
+      () => this.#bridge.savePin(pin),
+      'Action als Favorit gespeichert.',
+    );
+  }
+
+  deletePin = (pinId: string) =>
+    this.#pinMutation(() => this.#bridge.deletePin(pinId), 'Vorlage entfernt.');
+
+  /** View-level pin changes report in the banner, not in a dialog. */
+  #pinMutation = (run: () => Promise<Snapshot>, done: string) =>
+    this.#mutation('pinsBusy', async (ticket) => {
+      try {
+        const value = await run();
+        if (!this.viewEpoch.current(ticket)) return;
+        this.accept(value);
+        this.showNotice(done);
+      } catch (cause) {
+        if (this.viewEpoch.current(ticket)) this.error = errorMessage(cause);
+      }
+    });
+
+  // Dialog mutations reject with a user-facing error for the dialog.
+  /** Resolves to false when another template save is still running. */
+  saveTemplate = async (pin: Pin) =>
+    !!(await this.#mutation('templateBusy', async (ticket) => {
+      const value = await this.#bridge.savePin(pin);
+      if (this.viewEpoch.current(ticket)) this.accept(value);
+      return true;
+    }));
+
+  saveSelection = (repoIds: string[]) =>
+    this.#mutation('selectionBusy', async (ticket) => {
+      const value = await this.#bridge.selectRepos(repoIds);
+      if (this.viewEpoch.current(ticket)) this.accept(value);
+      this.showNotice('Repository-Auswahl gespeichert.');
+    });
+
+  disconnectAccount = (accountId: string) =>
+    this.#mutation('accountBusy', async () => {
+      this.accept(await invoke<Snapshot>('disconnect_account', { accountId }));
+    });
+
+  refreshAccess = () =>
+    this.#mutation('accessBusy', async (ticket) => {
+      const value = await invoke<Snapshot>('refresh_repositories');
+      if (!this.viewEpoch.current(ticket)) return null;
+      this.accept(value);
+      return value;
+    });
+
+  manageInstallation = () => invoke<void>('open_browser_installation');
+
+  changeScenario = async (value: DemoScenario) => {
+    const ticket = this.viewEpoch.next();
+    this.refreshing = false;
+    this.scenario = value;
+    const data = await this.#bridge.setDemoScenario(value);
+    if (this.viewEpoch.current(ticket)) this.snapshot = data;
+  };
+
+  resetDemo = () =>
+    this.#mutation('resetBusy', async (ticket) => {
+      const value = await this.#bridge.resetDemo();
+      if (this.viewEpoch.current(ticket)) this.accept(value);
+      this.accountId = '';
+      this.scenario = 'normal';
+      this.starts.clearQuarantine();
+      this.showNotice(
+        'Demo zurückgesetzt. Lokale Vorlagen und Auswahl wurden zurückgesetzt.',
+      );
+    });
+
+  async #mutation<T>(
+    flag: BusyFlag,
+    run: (ticket: number) => Promise<T>,
+  ): Promise<T | null> {
+    if (this[flag]) return null;
+    this[flag] = true;
+    const ticket = this.viewEpoch.next();
+    this.refreshing = false;
+    try {
+      return await run(ticket);
+    } finally {
+      this[flag] = false;
+    }
+  }
+}

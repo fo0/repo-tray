@@ -31,6 +31,7 @@
     appVersion,
     initialTab = 'accounts',
     busy,
+    saving,
     returnFocus,
     onClose,
     onConnect,
@@ -53,19 +54,21 @@
     initialTab?: SettingsTab;
     /** A settings mutation is running. */
     busy: boolean;
+    /** The repository selection is being saved. */
+    saving: boolean;
     returnFocus?: () => HTMLElement | null | undefined;
     onClose: () => void;
     /** Replaces this dialog with the connection dialog. */
     onConnect: () => void;
     onChangeAccount: (id: string) => void;
     // Mutations reject with a user-facing error; the dialog shows it.
-    onScenario: (value: DemoScenario) => Promise<void>;
-    onReset: () => Promise<void>;
-    onDisconnect: (id: string) => Promise<void>;
-    onSaveSelection: (repoIds: string[]) => Promise<void>;
+    onScenario: (value: DemoScenario) => Promise<unknown>;
+    onReset: () => Promise<unknown>;
+    onDisconnect: (id: string) => Promise<unknown>;
+    onSaveSelection: (repoIds: string[]) => Promise<unknown>;
     /** Resolves to null when a newer view change superseded the result. */
     onRefreshAccess: () => Promise<Snapshot | null>;
-    onManageInstallation: () => Promise<void>;
+    onManageInstallation: () => Promise<unknown>;
   } = $props();
 
   const savedSelection = () =>
@@ -79,7 +82,7 @@
   onDestroy(() => (alive = false));
 
   /** Runs a mutation and shows its error while this dialog is still open. */
-  async function attempt(run: () => Promise<void>) {
+  async function attempt(run: () => Promise<unknown>) {
     error = '';
     try {
       await run();
@@ -224,7 +227,7 @@
         class="primary-button"
         onclick={save}
         disabled={busy}
-        >{busy ? 'Speichert …' : 'Auswahl speichern'}<Icon
+        >{saving ? 'Speichert …' : 'Auswahl speichern'}<Icon
           name="check"
           size={15}
         /></button
