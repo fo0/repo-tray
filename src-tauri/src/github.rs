@@ -12,6 +12,8 @@ pub const API_VERSION: &str = "2026-03-10";
 const API_ORIGIN: &str = "https://api.github.com";
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_PAGES: usize = 20;
+/// GitHub's primary rate-limit window; a bogus or skewed header cannot pause an account longer.
+const MAX_BACKOFF_SECONDS: u64 = 3600;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ApiUrl(String);
@@ -243,6 +245,13 @@ struct CachedPage {
     next: Option<ApiUrl>,
 }
 
+/// Bodies of one pagination traversal; `truncated` marks a prefix cut at the page budget.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Pages {
+    pub bodies: Vec<Vec<u8>>,
+    pub truncated: bool,
+}
+
 struct ClientState<T> {
     transport: T,
     pages: BTreeMap<(String, ApiUrl), CachedPage>,
@@ -280,14 +289,41 @@ impl<T: Transport> ApiClient<T> {
         send_once(&mut state, request, now)
     }
 
+    /// A GET whose throttling answer (a 403/429 that armed a backoff) surfaces as `RateLimited`,
+    /// so callers never mistake a rate limit for missing access. Other statuses stay `Ok`.
+    pub fn get(&self, request: &ApiRequest, now: u64) -> Result<ApiResponse, ApiError> {
+        if request.method != Method::Get {
+            return Err(ApiError::Policy("Only GET requests are read this way."));
+        }
+        let mut state = self.state.lock().map_err(|_| ApiError::QueueUnavailable)?;
+        let response = send_once(&mut state, request, now)?;
+        match throttled(&state, &request.account_id, response.status, now) {
+            Some(error) => Err(error),
+            None => Ok(response),
+        }
+    }
+
     /// Each page has its own account-scoped ETag and cached body, including its next link.
+    /// A listing longer than the page budget returns its first pages instead of failing.
     pub fn get_pages(
         &self,
         account_id: &str,
         first: ApiUrl,
         now: u64,
     ) -> Result<Vec<Vec<u8>>, ApiError> {
-        self.get_pages_with_cache(account_id, first, now, true)
+        self.traverse(account_id, first, now, true, MAX_PAGES)
+            .map(|pages| pages.bodies)
+    }
+
+    /// `get_pages` with a smaller page budget; `truncated` reports a cut-off listing.
+    pub fn get_pages_limited(
+        &self,
+        account_id: &str,
+        first: ApiUrl,
+        now: u64,
+        max_pages: usize,
+    ) -> Result<Pages, ApiError> {
+        self.traverse(account_id, first, now, true, max_pages.clamp(1, MAX_PAGES))
     }
 
     /// Moving discovery windows have unique URLs; retaining their pages would grow without bound.
@@ -298,23 +334,29 @@ impl<T: Transport> ApiClient<T> {
         first: ApiUrl,
         now: u64,
     ) -> Result<Vec<Vec<u8>>, ApiError> {
-        self.get_pages_with_cache(account_id, first, now, false)
+        self.traverse(account_id, first, now, false, MAX_PAGES)
+            .map(|pages| pages.bodies)
     }
 
-    fn get_pages_with_cache(
+    fn traverse(
         &self,
         account_id: &str,
         first: ApiUrl,
         now: u64,
         cache: bool,
-    ) -> Result<Vec<Vec<u8>>, ApiError> {
+        max_pages: usize,
+    ) -> Result<Pages, ApiError> {
         let mut state = self.state.lock().map_err(|_| ApiError::QueueUnavailable)?;
         let first_path = first.path().to_owned();
         let mut next = Some(first);
         let mut seen = BTreeSet::new();
-        let mut pages = vec![];
+        let mut pages = Pages::default();
         while let Some(url) = next {
-            if pages.len() >= MAX_PAGES || !seen.insert(url.clone()) || url.path() != first_path {
+            if pages.bodies.len() >= max_pages {
+                pages.truncated = true;
+                break;
+            }
+            if !seen.insert(url.clone()) || url.path() != first_path {
                 return Err(ApiError::Policy(
                     "Pagination exceeded its bounded resource scope.",
                 ));
@@ -346,7 +388,10 @@ impl<T: Transport> ApiClient<T> {
                     }
                     page
                 }
-                status => return Err(ApiError::Http(status)),
+                status => {
+                    return Err(throttled(&state, account_id, status, now)
+                        .unwrap_or(ApiError::Http(status)))
+                }
             };
             if page
                 .next
@@ -358,7 +403,7 @@ impl<T: Transport> ApiClient<T> {
                 ));
             }
             next = page.next.clone();
-            pages.push(page.body.clone());
+            pages.bodies.push(page.body.clone());
             if cache {
                 state.pages.insert(key, page);
             }
@@ -445,27 +490,56 @@ fn send_once<T: Transport>(
     let reset = response
         .header("x-ratelimit-reset")
         .and_then(|value| value.parse::<u64>().ok());
+    let succeeded = (200..300).contains(&response.status) || response.status == 304;
     if primary_exhausted || secondary || retry_after.is_some() {
-        let failures = state
-            .rate_limit_failures
-            .entry(request.account_id.clone())
-            .or_default();
-        let fallback = now.saturating_add(60u64.saturating_mul(1 << (*failures).min(4)));
-        *failures = failures.saturating_add(1);
+        // Only failed requests escalate the fallback; a 2xx that spent the last unit does not.
+        let failures = if succeeded {
+            state.rate_limit_failures.remove(&request.account_id);
+            0
+        } else {
+            let failures = state
+                .rate_limit_failures
+                .entry(request.account_id.clone())
+                .or_default();
+            let previous = *failures;
+            *failures = failures.saturating_add(1);
+            previous
+        };
+        let fallback = now.saturating_add(60u64.saturating_mul(1 << failures.min(4)));
         let until = retry_after
             .into_iter()
             .chain(primary_exhausted.then_some(reset).flatten())
             .max()
             .unwrap_or(fallback)
-            .max(now.saturating_add(1));
+            .max(now.saturating_add(1))
+            .min(now.saturating_add(MAX_BACKOFF_SECONDS));
         state
             .backoff_until
             .insert(request.account_id.clone(), until);
-    } else if response.status == 200 || response.status == 304 {
+    } else if succeeded {
         state.rate_limit_failures.remove(&request.account_id);
         state.backoff_until.remove(&request.account_id);
     }
     Ok(response)
+}
+
+/// A 403/429 that armed this account's backoff is throttling, not an access decision.
+fn throttled<T>(
+    state: &ClientState<T>,
+    account_id: &str,
+    status: u16,
+    now: u64,
+) -> Option<ApiError> {
+    if !matches!(status, 403 | 429) {
+        return None;
+    }
+    state
+        .backoff_until
+        .get(account_id)
+        .filter(|retry_at| **retry_at > now)
+        .map(|retry_at| ApiError::RateLimited {
+            retry_at: *retry_at,
+        })
 }
 
 fn checked_etag(value: Option<&str>) -> Result<Option<String>, ApiError> {
@@ -582,62 +656,82 @@ impl RunTracker {
     }
 
     pub fn parse(&self, response: &ApiResponse) -> Result<Run, ApiError> {
-        #[derive(Deserialize)]
-        struct WireRun {
-            id: u64,
-            workflow_id: u64,
-            name: String,
-            head_branch: String,
-            status: String,
-            conclusion: Option<String>,
-            created_at: String,
-            updated_at: String,
-            html_url: String,
-        }
         if response.status != 200 || response.body.len() > MAX_RESPONSE_BYTES {
             return Err(ApiError::InvalidResponse);
         }
-        let wire: WireRun =
+        let value: serde_json::Value =
             serde_json::from_slice(&response.body).map_err(|_| ApiError::InvalidResponse)?;
-        if wire.id != self.confirmation.workflow_run_id
-            || wire.workflow_id != self.workflow_id
-            || wire.html_url != self.confirmation.html_url
-            || chrono::DateTime::parse_from_rfc3339(&wire.created_at).is_err()
-            || chrono::DateTime::parse_from_rfc3339(&wire.updated_at).is_err()
+        let run = run_from_wire(&self.repo_id, &value)?;
+        if run.id != self.confirmation.workflow_run_id
+            || run.workflow_id != self.workflow_id
+            || run.html_url != self.confirmation.html_url
         {
             return Err(ApiError::InvalidResponse);
         }
-        let status = match wire.status.as_str() {
-            "queued" | "requested" | "pending" => RunStatus::Queued,
-            "in_progress" => RunStatus::InProgress,
-            "waiting" => RunStatus::Waiting,
-            "completed" => RunStatus::Completed,
-            _ => return Err(ApiError::InvalidResponse),
-        };
-        let conclusion = match wire.conclusion.as_deref() {
-            None => None,
-            Some("success") => Some(Conclusion::Success),
-            Some("failure") => Some(Conclusion::Failure),
-            Some("cancelled") => Some(Conclusion::Cancelled),
-            // A future adapter may extend the UI contract; unknown outcomes stay unclassified.
-            Some(_) => return Err(ApiError::InvalidResponse),
-        };
-        if status != RunStatus::Completed && conclusion.is_some() {
-            return Err(ApiError::InvalidResponse);
-        }
-        Ok(Run {
-            id: wire.id,
-            repo_id: self.repo_id.clone(),
-            workflow_id: wire.workflow_id,
-            name: wire.name,
-            branch: wire.head_branch,
-            status,
-            conclusion,
-            created_at: wire.created_at,
-            updated_at: wire.updated_at,
-            html_url: wire.html_url,
-        })
+        Ok(run)
     }
+}
+
+/// A single-resource lookup that GitHub answers with "not found" or "gone": the run was
+/// deleted (retention, cleanup) and can never complete, so it leaves tracking.
+pub fn resource_gone(status: u16) -> bool {
+    matches!(status, 404 | 410)
+}
+
+/// The one wire-to-`Run` conversion for run lists, history resolution and dispatch tracking.
+/// Future wire values never fail a refresh or keep a finished run open: a conclusion makes
+/// the run terminal even under an unknown status, and an unknown conclusion still completes
+/// the run, unclassified. An unknown status without a conclusion stays open (queued).
+pub fn run_from_wire(repo_id: &str, value: &serde_json::Value) -> Result<Run, ApiError> {
+    let id = value["id"].as_u64().filter(|id| *id > 0);
+    let workflow_id = value["workflow_id"].as_u64().filter(|id| *id > 0);
+    let (Some(id), Some(workflow_id)) = (id, workflow_id) else {
+        return Err(ApiError::InvalidResponse);
+    };
+    let text = |key: &str| value[key].as_str().ok_or(ApiError::InvalidResponse);
+    let (created_at, updated_at, html_url) =
+        (text("created_at")?, text("updated_at")?, text("html_url")?);
+    if chrono::DateTime::parse_from_rfc3339(created_at).is_err()
+        || chrono::DateTime::parse_from_rfc3339(updated_at).is_err()
+    {
+        return Err(ApiError::InvalidResponse);
+    }
+    let concluded = value["conclusion"].as_str();
+    let status = match value["status"].as_str() {
+        Some("completed") => RunStatus::Completed,
+        Some("in_progress") => RunStatus::InProgress,
+        // Requested runs are about to enter the queue.
+        Some("queued" | "requested") => RunStatus::Queued,
+        // Pending waits for a concurrency group, waiting for a protection rule.
+        Some("waiting" | "pending") => RunStatus::Waiting,
+        _ if concluded.is_some() => RunStatus::Completed,
+        _ => RunStatus::Queued,
+    };
+    let conclusion = match concluded.filter(|_| status == RunStatus::Completed) {
+        Some("success") => Some(Conclusion::Success),
+        Some("failure" | "timed_out" | "action_required" | "startup_failure") => {
+            Some(Conclusion::Failure)
+        }
+        Some("cancelled" | "skipped" | "neutral" | "stale") => Some(Conclusion::Cancelled),
+        _ => None,
+    };
+    Ok(Run {
+        id,
+        repo_id: repo_id.into(),
+        workflow_id,
+        // The REST schema allows a null run name; the commit title is the next best label.
+        name: value["name"]
+            .as_str()
+            .or_else(|| value["display_title"].as_str())
+            .unwrap_or_default()
+            .into(),
+        branch: value["head_branch"].as_str().unwrap_or_default().into(),
+        status,
+        conclusion,
+        created_at: created_at.into(),
+        updated_at: updated_at.into(),
+        html_url: html_url.into(),
+    })
 }
 
 #[cfg(test)]
@@ -1008,5 +1102,255 @@ mod tests {
             thread.join().unwrap();
         }
         assert_eq!(maximum.load(Ordering::SeqCst), 1);
+    }
+
+    fn chained_pages(count: usize) -> Vec<Result<ApiResponse, TransportError>> {
+        (1..=count)
+            .map(|page| {
+                let link = format!(
+                    "<https://api.github.com/user/repos?page={}>; rel=\"next\"",
+                    page + 1
+                );
+                Ok(response(
+                    200,
+                    &[("Link", link.as_str())],
+                    &format!("[{page}]"),
+                ))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn long_listings_return_their_first_pages_instead_of_failing() {
+        let first = || ApiUrl::parse("https://api.github.com/user/repos?page=1").unwrap();
+        let (full, sent) = client(chained_pages(MAX_PAGES));
+        let pages = full.get_pages("personal", first(), 0).unwrap();
+        assert_eq!(pages.len(), MAX_PAGES);
+        assert_eq!(pages[0], b"[1]".to_vec());
+        assert_eq!(sent.lock().unwrap().len(), MAX_PAGES);
+
+        let (budgeted, sent) = client(chained_pages(3));
+        let limited = budgeted
+            .get_pages_limited("personal", first(), 0, 2)
+            .unwrap();
+        assert_eq!(limited.bodies, vec![b"[1]".to_vec(), b"[2]".to_vec()]);
+        assert!(limited.truncated);
+        assert_eq!(sent.lock().unwrap().len(), 2);
+
+        let (single, _) = client(vec![Ok(response(200, &[], "[1]"))]);
+        let complete = single.get_pages_limited("personal", first(), 0, 2).unwrap();
+        assert!(!complete.truncated);
+        assert_eq!(complete.bodies.len(), 1);
+    }
+
+    #[test]
+    fn backoff_deadlines_are_clamped_to_one_hour() {
+        let get = ApiRequest::get(
+            "personal",
+            ApiUrl::parse("https://api.github.com/user").unwrap(),
+        )
+        .unwrap();
+        for headers in [
+            vec![("Retry-After", "999999")],
+            vec![("Retry-After", "Fri, 31 Dec 2100 00:00:00 GMT")],
+            vec![
+                ("X-RateLimit-Remaining", "0"),
+                ("X-RateLimit-Reset", "99999999999"),
+            ],
+        ] {
+            let (client, _) = client(vec![Ok(response(429, &headers, "{}"))]);
+            client.execute(&get, 1_000).unwrap();
+            assert_eq!(
+                client.execute(&get, 1_001).unwrap_err(),
+                ApiError::RateLimited {
+                    retry_at: 1_000 + MAX_BACKOFF_SECONDS
+                },
+                "{headers:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn exhausted_quota_on_success_does_not_escalate_the_failure_backoff() {
+        let get = ApiRequest::get(
+            "personal",
+            ApiUrl::parse("https://api.github.com/user").unwrap(),
+        )
+        .unwrap();
+        let spent = || Ok(response(200, &[("X-RateLimit-Remaining", "0")], "{}"));
+        let (client, _) = client(vec![
+            spent(),
+            spent(),
+            Ok(response(429, &[], "{}")),
+            Ok(response(429, &[], "{}")),
+        ]);
+        client.execute(&get, 100).unwrap();
+        assert_eq!(
+            client.execute(&get, 101).unwrap_err(),
+            ApiError::RateLimited { retry_at: 160 }
+        );
+        client.execute(&get, 160).unwrap();
+        // A second successful response keeps the base fallback instead of doubling it.
+        assert_eq!(
+            client.execute(&get, 161).unwrap_err(),
+            ApiError::RateLimited { retry_at: 220 }
+        );
+        client.execute(&get, 220).unwrap();
+        assert_eq!(
+            client.execute(&get, 221).unwrap_err(),
+            ApiError::RateLimited { retry_at: 280 }
+        );
+        client.execute(&get, 280).unwrap();
+        assert_eq!(
+            client.execute(&get, 281).unwrap_err(),
+            ApiError::RateLimited { retry_at: 400 }
+        );
+    }
+
+    #[test]
+    fn throttled_reads_are_rate_limits_and_plain_forbidden_stays_http() {
+        let url = || ApiUrl::parse("https://api.github.com/user/repos?page=1").unwrap();
+        let (listing, _) = client(vec![
+            Ok(response(403, &[], r#"{"message":"Forbidden"}"#)),
+            Ok(response(
+                403,
+                &[],
+                r#"{"message":"You have exceeded a secondary rate limit."}"#,
+            )),
+        ]);
+        assert_eq!(
+            listing.get_pages("personal", url(), 100).unwrap_err(),
+            ApiError::Http(403)
+        );
+        assert_eq!(
+            listing.get_pages("personal", url(), 100).unwrap_err(),
+            ApiError::RateLimited { retry_at: 160 }
+        );
+        let get = ApiRequest::get("work", url()).unwrap();
+        let (single, sent) = client(vec![
+            Ok(response(404, &[], "{}")),
+            Ok(response(429, &[("Retry-After", "5")], "{}")),
+        ]);
+        assert_eq!(single.get(&get, 100).unwrap().status, 404);
+        assert_eq!(
+            single.get(&get, 100).unwrap_err(),
+            ApiError::RateLimited { retry_at: 105 }
+        );
+        assert!(single.get(&dispatch_request(), 200).is_err());
+        assert_eq!(sent.lock().unwrap().len(), 2);
+    }
+
+    fn wire_run(status: Option<&str>, conclusion: Option<&str>) -> serde_json::Value {
+        serde_json::json!({"id":77,"workflow_id":42,"name":"Build","head_branch":"main","status":status,"conclusion":conclusion,"created_at":"2026-10-31T09:00:00Z","updated_at":"2026-10-31T09:01:00Z","html_url":"https://github.com/octo/demo/actions/runs/77"})
+    }
+
+    #[test]
+    fn every_run_status_maps_once_and_unknown_values_never_stay_open_after_a_conclusion() {
+        for (status, expected) in [
+            ("queued", RunStatus::Queued),
+            ("requested", RunStatus::Queued),
+            ("in_progress", RunStatus::InProgress),
+            ("waiting", RunStatus::Waiting),
+            ("pending", RunStatus::Waiting),
+            ("completed", RunStatus::Completed),
+            ("future_status", RunStatus::Queued),
+        ] {
+            let run = run_from_wire("repo", &wire_run(Some(status), None)).unwrap();
+            assert_eq!(run.status, expected, "{status}");
+            assert_eq!(run.conclusion, None, "{status}");
+        }
+        let missing = run_from_wire("repo", &wire_run(None, None)).unwrap();
+        assert_eq!(missing.status, RunStatus::Queued);
+        // A conclusion is terminal even when the status name is unknown or absent.
+        for status in [Some("future_status"), None] {
+            let run = run_from_wire("repo", &wire_run(status, Some("success"))).unwrap();
+            assert_eq!(run.status, RunStatus::Completed);
+            assert_eq!(run.conclusion, Some(Conclusion::Success));
+        }
+        // An open status keeps the run open; a contradictory conclusion is not shown.
+        let open = run_from_wire("repo", &wire_run(Some("in_progress"), Some("failure"))).unwrap();
+        assert_eq!(
+            (open.status, open.conclusion),
+            (RunStatus::InProgress, None)
+        );
+    }
+
+    #[test]
+    fn every_run_conclusion_maps_once_and_unknown_outcomes_complete_unclassified() {
+        for (conclusion, expected) in [
+            ("success", Some(Conclusion::Success)),
+            ("failure", Some(Conclusion::Failure)),
+            ("timed_out", Some(Conclusion::Failure)),
+            ("action_required", Some(Conclusion::Failure)),
+            ("startup_failure", Some(Conclusion::Failure)),
+            ("cancelled", Some(Conclusion::Cancelled)),
+            ("skipped", Some(Conclusion::Cancelled)),
+            ("neutral", Some(Conclusion::Cancelled)),
+            ("stale", Some(Conclusion::Cancelled)),
+            ("future_outcome", None),
+        ] {
+            let run =
+                run_from_wire("repo", &wire_run(Some("completed"), Some(conclusion))).unwrap();
+            assert_eq!(run.status, RunStatus::Completed, "{conclusion}");
+            assert_eq!(run.conclusion, expected, "{conclusion}");
+        }
+    }
+
+    #[test]
+    fn run_conversion_rejects_missing_identity_and_malformed_timestamps() {
+        let mut value = wire_run(Some("completed"), Some("success"));
+        value["name"] = serde_json::Value::Null;
+        value["display_title"] = serde_json::json!("Fix build");
+        value["head_branch"] = serde_json::Value::Null;
+        let run = run_from_wire("repo", &value).unwrap();
+        assert_eq!((run.name.as_str(), run.branch.as_str()), ("Fix build", ""));
+        for (key, bad) in [
+            ("id", serde_json::json!(0)),
+            ("workflow_id", serde_json::Value::Null),
+            ("created_at", serde_json::json!("yesterday")),
+            ("updated_at", serde_json::Value::Null),
+            ("html_url", serde_json::Value::Null),
+        ] {
+            let mut value = wire_run(Some("completed"), Some("success"));
+            value[key] = bad;
+            assert!(run_from_wire("repo", &value).is_err(), "{key}");
+        }
+    }
+
+    #[test]
+    fn tracker_completes_runs_with_every_terminal_conclusion() {
+        let confirmation = parse_dispatch_confirmation(
+            &response(
+                200,
+                &[],
+                r#"{"workflow_run_id":77,"run_url":"https://api.github.com/repos/octo/demo/actions/runs/77","html_url":"https://github.com/octo/demo/actions/runs/77"}"#,
+            ),
+            "octo",
+            "demo",
+        )
+        .unwrap();
+        let tracker = RunTracker {
+            account_id: "personal".into(),
+            repo_id: "repo-id".into(),
+            workflow_id: 42,
+            confirmation,
+        };
+        for conclusion in [
+            "timed_out",
+            "skipped",
+            "neutral",
+            "startup_failure",
+            "future",
+        ] {
+            let body = wire_run(Some("completed"), Some(conclusion)).to_string();
+            let run = tracker.parse(&response(200, &[], &body)).unwrap();
+            assert_eq!(run.status, RunStatus::Completed, "{conclusion}");
+        }
+        let pending = wire_run(Some("pending"), None).to_string();
+        assert_eq!(
+            tracker.parse(&response(200, &[], &pending)).unwrap().status,
+            RunStatus::Waiting
+        );
+        assert!(resource_gone(404) && resource_gone(410) && !resource_gone(403));
     }
 }
