@@ -2,7 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock } from './support/tauriMock';
 
-/** The permissions documented in docs/GITHUB_SETUP.md, in the same order. */
+/**
+ * The permissions documented in docs/GITHUB_SETUP.md, in the order the panel
+ * lists them (the doc orders them Metadata, Actions, Contents).
+ */
 const permissions = [
   'Actions: Lesen und Schreiben',
   'Contents: Lesen',
