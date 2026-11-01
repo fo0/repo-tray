@@ -1,0 +1,89 @@
+<script lang="ts">
+  import Icon from './Icon.svelte';
+
+  let {
+    open,
+    label = $bindable(),
+    quickStart = $bindable(),
+    editing,
+    saving,
+    locked,
+    valid,
+    onSave,
+  }: {
+    /** Opened up front when a favorite still needs input. */
+    open: boolean;
+    label: string;
+    quickStart: boolean;
+    /** The dialog edits an existing template. */
+    editing: boolean;
+    /** A template save is running. */
+    saving: boolean;
+    /** A start for this target is running; the form stays as it was sent. */
+    locked: boolean;
+    /** The current selection would pass dispatch validation. */
+    valid: boolean;
+    onSave: (asNew: boolean) => void;
+  } = $props();
+  const canSave = $derived(!saving && !locked && valid && !!label.trim());
+</script>
+
+<details class="save-pin" {open}>
+  <summary
+    ><Icon name="pin" size={14} />Als Vorlage speichern<Icon
+      name="down"
+      size={13}
+    /></summary
+  >
+  <div class="save-pin-body">
+    <label class="field"
+      ><span>Name der Vorlage</span><input
+        aria-label="Name der Vorlage"
+        bind:value={label}
+        onkeydown={(event) => {
+          if (event.key !== 'Enter') return;
+          // Enter saves the template; it never submits a start.
+          event.preventDefault();
+          event.stopPropagation();
+          if (canSave) onSave(false);
+        }}
+        disabled={locked || saving}
+        maxlength="80"
+        placeholder="z. B. Windows build"
+      /></label
+    ><label class="quick-opt-in"
+      ><input
+        type="checkbox"
+        bind:checked={quickStart}
+        disabled={locked || saving}
+      /><span
+        >Schnellstart ausdrücklich aktivieren<small
+          >Startet diese Vorlage ohne erneute Bestätigung. Nur für diese
+          Auswahl.</small
+        ></span
+      ></label
+    >
+    <p class="field-help">
+      Speichert Account, Repository, Workflow, Ref und nicht geheime Eingaben
+      lokal.
+    </p>
+    <button
+      type="button"
+      class="secondary-button compact"
+      onclick={() => onSave(false)}
+      disabled={!canSave}
+      ><Icon name="pin" size={13} />{saving
+        ? 'Speichert …'
+        : editing
+          ? 'Vorlage aktualisieren'
+          : 'Vorlage speichern'}</button
+    >
+    {#if editing}<button
+        type="button"
+        class="text-button copy-template"
+        onclick={() => onSave(true)}
+        disabled={!canSave}
+        >Als neue Vorlage speichern<Icon name="plus" size={13} /></button
+      >{/if}
+  </div>
+</details>
