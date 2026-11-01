@@ -8,7 +8,7 @@ RepoTray implements the GitHub App **device flow** in native Rust. It uses the s
 
 ## Publisher configuration (documentation only)
 
-The project owner would need to create and maintain the following GitHub App separately. This change does not perform registration, consent, grants, secret generation, hosting or release configuration, and requests no new registration approval.
+The project owner would need to create and maintain the following GitHub App separately. The repository performs no registration, consent, grants, secret generation, hosting or release configuration.
 
 | Setting                                | Intended value                                                                          |
 | -------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -42,7 +42,7 @@ These are compile-time Rust environment variables, not `VITE_` variables. Client
 3. Separately install the app on the personal or organization account and select individual or all repositories. The connection dialog and settings contain a button to the configured app's installation page. Organization administrator approval and an active SAML SSO session may be required.
 4. Click **Repository-Liste aktualisieren** in settings after changing installation access. This bypasses the ordinary catalog refresh interval, follows paginated installations and their paginated repositories, and preserves still-accessible selections.
 
-An authorization can succeed with no installed repositories. That is an authenticated account, not permission to access every repository. RepoTray explains the separate installation requirement. It checks installation Actions rights separately from the user's `permissions.push`; push alone never grants browser-account Actions write. Contents read is also required before browser-account dispatch is offered. GitHub's actual API response remains authoritative. Workflows needing environment lists can remain unavailable when their additional API access is absent; this change adds no broader permissions.
+An authorization can succeed with no installed repositories. That is an authenticated account, not permission to access every repository. RepoTray explains the separate installation requirement. It checks installation Actions rights separately from the user's `permissions.push`; push alone never grants browser-account Actions write. Contents read is also required before browser-account dispatch is offered. GitHub's actual API response remains authoritative. Workflows needing environment lists can remain unavailable when their additional API access is absent; RepoTray requests no broader permissions.
 
 ## Ownership and failure handling
 
@@ -56,7 +56,7 @@ Access and refresh tokens, expiry and a rotation marker are stored as **one vaul
 
 ## Validation and remaining acceptance work
 
-Fixture tests cover pending, slowdown, denial, expiry, network errors, cancellation, stale start/poll responses, token shapes, untrusted verification URLs, distinct ownership, effective permissions, refresh identity mismatch and ambiguous refresh recovery. Existing PAT cancellation and gh/GCM tests remain unchanged. Five native-UI fixture screenshots are produced by `tests/browser-auth.spec.ts` under `test-results/` (normal, wait, code, error, cancel); they contain synthetic data only and are not published by the repository.
+Fixture tests cover pending, slowdown, denial, expiry, network errors, cancellation, stale start/poll responses, token shapes, untrusted verification URLs, distinct ownership, effective permissions, refresh identity mismatch and ambiguous refresh recovery. Existing PAT cancellation and gh/GCM tests remain unchanged. `tests/browser-auth.spec.ts` checks the paused state against an IPC mock, both with and without publisher configuration: **Mit GitHub anmelden** stays disabled with its pause notice, the token and local-account alternatives stay usable, no browser-auth, token-connect or local-discovery IPC command is called and no extra window opens.
 
 Fixture tests cannot establish Windows Credential Manager/WebView2 behavior or system-browser focus. CI checks native Windows compilation; Windows runtime acceptance and a real publisher-configured end-to-end login require a separate native session.
 
