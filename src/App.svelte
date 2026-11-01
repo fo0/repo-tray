@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import ActivityView from './lib/ActivityView.svelte';
   import AppFooter from './lib/AppFooter.svelte';
   import AppHeader from './lib/AppHeader.svelte';
   import EmptyState from './lib/EmptyState.svelte';
@@ -244,6 +245,11 @@
   }
   function accountName(id: string) {
     return accountLabel(snapshot, id, native);
+  }
+  function repoAccountName(repoId: string) {
+    return accountName(
+      snapshot?.repos.find((repo) => repo.id === repoId)?.accountId ?? '',
+    );
   }
   function showNotice(value: string, tone: NoticeTone = 'subtle') {
     notice = value;
@@ -909,157 +915,26 @@
                 }}
           />{/if}
       {:else if tab === 'activity'}
-        <div class="filters" aria-label="Aktivitätsfilter">
-          {#each [{ id: 'all', label: 'Alle' }, { id: 'active', label: 'Aktiv' }, { id: 'failed', label: 'Fehlgeschlagen' }, { id: 'recent', label: 'Abgeschlossen' }] as item}<button
-              class:chosen={filter === item.id}
-              aria-pressed={filter === item.id}
-              onclick={() => (filter = item.id as ActivityFilter)}
-              >{item.label}{#if item.id === 'active'}<span>{activeRuns}</span
-                >{:else if item.id === 'failed'}<span>{failedRuns}</span
-                >{/if}</button
-            >{/each}
-        </div>
-        <div class="section-heading">
-          <h2>
-            {filter === 'active'
-              ? 'Aktive Runs'
-              : filter === 'failed'
-                ? 'Fehlgeschlagene Runs'
-                : filter === 'recent'
-                  ? 'Abgeschlossene Runs'
-                  : 'Letzte Aktivitäten'}
-          </h2>
-          <span>{runs.length} {runs.length === 1 ? 'Run' : 'Runs'}</span>
-        </div>
-        <p class="history-note">
-          <span class="group-live-dot"></span>Offene Runs werden automatisch
-          aktualisiert.<br />Bis zu {HISTORY_LIMIT} abgeschlossene Runs bleiben im
-          Verlauf.
-        </p>
-        <div class="run-list history-list">
-          {#each runs as run, index (`${run.repoId}:${run.id}`)}
-            {#if filter === 'all' && !isActive(run) && (index === 0 || isActive(runs[index - 1]))}<div
-                class="list-divider"
-              >
-                <span>Zuletzt abgeschlossen</span>
-              </div>{/if}
-            <article class="run" class:expanded={expanded === run.id}>
-              <button
-                class="run-button"
-                aria-expanded={expanded === run.id}
-                aria-label={`${run.name} · ${repoName(run.repoId)} · ${statusLabel(run)}`}
-                onclick={() => (expanded = expanded === run.id ? null : run.id)}
-              >
-                <span
-                  class="status-icon"
-                  class:running={run.status === 'in_progress'}
-                  class:queued={run.status === 'queued'}
-                  class:waiting={run.status === 'waiting'}
-                  class:success={run.conclusion === 'success'}
-                  class:failure={run.conclusion === 'failure'}
-                  ><Icon
-                    name={run.status === 'in_progress'
-                      ? 'activity'
-                      : run.status === 'waiting'
-                        ? 'pause'
-                        : run.status === 'queued'
-                          ? 'clock'
-                          : run.conclusion === 'success'
-                            ? 'check'
-                            : 'close'}
-                    size={16}
-                  /></span
-                >
-                <span class="run-main"
-                  ><span class="run-name"
-                    >{run.name}<span class="run-number">#{run.id}</span></span
-                  ><span class="run-repo">{repoName(run.repoId)}</span><span
-                    class="run-branch"
-                    ><Icon name="branch" size={11} />{run.branch}<span
-                      class="meta-dot">·</span
-                    ><span>{duration(run)}</span></span
-                  ></span
-                >
-                <span class="run-tail"
-                  ><span
-                    class="status-label"
-                    class:running={run.status === 'in_progress'}
-                    class:failure={run.conclusion === 'failure'}
-                    >{statusLabel(run)}</span
-                  ><Icon name="chevron" size={14} /></span
-                >
-              </button>
-              {#if expanded === run.id}{@const runUrl = safeGitHubUrl(
-                  run.htmlUrl,
-                )}
-                <div class="run-details">
-                  <div>
-                    <span>Account</span><strong
-                      >{accountName(
-                        snapshot.repos.find((repo) => repo.id === run.repoId)
-                          ?.accountId ?? '',
-                      )}</strong
-                    >
-                  </div>
-                  <div>
-                    <span>Aktualisiert</span><strong
-                      >{clockTime(run.updatedAt)}{demo
-                        ? ' · Demo-Zeit'
-                        : ''}</strong
-                    >
-                  </div>
-                  <div>
-                    <span>Ergebnis</span><strong>{statusLabel(run)}</strong>
-                  </div>
-                  {#if runUrl}<RunLink
-                      url={runUrl}
-                      label="Auf GitHub ansehen"
-                      {native}
-                      onError={warn}
-                    />{:else}<button
-                      class="detail-link"
-                      disabled
-                      title="Demo-Runs haben keinen GitHub-Link"
-                      >GitHub-Link in Demo nicht verfügbar<Icon
-                        name="external"
-                        size={13}
-                      /></button
-                    >{/if}
-                </div>{/if}
-            </article>
-          {:else}<EmptyState
-              icon="activity"
-              iconSize={25}
-              title={needsAccount
-                ? snapshot?.accounts.length
-                  ? 'Wähle ein aktives Konto'
-                  : 'Verbinde dein GitHub-Konto'
-                : repos.length
-                  ? 'Hier ist gerade Ruhe'
-                  : 'Noch keine Repositories ausgewählt'}
-              text={needsAccount
-                ? accountSelectionNotice ||
-                  'Öffne die Einstellungen und wähle dort Konto und Anmeldequelle. Repository-Starts bleiben an ihr Konto gebunden.'
-                : query
-                  ? 'Für diese Suche gibt es keine Runs.'
-                  : repos.length
-                    ? 'Für diesen Filter gibt es keine Runs.'
-                    : 'Wähle Repositories in den Einstellungen aus.'}
-              action={needsAccount
-                ? {
-                    label: 'Konto in Einstellungen wählen',
-                    icon: 'arrow',
-                    run: openSettings,
-                  }
-                : !repos.length
-                  ? {
-                      label: 'Repositories auswählen',
-                      icon: 'arrow',
-                      run: openSettings,
-                    }
-                  : undefined}
-            />{/each}
-        </div>
+        <ActivityView
+          {runs}
+          {filter}
+          {expanded}
+          {activeRuns}
+          {failedRuns}
+          {demo}
+          {native}
+          {needsAccount}
+          hasAccounts={!!snapshot.accounts.length}
+          hasRepos={repos.length > 0}
+          searching={!!query}
+          accountNotice={accountSelectionNotice}
+          {repoName}
+          {repoAccountName}
+          onFilter={(next) => (filter = next)}
+          onToggle={(id) => (expanded = expanded === id ? null : id)}
+          onOpenSettings={openSettings}
+          onLinkError={warn}
+        />
       {:else}
         <div class="section-heading launch-heading">
           <h2><Icon name="heart" size={14} />Deine Favoriten</h2>
