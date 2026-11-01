@@ -111,34 +111,6 @@ export function visibleRuns(
     );
 }
 
-export function groupedRuns(
-  snapshot: Snapshot,
-  accountId: string,
-  query: string,
-  filter: ActivityFilter,
-) {
-  const visible = visibleRuns(snapshot, accountId, query, filter);
-  const active = visibleRuns(snapshot, accountId, query, 'active');
-  return snapshot.repos
-    .flatMap((repo) => {
-      const runs = visible.filter((run) => run.repoId === repo.id);
-      if (!runs.length) return [];
-      return [
-        {
-          repo,
-          runs,
-          activeCount: active.filter((run) => run.repoId === repo.id).length,
-        },
-      ];
-    })
-    .sort(
-      (a, b) =>
-        b.activeCount - a.activeCount ||
-        Date.parse(b.runs[0].createdAt) - Date.parse(a.runs[0].createdAt) ||
-        fullRepo(a.repo).localeCompare(fullRepo(b.repo)),
-    );
-}
-
 /** Run time as `m:ss min` (German UI), e.g. `0:42 min` or `12:05 min`. */
 export function duration(run: Run): string {
   const seconds = Math.max(

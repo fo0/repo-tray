@@ -3,7 +3,6 @@ import fixture from '../../fixtures/demo.json';
 import { fullRepo } from './model';
 import {
   duration,
-  groupedRuns,
   historyRuns,
   HISTORY_LIMIT,
   isActive,
@@ -55,24 +54,6 @@ describe('activity model', () => {
     expect(
       historyRuns(data, 'demo-work', '', 'all').map((run) => run.repoId),
     ).toEqual(['demo-team-tools']);
-  });
-  it('groups full repository names with live counts and sorts active repositories first', () => {
-    const data = snapshot();
-    const groups = groupedRuns(data, '', '', 'all');
-    expect(
-      groups.map((group) => [fullRepo(group.repo), group.activeCount]),
-    ).toEqual([
-      ['demo-dev/launch-kit-demo', 2],
-      ['example-org/runner-tools-demo', 1],
-      ['demo-dev/website-demo', 0],
-    ]);
-    expect(groups[0].runs.map((run) => run.id)).toEqual([8402, 8401, 8405]);
-    expect(
-      groupedRuns(data, 'demo-work', '', 'all').map((group) => group.repo.id),
-    ).toEqual(['demo-team-tools']);
-    expect(
-      groupedRuns(data, '', '', 'failed').map((group) => group.repo.id),
-    ).toEqual(['demo-personal-site']);
   });
   it('filters selected repos, full owner/repo, accounts and activity states', () => {
     const data = snapshot();
