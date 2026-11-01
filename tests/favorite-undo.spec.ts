@@ -140,6 +140,6 @@ test('removing the last pinned favorite with the keyboard focuses the view tab',
   await notice.getByRole('button', { name: 'Rückgängig', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(
-    pinned.getByRole('button', { name: 'Favorit Windows build öffnen…' }),
+    pinned.getByRole('button', { name: 'Favorit Windows build starten…' }),
   ).toBeFocused();
 });

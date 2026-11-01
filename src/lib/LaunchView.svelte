@@ -6,7 +6,6 @@
   import { plural } from './format';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
-  import { blockedReason } from './startReason';
   import type { Pin, Repo, Workflow } from './types';
 
   let {
@@ -39,7 +38,6 @@
     /** Opens the missing step: connect, account or repositories. */
     onOpenSettings: () => void;
   } = $props();
-  const blocked = $derived(blockedReason(panel.snapshot));
   const needsAccount = $derived(panel.needsAccount);
   const hasAccounts = $derived(!!panel.snapshot?.accounts.length);
 </script>
@@ -56,9 +54,7 @@
       repo={repoName(pin.repoId)}
       account={accountName(pin.accountId)}
       demo={panel.demo}
-      starting={panel.starts.isRunning(pin)}
-      busy={panel.pinsBusy}
-      {blocked}
+      gate={panel.starts.favoriteGate(pin)}
       onLaunch={() => modals.launchPin(pin)}
       onConfigure={() => modals.openDispatch(pin)}
       onRemove={() => panel.favorites.remove(pin.id)}
@@ -84,6 +80,7 @@
   repos={launchRepos}
   {workflowsFor}
   uncertainRefs={panel.starts.uncertainRefs}
+  gate={panel.starts.gate}
   onOpen={(workflow) => modals.openDispatch(undefined, workflow)}
 />
 {#if searching && !pins.length && !launchRepos.length}<EmptyState

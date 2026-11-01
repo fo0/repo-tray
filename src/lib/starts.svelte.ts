@@ -2,11 +2,18 @@ import type { Bridge } from './demo';
 import { errorMessage } from './format';
 import { targetKey, validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
-import { START_REASONS } from './startReason';
+import {
+  START_REASONS,
+  startGate,
+  targetCauses,
+  type StartControl,
+  type StartGate,
+} from './startReason';
 import type {
   DispatchOutcome,
   DispatchRequest,
   DispatchTarget,
+  Pin,
   Snapshot,
   UncertainStart,
 } from './types';
@@ -67,11 +74,9 @@ export class Starts {
   isQuarantined = (target: DispatchTarget) =>
     this.claims.has(targetKey(target));
   /**
-   * The claim a release confirms: the persisted one exactly as the snapshot
-   * reported it, else this session's own lock without a claim time (a thrown
-   * start the service may never have persisted). The service releases only
-   * an exact match and refuses while a newer claim exists, so the latter
-   * never removes a claim the user has not seen.
+   * The claim a release confirms: the persisted one as reported, else the
+   * session's own lock without a time (a thrown start, maybe never persisted;
+   * the service refuses it while a newer claim exists).
    */
   claimFor = (target: DispatchTarget): UncertainStart | undefined => {
     const key = targetKey(target);
@@ -81,10 +86,7 @@ export class Starts {
     const own = this.#session.get(key);
     return persisted ?? (own && { ...own, claimedAt: null });
   };
-  /**
-   * Refs with a locked start of one repository, or of one of its workflows,
-   * for warning markers on repository and workflow rows.
-   */
+  /** Locked refs of one repository or workflow, for the rows' warning markers. */
   uncertainRefs = (scope: {
     accountId: string;
     repoId: string;
@@ -99,6 +101,19 @@ export class Starts {
             claim.workflowId === scope.workflowId),
       )
       .map((claim) => claim.ref);
+  /** What a target's controls may do, by the one rule of `startGate`. */
+  gate = (target: DispatchTarget, control: StartControl = 'workflow') =>
+    startGate(
+      {
+        ...targetCauses(this.#panel.snapshot, target),
+        running: this.isRunning(target),
+        uncertain: this.isQuarantined(target),
+        busy: this.#panel.pinsBusy,
+      },
+      control,
+    );
+  favoriteGate = (pin: Pin): StartGate =>
+    this.gate(pin, pin.quickStart ? 'quick' : 'favorite');
   isReleasing = (target: DispatchTarget) =>
     this.releasing.has(targetKey(target));
   isRunning = (target: DispatchTarget) => this.running.has(targetKey(target));
@@ -112,10 +127,9 @@ export class Starts {
   }
 
   /**
-   * Drops this session's locks of accounts a snapshot no longer lists, as
-   * the service deletes a disconnected account's claims: the disconnect
-   * confirmation warns that its starts are unlocked then, and reconnecting
-   * the same account must not bring back a lock nothing can release.
+   * Drops session locks of accounts a snapshot no longer lists, as the
+   * service deletes a disconnected account's claims (its confirmation warns);
+   * a reconnect must not bring back a lock nothing can release.
    */
   retainAccounts(snapshot: Snapshot) {
     const ids = new Set(snapshot.accounts.map((account) => account.id));

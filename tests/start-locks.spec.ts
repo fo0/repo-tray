@@ -40,6 +40,21 @@ test('a running start locks only its own target in every list', async ({
   const develop = templateCard(page, 'Develop build');
   await expect(main.locator('.pin-start')).toBeDisabled();
   await expect(develop.locator('.pin-start')).toBeEnabled();
+  // Removing follows the same rule as the pinned row and the heart.
+  await expect(
+    main.getByRole('button', { name: 'Favorit Windows build entfernen' }),
+  ).toBeDisabled();
+  await expect(
+    develop.getByRole('button', { name: 'Favorit Develop build entfernen' }),
+  ).toBeEnabled();
+  // The workflow list opens a target's dialog like the repository row does.
+  const workflowItem = (name: string) =>
+    page.locator('.workflow-item').filter({ hasText: name });
+  await expect(workflowItem('Desktop build')).toBeDisabled();
+  await expect(workflowItem('Desktop build')).toHaveAccessibleDescription(
+    'Start läuft …',
+  );
+  await expect(workflowItem('Runner health')).toBeEnabled();
 
   // Repositories tab: pinned favorites and workflow rows follow the target.
   await page.getByRole('button', { name: 'Repositories', exact: true }).click();
@@ -76,6 +91,12 @@ test('a running start locks only its own target in every list', async ({
   await expect(
     pinnedRow('Windows build').locator('.pinned-start'),
   ).toBeEnabled();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await expect(workflowItem('Desktop build')).toBeEnabled();
+  await expect(
+    main.getByRole('button', { name: 'Favorit Windows build entfernen' }),
+  ).toBeEnabled();
+  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
   await expect(
     kit.getByRole('button', { name: 'Desktop build starten…', exact: true }),
   ).toBeEnabled();

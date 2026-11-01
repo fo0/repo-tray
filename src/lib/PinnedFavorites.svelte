@@ -1,17 +1,15 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { plural } from './format';
-  import { START_REASONS, startReason } from './startReason';
-  import type { DispatchTarget, Pin } from './types';
+  import { favoriteNames, type StartGate } from './startReason';
+  import type { Pin } from './types';
 
   let {
     pins,
     isUncertain,
     repoName,
     accountName,
-    isStarting,
-    busy,
-    blocked,
+    gate,
     onConfigure,
     onRemove,
     onLaunch,
@@ -21,11 +19,8 @@
     isUncertain: (pin: Pin) => boolean;
     repoName: (repoId: string) => string;
     accountName: (accountId: string) => string;
-    /** A start for this target is running; only that target is locked. */
-    isStarting: (target: DispatchTarget) => boolean;
-    busy: boolean;
-    /** Why starts are off for every target (offline, forbidden); null otherwise. */
-    blocked: string | null;
+    /** What a favorite's controls may do right now (`Starts.gate`). */
+    gate: (pin: Pin) => StartGate;
     onConfigure: (pin: Pin) => void;
     onRemove: (pinId: string) => void;
     onLaunch: (pin: Pin) => void;
@@ -41,20 +36,17 @@
     <div class="pinned-list">
       {#each pins as pin (pin.id)}
         {@const uncertain = isUncertain(pin)}
-        {@const starting = isStarting(pin)}
-        {@const reason = pin.quickStart
-          ? startReason({ blocked, running: starting, uncertain })
-          : startReason({ running: starting })}
+        {@const can = gate(pin)}
+        {@const names = favoriteNames(pin.label)}
         <!-- `data-pin-*` lets focus move to a neighbour or a restored card. -->
         <article class="pinned-action" class:uncertain data-pin-id={pin.id}>
           <button
             class="pinned-copy"
             onclick={() => onConfigure(pin)}
-            aria-label={`Favorit ${pin.label} öffnen…`}
-            title={starting
-              ? START_REASONS.running
-              : `${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
-            disabled={starting}
+            aria-label={names.open}
+            title={can.openReason ??
+              `${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
+            disabled={!can.canOpen}
           >
             <strong>{pin.label}</strong>
             <small
@@ -73,20 +65,22 @@
           <button
             class="icon-button pinned-remove"
             data-pin-remove
-            aria-label={`Favorit ${pin.label} entfernen`}
+            aria-label={names.remove}
             title="Favorit entfernen"
-            disabled={busy || starting}
+            disabled={!can.canRemove}
             onclick={() => onRemove(pin.id)}
             ><Icon name="heart" size={15} /></button
           >
+          <!-- Without quick start this chip opens the same dialog as the
+               row: one control for assistive tech and the keyboard. -->
           <button
             class="action-start pinned-start"
             onclick={() => onLaunch(pin)}
-            disabled={!!reason}
-            aria-label={pin.quickStart
-              ? undefined
-              : `Favorit ${pin.label} starten…`}
-            title={reason ??
+            disabled={!can.canStart}
+            aria-label={pin.quickStart ? undefined : names.open}
+            aria-hidden={pin.quickStart ? undefined : 'true'}
+            tabindex={pin.quickStart ? undefined : -1}
+            title={can.reason ??
               (pin.quickStart
                 ? 'Ohne Bestätigung mit den gespeicherten Eingaben starten'
                 : 'Gespeicherte Eingaben prüfen und starten')}

@@ -1,12 +1,15 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { fullRepo } from './model';
-  import type { Repo, Workflow } from './types';
+  import { workflowTarget } from './pins';
+  import type { StartGate } from './startReason';
+  import type { DispatchTarget, Repo, Workflow } from './types';
 
   let {
     repos,
     workflowsFor,
     uncertainRefs,
+    gate,
     onOpen,
   }: {
     repos: Repo[];
@@ -18,6 +21,8 @@
       repoId: string;
       workflowId: number;
     }) => string[];
+    /** What a target's controls may do; a running start keeps its dialog shut. */
+    gate: (target: DispatchTarget) => StartGate;
     onOpen: (workflow: Workflow) => void;
   } = $props();
 </script>
@@ -35,7 +40,11 @@
             accountId: repo.accountId,
             repoId: repo.id,
             workflowId: workflow.id,
-          })}<button class="workflow-item" onclick={() => onOpen(workflow)}
+          })}{@const open = gate(workflowTarget(repo, workflow))}<button
+          class="workflow-item"
+          onclick={() => onOpen(workflow)}
+          disabled={!open.canOpen}
+          title={open.openReason ?? undefined}
           ><span class="workflow-copy"
             ><strong
               >{workflow.name}{#if locked.length}<span

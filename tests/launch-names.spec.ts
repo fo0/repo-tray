@@ -46,11 +46,16 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
   );
   expect(new Set(repositories).size).toBe(repositories.length);
   expect(repositories).not.toContain('');
+  // The row and its chip open the same dialog: one name, one control for
+  // assistive tech.
+  const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await expect(
-    page
-      .getByRole('region', { name: 'Favoriten', exact: true })
-      .getByRole('button', { name: 'Favorit Windows build öffnen…' }),
-  ).toBeVisible();
+    pinned.getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    }),
+  ).toHaveClass(/pinned-copy/);
+  await expect(pinned.getByRole('button', { name: /öffnen/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   const favorites = await startNames(page);

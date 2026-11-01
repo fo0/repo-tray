@@ -4,7 +4,7 @@
   import { fullRepo } from './model';
   import { workflowTarget } from './pins';
   import { statusLabel, type repositoryActivity } from './runs';
-  import { START_REASONS, startReason } from './startReason';
+  import type { StartGate } from './startReason';
   import type { DispatchTarget, Pin, Workflow } from './types';
 
   let {
@@ -12,9 +12,7 @@
     onopen,
     onfavorite,
     favorite,
-    busy,
-    isStarting,
-    blocked,
+    gate,
     uncertainRefs,
     expanded,
     onToggle,
@@ -23,11 +21,8 @@
     onopen: (workflow: Workflow) => void;
     onfavorite: (workflow: Workflow) => void;
     favorite: (workflow: Workflow) => Pin | undefined;
-    busy: boolean;
-    /** A start for this target is running; only that target is locked. */
-    isStarting: (target: DispatchTarget) => boolean;
-    /** Why starts are off for every target (offline, forbidden); null otherwise. */
-    blocked: string | null;
+    /** What a target's controls may do right now (`Starts.gate`). */
+    gate: (target: DispatchTarget) => StartGate;
     /** Refs with a locked start in a repository or one of its workflows. */
     uncertainRefs: (scope: {
       accountId: string;
@@ -96,15 +91,9 @@
             repoId: group.repo.id,
             workflowId: workflow.id,
           })}
-          {@const starting = isStarting(workflowTarget(group.repo, workflow))}
+          {@const can = gate(workflowTarget(group.repo, workflow))}
           {@const unavailable =
             !workflow.dispatch || group.repo.permission !== 'write'}
-          {@const reason = startReason({
-            manual: !workflow.dispatch,
-            readOnly: group.repo.permission !== 'write',
-            blocked,
-            running: starting,
-          })}
           {@const detail = !workflow.dispatch
             ? 'Kein manueller Start'
             : group.repo.permission !== 'write'
@@ -115,8 +104,8 @@
               class="action-copy"
               onclick={() => onopen(workflow)}
               aria-label={`${workflow.name} · ${detail}${locked.length ? ` · Startstatus ungeklärt (${locked.join(', ')})` : ''}`}
-              title={starting ? START_REASONS.running : undefined}
-              disabled={starting}
+              title={can.openReason ?? undefined}
+              disabled={!can.canOpen}
             >
               <span class="action-dot"></span>
               <span
@@ -133,12 +122,11 @@
               aria-label={`${workflow.name} ${pin ? 'aus Favoriten entfernen' : 'als Favorit speichern'}`}
               title={unavailable
                 ? 'Favoriten brauchen einen manuell startbaren Workflow mit Schreibzugriff'
-                : starting
-                  ? START_REASONS.running
-                  : pin
+                : (can.openReason ??
+                  (pin
                     ? `Favorit „${pin.label}“ entfernen`
-                    : 'Mit Standardwerten als Favorit speichern'}
-              disabled={busy || starting || unavailable}
+                    : 'Mit Standardwerten als Favorit speichern'))}
+              disabled={!can.canRemove || unavailable}
               onclick={() => onfavorite(workflow)}
             >
               <Icon name="heart" size={17} />
@@ -147,8 +135,8 @@
               class="action-start"
               onclick={() => onopen(workflow)}
               aria-label={`${workflow.name} starten…`}
-              title={reason ?? 'Branch oder Tag und Eingaben wählen'}
-              disabled={!!reason}
+              title={can.reason ?? 'Branch oder Tag und Eingaben wählen'}
+              disabled={!can.canStart}
             >
               <Icon name="play" size={12} />Starten…
             </button>

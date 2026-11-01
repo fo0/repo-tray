@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import UncertainStartHelp from './UncertainStartHelp.svelte';
-  import { startReason } from './startReason';
+  import { favoriteNames, type StartGate } from './startReason';
   import type { Pin } from './types';
 
   let {
@@ -10,9 +10,7 @@
     repo,
     account,
     demo,
-    starting,
-    busy,
-    blocked,
+    gate,
     onLaunch,
     onConfigure,
     onRemove,
@@ -25,21 +23,13 @@
     /** Account display name. */
     account: string;
     demo: boolean;
-    /** A start for this favorite's target is running. */
-    starting: boolean;
-    busy: boolean;
-    /** Why starts are off for every target (offline, forbidden); null otherwise. */
-    blocked: string | null;
+    /** What this favorite's controls may do right now (`Starts.gate`). */
+    gate: StartGate;
     onLaunch: () => void;
     onConfigure: () => void;
     onRemove: () => void;
   } = $props();
-  /** A quick start is refused for the same causes as a dialog start. */
-  const reason = $derived(
-    pin.quickStart
-      ? startReason({ blocked, running: starting, uncertain })
-      : startReason({ running: starting }),
-  );
+  const names = $derived(favoriteNames(pin.label));
 </script>
 
 <!-- `data-pin-*` lets focus move to a neighbour or a restored card. -->
@@ -75,27 +65,27 @@
     <button
       class="pin-start"
       onclick={() => onLaunch()}
-      disabled={!!reason}
-      title={reason ?? undefined}
-      aria-label={pin.quickStart ? undefined : `Favorit ${pin.label} starten…`}
+      disabled={!gate.canStart}
+      title={gate.reason ?? undefined}
+      aria-label={pin.quickStart ? undefined : names.open}
       ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={13} />{pin.quickStart
         ? 'Schnellstart'
         : 'Starten…'}</button
     >
     {#if pin.quickStart}<button
         class="icon-button pin-configure"
-        aria-label={`Favorit ${pin.label} starten…`}
-        title={starting ? startReason({ running: true }) : 'Starten…'}
+        aria-label={names.open}
+        title={gate.openReason ?? 'Starten…'}
         onclick={() => onConfigure()}
-        disabled={starting}><Icon name="settings" size={14} /></button
+        disabled={!gate.canOpen}><Icon name="settings" size={14} /></button
       >{/if}
     <button
       class="icon-button small delete-pin"
       data-pin-remove
-      aria-label={`Favorit ${pin.label} entfernen`}
+      aria-label={names.remove}
       title="Favorit entfernen"
       onclick={() => onRemove()}
-      disabled={busy}><Icon name="trash" size={14} /></button
+      disabled={!gate.canRemove}><Icon name="trash" size={14} /></button
     >
   </div>
 </article>

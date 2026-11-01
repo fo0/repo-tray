@@ -5,7 +5,6 @@
   import type { Modals } from './modals.svelte';
   import type { repositoryActivity } from './runs';
   import type { Panel } from './panel.svelte';
-  import { blockedReason } from './startReason';
   import type { Pin } from './types';
 
   let {
@@ -32,7 +31,6 @@
     onClearQuery: () => void;
     onOpenSettings: () => void;
   } = $props();
-  const blocked = $derived(blockedReason(panel.snapshot));
   const needsAccount = $derived(panel.needsAccount);
   const hasAccounts = $derived(!!panel.snapshot?.accounts.length);
 </script>
@@ -42,9 +40,7 @@
   isUncertain={panel.starts.isQuarantined}
   {repoName}
   {accountName}
-  isStarting={panel.starts.isRunning}
-  busy={panel.pinsBusy}
-  {blocked}
+  gate={panel.starts.favoriteGate}
   onConfigure={(pin) => modals.openDispatch(pin)}
   onRemove={panel.favorites.remove}
   onLaunch={modals.launchPin}
@@ -58,9 +54,7 @@
   onopen={(workflow) => modals.openDispatch(undefined, workflow)}
   onfavorite={(workflow) => void modals.toggleFavorite(workflow)}
   favorite={panel.favorites.find}
-  busy={panel.pinsBusy}
-  isStarting={panel.starts.isRunning}
-  {blocked}
+  gate={panel.starts.gate}
   uncertainRefs={panel.starts.uncertainRefs}
   expanded={panel.expandedRepos}
   onToggle={panel.toggleRepo}
