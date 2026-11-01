@@ -346,7 +346,7 @@ test('native invalid token is rejected and disconnect removes the account view',
   await login(page);
   await page.getByRole('button', { name: /^demo-dev.*trennen$/ }).click();
   await page
-    .getByRole('group', { name: 'demo-dev trennen?' })
+    .getByRole('group', { name: /^demo-dev · .+ trennen\?$/ })
     .getByRole('button', { name: 'Trennen', exact: true })
     .click();
   await expect(

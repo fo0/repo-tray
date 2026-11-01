@@ -138,7 +138,7 @@ async function disconnect(page: Page, title: string) {
     .getByRole('button', { name: `${title} trennen`, exact: true })
     .click();
   await page
-    .getByRole('group', { name: 'fixture-user trennen?' })
+    .getByRole('group', { name: `${title} trennen?`, exact: true })
     .getByRole('button', { name: 'Trennen', exact: true })
     .click();
 }
