@@ -4,7 +4,10 @@ Temporary working context. **Clean up aggressively — delete when resolved.**
 
 ## Current Work
 
-_(nothing in progress)_
+**Orca objective** — Best-practice audit across backend, frontend, logic, UX/comfort, texts, system functions (updater, autostart, tray, release/CI) and quality; fix confirmed findings, one PR, CI once at the end, merge without release (2026-11-01, #8)
+
+- Out of scope: releases (`[release]`), new runtime dependencies, re-enabling browser sign-in, signing.
+- CI guard: branch pushes do not trigger Checks (push only on `main`); open the PR only at the end.
 
 ## Open Questions
 
