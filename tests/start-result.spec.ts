@@ -70,7 +70,7 @@ test('closing the start dialog while its opener is locked moves focus to the ove
 }) => {
   await openPage(page, 'overview');
   await holdStarts(page);
-  // The pinned row opens the dialog and is disabled while its target starts.
+  // The tile's name opens the dialog and is disabled while its target starts.
   await page
     .getByRole('region', { name: 'Favoriten', exact: true })
     .getByRole('button', {

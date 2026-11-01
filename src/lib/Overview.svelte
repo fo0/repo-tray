@@ -12,9 +12,9 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import EmptyState, { type NextStep } from './EmptyState.svelte';
+  import FavoriteTiles from './FavoriteTiles.svelte';
   import Icon from './Icon.svelte';
   import LiveRuns from './LiveRuns.svelte';
-  import PinnedFavorites from './PinnedFavorites.svelte';
   import RepositoryList from './RepositoryList.svelte';
   import SectionHeader from './SectionHeader.svelte';
   import type { Modals } from './modals.svelte';
@@ -114,7 +114,7 @@
       icon="heart"
       onMaximize={() => void view.open('favorites')}
     />
-    {#if pins.length}<PinnedFavorites
+    {#if pins.length}<FavoriteTiles
         pins={shownPins}
         isUncertain={panel.starts.isQuarantined}
         {repoName}

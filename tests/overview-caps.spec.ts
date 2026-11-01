@@ -95,9 +95,7 @@ test.describe('capped overview', () => {
     page,
   }) => {
     await expect(section(page, 'runs').getByRole('listitem')).toHaveCount(3);
-    await expect(
-      section(page, 'favorites').locator('.pinned-action'),
-    ).toHaveCount(4);
+    await expect(section(page, 'favorites').locator('.tile')).toHaveCount(4);
     await expect(
       section(page, 'repos').locator('.repository-card'),
     ).toHaveCount(6);
@@ -145,9 +143,7 @@ test.describe('capped overview', () => {
   test('a search lifts the caps', async ({ page }) => {
     await page.getByLabel('Übersicht durchsuchen').fill('cap');
     await expect(section(page, 'runs').getByRole('listitem')).toHaveCount(5);
-    await expect(
-      section(page, 'favorites').locator('.pinned-action'),
-    ).toHaveCount(6);
+    await expect(section(page, 'favorites').locator('.tile')).toHaveCount(6);
     await expect(
       section(page, 'repos').locator('.repository-card'),
     ).toHaveCount(8);

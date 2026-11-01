@@ -6,7 +6,11 @@ import {
   historyRuns,
   HISTORY_LIMIT,
   isActive,
+  recentRuns,
+  recentSummary,
   repositoryActivity,
+  repositoryStatus,
+  runTone,
   statusLabel,
   visibleRuns,
 } from './runs';
@@ -120,5 +124,164 @@ describe('activity model', () => {
         updatedAt: updatedAt.toISOString(),
       }),
     ).toBe(label);
+  });
+});
+
+describe('run strip', () => {
+  const run = (id: number, createdAt: string, patch: Partial<Run> = {}) => ({
+    ...snapshot().runs[4]!,
+    id,
+    repoId: 'strip-repo',
+    createdAt,
+    updatedAt: createdAt,
+    ...patch,
+  });
+  const ids = (cells: (Run | null)[]) => cells.map((cell) => cell?.id ?? null);
+
+  it('pads the demo repositories with empty cells, newest run last', () => {
+    const data = snapshot();
+    expect(ids(recentRuns(data, 'demo-personal-kit'))).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+      8405,
+      8401,
+      8402,
+    ]);
+    expect(ids(recentRuns(data, 'demo-personal-site'))).toEqual([
+      ...Array(7).fill(null),
+      8404,
+    ]);
+    expect(recentRuns(data, 'demo-extra')).toEqual(Array(8).fill(null));
+    // The repository rows carry their strip.
+    expect(
+      ids(
+        repositoryActivity(data, '', '').find(
+          ({ repo }) => repo.id === 'demo-team-tools',
+        )!.recent,
+      ),
+    ).toEqual([...Array(7).fill(null), 8403]);
+  });
+
+  it('names open runs first in the repository status line', () => {
+    const data = snapshot();
+    data.repos[3]!.selected = true;
+    const status = (repoId: string) =>
+      repositoryActivity(data, '', '').find(({ repo }) => repo.id === repoId)!
+        .status;
+    // One running and one queued: both count, the running tone leads.
+    expect(status('demo-personal-kit')).toEqual({
+      tone: 'run',
+      label: '2 aktiv',
+    });
+    expect(status('demo-team-tools')).toEqual({
+      tone: 'wait',
+      label: 'Wartet',
+    });
+    expect(status('demo-personal-site')).toEqual({
+      tone: 'fail',
+      label: 'Fehlgeschlagen',
+    });
+    expect(status('demo-extra')).toBeNull();
+    // A run completed later does not hide the only open one.
+    Object.assign(data.runs[0]!, {
+      status: 'completed',
+      conclusion: 'success',
+    });
+    data.runs[4]!.updatedAt = '2026-10-31T10:00:00Z';
+    expect(status('demo-personal-kit')).toEqual({
+      tone: 'queue',
+      label: 'In Warteschlange',
+    });
+    // Nothing open: the latest update speaks.
+    Object.assign(data.runs[1]!, {
+      status: 'completed',
+      conclusion: 'failure',
+    });
+    expect(status('demo-personal-kit')).toEqual({
+      tone: 'ok',
+      label: 'Erfolgreich',
+    });
+    // Open runs without a running one keep the first one's tone.
+    const open = (status: Run['status']) => ({
+      ...data.runs[0]!,
+      status,
+      conclusion: null,
+    });
+    expect(
+      repositoryStatus([open('queued'), open('waiting')], undefined),
+    ).toEqual({ tone: 'queue', label: '2 aktiv' });
+  });
+
+  it('keeps the last runs by start time, not by update, ties by run number', () => {
+    const runs = Array.from({ length: 12 }, (_, index) =>
+      run(
+        100 + index,
+        new Date(Date.UTC(2026, 10, 1, 8, index)).toISOString(),
+        // Older runs updated last must not push newer starts out.
+        {
+          updatedAt: new Date(
+            Date.UTC(2026, 10, 2, 0, 12 - index),
+          ).toISOString(),
+        },
+      ),
+    );
+    runs.push(run(99, runs[11]!.createdAt));
+    expect(ids(recentRuns({ runs }, 'strip-repo'))).toEqual([
+      105, 106, 107, 108, 109, 110, 99, 111,
+    ]);
+    expect(ids(recentRuns({ runs }, 'strip-repo', 3))).toEqual([110, 99, 111]);
+    expect(recentRuns({ runs }, 'other-repo', 2)).toEqual([null, null]);
+  });
+
+  it.each([
+    ['in_progress', null, 'run'],
+    ['waiting', null, 'wait'],
+    ['queued', null, 'queue'],
+    ['completed', 'success', 'ok'],
+    ['completed', 'failure', 'fail'],
+    ['completed', 'cancelled', 'cancel'],
+    ['completed', null, 'cancel'],
+  ] satisfies [Run['status'], Run['conclusion'], string][])(
+    'classes status %s with conclusion %s as %s, like its label',
+    (status, conclusion, tone) => {
+      expect(runTone({ ...snapshot().runs[0]!, status, conclusion })).toBe(
+        tone,
+      );
+    },
+  );
+
+  it('sums the strip up in words', () => {
+    const at = '2026-11-01T08:00:00Z';
+    const done = (id: number, conclusion: Run['conclusion']) =>
+      run(id, at, { status: 'completed', conclusion });
+    expect(recentSummary(Array(8).fill(null))).toBe('Noch keine Runs');
+    expect(recentSummary([null, done(1, 'failure')])).toBe(
+      'Letzter Run: fehlgeschlagen',
+    );
+    expect(
+      recentSummary([
+        ...[1, 2, 3, 4, 5, 6].map((id) => done(id, 'success')),
+        done(7, 'failure'),
+        run(8, at, { status: 'in_progress', conclusion: null }),
+      ]),
+    ).toBe('Letzte 8 Runs: 6 erfolgreich, 1 fehlgeschlagen, 1 läuft');
+    expect(
+      recentSummary([
+        null,
+        run(1, at, { status: 'queued', conclusion: null }),
+        run(2, at, { status: 'in_progress', conclusion: null }),
+        run(3, at, { status: 'in_progress', conclusion: null }),
+        run(4, at, { status: 'waiting', conclusion: null }),
+        done(5, 'cancelled'),
+      ]),
+    ).toBe(
+      'Letzte 5 Runs: 1 abgebrochen, 2 laufen, 1 wartet, 1 in Warteschlange',
+    );
+    expect(recentSummary(recentRuns(snapshot(), 'demo-personal-kit'))).toBe(
+      'Letzte 3 Runs: 1 erfolgreich, 1 läuft, 1 in Warteschlange',
+    );
   });
 });

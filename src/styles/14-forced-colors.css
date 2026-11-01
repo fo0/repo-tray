@@ -54,10 +54,49 @@
     outline-offset: -2px;
   }
 
-  /* Pinned favourites are a filled heart. */
+  /* Favourites are a filled heart, on workflow rows and on tiles. */
   .favorite-button[aria-pressed='true'] svg,
-  .pinned-remove svg {
+  .tile .tile-heart svg {
     fill: ButtonText;
+  }
+
+  /* The round start of a tile is an accent fill: draw its ring instead. */
+  .tile .tile-start {
+    border-color: ButtonText;
+  }
+  .tile .tile-start[aria-disabled='true'] {
+    border-color: GrayText;
+    color: GrayText;
+  }
+  .tile .tile-open:focus-visible::after {
+    outline-color: Highlight;
+  }
+
+  /* Status icons sit on a tint, which disappears: keep the tile's outline. */
+  .live-run .status-tile {
+    border: 1px solid CanvasText;
+  }
+
+  /* Run strip: fills would all turn into the canvas. System colours keep the
+     cells apart: success solid, failure Mark, running Highlight, other runs
+     a text-coloured ring and empty cells a grey one. */
+  .run-strip .strip-cell[data-tone] {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+  .run-strip .strip-cell[data-tone='none'] {
+    border-color: GrayText;
+  }
+  .run-strip .strip-cell[data-tone='ok'] {
+    background: CanvasText;
+  }
+  .run-strip .strip-cell[data-tone='fail'] {
+    background: Mark;
+  }
+  .run-strip .strip-cell[data-tone='run'] {
+    border-color: Highlight;
+    background: Highlight;
   }
 
   /* Focus rings that rely on a tinted border get a system-colour outline. */

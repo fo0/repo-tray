@@ -9,15 +9,17 @@ test.beforeEach(async ({ page }) => {
 });
 
 /**
- * Accessible names of every visible „Starten…“ button; the generic
- * „Workflow starten …“ of the Favoriten page reads differently.
+ * Accessible names of every visible „Starten…“ button and of the round start
+ * buttons of favorite tiles; the generic „Workflow starten …“ of the
+ * Favoriten page reads differently.
  */
 function startNames(page: Page) {
   return page.evaluate(() =>
     [...document.querySelectorAll('button')]
       .filter(
         (button) =>
-          button.textContent?.trim() === 'Starten…' &&
+          (button.textContent?.trim() === 'Starten…' ||
+            button.classList.contains('tile-start')) &&
           button.getBoundingClientRect().height > 0,
       )
       .map((button) => button.getAttribute('aria-label') ?? ''),
@@ -47,15 +49,15 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
   );
   expect(new Set(repositories).size).toBe(repositories.length);
   expect(repositories).not.toContain('');
-  // The row and its chip open the same dialog: one name, one control for
-  // assistive tech.
+  // The tile's name and its round start open the same dialog: one name, one
+  // control for assistive tech.
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await expect(
     pinned.getByRole('button', {
       name: 'Favorit Windows build starten…',
       exact: true,
     }),
-  ).toHaveClass(/pinned-copy/);
+  ).toHaveClass(/tile-open/);
   await expect(pinned.getByRole('button', { name: /öffnen/ })).toHaveCount(0);
 
   await openPage(page, 'favorites');
@@ -67,7 +69,7 @@ test('favorites use the heart icon in headings, empty state and save summary', a
   page,
 }) => {
   // The reference: the heart that removes a favorite on the overview.
-  const heart = await page.locator('.pinned-remove svg').innerHTML();
+  const heart = await page.locator('.tile-heart svg').innerHTML();
   expect(await showsHeart(page, '#section-favorites', heart)).toBe(true);
   const dialog = await openLaunch(page);
   expect(await showsHeart(page, '.save-pin summary', heart)).toBe(true);

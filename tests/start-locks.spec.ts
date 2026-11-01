@@ -45,7 +45,7 @@ test('a running start locks only its own target in every list', async ({
   const develop = templateCard(page, 'Develop build');
   await expect(main.locator('.pin-start')).toBeDisabled();
   await expect(develop.locator('.pin-start')).toBeEnabled();
-  // Removing follows the same rule as the pinned row and the heart.
+  // Removing follows the same rule as the favorite tile and the heart.
   await expect(
     main.getByRole('button', { name: 'Favorit Windows build entfernen' }),
   ).toBeDisabled();
@@ -53,17 +53,13 @@ test('a running start locks only its own target in every list', async ({
     develop.getByRole('button', { name: 'Favorit Develop build entfernen' }),
   ).toBeEnabled();
 
-  // Overview: pinned favorites and workflow rows follow the target.
+  // Overview: favorite tiles and workflow rows follow the target.
   await openPage(page, 'overview');
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
-  const pinnedRow = (label: string) =>
-    pinned.locator('.pinned-action').filter({ hasText: label });
-  await expect(
-    pinnedRow('Windows build').locator('.pinned-start'),
-  ).toBeDisabled();
-  await expect(
-    pinnedRow('Develop build').locator('.pinned-start'),
-  ).toBeEnabled();
+  const tile = (label: string) =>
+    pinned.locator('.tile').filter({ hasText: label });
+  await expect(tile('Windows build').locator('.tile-start')).toBeDisabled();
+  await expect(tile('Develop build').locator('.tile-start')).toBeEnabled();
   const kit = page.getByRole('region', {
     name: 'demo-dev/launch-kit-demo',
     exact: true,
@@ -95,9 +91,7 @@ test('a running start locks only its own target in every list', async ({
   ).toBeEnabled();
 
   await page.clock.runFor(400);
-  await expect(
-    pinnedRow('Windows build').locator('.pinned-start'),
-  ).toBeEnabled();
+  await expect(tile('Windows build').locator('.tile-start')).toBeEnabled();
   await expect(desktopRow).toBeEnabled();
   await openPage(page, 'favorites');
   await expect(

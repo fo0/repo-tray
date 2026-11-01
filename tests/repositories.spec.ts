@@ -138,7 +138,7 @@ test('heart favorites persist and remain scoped to their original account', asyn
       exact: true,
     }),
   ).toHaveAttribute('aria-pressed', 'false');
-  await expect(pinned.locator('.pinned-action')).toHaveCount(0);
+  await expect(pinned.locator('.tile')).toHaveCount(0);
 });
 
 test('pinned favorites open the stored configuration and unpin from both views', async ({
@@ -167,7 +167,7 @@ test('pinned favorites open the stored configuration and unpin from both views',
     })
     .click();
   // The section stays, with its maximize button and a hint instead of rows.
-  await expect(pinned.locator('.pinned-action')).toHaveCount(0);
+  await expect(pinned.locator('.tile')).toHaveCount(0);
   await expect(pinned).toContainText('Noch keine Favoriten.');
   await page.locator('.repository-toggle').first().click();
   await expect(
@@ -180,7 +180,7 @@ test('pinned favorites open the stored configuration and unpin from both views',
   await expect(page.locator('.pin-card')).toHaveCount(0);
   await page.reload();
   await expect(pinned).toContainText('Noch keine Favoriten.');
-  await expect(pinned.locator('.pinned-action')).toHaveCount(0);
+  await expect(pinned.locator('.tile')).toHaveCount(0);
   await openPage(page, 'runs');
   await expect(page.getByText('#9001', { exact: true })).toHaveCount(0);
 });
@@ -240,33 +240,54 @@ for (const width of [360, 480]) {
     await toggle.focus();
     await page.keyboard.press('Enter');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    const layout = await page.evaluate(() => ({
-      overflow: document.documentElement.scrollWidth > innerWidth,
-      repoHeight: document
-        .querySelector('.repository-toggle')!
-        .getBoundingClientRect().height,
-      actionHeight: document
-        .querySelector('.repository-action')!
-        .getBoundingClientRect().height,
-      pinnedHeight: document
-        .querySelector('.pinned-action')!
-        .getBoundingClientRect().height,
-      buttons: [...document.querySelectorAll('.repository-action button')]
-        .filter((el) => el.getBoundingClientRect().height > 0)
-        .map((el) => {
-          const r = el.getBoundingClientRect();
-          return {
-            width: r.width,
-            height: r.height,
-            left: r.left,
-            right: r.right,
-          };
-        }),
-    }));
+    const layout = await page.evaluate(() => {
+      const box = (element: Element) => {
+        const r = element.getBoundingClientRect();
+        return {
+          width: r.width,
+          height: r.height,
+          left: r.left,
+          right: r.right,
+        };
+      };
+      return {
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        repoHeight: box(document.querySelector('.repository-toggle')!).height,
+        actionHeight: box(document.querySelector('.repository-action')!).height,
+        tile: box(document.querySelector('.tile')!),
+        // Every row's strip sits between its text and the chevron.
+        strips: [...document.querySelectorAll('.repository-toggle')].map(
+          (row) => ({
+            row: box(row),
+            copy: box(row.querySelector('.repository-copy')!),
+            strip: box(row.querySelector('.run-strip')!),
+            chevron: box(row.querySelector('.repository-chevron')!),
+          }),
+        ),
+        buttons: [
+          ...document.querySelectorAll(
+            '.repository-action button, .tile button',
+          ),
+        ]
+          .filter((el) => el.getBoundingClientRect().height > 0)
+          .map(box),
+      };
+    });
     expect(layout.overflow).toBe(false);
     expect(layout.repoHeight).toBeLessThanOrEqual(50);
     expect(layout.actionHeight).toBeLessThanOrEqual(38);
-    expect(layout.pinnedHeight).toBeLessThanOrEqual(44);
+    // Two tiles per row, each inside the panel.
+    expect(layout.tile.width).toBeLessThan(width / 2);
+    expect(layout.tile.width).toBeGreaterThanOrEqual(150);
+    expect(layout.tile.right).toBeLessThanOrEqual(width);
+    expect(layout.strips).toHaveLength(3);
+    for (const { row, copy, strip, chevron } of layout.strips) {
+      expect(strip.width).toBeGreaterThan(0);
+      expect(strip.left).toBeGreaterThanOrEqual(copy.right);
+      expect(strip.right).toBeLessThanOrEqual(chevron.left);
+      expect(chevron.right).toBeLessThanOrEqual(row.right);
+      expect(row.right).toBeLessThanOrEqual(width);
+    }
     for (const button of layout.buttons) {
       expect(button.width).toBeGreaterThanOrEqual(24);
       expect(button.height).toBeGreaterThanOrEqual(28);

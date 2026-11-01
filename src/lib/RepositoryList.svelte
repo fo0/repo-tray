@@ -1,9 +1,10 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import RunStrip from './RunStrip.svelte';
   import { plural } from './format';
   import { fullRepo } from './model';
   import { workflowTarget } from './pins';
-  import { statusLabel, type repositoryActivity } from './runs';
+  import { TONE_ICON, type repositoryActivity } from './runs';
   import type { StartGate } from './startReason';
   import type { DispatchTarget, Pin, Workflow } from './types';
 
@@ -49,35 +50,52 @@
       accountId: group.repo.accountId,
       repoId: group.repo.id,
     }).length}
+    {@const status = group.status}
     <section
       class="repository-card"
       class:open
       aria-label={fullRepo(group.repo)}
+      data-repo-id={group.repo.id}
     >
+      <!-- The strip sits inside the toggle, so its summary is part of what
+           the row reads when it takes focus. -->
       <button
         class="repository-toggle"
         aria-expanded={open}
         aria-controls={`actions-${group.repo.id}`}
         onclick={() => onToggle(group.repo.id)}
       >
-        <span class="repository-symbol"><Icon name="repo" size={16} /></span>
         <span class="repository-copy">
-          <strong
-            >{fullRepo(group.repo)}{#if repoLocked}{@render warning(
+          <span class="repository-title"
+            ><strong class="repository-name" title={fullRepo(group.repo)}
+              ><span class="repository-owner">{group.repo.owner}</span><span
+                class="repository-slash">/</span
+              ><span class="repository-short">{group.repo.name}</span></strong
+            >{#if repoLocked}{@render warning(
                 'Startstatus ungeklärt in diesem Repository',
-              )}{/if}</strong
+              )}{/if}</span
           >
-          <small
-            >{plural(group.workflows.length, 'Workflow', 'Workflows')}
-            <span class="meta-dot">·</span>
-            {#if group.activeCount}<span class="repository-live"
-                >{group.activeCount} aktiv</span
-              >
-            {:else if group.latest}{statusLabel(group.latest)}{:else}Noch keine
-              Aktivität{/if}
-          </small>
+          <small class="repository-meta"
+            ><span class="repository-count"
+              >{plural(group.workflows.length, 'Workflow', 'Workflows')}</span
+            ><span class="meta-dot" aria-hidden="true">·</span>{#if status}<span
+                class="repository-status"
+                data-tone={status.tone}
+                ><Icon name={TONE_ICON[status.tone]} size={12} /><span
+                  >{status.label}</span
+                ></span
+              >{:else}<span class="repository-status"
+                ><span>Noch keine Runs</span></span
+              >{/if}{#if group.repo.permission !== 'write'}<span
+                class="repository-tag"
+                >{group.repo.permission === 'read'
+                  ? 'Nur Lesen'
+                  : 'Kein Zugriff'}</span
+              >{/if}</small
+          >
         </span>
-        <Icon name={open ? 'down' : 'chevron'} size={14} />
+        <RunStrip cells={group.recent} />
+        <Icon name="chevron" size={15} class="repository-chevron" />
       </button>
       <div
         id={`actions-${group.repo.id}`}

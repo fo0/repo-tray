@@ -140,31 +140,13 @@
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
-.live-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: color-mix(in srgb, currentColor 14%, transparent);
-}
-.live-icon.run {
-  color: var(--run);
-}
-.live-icon.wait {
-  color: var(--wait);
-}
-.live-icon.queue {
-  color: var(--text-2);
-}
 .live-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 13.5px;
 }
 .live-title strong {
   font-weight: 620;
@@ -172,30 +154,6 @@
 .live-repo {
   margin-left: 4px;
   color: var(--text-3);
-}
-.live-branch {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  max-width: 34%;
-  padding: 3px 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text-2);
-  font:
-    500 var(--font-size-meta) / 1 ui-monospace,
-    monospace;
-}
-.live-branch > svg {
-  flex-shrink: 0;
-}
-.live-branch > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .live-elapsed {
   flex-shrink: 0;
