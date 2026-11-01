@@ -1,24 +1,28 @@
 //! Account-scoped SQLite storage for public preferences and cached metadata only.
 //! Credentials have no column, API, or serialization path in this module.
 
-use crate::models::{DispatchTarget, InputValue, Pin, Snapshot, UncertainStart};
-use crate::workflow::{looks_like_credential, sensitive_key, validate_non_secret_inputs};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use crate::models::{DispatchTarget, Pin, Snapshot, UncertainStart};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 use std::time::Duration;
+
+mod migrations;
+mod payload;
+
+use migrations::migrate;
+use payload::{
+    decode, encode, public_snapshot, reject_credential_strings, validate_account_id,
+    validate_identifier, validate_pin, validate_target,
+};
 
 const MAX_CACHE_BYTES: usize = 2 * 1024 * 1024;
 /// Replaces GitHub-sourced strings that look like credentials in the written cache only.
 pub const REDACTED: &str = "[entfernt]";
 /// Settings-table row for app-wide preferences; no account can use this ID.
 const APP_SETTINGS_KEY: &str = "@app";
-
-type Migration = fn(&Transaction) -> Result<(), CacheError>;
-/// Ordered schema migrations; `PRAGMA user_version` is the number already applied.
-const MIGRATIONS: &[Migration] = &[migrate_v1_baseline, migrate_v2_claims_without_etags];
 
 #[derive(Debug)]
 pub enum CacheError {
@@ -396,230 +400,6 @@ impl Cache {
         self.written.remove(account_id);
         Ok(())
     }
-}
-
-fn migrate(connection: &mut Connection) -> Result<(), CacheError> {
-    let applied: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    let applied = usize::try_from(applied).unwrap_or(usize::MAX);
-    if applied > MIGRATIONS.len() {
-        return Err(CacheError::Invalid(
-            "The local cache was written by a newer RepoTray version.".into(),
-        ));
-    }
-    for (index, migration) in MIGRATIONS.iter().enumerate().skip(applied) {
-        let transaction = connection.transaction()?;
-        migration(&transaction)?;
-        transaction.pragma_update(None, "user_version", index as i64 + 1)?;
-        transaction.commit()?;
-    }
-    Ok(())
-}
-
-/// The unversioned schema of earlier builds; a no-op for their existing databases.
-fn migrate_v1_baseline(transaction: &Transaction) -> Result<(), CacheError> {
-    transaction.execute_batch(
-        "CREATE TABLE IF NOT EXISTS dispatch_claims (target TEXT PRIMARY KEY NOT NULL);
-         CREATE TABLE IF NOT EXISTS snapshots (
-             account_id TEXT PRIMARY KEY NOT NULL,
-             payload TEXT NOT NULL,
-             etag TEXT
-         );
-         CREATE TABLE IF NOT EXISTS pins (
-             account_id TEXT NOT NULL,
-             pin_id TEXT NOT NULL,
-             payload TEXT NOT NULL,
-             PRIMARY KEY (account_id, pin_id)
-         );
-         CREATE TABLE IF NOT EXISTS settings (
-             account_id TEXT PRIMARY KEY NOT NULL,
-             payload TEXT NOT NULL
-         );
-         CREATE TABLE IF NOT EXISTS etags (
-             account_id TEXT NOT NULL,
-             resource TEXT NOT NULL,
-             value TEXT NOT NULL,
-             PRIMARY KEY (account_id, resource)
-         );",
-    )?;
-    Ok(())
-}
-
-/// Structured claims with a claim time; the never-read ETag storage is dropped.
-fn migrate_v2_claims_without_etags(transaction: &Transaction) -> Result<(), CacheError> {
-    transaction.execute_batch(
-        "DROP TABLE etags;
-         CREATE TABLE snapshots_v2 (
-             account_id TEXT PRIMARY KEY NOT NULL,
-             payload TEXT NOT NULL
-         );
-         INSERT INTO snapshots_v2 (account_id, payload) SELECT account_id, payload FROM snapshots;
-         DROP TABLE snapshots;
-         ALTER TABLE snapshots_v2 RENAME TO snapshots;
-         CREATE TABLE dispatch_claims_v2 (
-             account_id TEXT NOT NULL,
-             repo_id TEXT NOT NULL,
-             workflow_id INTEGER NOT NULL,
-             git_ref TEXT NOT NULL,
-             claimed_at TEXT,
-             PRIMARY KEY (account_id, repo_id, workflow_id, git_ref)
-         );",
-    )?;
-    let legacy: Vec<String> = {
-        let mut query = transaction.prepare("SELECT target FROM dispatch_claims")?;
-        let rows = query.query_map([], |row| row.get(0))?;
-        rows.collect::<Result<_, _>>()?
-    };
-    for target in legacy {
-        // Earlier builds always wrote `[accountId, repoId, workflowId, ref]` as JSON, so a row
-        // in any other shape never matched a claim and never locked a target.
-        if let Ok((account_id, repo_id, workflow_id, git_ref)) =
-            serde_json::from_str::<(String, String, i64, String)>(&target)
-        {
-            transaction.execute(
-                "INSERT OR IGNORE INTO dispatch_claims_v2
-                     (account_id, repo_id, workflow_id, git_ref, claimed_at)
-                 VALUES (?1, ?2, ?3, ?4, NULL)",
-                params![account_id, repo_id, workflow_id, git_ref],
-            )?;
-        }
-    }
-    transaction.execute_batch(
-        "DROP TABLE dispatch_claims;
-         ALTER TABLE dispatch_claims_v2 RENAME TO dispatch_claims;",
-    )?;
-    Ok(())
-}
-
-/// Scopes a snapshot to one account and makes it safe to store. Pins and claims are left out
-/// (they have their own tables). GitHub-sourced strings that look like credentials are
-/// redacted instead of failing the write: a workflow input named `tokenizer_model` or a
-/// description starting with "Bearer " must not break refresh for every repository.
-fn public_snapshot(account_id: &str, snapshot: &Snapshot) -> Result<Snapshot, CacheError> {
-    let account = snapshot
-        .accounts
-        .iter()
-        .find(|account| account.id == account_id)
-        .ok_or_else(|| CacheError::Invalid("Unknown cache account.".into()))?;
-    let mut scoped = snapshot.clone();
-    scoped.accounts = vec![account.clone()];
-    scoped.repos.retain(|repo| repo.account_id == account_id);
-    let repo_ids: BTreeSet<_> = scoped.repos.iter().map(|repo| repo.id.clone()).collect();
-    scoped
-        .workflows
-        .retain(|workflow| repo_ids.contains(&workflow.repo_id));
-    scoped.runs.retain(|run| repo_ids.contains(&run.repo_id));
-    scoped.pins.clear();
-    scoped.uncertain_starts.clear();
-    for input in scoped
-        .workflows
-        .iter_mut()
-        .flat_map(|workflow| &mut workflow.inputs)
-    {
-        let secret_default = matches!(
-            &input.default,
-            Some(InputValue::String(value)) if looks_like_credential(value)
-        );
-        if sensitive_key(&input.name) || secret_default {
-            input.default = None;
-        }
-        input
-            .options
-            .retain(|option| !looks_like_credential(option));
-    }
-    let mut value = serde_json::to_value(&scoped)?;
-    redact_credential_strings(&mut value);
-    Ok(serde_json::from_value(value)?)
-}
-
-fn redact_credential_strings(value: &mut serde_json::Value) {
-    match value {
-        serde_json::Value::String(text) if looks_like_credential(text) => {
-            *text = REDACTED.into();
-        }
-        serde_json::Value::Array(values) => values.iter_mut().for_each(redact_credential_strings),
-        serde_json::Value::Object(values) => {
-            values.values_mut().for_each(redact_credential_strings)
-        }
-        _ => {}
-    }
-}
-
-/// Pins are user-written, so a credential-looking value is rejected rather than redacted.
-fn validate_pin(pin: &Pin) -> Result<(), CacheError> {
-    validate_account_id(&pin.account_id)?;
-    validate_identifier(&pin.id)?;
-    validate_non_secret_inputs(&pin.inputs)
-        .map_err(|error| CacheError::Invalid(error.to_string()))?;
-    // Check all public pin strings, including a credential accidentally pasted as its label.
-    reject_credential_strings(&serde_json::to_value(pin)?)
-}
-
-fn reject_credential_strings(value: &serde_json::Value) -> Result<(), CacheError> {
-    match value {
-        serde_json::Value::String(value) if looks_like_credential(value) => {
-            Err(CacheError::Invalid(
-                "Credential-looking values cannot be stored in the local cache.".into(),
-            ))
-        }
-        serde_json::Value::Array(values) => values.iter().try_for_each(reject_credential_strings),
-        serde_json::Value::Object(values) => {
-            values.values().try_for_each(reject_credential_strings)
-        }
-        _ => Ok(()),
-    }
-}
-
-/// Returns the workflow ID as stored by SQLite.
-fn validate_target(target: &DispatchTarget) -> Result<i64, CacheError> {
-    validate_account_id(&target.account_id)?;
-    validate_identifier(&target.repo_id)?;
-    validate_identifier(&target.git_ref)?;
-    i64::try_from(target.workflow_id)
-        .ok()
-        .filter(|id| *id > 0)
-        .ok_or_else(|| CacheError::Invalid("Invalid workflow ID.".into()))
-}
-
-fn validate_account_id(value: &str) -> Result<(), CacheError> {
-    validate_identifier(value)?;
-    if value == APP_SETTINGS_KEY {
-        return Err(CacheError::Invalid(
-            "Invalid public cache identifier.".into(),
-        ));
-    }
-    Ok(())
-}
-
-fn validate_identifier(value: &str) -> Result<(), CacheError> {
-    if value.trim().is_empty()
-        || value.len() > 256
-        || value.chars().any(char::is_control)
-        || looks_like_credential(value)
-    {
-        return Err(CacheError::Invalid(
-            "Invalid public cache identifier.".into(),
-        ));
-    }
-    Ok(())
-}
-
-fn encode<T: Serialize>(value: &T) -> Result<String, CacheError> {
-    let payload = serde_json::to_string(value)?;
-    if payload.len() > MAX_CACHE_BYTES {
-        return Err(CacheError::Invalid(
-            "Cache entry exceeds the safety limit.".into(),
-        ));
-    }
-    Ok(payload)
-}
-
-fn decode<T: serde::de::DeserializeOwned>(payload: &str) -> Result<T, CacheError> {
-    if payload.len() > MAX_CACHE_BYTES {
-        return Err(CacheError::Invalid(
-            "Cache entry exceeds the safety limit.".into(),
-        ));
-    }
-    Ok(serde_json::from_str(payload)?)
 }
 
 #[cfg(test)]
