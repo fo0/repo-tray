@@ -21,12 +21,13 @@ Stable project knowledge. **Read at session start.**
 ## Gotchas & Pitfalls
 
 - **`[release]` in a `main` commit/merge message publishes a release** once Checks pass; `[publish-existing:vYYYY.MMDD.HHmm]` publishes an existing draft. Never write either unprompted. (2026-11-01)
-- **`pnpm lint` is `prettier --check .`** — it covers Markdown and JSON too. The husky pre-commit hook (`.husky/pre-commit` → lint-staged → `prettier --write --ignore-unknown`) formats staged files; it is installed by the `prepare` script on `pnpm install`. Never `--no-verify`. (2026-11-01)
+- **`pnpm lint` is `prettier --check .`** — it covers Markdown and JSON too. The husky pre-commit hook (`.husky/pre-commit` → lint-staged → `prettier --write --ignore-unknown`, `rustfmt` for `*.rs`) formats staged files; it is installed by the `prepare` script on `pnpm install`. Never `--no-verify`. (2026-11-01)
 - **`--features desktop` is built and tested only on Windows in CI** (Linux/macOS need Tauri system libraries and are unvalidated). Linux Rust checks use `--no-default-features --features network,native-credentials`; Win32 popup tests (`--features desktop --bin repotray`) run only in the CI Windows job. A Linux Windows-target compile is compilation evidence only. (2026-10-31)
 - **`release:test` skips the workflow tests without PowerShell 7** (`# SKIP Install PowerShell 7`); CI runners have it, a cloud container usually does not — a local pass there does not cover `release.yml`. (2026-11-01)
 - **`gh release view` has no `databaseId` field** — the release workflow reads releases via the REST tag endpoint instead. (2026-10-31)
 - **gh `--no-refresh` only when the installed gh supports it** — passing it unconditionally broke older gh versions during local-account discovery (`src-tauri/src/local_auth.rs` probes the command help first). (2026-10-31)
 - **Popup dismissal is generation-guarded**: blur hides after 120 ms, every tray gesture/focus/reopen bumps a generation that cancels stale hides — keep that when touching `src-tauri/src/tray_popup.rs` / `popup.rs`. (2026-10-31)
+- **Release git reads run without credentials** — checkouts use `persist-credentials: false`; `git ls-remote`/`fetch` in `release.yml` rely on the repository being public. If it goes private, pass the token explicitly to those steps. (2026-11-01)
 - **`ci/checks.yml` is an inactive historical copy**; the live workflow is `.github/workflows/checks.yml`. Edit only the latter. (2026-11-01)
 - **`docs/review/` and screenshots are gitignored** and never published; capture scripts assert demo mode. (2026-10-31)
 

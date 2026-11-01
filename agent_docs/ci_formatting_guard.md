@@ -35,6 +35,7 @@ Two things belong in the same change and are easy to forget:
 - **husky must be >= 9.1.** Its `prepare` script runs on every `npm ci`, including Docker stages that `COPY package*.json` and `RUN npm ci` **without `.git`**. From 9.1 on, a missing `.git` is a warning and exit 0; older versions abort and break the image build. Verify: run husky's bin in a non-git directory and expect exit 0.
 - **The hook file must use LF**, not CRLF — it executes on Linux and CI. Generate it with `printf`, not an editor that writes CRLF.
 - **In directory mode, a formatter silently skips files it has no parser for** (shell hooks, dotfiles), so the hook scripts themselves never break the check. Errors only occur for _explicitly named_ unknown files, and CI passes a directory — harmless, but it is why the check stays green.
+- **Rust files go through `rustfmt --edition 2021`** (lint-staged `"*.rs"`); prettier skips them as unknown. rustfmt also formats every out-of-line `mod` reachable from a staged file, so staging `src-tauri/src/lib.rs` may reformat other modules in the working tree without staging them — commit or discard those edits; CI's `cargo fmt --check` keeps the tree formatted anyway.
 - **Never bypass with `--no-verify`.**
 - The guard fires on **commit**. If commits from external GUIs are a concern, mirror it as a `pre-push` hard gate running CI's format-check.
 
