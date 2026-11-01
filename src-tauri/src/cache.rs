@@ -369,6 +369,17 @@ impl Cache {
             .optional()?)
     }
 
+    /// Removes only an account's snapshot row, for a connect whose credential was never
+    /// stored. Pins, settings and claims stay: a claim is released only by an explicit user
+    /// command.
+    pub fn delete_snapshot(&mut self, account_id: &str) -> Result<(), CacheError> {
+        validate_account_id(account_id)?;
+        self.connection
+            .execute("DELETE FROM snapshots WHERE account_id=?1", [account_id])?;
+        self.written.remove(account_id);
+        Ok(())
+    }
+
     /// Removes everything stored for an account, including its uncertain-start claims.
     pub fn delete_account(&mut self, account_id: &str) -> Result<(), CacheError> {
         validate_account_id(account_id)?;
@@ -955,6 +966,81 @@ mod tests {
         }
         assert!(Cache::open(&path).is_err());
         remove_db(&path);
+    }
+
+    #[test]
+    fn a_failing_migration_rolls_back_and_keeps_the_legacy_data() {
+        let path = temp_db("rollback");
+        let claim =
+            serde_json::to_string(&("demo-personal", "demo-personal-kit", 101, "main")).unwrap();
+        {
+            let legacy = Connection::open(&path).unwrap();
+            legacy
+                .execute_batch(
+                    "CREATE TABLE dispatch_claims (target TEXT PRIMARY KEY NOT NULL);
+                     CREATE TABLE snapshots (
+                         account_id TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL, etag TEXT);
+                     CREATE TABLE etags (account_id TEXT NOT NULL, resource TEXT NOT NULL,
+                         value TEXT NOT NULL, PRIMARY KEY (account_id, resource));
+                     -- A leftover table the v2 migration also wants to create.
+                     CREATE TABLE snapshots_v2 (conflict TEXT);",
+                )
+                .unwrap();
+            legacy
+                .execute("INSERT INTO dispatch_claims (target) VALUES (?1)", [&claim])
+                .unwrap();
+            legacy
+                .execute(
+                    "INSERT INTO snapshots (account_id, payload, etag) VALUES ('demo-personal', 'legacy', '\"e\"')",
+                    [],
+                )
+                .unwrap();
+        }
+        assert!(Cache::open(&path).is_err());
+        let after = Connection::open(&path).unwrap();
+        let version: i64 = after
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 1, "v1 committed, v2 rolled back");
+        let count = |sql: &str| -> i64 { after.query_row(sql, [], |row| row.get(0)).unwrap() };
+        assert_eq!(
+            count("SELECT COUNT(*) FROM sqlite_master WHERE name='etags'"),
+            1
+        );
+        assert_eq!(
+            count("SELECT COUNT(*) FROM sqlite_master WHERE name='dispatch_claims_v2'"),
+            0
+        );
+        let target: String = after
+            .query_row("SELECT target FROM dispatch_claims", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(target, claim);
+        let (payload, etag): (String, String) = after
+            .query_row("SELECT payload, etag FROM snapshots", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+        assert_eq!((payload.as_str(), etag.as_str()), ("legacy", "\"e\""));
+        drop(after);
+        remove_db(&path);
+    }
+
+    #[test]
+    fn deleting_a_snapshot_row_keeps_pins_settings_and_claims() {
+        let mut cache = Cache::in_memory().unwrap();
+        let snapshot = DemoStore::new().snapshot();
+        cache.save_pin("demo-personal", &snapshot.pins[0]).unwrap();
+        cache.save_snapshot("demo-personal", &snapshot).unwrap();
+        cache
+            .claim_dispatch(&target("demo-personal"), "2026-11-01T10:00:00+00:00")
+            .unwrap();
+        cache.delete_snapshot("demo-personal").unwrap();
+        assert!(cache.account_ids().unwrap().is_empty());
+        assert_eq!(cache.load_pins("demo-personal").unwrap().len(), 1);
+        assert_eq!(cache.uncertain_starts().unwrap().len(), 1);
+        // The written-payload memory is cleared, so the same payload is stored again.
+        cache.save_snapshot("demo-personal", &snapshot).unwrap();
+        assert_eq!(cache.account_ids().unwrap(), vec!["demo-personal"]);
     }
 
     #[test]
