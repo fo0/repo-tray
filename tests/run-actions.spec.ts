@@ -39,13 +39,15 @@ test('each run opens through the shell and copies its link without expanding', a
   const running = row(page, 8401);
   const toggle = running.locator('.run-button');
   const open = running.getByRole('link', {
-    name: 'Run #8401 auf GitHub öffnen',
+    name: 'Desktop build #8401 auf GitHub öffnen',
     exact: true,
   });
   const copy = running.getByRole('button', {
-    name: 'Link zu Run #8401 kopieren',
+    name: 'Link zu Desktop build #8401 kopieren',
     exact: true,
   });
+  // Every name says which run it acts on; rows of one workflow differ by id.
+  await expect(toggle).toHaveAccessibleName(/^Desktop build #8401 · /);
   await toggle.focus();
   await page.keyboard.press('Tab');
   await expect(open).toBeFocused();
@@ -76,7 +78,7 @@ test('a refused clipboard explains that the link was not copied', async ({
   await recordClipboard(page, true);
   await openNativeActivity(page);
   await row(page, 8405)
-    .getByRole('button', { name: 'Link zu Run #8405 kopieren' })
+    .getByRole('button', { name: 'Link zu Desktop build #8405 kopieren' })
     .click();
   await expect(notice(page, 'Link konnte nicht kopiert werden.')).toBeVisible();
   await expect(notice(page, 'Link kopiert.')).toHaveCount(0);
@@ -89,8 +91,8 @@ test('demo runs offer both row actions disabled with the demo hint', async ({
   await page.getByRole('button', { name: /^Aktivität/ }).click();
   const running = row(page, 8401);
   for (const name of [
-    'Run #8401 auf GitHub öffnen',
-    'Link zu Run #8401 kopieren',
+    'Desktop build #8401 auf GitHub öffnen',
+    'Link zu Desktop build #8401 kopieren',
   ]) {
     const action = running.getByRole('button', { name, exact: true });
     await expect(action).toBeDisabled();

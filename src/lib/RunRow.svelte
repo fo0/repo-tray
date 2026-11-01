@@ -71,7 +71,7 @@
     <button
       class="run-button"
       aria-expanded={expanded}
-      aria-label={`${run.name} · ${repo} · ${statusLabel(run)} · ${moment.spoken}`}
+      aria-label={`${run.name} #${run.id} · ${repo} · ${statusLabel(run)} · ${moment.spoken}`}
       onclick={() => onToggle()}
     >
       <span
@@ -111,19 +111,19 @@
     <div class="run-actions">
       {#if runUrl}<RunLink
           url={runUrl}
-          label={`Run #${run.id} auf GitHub öffnen`}
+          label={`${run.name} #${run.id} auf GitHub öffnen`}
           {native}
           onError={linkError}
           iconOnly
         />{:else}<button
           class="run-action"
           disabled
-          aria-label={`Run #${run.id} auf GitHub öffnen`}
+          aria-label={`${run.name} #${run.id} auf GitHub öffnen`}
           title={noLink}><Icon name="external" size={14} /></button
         >{/if}<button
         class="run-action"
         disabled={!runUrl}
-        aria-label={`Link zu Run #${run.id} kopieren`}
+        aria-label={`Link zu ${run.name} #${run.id} kopieren`}
         title={runUrl ? 'Link kopieren' : noLink}
         onclick={() => void copyLink()}
         ><svg
