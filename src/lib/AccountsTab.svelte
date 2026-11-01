@@ -97,7 +97,7 @@
           onchange={(event) => onChangeAccount(event.currentTarget.value)}
         >
           <option value="" disabled>Aktives Konto auswählen</option>
-          {#each accounts as account}<option value={account.id}
+          {#each accounts as account (account.id)}<option value={account.id}
               >{accountTitle(account)}</option
             >{/each}
         </select>
@@ -142,7 +142,7 @@
           aria-label="Demo-Szenario"
           value={scenario}
           onchange={(event) => chooseScenario(event.currentTarget.value)}
-          >{#each scenarios as item}<option value={item.value}
+          >{#each scenarios as item (item.value)}<option value={item.value}
               >{item.label}</option
             >{/each}</select
         ></label

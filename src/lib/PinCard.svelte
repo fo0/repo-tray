@@ -51,11 +51,13 @@
           ><Icon name="branch" size={11} />{pin.ref}</span
         >{/if}
     </div>
+    <!-- eslint-disable svelte/no-useless-mustaches -- the literal keeps the leading space Svelte trims at the start of an element -->
     <p class="pin-repo">
       {repo}<span class="pin-account" title={`Konto ${account}`}
         >{' · '}{account}</span
       >
     </p>
+    <!-- eslint-enable svelte/no-useless-mustaches -->
     <div class="pin-meta">
       {#if uncertain}<UncertainStartHelp
           id={`uncertain-help-${pin.id}`}

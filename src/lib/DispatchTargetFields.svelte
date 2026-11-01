@@ -39,7 +39,7 @@
     onchange={(event) => onRepo(event.currentTarget.value)}
     {disabled}
     >{#if !repos.length}<option value="">Keine Repositories ausgewählt</option
-      >{/if}{#each repos as repo}<option value={repo.id}
+      >{/if}{#each repos as repo (repo.id)}<option value={repo.id}
         >{fullRepo(repo)} · {accountName(repo.accountId)}</option
       >{/each}</select
   ></label
@@ -50,7 +50,7 @@
     onchange={(event) => onWorkflow(Number(event.currentTarget.value))}
     {disabled}
     >{#if !workflows.length}<option value={0}>Kein Workflow verfügbar</option
-      >{/if}{#each workflows as item}<option value={item.id}
+      >{/if}{#each workflows as item (item.id)}<option value={item.id}
         >{item.name}{!item.dispatch ? ' · kein manueller Start' : ''}</option
       >{/each}</select
   ></label
@@ -62,7 +62,7 @@
     value={gitRef}
     onchange={(event) => onRef(event.currentTarget.value)}
     {disabled}
-    >{#each workflow?.refs ?? [] as branch}<option value={branch}
+    >{#each workflow?.refs ?? [] as branch, index (index)}<option value={branch}
         >{branch}{branch === defaultBranch ? ' · Standardbranch' : ''}</option
       >{/each}</select
   ></label

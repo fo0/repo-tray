@@ -153,7 +153,7 @@
   class={className}
   aria-hidden="true"
 >
-  {#each glyphs[name] ?? glyphs.repo as shape}
+  {#each glyphs[name] ?? glyphs.repo as shape, index (index)}
     <svelte:element this={shape.tag} {...shape.attributes} />
   {/each}
 </svg>

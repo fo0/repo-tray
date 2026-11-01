@@ -81,17 +81,21 @@
     bind:value={query}
   /></label
 >
+<!-- eslint-disable svelte/no-useless-mustaches -- the literal keeps the leading space Svelte trims at the start of an element -->
 <p class="field-help">
   {plural(selected.length, 'Repository', 'Repositories')} ausgewählt{#if dirty}<span
       class="unsaved-hint">{' · noch nicht gespeichert'}</span
     >{/if}
 </p>
+<!-- eslint-enable svelte/no-useless-mustaches -->
 <div class="repo-selection">
-  {#each snapshot?.accounts ?? [] as account}<div class="selection-account">
+  {#each snapshot?.accounts ?? [] as account (account.id)}<div
+      class="selection-account"
+    >
       <span class="mini-avatar">{avatarLetter(account.login, '?')}</span
       >{account.login}<span>{account.label}</span>
     </div>
-    {#each reposOf(account.id) as repo}<label class="repo-checkbox"
+    {#each reposOf(account.id) as repo (repo.id)}<label class="repo-checkbox"
         ><input
           type="checkbox"
           value={repo.id}

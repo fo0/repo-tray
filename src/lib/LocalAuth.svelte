@@ -159,7 +159,7 @@
       >{/if}
     <div aria-live="polite">
       {#if checked}
-        {#each notices.filter((notice) => notice.startsWith('gh ') || notice.startsWith('Diese gh')) as notice}<p
+        {#each notices.filter((notice) => notice.startsWith('gh ') || notice.startsWith('Diese gh')) as notice, index (index)}<p
             class="field-help"
           >
             {notice}
@@ -173,7 +173,7 @@
               onchange={() => (consent = false)}
             >
               <option value="">Konto auswählen</option>
-              {#each accounts.filter((a) => a.usable && a.source === 'gh') as account}
+              {#each accounts.filter((a) => a.usable && a.source === 'gh') as account, index (index)}
                 <option value={account.login}
                   >{account.login} · {account.host}{account.active
                     ? ' · in gh aktiv'
@@ -205,7 +205,7 @@
             mit „gh auth login“ in der GitHub CLI an oder verbinde dich unten
             mit einem Token.
           </p>{/if}
-        {#each accounts.filter((a) => !a.usable) as account}
+        {#each accounts.filter((a) => !a.usable) as account, index (index)}
           <p class="field-help">
             <strong
               >{account.login} · {account.host} · {account.source === 'gcm'
@@ -216,9 +216,8 @@
           </p>
         {/each}
         <details>
-          <summary>Weitere lokale Quellen</summary>{#each notices as notice}<p
-              class="field-help"
-            >
+          <summary>Weitere lokale Quellen</summary
+          >{#each notices as notice, index (index)}<p class="field-help">
               {notice}
             </p>{/each}
         </details>

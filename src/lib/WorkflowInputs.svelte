@@ -40,7 +40,7 @@
       >{plural(inputs.length, 'Eingabe', 'Eingaben')}</span
     >
   </div>{/if}
-{#each inputs as input}
+{#each inputs as input (input.name)}
   {#if input.type === 'boolean'}<label class="boolean-field"
       ><span
         ><strong>{input.label}</strong><small>{TYPE_LABELS.boolean}</small
@@ -63,8 +63,8 @@
           onchange={(event) => onChange(input.name, event.currentTarget.value)}
           {disabled}
           >{#if !input.required}<option value="">Nicht gesetzt</option
-            >{/if}{#each input.options as option}<option value={option}
-              >{option}</option
+            >{/if}{#each input.options as option, index (index)}<option
+              value={option}>{option}</option
             >{/each}</select
         >{:else if input.type === 'number'}<input
           type="number"

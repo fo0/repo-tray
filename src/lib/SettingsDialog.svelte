@@ -198,7 +198,7 @@
     aria-label="Einstellungsbereiche"
     onkeydown={tabKey}
   >
-    {#each SETTINGS_TABS as item}
+    {#each SETTINGS_TABS as item (item.id)}
       <button
         id={`settings-tab-${item.id}`}
         role="tab"

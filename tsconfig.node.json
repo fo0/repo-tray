@@ -12,6 +12,7 @@
   "include": [
     "vite.config.ts",
     "playwright.config.ts",
+    "eslint.config.js",
     "src/**/*.test.ts",
     "tests/**/*.ts",
     "scripts/**/*.mjs"

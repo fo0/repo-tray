@@ -35,7 +35,7 @@ function scripts(job) {
   const start = workflow.indexOf(`  ${job}:`);
   assert.notEqual(start, -1);
   const rest = workflow.slice(start);
-  const end = rest.slice(1).search(/^  [a-z][a-z-]*:/m);
+  const end = rest.slice(1).search(/^ {2}[a-z][a-z-]*:/m);
   const block = end < 0 ? rest : rest.slice(0, end + 1);
   const lines = block.split('\n');
   const result = [];
