@@ -18,7 +18,7 @@ We will show one overview instead of tabs: **Läuft gerade** (open runs), **Favo
 The same revamp also decides:
 
 - **Inline account and repository management (step 4).** The account menu in the app bar switches accounts directly (step 1); repositories are added and removed in the panel: the page **Repositories im Tray** (opened by „+ Hinzufügen“, the empty state and a fresh connection), **Nicht im Tray** while searching and a „⋯“ menu per repository row. Every change applies at once with **Rückgängig**; the settings dialog no longer has a Repositories tab or an unsaved-selection question.
-- **Theme preference is frontend-only (step 5).** System, light or dark is stored in `localStorage` like the active account and applied before mount; it needs no IPC and no Rust change.
+- **Theme preference is frontend-only (step 5).** System, light or dark is stored in `localStorage` (`repotray.theme.v1`) like the active account and applied before mount (`src/lib/theme.ts`); „System“ is pure CSS (`prefers-color-scheme`), an explicit choice sets `data-theme` on `<html>`. It needs no IPC and no Rust change.
 - **No repository page link yet.** Opening a repository on GitHub needs an `open_repo` command, because `open_run` accepts run URLs only; recorded as BACKLOG #24.
 
 ## Consequences
@@ -49,6 +49,6 @@ The same revamp also decides:
 ## References
 
 - Issue #14 (UI revamp), plan `docs/review/ui-revamp/plan.md` (local, ignored)
-- `src/lib/view.svelte.ts`, `src/lib/PanelBody.svelte`, `src/lib/Overview.svelte`, `src/lib/shortcuts.ts`, `src/lib/focus.ts`, `src/lib/repoSelection.svelte.ts`, `src/lib/RepoPicker.svelte`
-- `tests/overview.spec.ts`, `tests/repo-picker.spec.ts`, `tests/repo-picker-native.spec.ts`, `tests/repo-menu.spec.ts`, `src/lib/view.test.ts`, `src/lib/repoSelection.test.ts`
+- `src/lib/view.svelte.ts`, `src/lib/PanelBody.svelte`, `src/lib/Overview.svelte`, `src/lib/shortcuts.ts`, `src/lib/focus.ts`, `src/lib/repoSelection.svelte.ts`, `src/lib/RepoPicker.svelte`, `src/lib/theme.ts`, `src/styles/00-tokens.css`
+- `tests/overview.spec.ts`, `tests/repo-picker.spec.ts`, `tests/repo-picker-native.spec.ts`, `tests/repo-menu.spec.ts`, `tests/theme.spec.ts`, `src/lib/view.test.ts`, `src/lib/repoSelection.test.ts`, `src/lib/theme.test.ts`, `src/lib/tokens.test.ts`
 - BACKLOG #24 (`open_repo`)

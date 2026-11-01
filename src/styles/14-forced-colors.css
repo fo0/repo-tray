@@ -39,6 +39,10 @@
     background: HighlightText;
     color: Highlight;
   }
+  /* The chosen „Darstellung“ keeps its frame; the radio itself is native. */
+  .theme-option:has(input:checked) {
+    border-color: Highlight;
+  }
 
   /* The live dot of „Läuft gerade“ is a background fill. */
   .live-dot {

@@ -12,6 +12,7 @@
   import AccountsTab from './AccountsTab.svelte';
   import Modal from './Modal.svelte';
   import StartupSettings from './StartupSettings.svelte';
+  import ThemeSetting from './ThemeSetting.svelte';
   import UpdatePanel from './UpdatePanel.svelte';
   import { errorMessage } from './format';
   import type { DemoScenario, Snapshot } from './types';
@@ -159,6 +160,7 @@
         onDisconnect={disconnect}
       />
     {:else if tab === 'app'}
+      <ThemeSetting />
       <StartupSettings {native} />
     {:else}
       <UpdatePanel

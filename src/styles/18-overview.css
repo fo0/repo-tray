@@ -83,6 +83,8 @@
 }
 .add-button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
+  /* Keeps 4.5:1 on the stronger tint in the light theme too. */
+  color: var(--accent-hover);
 }
 .add-button:disabled {
   opacity: 0.5;

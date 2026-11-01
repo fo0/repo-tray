@@ -4,10 +4,10 @@
   gap: 0;
 }
 .pin-list.has-pins {
-  border: 1px solid #465b35;
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  background: linear-gradient(110deg, #2b3624, #252d20 90%);
+  background: var(--raised);
 }
 .pin-card {
   display: grid;
@@ -19,7 +19,7 @@
   min-height: 62px;
 }
 .pin-card + .pin-card {
-  border-top: 1px solid #405131;
+  border-top: 1px solid var(--border);
 }
 .pin-content {
   display: flex;
@@ -30,7 +30,7 @@
 .pin-content h3 {
   font-size: 12px;
   font-weight: 550;
-  color: #deebd1;
+  color: var(--text);
   line-height: 16px;
   overflow-wrap: anywhere;
 }
@@ -40,7 +40,7 @@
   display: flex;
   min-width: 0;
   font-size: var(--font-size-meta);
-  color: #a0b18e;
+  color: var(--text-2);
   line-height: 14px;
   white-space: nowrap;
 }
@@ -56,7 +56,7 @@
   text-overflow: ellipsis;
   /* Keeps the leading space of „ · account“ in the flex row. */
   white-space: pre;
-  color: var(--muted-text-raised);
+  color: var(--text-3);
 }
 .pin-meta {
   display: flex;
@@ -72,15 +72,15 @@
   align-items: center;
   gap: 4px;
   font-size: var(--font-size-meta);
-  color: #b2c59e;
+  color: var(--text-2);
   overflow-wrap: anywhere;
 }
 .pin-mode {
   font-size: var(--font-size-meta);
-  color: #8da67b;
+  color: var(--text-3);
 }
 .pin-mode.quick {
-  color: #b8d995;
+  color: var(--accent);
 }
 .pin-actions {
   display: flex;
@@ -96,44 +96,44 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  background: #bddf92;
-  color: #26331a;
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 600;
   font-size: var(--font-size-meta);
   line-height: 14px;
-  border: 1px solid #cee7ad;
+  border: 1px solid var(--accent);
   border-radius: 5px;
   padding: 6px 8px;
   min-height: 32px;
   white-space: nowrap;
 }
 .pin-start:hover:not(:disabled):not([aria-disabled='true']) {
-  background: #cdecac;
+  background: var(--accent-hover);
 }
 .pin-configure {
-  color: #a4bc8d;
+  color: var(--text-2);
 }
 .delete-pin {
-  color: #839b71;
+  color: var(--text-3);
 }
 .delete-pin:hover:not(:disabled) {
-  color: #ed9c93;
+  color: var(--fail);
 }
 .empty-pins {
   display: flex;
   align-items: center;
   gap: 11px;
-  border: 1px dashed #45553a;
+  border: 1px dashed var(--border-strong);
   border-radius: 8px;
   padding: 17px 13px;
-  color: #9cb78a;
+  color: var(--text-2);
   font-size: var(--font-size-meta);
 }
 .empty-pins small {
   display: block;
   font-size: var(--font-size-meta);
   margin-top: 6px;
-  color: var(--muted-text);
+  color: var(--text-3);
 }
 .text-button {
   display: inline-flex;
@@ -141,7 +141,7 @@
   gap: 5px;
   padding: 0;
   background: transparent;
-  color: #aacd89;
+  color: var(--accent);
   font-size: var(--font-size-meta);
   font-weight: 500;
   text-decoration: none;
@@ -154,5 +154,5 @@
   inset: -10px -4px;
 }
 .text-button:hover:not(:disabled) {
-  color: #cee7b0;
+  color: var(--accent-hover);
 }

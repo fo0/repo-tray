@@ -47,6 +47,7 @@ Stable project knowledge. **Read at session start.**
 - **Agent worktrees start from local `main`**, which can be stale — reset a worktree onto the working branch before editing. (2026-11-01)
 - **The SQLite cache is versioned (`PRAGMA user_version`)** — a build refuses a newer schema, so downgrading after a migration fails at startup by design. (2026-11-01)
 - **`docs/review/` and screenshots are gitignored** and never published; capture scripts assert demo mode. (2026-10-31)
+- **Playwright emulates a light OS by default**; `playwright.config.ts` sets `colorScheme: 'dark'` so specs that assert token colors see the dark set. Light and the override live in `tests/theme.spec.ts`; capture scripts run both themes. New colors go into `src/styles/00-tokens.css` (both light blocks) — `tokens.test.ts` rejects literals elsewhere. Its contrast pairs lay one tint on an opaque surface: a tinted element inside another tint needs its own opaque base (`linear-gradient(var(--x-soft), var(--x-soft)), var(--raised)`). (2026-11-01)
 
 ## External Dependencies
 

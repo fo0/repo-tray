@@ -5,20 +5,21 @@
   display: inline-flex;
   vertical-align: -1px;
   margin-left: 5px;
-  color: var(--warning);
+  color: var(--wait);
 }
 
 /* The release question: deliberate, not destructive (InlineConfirm `caution`). */
 .inline-confirm.caution {
   margin-top: 10px;
-  border-color: #605033;
-  background: #302a1d;
+  border-color: var(--wait-line);
+  background:
+    linear-gradient(var(--wait-soft), var(--wait-soft)), var(--raised);
 }
 .inline-confirm.caution p {
-  color: #dcc391;
+  color: var(--text);
 }
 .inline-confirm.caution p strong {
-  color: #f0d39c;
+  color: var(--text);
 }
 .inline-confirm.caution .secondary-button {
   max-width: 100%;
@@ -31,7 +32,7 @@
 }
 .release-error {
   margin-top: 8px;
-  color: #e0a292;
+  color: var(--fail);
 }
 
 /* The dialog footer note while a start runs: a subtle alert of its own. */
@@ -39,9 +40,9 @@
   display: flex;
   align-items: flex-start;
   gap: 7px;
-  background: #2b3623;
-  border: 1px solid #3f5430;
-  color: #b7d298;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--text-2);
 }
 .dialog-alert.subtle svg {
   flex-shrink: 0;

@@ -1,7 +1,14 @@
 /*
- * Design tokens („Ein Blick“, lime accent). The dark set is the default and
- * lives on :root; a light set will override the same names, so components
- * read only these variables and never a theme-specific value.
+ * Design tokens („Ein Blick“, lime accent). Components read only these
+ * variables, never a theme-specific value: every colour literal of the panel
+ * lives in this file (and system colours in 14-forced-colors.css), which
+ * src/lib/tokens.test.ts enforces together with the contrast pairs below.
+ *
+ * Themes: the dark set is the default on :root. The light set applies when
+ * the OS prefers light, unless the user chose „Dunkel“; „Hell“ applies it
+ * whatever the OS prefers. src/lib/theme.ts sets `data-theme` on <html> for an
+ * explicit choice and removes it for „System“. The two light blocks must stay
+ * identical (the token test compares them).
  */
 :root {
   color-scheme: dark;
@@ -10,7 +17,7 @@
   --page: #0a0b0d;
   /* Sunken fields such as the search input. */
   --bg: #0b0b0d;
-  /* The panel itself. */
+  /* The panel itself, and dialogs. */
   --surface: #111114;
   /* Cards, menus and the account button. */
   --raised: #18181c;
@@ -18,14 +25,15 @@
   --border: #26262c;
   --border-strong: #34343c;
 
-  /* Text, at least 4.8:1 (WCAG AA) on every surface above: --text 14:1,
-     --text-2 7:1, --text-3 (metadata) 4.8:1 on --hover. */
+  /* Text, at least 4.5:1 (WCAG AA) on --surface, --raised and --hover. */
   --text: #f1f1f4;
   --text-2: #b9b9c4;
+  /* Metadata, the smallest contrast: 4.8:1 on --hover. */
   --text-3: #8d8d99;
 
   /* Accent and the text or glyph drawn on it. */
   --accent: #b5e37a;
+  --accent-hover: #c8ee97;
   --accent-soft: rgba(181, 227, 122, 0.12);
   --on-accent: #11140f;
 
@@ -36,24 +44,88 @@
   --wait: #fbbf24;
   --none: #2c2c33;
 
+  --scrollbar: #3a3a42;
+  --backdrop: rgba(5, 5, 7, 0.72);
   --shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
   --menu-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+
+  /*
+   * Derived from the tokens above, so they follow the theme without a light
+   * value of their own: tinted fills and borders for status messages and
+   * accented cards. Text on a tint uses the matching status colour.
+   */
+  --accent-line: color-mix(in srgb, var(--accent) 45%, var(--border));
+  --ok-soft: color-mix(in srgb, var(--ok) 10%, transparent);
+  --ok-line: color-mix(in srgb, var(--ok) 40%, var(--border));
+  --run-soft: color-mix(in srgb, var(--run) 10%, transparent);
+  --run-line: color-mix(in srgb, var(--run) 40%, var(--border));
+  --wait-soft: color-mix(in srgb, var(--wait) 10%, transparent);
+  --wait-line: color-mix(in srgb, var(--wait) 45%, var(--border));
+  --fail-soft: color-mix(in srgb, var(--fail) 10%, transparent);
+  --fail-soft-hover: color-mix(in srgb, var(--fail) 14%, transparent);
+  --fail-line: color-mix(in srgb, var(--fail) 45%, var(--border));
 
   /* Type scale: body text, and the smallest size metadata may use. */
   --font-size-base: 14px;
   --font-size-meta: 12px;
+}
 
-  /*
-   * Old names, kept until every style file reads the tokens above. Muted text
-   * still sits on the old green-tinted cards (up to #2b3624) there, where
-   * --text-3 drops below 4.5:1; --text-legacy-muted keeps 4.5:1 on them.
-   */
-  --text-legacy-muted: #9a9aa6;
-  --panel: var(--surface);
-  --line: var(--border);
-  --muted: var(--text-3);
-  --muted-text: var(--text-legacy-muted);
-  --muted-text-raised: var(--text-legacy-muted);
-  --danger: var(--fail);
-  --warning: var(--wait);
+/* Light: the OS prefers light and the user did not choose „Dunkel“. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --page: #dcdce2;
+    --bg: #ffffff;
+    --surface: #f6f6f8;
+    --raised: #ffffff;
+    --hover: #efeff3;
+    --border: #e1e1e7;
+    --border-strong: #c9c9d2;
+    --text: #111114;
+    --text-2: #474752;
+    --text-3: #5f5f6b;
+    --accent: #2f6a14;
+    --accent-hover: #255410;
+    --accent-soft: rgba(59, 122, 28, 0.1);
+    --on-accent: #ffffff;
+    --run: #0b63ce;
+    --ok: #187733;
+    --fail: #b81e29;
+    --wait: #8a5d00;
+    --none: #e2e2e8;
+    --scrollbar: #c4c4cc;
+    --backdrop: rgba(17, 17, 20, 0.36);
+    --shadow:
+      0 24px 60px rgba(20, 20, 40, 0.16), 0 0 0 1px rgba(20, 20, 40, 0.06);
+    --menu-shadow: 0 14px 34px rgba(20, 20, 40, 0.18);
+  }
+}
+
+/* Light: chosen in the settings („Hell“), whatever the OS prefers. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --page: #dcdce2;
+  --bg: #ffffff;
+  --surface: #f6f6f8;
+  --raised: #ffffff;
+  --hover: #efeff3;
+  --border: #e1e1e7;
+  --border-strong: #c9c9d2;
+  --text: #111114;
+  --text-2: #474752;
+  --text-3: #5f5f6b;
+  --accent: #2f6a14;
+  --accent-hover: #255410;
+  --accent-soft: rgba(59, 122, 28, 0.1);
+  --on-accent: #ffffff;
+  --run: #0b63ce;
+  --ok: #187733;
+  --fail: #b81e29;
+  --wait: #8a5d00;
+  --none: #e2e2e8;
+  --scrollbar: #c4c4cc;
+  --backdrop: rgba(17, 17, 20, 0.36);
+  --shadow:
+    0 24px 60px rgba(20, 20, 40, 0.16), 0 0 0 1px rgba(20, 20, 40, 0.06);
+  --menu-shadow: 0 14px 34px rgba(20, 20, 40, 0.18);
 }

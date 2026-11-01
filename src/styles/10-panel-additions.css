@@ -26,7 +26,7 @@
 .active-account-settings {
   padding-bottom: 16px;
   margin-bottom: 18px;
-  border-bottom: 1px solid #34432b;
+  border-bottom: 1px solid var(--border);
 }
 .active-account-settings h3 {
   margin: 0 0 8px;
@@ -36,14 +36,14 @@
   margin: 8px 0 12px;
   font-size: var(--font-size-meta);
   line-height: 1.6;
-  color: #a2b493;
+  color: var(--text-2);
 }
 .active-account-settings select {
   width: 100%;
   min-height: 36px;
 }
 .active-account-settings .account-selection-notice {
-  color: #d5c996;
+  color: var(--wait);
 }
 
 .account-semantics {

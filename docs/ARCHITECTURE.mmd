@@ -12,7 +12,8 @@ flowchart TD
         UpdaterTs["updater.svelte.ts and updates.ts"]
         Components["lib Svelte components: overview, section pages, repository picker, dialogs"]
         FocusTs["focus.ts focus trap and landing"]
-        Styles["src/styles ordered CSS"]
+        Styles["src/styles ordered CSS, dark and light tokens"]
+        ThemeTs["theme.ts theme preference"]
         Bridge["bridge.ts native or demo"]
         IpcTs["ipc.ts typed command map, only invoke"]
         ClockTs["clock.ts shared minute clock"]
@@ -95,6 +96,8 @@ flowchart TD
     Components -->|"auth, startup, links"| IpcTs
     SafeUrlTs -.->|"same rules"| RunLinksFixture
     Styles -.->|"imported by main.ts"| AppSvelte
+    ThemeTs -.->|"data-theme, applied by main.ts before mount"| Styles
+    Components -->|"Darstellung"| ThemeTs
     Bridge -->|"browser mode"| DemoTs
     DemoTs --> DemoFixture
     DemoTs --> ModelTs
@@ -160,6 +163,7 @@ flowchart TD
     click StartsTs "src/lib/starts.svelte.ts"
     click NoticesTs "src/lib/notices.svelte.ts"
     click FavoritesTs "src/lib/favorites.svelte.ts"
+    click RepoSelectionTs "src/lib/repoSelection.svelte.ts"
     click ModalsTs "src/lib/modals.svelte.ts"
     click ViewTs "src/lib/view.svelte.ts"
     click DispatchFormTs "src/lib/dispatchForm.svelte.ts"
@@ -167,6 +171,7 @@ flowchart TD
     click Components "src/lib"
     click FocusTs "src/lib/focus.ts"
     click Styles "src/styles"
+    click ThemeTs "src/lib/theme.ts"
     click Bridge "src/lib/bridge.ts"
     click IpcTs "src/lib/ipc.ts"
     click ClockTs "src/lib/clock.ts"
@@ -211,7 +216,7 @@ flowchart TD
     classDef external fill:#ff6347,stroke:#cc4f39,color:#fff
     classDef infra fill:#7b42bc,stroke:#5e338f,color:#fff
 
-    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,ModalsTs,ViewTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
+    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,RepoSelectionTs,ModalsTs,ViewTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,ThemeTs,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
     class MainRs,DesktopRs,DesktopAuth,DesktopStartup,TrayPopup,DesktopUpdates,LibRs,LiveRs,LiveMods,GithubRs,GithubMods,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,StartupRs,PopupRs,RunLinkRs,UpdatesRs,DemoRs backend
     class DemoFixture,RunLinksFixture,SQLite database
     class GitHubApi,Keyring,Releases,RunKey external

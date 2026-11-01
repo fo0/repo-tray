@@ -1,6 +1,10 @@
 /* Settings and onboarding: in-place confirmations, the account empty state
    and tab badges. */
 
+/*
+ * The danger button sits on the tinted confirmation below: an opaque fill of
+ * its own, so its text never stands on a tint over a tint (AA in both themes).
+ */
 .danger-button {
   display: inline-flex;
   align-items: center;
@@ -8,39 +12,43 @@
   gap: 7px;
   min-height: 34px;
   padding: 9px 11px;
-  border: 1px solid #a05a52;
+  border: 1px solid var(--fail-line);
   border-radius: 6px;
-  background: #5a2c27;
-  color: #ffd9d2;
+  background: var(--raised);
+  color: var(--fail);
   font-size: var(--font-size-meta);
   font-weight: 600;
   white-space: nowrap;
 }
 .danger-button:hover:not(:disabled):not([aria-disabled='true']) {
-  background: #6d342e;
+  background:
+    linear-gradient(var(--fail-soft-hover), var(--fail-soft-hover)),
+    var(--raised);
 }
 .text-button.danger-text {
-  color: #e7a596;
+  color: var(--fail);
 }
 .text-button.danger-text:hover:not(:disabled) {
-  color: #ffc4b7;
+  text-decoration: underline;
 }
 
-/* A confirmation that replaces an action in place. */
+/* A confirmation that replaces an action in place. Its tint is laid on an
+   opaque base, so it reads the same inside a tinted card (the active account). */
 .inline-confirm {
   flex-basis: 100%;
   margin-top: 4px;
   padding: 10px;
-  border: 1px solid #6b4038;
+  border: 1px solid var(--fail-line);
   border-radius: 6px;
-  background: #33241f;
+  background:
+    linear-gradient(var(--fail-soft), var(--fail-soft)), var(--raised);
   text-align: left;
 }
 .inline-confirm p {
   margin: 0 0 10px;
   font-size: var(--font-size-meta);
   line-height: 1.6;
-  color: #e3c3b9;
+  color: var(--text);
 }
 .inline-confirm p span {
   display: inline;
@@ -51,14 +59,14 @@
 .inline-confirm p .inline-confirm-warning {
   display: block;
   margin-top: 6px;
-  color: var(--warning);
+  color: var(--wait);
   font-weight: 600;
 }
 .inline-confirm p strong {
   display: block;
   margin-bottom: 2px;
   font-size: 12px;
-  color: #ffe1d9;
+  color: var(--text);
 }
 .inline-confirm-actions {
   display: flex;
@@ -101,9 +109,9 @@
   align-items: center;
   gap: 10px;
   padding: 22px 16px;
-  border: 1px solid #3d4f31;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #25301f;
+  background: var(--raised);
   text-align: center;
 }
 .account-empty-icon {
@@ -113,19 +121,19 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #34452a;
-  color: #c2e795;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .account-empty h3 {
   font-size: 13px;
   font-weight: 600;
-  color: #d8e8ca;
+  color: var(--text);
 }
 .account-empty p {
   max-width: 34ch;
   font-size: var(--font-size-meta);
   line-height: 1.6;
-  color: var(--muted-text-raised);
+  color: var(--text-3);
 }
 .account-empty .primary-button {
   margin-top: 4px;
@@ -144,17 +152,17 @@
 }
 .token-permissions li {
   padding: 7px 9px;
-  border: 1px solid #3f5131;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #26311f;
+  background: var(--raised);
   font-size: var(--font-size-meta);
   line-height: 1.5;
 }
 .token-permissions li strong {
   display: block;
-  color: #d8e8ca;
+  color: var(--text);
   font-weight: 600;
 }
 .token-permissions li span {
-  color: var(--muted-text-raised);
+  color: var(--text-3);
 }

@@ -116,3 +116,24 @@ test('favorite tiles keep their heart filled and their start outlined in forced 
     await systemColor(page, 'ButtonText'),
   );
 });
+
+test('the chosen „Darstellung“ keeps its frame in forced colors on a light OS', async ({
+  page,
+}) => {
+  await page.emulateMedia({ forcedColors: 'active', colorScheme: 'light' });
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+  await dialog.getByRole('tab', { name: 'App', exact: true }).click();
+  const choice = (name: string) =>
+    dialog.locator('.theme-option').filter({
+      has: page.getByRole('radio', { name, exact: true }),
+    });
+  await choice('Dunkel').getByRole('radio').check();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  const highlight = await systemColor(page, 'Highlight');
+  await expect(choice('Dunkel')).toHaveCSS('border-top-color', highlight);
+  await expect(choice('Hell')).not.toHaveCSS('border-top-color', highlight);
+});

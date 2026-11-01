@@ -27,14 +27,14 @@
   padding: 0;
   border-radius: 5px;
   background: transparent;
-  color: #909b8d;
+  color: var(--text-3);
   transition:
     background 0.15s,
     color 0.15s;
 }
 .run-action:hover:not(:disabled) {
-  background: #343b31;
-  color: #d7e3cd;
+  background: var(--hover);
+  color: var(--text);
 }
 .run-action:disabled {
   opacity: 0.45;
@@ -57,12 +57,12 @@
   padding: 0;
   border-radius: 5px;
   background: transparent;
-  color: var(--muted-text);
+  color: var(--text-3);
 }
 .info-button:hover,
 .info-button[aria-expanded='true'] {
-  background: #293025;
-  color: #d8dfd3;
+  background: var(--hover);
+  color: var(--text);
 }
 .run-state {
   display: flex;
@@ -72,7 +72,7 @@
 .run-time {
   font-size: var(--font-size-meta);
   line-height: 14px;
-  color: var(--muted-text);
+  color: var(--text-3);
   white-space: nowrap;
 }
 .run-ref {

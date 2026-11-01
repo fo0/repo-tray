@@ -227,18 +227,18 @@
 }
 .repository-no-actions {
   padding: 15px 3px;
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--font-size-meta);
 }
 .history-note {
   font-size: var(--font-size-meta);
-  color: #8b9980;
+  color: var(--text-3);
   line-height: 1.7;
   padding: 0 3px 13px;
 }
 .history-note .group-live-dot {
   display: inline-block;
-  background: #bddf96;
+  background: var(--accent);
   margin-right: 6px;
   vertical-align: 2px;
 }

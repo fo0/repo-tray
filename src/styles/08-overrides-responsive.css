@@ -25,7 +25,7 @@
 @media (max-width: 520px) {
   .desktop {
     padding: 0;
-    background: var(--panel);
+    background: var(--surface);
     justify-content: flex-start;
   }
   .tray {
@@ -39,7 +39,7 @@
   }
   .modal-backdrop {
     padding: 9px;
-    background: #080c08c9;
+    background: var(--backdrop);
   }
   .modal {
     max-height: calc(100dvh - 20px);

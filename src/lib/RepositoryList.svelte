@@ -74,7 +74,8 @@
       data-repo-id={group.repo.id}
     >
       <!-- The strip sits inside the toggle, so its summary is part of what
-           the row reads when it takes focus; the „⋯“ menu is its sibling. -->
+           the row reads when it takes focus; the „⋯“ menu is its sibling,
+           drawn in a slot before the chevron (20-repo-picker.css). -->
       <div class="repository-head">
         <button
           class="repository-toggle"

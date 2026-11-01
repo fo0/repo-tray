@@ -255,12 +255,13 @@ for (const width of [360, 480]) {
         repoHeight: box(document.querySelector('.repository-toggle')!).height,
         actionHeight: box(document.querySelector('.repository-action')!).height,
         tile: box(document.querySelector('.tile')!),
-        // Every row's strip sits between its text and the chevron.
+        // Every row: text, strip, „⋯“ menu, chevron last.
         strips: [...document.querySelectorAll('.repository-toggle')].map(
           (row) => ({
             row: box(row),
             copy: box(row.querySelector('.repository-copy')!),
             strip: box(row.querySelector('.run-strip')!),
+            menu: box(row.parentElement!.querySelector('.repo-menu-button')!),
             chevron: box(row.querySelector('.repository-chevron')!),
           }),
         ),
@@ -281,10 +282,11 @@ for (const width of [360, 480]) {
     expect(layout.tile.width).toBeGreaterThanOrEqual(150);
     expect(layout.tile.right).toBeLessThanOrEqual(width);
     expect(layout.strips).toHaveLength(3);
-    for (const { row, copy, strip, chevron } of layout.strips) {
+    for (const { row, copy, strip, menu, chevron } of layout.strips) {
       expect(strip.width).toBeGreaterThan(0);
       expect(strip.left).toBeGreaterThanOrEqual(copy.right);
-      expect(strip.right).toBeLessThanOrEqual(chevron.left);
+      expect(menu.left).toBeGreaterThanOrEqual(strip.right);
+      expect(menu.right).toBeLessThanOrEqual(chevron.left);
       expect(chevron.right).toBeLessThanOrEqual(row.right);
       expect(row.right).toBeLessThanOrEqual(width);
     }
