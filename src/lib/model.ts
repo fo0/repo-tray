@@ -251,27 +251,43 @@ export function safePin(snapshot: Snapshot, pin: Pin): Pin {
   };
 }
 
+const U64_MAX = 18446744073709551615n;
+
+/**
+ * Mirrors `open_run` in src-tauri/src/desktop.rs rule for rule, so the panel
+ * never shows a run link the shell would refuse: HTTPS on exactly
+ * `github.com` without port or credentials, no query or fragment (not even an
+ * empty `?` or `#`), and exactly `/<owner>/<repo>/actions/runs/<id>` where the
+ * id parses as a Rust `u64` (optional `+`, ASCII digits, at most 2^64 - 1).
+ */
 export function safeGitHubUrl(value: string): string | null {
+  let url: URL;
   try {
-    const url = new URL(value);
-    if (
-      url.protocol !== 'https:' ||
-      url.hostname !== 'github.com' ||
-      url.port ||
-      url.username ||
-      url.password
-    )
-      return null;
-    if (
-      !/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actions\/runs\/\d+\/?$/.test(
-        url.pathname,
-      )
-    )
-      return null;
-    return url.href;
+    url = new URL(value);
   } catch {
     return null;
   }
+  // `search` and `hash` read empty for a bare `?` or `#`; the serialization keeps them.
+  if (
+    url.protocol !== 'https:' ||
+    url.hostname !== 'github.com' ||
+    url.port ||
+    url.username ||
+    url.password ||
+    /[?#]/.test(url.href)
+  )
+    return null;
+  const segments = url.pathname.slice(1).split('/');
+  const id = /^\+?([0-9]+)$/.exec(segments[4] ?? '')?.[1];
+  if (
+    segments.length !== 5 ||
+    segments[2] !== 'actions' ||
+    segments[3] !== 'runs' ||
+    id === undefined ||
+    BigInt(id) > U64_MAX
+  )
+    return null;
+  return url.href;
 }
 
 /** Run time as `m:ss min` (German UI), e.g. `0:42 min` or `12:05 min`. */
