@@ -237,7 +237,7 @@
           favorite={panel.favoritePin}
           {repoName}
           {accountName}
-          dispatching={panel.starts.any}
+          isStarting={panel.starts.isRunning}
           busy={panel.pinsBusy}
           blocked={panel.blocked}
           needsAccount={panel.needsAccount}
@@ -283,7 +283,7 @@
           {repoName}
           {accountName}
           {demo}
-          dispatching={panel.starts.any}
+          isStarting={panel.starts.isRunning}
           busy={panel.pinsBusy}
           blocked={panel.blocked}
           {searching}

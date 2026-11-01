@@ -9,7 +9,7 @@
     repo,
     account,
     demo,
-    dispatching,
+    starting,
     busy,
     blocked,
     onLaunch,
@@ -24,7 +24,8 @@
     /** Account display name. */
     account: string;
     demo: boolean;
-    dispatching: boolean;
+    /** A start for this favorite's target is running. */
+    starting: boolean;
     busy: boolean;
     blocked: boolean;
     onLaunch: () => void;
@@ -63,7 +64,7 @@
     <button
       class="pin-start"
       onclick={() => onLaunch()}
-      disabled={dispatching || (pin.quickStart && (blocked || uncertain))}
+      disabled={starting || (pin.quickStart && (blocked || uncertain))}
       ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={13} />{pin.quickStart
         ? 'Schnellstart'
         : 'Starten…'}</button
@@ -73,7 +74,7 @@
         aria-label={`Favorit ${pin.label} starten…`}
         title="Starten…"
         onclick={() => onConfigure()}
-        disabled={dispatching}><Icon name="settings" size={14} /></button
+        disabled={starting}><Icon name="settings" size={14} /></button
       >{/if}
     <button
       class="icon-button small delete-pin"

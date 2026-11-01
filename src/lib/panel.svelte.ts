@@ -208,11 +208,13 @@ export class Panel {
 
   /** Resolves to 'incomplete' when the favorite needs input in the dialog. */
   async toggleFavorite(workflow: Workflow): Promise<'incomplete' | void> {
-    if (!this.snapshot || this.pinsBusy || this.starts.any) return;
+    if (!this.snapshot || this.pinsBusy) return;
     const existing = this.favoritePin(workflow);
+    // Only the favorite's own target is locked while it starts.
+    if (existing && this.starts.isRunning(existing)) return;
     if (existing) return void (await this.deletePin(existing.id));
     const pin = favoriteDraft(this.snapshot, workflow);
-    if (!pin) return;
+    if (!pin || this.starts.isRunning(pin)) return;
     if (validateDispatch(this.snapshot, { ...pin, requestId: 'favorite' }))
       return 'incomplete';
     await this.#pinMutation(

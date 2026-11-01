@@ -2,7 +2,8 @@
   import Icon from './Icon.svelte';
   import { plural } from './format';
   import { fullRepo, statusLabel, type repositoryActivity } from './model';
-  import type { Pin, Workflow } from './types';
+  import { workflowTarget } from './pins';
+  import type { DispatchTarget, Pin, Workflow } from './types';
 
   let {
     groups,
@@ -10,7 +11,7 @@
     onfavorite,
     favorite,
     busy,
-    dispatching,
+    isStarting,
     blocked,
   }: {
     groups: ReturnType<typeof repositoryActivity>;
@@ -18,7 +19,8 @@
     onfavorite: (workflow: Workflow) => void;
     favorite: (workflow: Workflow) => Pin | undefined;
     busy: boolean;
-    dispatching: boolean;
+    /** A start for this target is running; only that target is locked. */
+    isStarting: (target: DispatchTarget) => boolean;
     blocked: boolean;
   } = $props();
   let expanded = $state<Set<string>>(new Set());
@@ -66,6 +68,7 @@
       >
         {#each group.workflows as workflow (workflow.id)}
           {@const pin = favorite(workflow)}
+          {@const starting = isStarting(workflowTarget(group.repo, workflow))}
           {@const unavailable =
             !workflow.dispatch || group.repo.permission !== 'write'}
           {@const detail = !workflow.dispatch
@@ -78,7 +81,7 @@
               class="action-copy"
               onclick={() => onopen(workflow)}
               aria-label={`${workflow.name} · ${detail}`}
-              disabled={dispatching}
+              disabled={starting}
             >
               <span class="action-dot"></span>
               <span
@@ -94,7 +97,7 @@
                 : pin
                   ? 'Favorit entfernen'
                   : 'Mit Standardwerten als Favorit speichern'}
-              disabled={busy || dispatching || unavailable}
+              disabled={busy || starting || unavailable}
               onclick={() => onfavorite(workflow)}
             >
               <Icon name="heart" size={17} />
@@ -106,7 +109,7 @@
               title={unavailable
                 ? 'Dieser Workflow kann nicht manuell gestartet werden'
                 : 'Branch oder Tag und Eingaben wählen'}
-              disabled={unavailable || blocked || dispatching}
+              disabled={unavailable || blocked || starting}
             >
               <Icon name="play" size={12} />Starten…
             </button>

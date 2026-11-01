@@ -1,5 +1,23 @@
 import { defaultInputs } from './model';
-import type { DispatchRequest, Pin, Snapshot, Workflow } from './types';
+import type {
+  DispatchRequest,
+  DispatchTarget,
+  Pin,
+  Repo,
+  Snapshot,
+  Workflow,
+} from './types';
+
+/** A workflow's default target: its repository's default branch. */
+export const workflowTarget = (
+  repo: Repo,
+  workflow: Workflow,
+): DispatchTarget => ({
+  accountId: repo.accountId,
+  repoId: repo.id,
+  workflowId: workflow.id,
+  ref: repo.defaultBranch,
+});
 
 /** The heart favorite of a workflow: its default inputs on the default branch. */
 export function findFavorite(

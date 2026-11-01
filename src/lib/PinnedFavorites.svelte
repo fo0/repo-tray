@@ -1,14 +1,14 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { plural } from './format';
-  import type { Pin } from './types';
+  import type { DispatchTarget, Pin } from './types';
 
   let {
     pins,
     isUncertain,
     repoName,
     accountName,
-    dispatching,
+    isStarting,
     busy,
     blocked,
     onConfigure,
@@ -20,7 +20,8 @@
     isUncertain: (pin: Pin) => boolean;
     repoName: (repoId: string) => string;
     accountName: (accountId: string) => string;
-    dispatching: boolean;
+    /** A start for this target is running; only that target is locked. */
+    isStarting: (target: DispatchTarget) => boolean;
     busy: boolean;
     blocked: boolean;
     onConfigure: (pin: Pin) => void;
@@ -38,13 +39,14 @@
     <div class="pinned-list">
       {#each pins as pin (pin.id)}
         {@const uncertain = isUncertain(pin)}
+        {@const starting = isStarting(pin)}
         <article class="pinned-action" class:uncertain>
           <button
             class="pinned-copy"
             onclick={() => onConfigure(pin)}
             aria-label={`Favorit ${pin.label} starten…`}
             title={`${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
-            disabled={dispatching}
+            disabled={starting}
           >
             <strong>{pin.label}</strong>
             <small
@@ -64,14 +66,14 @@
             class="icon-button pinned-remove"
             aria-label={`Favorit ${pin.label} entfernen`}
             title="Favorit entfernen"
-            disabled={busy || dispatching}
+            disabled={busy || starting}
             onclick={() => onRemove(pin.id)}
             ><Icon name="heart" size={15} /></button
           >
           <button
             class="action-start pinned-start"
             onclick={() => onLaunch(pin)}
-            disabled={dispatching || (pin.quickStart && (blocked || uncertain))}
+            disabled={starting || (pin.quickStart && (blocked || uncertain))}
             title={pin.quickStart
               ? 'Ohne Bestätigung mit den gespeicherten Eingaben starten'
               : 'Gespeicherte Eingaben prüfen und starten'}

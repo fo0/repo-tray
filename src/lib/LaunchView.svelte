@@ -4,7 +4,7 @@
   import PinCard from './PinCard.svelte';
   import WorkflowList from './WorkflowList.svelte';
   import { plural } from './format';
-  import type { Pin, Repo, Workflow } from './types';
+  import type { DispatchTarget, Pin, Repo, Workflow } from './types';
 
   let {
     pins,
@@ -14,7 +14,7 @@
     repoName,
     accountName,
     demo,
-    dispatching,
+    isStarting,
     busy,
     blocked,
     searching,
@@ -36,7 +36,8 @@
     repoName: (repoId: string) => string;
     accountName: (accountId: string) => string;
     demo: boolean;
-    dispatching: boolean;
+    /** A start for this target is running; only that target is locked. */
+    isStarting: (target: DispatchTarget) => boolean;
     busy: boolean;
     blocked: boolean;
     /** A non-blank search query is active. */
@@ -65,7 +66,7 @@
       repo={repoName(pin.repoId)}
       account={accountName(pin.accountId)}
       {demo}
-      {dispatching}
+      starting={isStarting(pin)}
       {busy}
       {blocked}
       onLaunch={() => onLaunch(pin)}

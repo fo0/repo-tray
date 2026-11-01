@@ -3,7 +3,7 @@
   import PinnedFavorites from './PinnedFavorites.svelte';
   import RepositoryList from './RepositoryList.svelte';
   import type { repositoryActivity } from './model';
-  import type { Pin, Workflow } from './types';
+  import type { DispatchTarget, Pin, Workflow } from './types';
 
   let {
     pins,
@@ -12,7 +12,7 @@
     favorite,
     repoName,
     accountName,
-    dispatching,
+    isStarting,
     busy,
     blocked,
     needsAccount,
@@ -33,8 +33,8 @@
     favorite: (workflow: Workflow) => Pin | undefined;
     repoName: (repoId: string) => string;
     accountName: (accountId: string) => string;
-    /** A workflow start is running. */
-    dispatching: boolean;
+    /** A start for this target is running; only that target is locked. */
+    isStarting: (target: DispatchTarget) => boolean;
     /** A pin change is running. */
     busy: boolean;
     blocked: boolean;
@@ -58,7 +58,7 @@
   {isUncertain}
   {repoName}
   {accountName}
-  {dispatching}
+  {isStarting}
   {busy}
   {blocked}
   {onConfigure}
@@ -75,7 +75,7 @@
   onfavorite={onFavorite}
   {favorite}
   {busy}
-  {dispatching}
+  {isStarting}
   {blocked}
 />
 {#if !groups.length}<EmptyState
