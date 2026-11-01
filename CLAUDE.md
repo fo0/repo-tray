@@ -132,7 +132,7 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features -
 - **Cloud / routine runs** start on `claude/<topic>` unless the task names a branch (`agent_docs/autonomy.md → Branch rule`).
 - **Issues:** work off the default branch starts from an issue — an open one with the same goal, else a new one; routine runs and a task naming its issue keep their own. Commits, PR (`Closes #n`), a branch you name and chat reference it (`agent_docs/autonomy.md → Issue-based work`).
 - **Dependencies:** new runtime dependencies only after user approval with reasoning, dev / tooling ones without; always commit `pnpm-lock.yaml` and `src-tauri/Cargo.lock`.
-- **Formatting guard (not installed yet):** once set up, staged files auto-format on commit (`agent_docs/ci_formatting_guard.md`); never `--no-verify`.
+- **Formatting guard:** staged files auto-format on commit (`agent_docs/ci_formatting_guard.md`); never `--no-verify`.
 
 ## Environment Variables
 
