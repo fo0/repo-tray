@@ -246,10 +246,10 @@ impl<T: Transport> LiveStore<T> {
             .one(&repo.account_id, &segments, &[("ref", git_ref)])
             .map_err(|error| match error {
                 // Dispatch reads the default branch first; a 404 at another ref means that
-                // branch or tag is gone, typically one a favorite still names.
-                ApiError::Http(404) if git_ref != repo.default_branch => {
-                    format!("Branch oder Tag „{git_ref}“ nicht gefunden – passe den Favoriten an.")
-                }
+                // branch or tag is gone or does not contain the workflow file.
+                ApiError::Http(404) if git_ref != repo.default_branch => format!(
+                    "Workflow auf „{git_ref}“ nicht gefunden – der Branch oder Tag fehlt oder enthält den Workflow nicht."
+                ),
                 other => other.to_string(),
             })?;
         if value["encoding"] != "base64" {

@@ -88,7 +88,7 @@ impl DemoStore {
         match self.uncertain_targets.get(&target) {
             Some(claimed_at) if start.claimed_at.as_ref() != Some(claimed_at) => {
                 return Err(
-                    "Für dieses Ziel gibt es eine neuere Startsperre. Prüfe die Runs erneut."
+                    "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut."
                         .into(),
                 )
             }

@@ -131,7 +131,7 @@ fn a_pinned_ref_beyond_a_cut_off_listing_is_offered_and_a_vanished_one_is_reject
     assert_eq!(outcome.state, DispatchState::Rejected);
     assert_eq!(
         outcome.message,
-        "Branch oder Tag „release/gone“ nicht gefunden – passe den Favoriten an."
+        "Workflow auf „release/gone“ nicht gefunden – der Branch oder Tag fehlt oder enthält den Workflow nicht."
     );
     assert_eq!(h.remote().posts(), 0);
     assert!(h.remote().claims_at_post.is_empty());

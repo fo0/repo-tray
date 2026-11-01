@@ -22,7 +22,7 @@ impl<T: Transport> LiveStore<T> {
             .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
         if release == Release::Replaced {
             return Err(
-                "Für dieses Ziel gibt es eine neuere Startsperre. Prüfe die Runs erneut.".into(),
+                "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.".into(),
             );
         }
         Ok(self.snapshot())
@@ -123,7 +123,7 @@ impl<T: Transport> LiveStore<T> {
             }
             Ok(None) => {
                 return DispatchOutcome::uncertain(
-                    "Der letzte Start dieses Ziels ist ungeklärt. Kein erneuter Start; prüfe die Runs auf GitHub und hebe die Sperre danach auf.",
+                    "Der letzte Start dieses Workflows auf diesem Branch oder Tag ist ungeklärt. Kein erneuter Start – prüfe die Runs auf GitHub und hebe die Sperre danach auf.",
                 )
             }
             Ok(Some(claim)) => self.claims.push(claim),
