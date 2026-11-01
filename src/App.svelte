@@ -7,6 +7,7 @@
   import RepositoryList from './lib/RepositoryList.svelte';
   import RunLink from './lib/RunLink.svelte';
   import StatusBanners, { type NoticeTone } from './lib/StatusBanners.svelte';
+  import Toolbar from './lib/Toolbar.svelte';
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
@@ -102,7 +103,7 @@
   let editingPinId = $state<string | null>(null);
   let mutationBusy = $state(false);
   let searchInput = $state<HTMLInputElement>();
-  let accountPicker = $state<HTMLSelectElement>();
+  let toolbar = $state<ReturnType<typeof Toolbar>>();
   const viewEpoch = new RequestEpoch();
   const dialogEpoch = new RequestEpoch();
 
@@ -234,7 +235,7 @@
         ? 'Demo-Token geprüft und verworfen · demo-dev ist nur simuliert verbunden.'
         : 'Demo-Anmeldung bestätigt · demo-dev ist nur simuliert verbunden.',
     );
-    void tick().then(() => accountPicker?.focus());
+    void tick().then(() => toolbar?.focusPicker());
   }
   function repoName(id: string) {
     return repoLabel(snapshot, id);
@@ -757,61 +758,20 @@
       {demoAccountConnected}
     />
 
-    <div class="toolbar">
-      {#if native}
-        <div
-          class="active-account-status"
-          role="status"
-          aria-label="Aktives Konto"
-          title={accountId
-            ? `Aktives Konto: ${accountName(accountId)}`
-            : 'Kein aktives Konto · Auswahl in den Einstellungen'}
-        >
-          <Icon name="github" size={14} />
-          <span
-            >{accountId ? accountName(accountId) : 'Kein aktives Konto'}</span
-          >
-        </div>
-      {:else}
-        <label class="account-picker"
-          ><span class="avatar"
-            >{accountId === 'demo-work'
-              ? 'T'
-              : accountId === 'demo-personal'
-                ? 'D'
-                : 'A'}</span
-          ><select
-            aria-label="Account auswählen"
-            bind:this={accountPicker}
-            value={accountId}
-            onchange={(event) => changeAccount(event.currentTarget.value)}
-            ><option value="">Alle Accounts</option
-            >{#each snapshot?.accounts ?? [] as account}<option
-                value={account.id}>{account.login}</option
-              >{/each}</select
-          ><Icon name="down" size={13} /></label
-        >
-      {/if}
-      <div class="toolbar-actions">
-        <span class="repo-count">{repos.length} Repos</span><button
-          class:spinning={refreshing}
-          class="icon-button"
-          aria-label="Aktualisieren"
-          title={demo
-            ? 'Demo-Status aktualisieren'
-            : 'GitHub-Status aktualisieren'}
-          onclick={refresh}
-          disabled={refreshing || !snapshot}
-          ><Icon name="refresh" size={16} /></button
-        ><button
-          class="icon-button"
-          aria-label="Einstellungen"
-          title="Einstellungen"
-          onclick={openSettings}
-          disabled={!snapshot}><Icon name="settings" size={17} /></button
-        >
-      </div>
-    </div>
+    <Toolbar
+      bind:this={toolbar}
+      {native}
+      {demo}
+      accounts={snapshot?.accounts ?? []}
+      {accountId}
+      accountLabel={accountName(accountId)}
+      repoCount={repos.length}
+      {refreshing}
+      ready={!!snapshot}
+      onAccountChange={changeAccount}
+      onRefresh={refresh}
+      onSettings={openSettings}
+    />
 
     <nav class="tabs" aria-label="Ansicht">
       <button
@@ -1364,7 +1324,6 @@
                     <span>Login und Anmeldequelle</span>
                     <select
                       aria-label="Aktives Konto auswählen"
-                      bind:this={accountPicker}
                       value={accountId}
                       disabled={mutationBusy || !snapshot?.accounts.length}
                       onchange={(event) =>
