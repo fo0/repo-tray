@@ -1,3 +1,11 @@
+/* Top-aligned so the tab strip keeps its position when panels of different
+   heights are shown; the max-height leaves room for the top offset. */
+.modal.settings-modal {
+  --settings-modal-top: min(6dvh, 48px);
+  align-self: flex-start;
+  margin-top: var(--settings-modal-top);
+  max-height: calc(100% - var(--settings-modal-top));
+}
 .settings-tabs {
   display: flex;
   gap: 4px;
