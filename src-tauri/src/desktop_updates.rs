@@ -1,26 +1,30 @@
-//! Public updates independent of GitHub account selection: signed in-app installation when an
-//! updater key is compiled in, otherwise notify-only via the public release page.
-use repotray_core::updates::{self, UpdateInfo, UpdateMode};
+//! In-app updates independent of GitHub account selection. Standard unsigned builds install
+//! the release's NSIS EXE after verifying its published size and SHA-256; builds with a
+//! compiled-in updater key install Tauri-signed packages instead. Either way one
+//! `install_update` call downloads, verifies and starts the installer, then RepoTray exits.
+use repotray_core::updates::{self, installer, Installer, UpdateInfo};
 use serde::Serialize;
 use std::{
+    process::{Command, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Mutex,
     },
     time::{Duration, Instant},
 };
 use tauri::{ipc::Channel, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
-#[derive(Default)]
-struct Pending {
-    update: Option<Update>,
-    bytes: Option<Arc<Vec<u8>>>,
+/// What the last successful check found; `install_update` installs only this.
+#[derive(Clone)]
+enum Candidate {
+    Signed(Box<Update>),
+    Release(Installer),
 }
 
 #[derive(Default)]
 pub struct UpdateState {
-    pending: Mutex<Pending>,
+    pending: Mutex<Option<Candidate>>,
     busy: AtomicBool,
 }
 
@@ -31,6 +35,13 @@ impl UpdateState {
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .map_err(|_| "Eine Update-Aufgabe läuft bereits.")?;
         Ok(Busy(&self.busy))
+    }
+    fn set(&self, candidate: Option<Candidate>) -> Result<(), String> {
+        *self
+            .pending
+            .lock()
+            .map_err(|_| "Update-Dienst nicht verfügbar.")? = candidate;
+        Ok(())
     }
 }
 impl Drop for Busy<'_> {
@@ -46,27 +57,65 @@ pub struct DownloadProgress {
     total: Option<u64>,
     stage: &'static str,
 }
+impl DownloadProgress {
+    fn stage(stage: &'static str) -> Self {
+        Self {
+            downloaded: 0,
+            total: None,
+            stage,
+        }
+    }
+}
+
+const CHECK_FAILED: &str =
+    "Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.";
+const SERVICE_UNAVAILABLE: &str = "Update-Dienst nicht verfügbar.";
+
+fn supported() -> Result<(), String> {
+    if cfg!(all(windows, target_arch = "x86_64")) {
+        Ok(())
+    } else {
+        Err("App-Updates stehen für die Windows-x64-Version bereit.".into())
+    }
+}
 
 #[tauri::command]
 pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
-    if !cfg!(all(windows, target_arch = "x86_64")) {
-        return Err("App-Updates stehen für die Windows-x64-Version bereit.".into());
-    }
-    let Some(key) = updater_key() else {
-        return check_release(&app).await;
-    };
+    supported()?;
     let state = app.state::<UpdateState>();
     let _busy = state.begin()?;
-    {
-        let mut pending = state
-            .pending
-            .lock()
-            .map_err(|_| "Update-Dienst nicht verfügbar.")?;
-        if pending.bytes.is_some() {
-            return Err("Ein geprüftes Update wartet bereits auf die Installation.".into());
+    // A failed check never leaves an older candidate installable.
+    state.set(None)?;
+    let (info, candidate) = match updater_key() {
+        Some(key) => check_signed(&app, key).await?,
+        None => {
+            let release = tauri::async_runtime::spawn_blocking(|| {
+                updates::fetch_latest_release(env!("CARGO_PKG_VERSION"))
+            })
+            .await
+            .map_err(|_| CHECK_FAILED.to_string())??;
+            match release {
+                Some(release) => (
+                    Some(release.info),
+                    Some(Candidate::Release(release.installer)),
+                ),
+                None => (None, None),
+            }
         }
-        *pending = Pending::default();
-    }
+    };
+    state.set(candidate)?;
+    Ok(info)
+}
+
+fn updater_key() -> Option<&'static str> {
+    option_env!("REPOTRAY_UPDATER_PUBLIC_KEY").filter(|key| !key.trim().is_empty())
+}
+
+/// Signed feed of builds with a compiled-in updater key.
+async fn check_signed(
+    app: &tauri::AppHandle,
+    key: &str,
+) -> Result<(Option<UpdateInfo>, Option<Candidate>), String> {
     let updater = app
         .updater_builder()
         .pubkey(key)
@@ -76,125 +125,129 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
         .map_err(|_| "Update-Adresse ungültig.")?
         .timeout(Duration::from_secs(25))
         .build()
-        .map_err(|_| "Update-Dienst nicht verfügbar.")?;
-    let mut update = updater.check().await.map_err(|error| match error {
+        .map_err(|_| SERVICE_UNAVAILABLE)?;
+    let update = updater.check().await.map_err(|error| match error {
         // A missing manifest (404) is a publishing gap, not a connection problem.
         tauri_plugin_updater::Error::ReleaseNotFound => updates::NO_SIGNED_FEED.to_string(),
-        _ => "Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut."
-            .to_string(),
+        _ => CHECK_FAILED.to_string(),
     })?;
-    let info = if let Some(update) = &mut update {
-        updates::validate_update(
-            update.download_url.as_str(),
-            &update.version,
-            env!("CARGO_PKG_VERSION"),
-        )?;
-        if update.signature.trim().is_empty() {
-            return Err("Für dieses Update fehlt die Signatur. Es wird nicht installiert.".into());
-        }
-        update.timeout = Some(Duration::from_secs(300));
-        Some(UpdateInfo {
-            mode: UpdateMode::Install,
-            version: update.version.clone(),
-            notes: update.body.clone().unwrap_or_default(),
-            date: update
-                .date
-                .and_then(|date| updates::format_date(date.unix_timestamp())),
-        })
-    } else {
-        None
+    let Some(mut update) = update else {
+        return Ok((None, None));
     };
-    state
-        .pending
-        .lock()
-        .map_err(|_| "Update-Dienst nicht verfügbar.")?
-        .update = update;
-    Ok(info)
+    updates::validate_update(
+        update.download_url.as_str(),
+        &update.version,
+        env!("CARGO_PKG_VERSION"),
+    )?;
+    if update.signature.trim().is_empty() {
+        return Err("Für dieses Update fehlt die Signatur. Es wird nicht installiert.".into());
+    }
+    update.timeout = Some(Duration::from_secs(300));
+    let info = UpdateInfo {
+        version: update.version.clone(),
+        notes: update.body.clone().unwrap_or_default(),
+        date: update
+            .date
+            .and_then(|date| updates::format_date(date.unix_timestamp())),
+    };
+    Ok((Some(info), Some(Candidate::Signed(Box::new(update)))))
 }
 
-fn updater_key() -> Option<&'static str> {
-    option_env!("REPOTRAY_UPDATER_PUBLIC_KEY").filter(|key| !key.trim().is_empty())
-}
-
-/// Notify-only check for unsigned builds: public release metadata, never a download.
-async fn check_release(app: &tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let state = app.state::<UpdateState>();
-    let _busy = state.begin()?;
-    let info = tauri::async_runtime::spawn_blocking(|| {
-        updates::fetch_latest_release(env!("CARGO_PKG_VERSION"))
-    })
-    .await
-    .map_err(|_| "Updates konnten nicht geprüft werden.".to_string())??;
-    Ok(info)
-}
-
-/// Opens only the tag page of a validated, newer stable release; nothing is downloaded.
+/// Downloads and verifies the checked update, starts its installer and exits RepoTray so
+/// the installer can replace the EXE; the installer relaunches the app.
 #[tauri::command]
-pub fn open_release_page(app: tauri::AppHandle, version: String) -> Result<(), String> {
-    use tauri_plugin_opener::OpenerExt;
-    let url = updates::release_page_url(&version, env!("CARGO_PKG_VERSION"))?;
-    app.opener()
-        .open_url(url, None::<&str>)
-        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
-}
-
-#[tauri::command]
-pub async fn download_update(
+pub async fn install_update(
     app: tauri::AppHandle,
     on_progress: Channel<DownloadProgress>,
 ) -> Result<(), String> {
+    supported()?;
     let state = app.state::<UpdateState>();
     let _busy = state.begin()?;
-    let update = {
-        let pending = state
-            .pending
-            .lock()
-            .map_err(|_| "Update-Dienst nicht verfügbar.")?;
-        if pending.bytes.is_some() {
-            return Ok(());
-        }
-        pending.update.clone().ok_or("Prüfe zuerst auf Updates.")?
-    };
-    let mut downloaded = 0;
-    let mut last_event = Instant::now();
-    let verify_channel = on_progress.clone();
-    let bytes = update.download(
-        |length, total| {
-            downloaded += length as u64;
-            if last_event.elapsed() >= Duration::from_millis(100) || total == Some(downloaded) {
-                let _ = on_progress.send(DownloadProgress { downloaded, total, stage: "downloading" });
-                last_event = Instant::now();
-            }
-        },
-        || { let _ = verify_channel.send(DownloadProgress { downloaded: 0, total: None, stage: "verifying" }); },
-    ).await.map_err(|_| "Download oder Signaturprüfung fehlgeschlagen. Es wurde nichts installiert. Versuche den Download erneut.".to_string())?;
-    // download() verifies the complete package before returning installable bytes.
-    state
+    let candidate = state
         .pending
         .lock()
-        .map_err(|_| "Update-Dienst nicht verfügbar.")?
-        .bytes = Some(Arc::new(bytes));
+        .map_err(|_| SERVICE_UNAVAILABLE)?
+        .clone()
+        .ok_or("Prüfe zuerst auf Updates.")?;
+    match candidate {
+        Candidate::Release(asset) => install_release(&app, asset, on_progress).await,
+        Candidate::Signed(update) => install_signed(*update, on_progress).await,
+    }
+}
+
+async fn install_release(
+    app: &tauri::AppHandle,
+    asset: Installer,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<(), String> {
+    let total = asset.size;
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = installer::download(&asset, |downloaded| {
+            let _ = on_progress.send(DownloadProgress {
+                downloaded,
+                total: Some(total),
+                stage: "downloading",
+            });
+            // The last chunk is in; size and SHA-256 are compared next.
+            if downloaded == total {
+                let _ = on_progress.send(DownloadProgress::stage("verifying"));
+            }
+        })?;
+        // Only verified bytes reach the disk.
+        let _ = on_progress.send(DownloadProgress::stage("installing"));
+        let path = installer::stage(&std::env::temp_dir(), &asset, &bytes)?;
+        // Per-user NSIS install (`installMode: currentUser`): no elevation needed.
+        Command::new(path)
+            .args(installer::NSIS_UPDATE_ARGS)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map(drop)
+            .map_err(|_| {
+                "Installation konnte nicht gestartet werden. Versuche es erneut.".to_string()
+            })
+    })
+    .await
+    .map_err(|_| "Installation konnte nicht gestartet werden.".to_string())??;
+    // Nothing prevents `ExitRequested`, so this ends the process and frees the EXE; the
+    // passive installer would otherwise close the running app itself.
+    app.exit(0);
     Ok(())
 }
 
-#[tauri::command]
-pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
-    let state = app.state::<UpdateState>();
-    let _busy = state.begin()?;
-    let (update, bytes) = {
-        let pending = state
-            .pending
-            .lock()
-            .map_err(|_| "Update-Dienst nicht verfügbar.")?;
-        (
-            pending.update.clone().ok_or("Prüfe zuerst auf Updates.")?,
-            pending
-                .bytes
-                .clone()
-                .ok_or("Lade das Update zuerst vollständig herunter.")?,
+async fn install_signed(
+    update: Update,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<(), String> {
+    let mut downloaded = 0;
+    let mut last_event = Instant::now();
+    let verify_channel = on_progress.clone();
+    let bytes = update
+        .download(
+            |length, total| {
+                downloaded += length as u64;
+                if last_event.elapsed() >= Duration::from_millis(100) || total == Some(downloaded) {
+                    let _ = on_progress.send(DownloadProgress {
+                        downloaded,
+                        total,
+                        stage: "downloading",
+                    });
+                    last_event = Instant::now();
+                }
+            },
+            || {
+                let _ = verify_channel.send(DownloadProgress::stage("verifying"));
+            },
         )
-    };
-    tauri::async_runtime::spawn_blocking(move || update.install(bytes.as_ref()))
+        .await
+        .map_err(|_| {
+            "Download oder Signaturprüfung fehlgeschlagen. Es wurde nichts installiert.".to_string()
+        })?;
+    // download() verifies the complete package before returning installable bytes.
+    let _ = on_progress.send(DownloadProgress::stage("installing"));
+    // On Windows the plugin starts the installer and exits the process itself.
+    tauri::async_runtime::spawn_blocking(move || update.install(bytes))
         .await
         .map_err(|_| "Installation konnte nicht gestartet werden.")?
         .map_err(|_| "Installation konnte nicht gestartet werden. Versuche es erneut.".to_string())

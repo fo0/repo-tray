@@ -144,15 +144,8 @@ export interface StartupStatus {
     | 'conflict';
   registered: boolean;
 }
-/**
- * `install`: a signed package is downloaded, verified and installed in the app.
- * `notify`: unsigned builds only open the release page; installation is manual.
- * Mirrors `UpdateMode` in src-tauri/src/updates.rs.
- */
-export type UpdateMode = 'install' | 'notify';
 /** Mirrors `UpdateInfo` in src-tauri/src/updates.rs. */
 export interface UpdateInfo {
-  mode: UpdateMode;
   version: string;
   notes: string;
   /** RFC 3339 UTC publication time, when known. */
@@ -162,5 +155,5 @@ export interface UpdateInfo {
 export interface DownloadProgress {
   downloaded: number;
   total: number | null;
-  stage: 'downloading' | 'verifying';
+  stage: 'downloading' | 'verifying' | 'installing';
 }

@@ -302,9 +302,7 @@ pub fn run() {
             crate::desktop_startup::set_autostart,
             crate::desktop_startup::open_startup_settings,
             crate::desktop_updates::check_update,
-            crate::desktop_updates::download_update,
             crate::desktop_updates::install_update,
-            crate::desktop_updates::open_release_page,
             open_run,
             hide_panel
         ])

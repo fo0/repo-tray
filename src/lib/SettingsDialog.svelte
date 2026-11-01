@@ -172,7 +172,6 @@
         error={updater.message}
         checkedAt={updater.checkedAt}
         onCheck={() => updater.check()}
-        onDownload={updater.download}
         onInstall={updater.install}
       />
     {/if}

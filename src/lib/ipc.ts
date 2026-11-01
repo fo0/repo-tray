@@ -53,12 +53,11 @@ export interface Commands {
   open_startup_settings: { args: undefined; result: void };
   /** `null` when the installed version is current. */
   check_update: { args: undefined; result: UpdateInfo | null };
-  download_update: {
+  /** Downloads, verifies and starts the checked update; RepoTray then exits and restarts. */
+  install_update: {
     args: { onProgress: Channel<DownloadProgress> };
     result: void;
   };
-  install_update: { args: undefined; result: void };
-  open_release_page: { args: { version: string }; result: void };
   open_run: { args: { url: string }; result: void };
   /** Registered for the shell; the panel itself never hides the window. */
   hide_panel: { args: undefined; result: void };
@@ -91,9 +90,7 @@ const REGISTERED: Record<Command, true> = {
   set_autostart: true,
   open_startup_settings: true,
   check_update: true,
-  download_update: true,
   install_update: true,
-  open_release_page: true,
   open_run: true,
   hide_panel: true,
 };
@@ -107,7 +104,7 @@ export function call<K extends Command>(
   return invoke<Commands[K]['result']>(command, args);
 }
 
-/** A channel for a command's streamed messages, e.g. `download_update` progress. */
+/** A channel for a command's streamed messages, e.g. `install_update` progress. */
 export function channel<T>(onMessage: (message: T) => void): Channel<T> {
   return new Channel<T>(onMessage);
 }
