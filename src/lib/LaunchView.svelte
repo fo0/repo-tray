@@ -36,10 +36,12 @@
     searching: boolean;
     hasRepos: boolean;
     onClearQuery: () => void;
+    /** Opens the missing step: connect, account or repositories. */
     onOpenSettings: () => void;
   } = $props();
   const blocked = $derived(blockedReason(panel.snapshot));
   const needsAccount = $derived(panel.needsAccount);
+  const hasAccounts = $derived(!!panel.snapshot?.accounts.length);
 </script>
 
 <div class="section-heading launch-heading">
@@ -97,14 +99,17 @@
     iconSize={26}
     framed={false}
     title={needsAccount
-      ? 'Wähle ein aktives Konto'
+      ? hasAccounts
+        ? 'Wähle ein aktives Konto'
+        : 'Verbinde dein GitHub-Konto'
       : 'Wähle deine Repositories'}
     text={needsAccount
-      ? 'Konto und Anmeldequelle findest du in den Einstellungen.'
+      ? panel.accountNotice ||
+        (hasAccounts
+          ? 'Konto und Anmeldequelle findest du in den Einstellungen.'
+          : 'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.')
       : 'Deine Auswahl erscheint hier.'}
-    action={{
-      label: 'Einstellungen öffnen',
-      icon: 'arrow',
-      run: onOpenSettings,
-    }}
+    action={needsAccount && !hasAccounts
+      ? { label: 'GitHub-Konto verbinden', icon: 'plus', run: onOpenSettings }
+      : { label: 'Einstellungen öffnen', icon: 'arrow', run: onOpenSettings }}
   />{/if}

@@ -276,8 +276,7 @@
           {searching}
           hasRepos={repos.length > 0}
           onClearQuery={clearQuery}
-          onOpenSettings={() =>
-            openSettings(panel.needsAccount ? 'accounts' : 'repositories')}
+          onOpenSettings={openNextStep}
         />
       {/if}
     </div>

@@ -190,3 +190,23 @@ test('the repository empty state opens the repository tab, and removing the last
     ),
   ).toBeVisible();
 });
+
+test('every view without an account names the same next step: connect', async ({
+  page,
+}) => {
+  for (const tab of ['Repositories', 'Aktivität', 'Favoriten']) {
+    await page.getByRole('button', { name: new RegExp(`^${tab}`) }).click();
+    const empty = page.locator('.empty-state');
+    await expect(
+      empty.getByRole('heading', { name: 'Verbinde dein GitHub-Konto' }),
+    ).toBeVisible();
+    await empty
+      .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
+      .click();
+    await expect(connect(page)).toBeVisible();
+    await expect(settings(page)).toHaveCount(0);
+    await connect(page)
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+  }
+});
