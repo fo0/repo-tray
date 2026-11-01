@@ -3,7 +3,6 @@ import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
   configureMock,
   installTauriMock,
-  readCalls,
   readCommands,
 } from './support/tauriMock';
 
@@ -11,12 +10,9 @@ type NativeMock = {
   tokenDelay: number;
   updateCheckError: boolean;
   updateCurrent: boolean;
-  /** `notify` mirrors an unsigned build without a compiled-in updater key. */
-  updateMode: 'install' | 'notify';
   downloadFail: boolean;
   downloadDelay: number;
   installFail: boolean;
-  releasePageFail: boolean;
 };
 
 test.beforeEach(async ({ page }) => {
@@ -65,16 +61,11 @@ test.beforeEach(async ({ page }) => {
             throw 'Updateprüfung fehlgeschlagen. Prüfe die Verbindung.';
           if (state.updateCurrent) return null;
           return {
-            mode: state.updateMode,
+            mode: 'install',
             version: '0.2.0',
             notes: 'Test-Changelog · nur IPC-Mock',
             date: '2026-11-01T09:05:00Z',
           };
-        }
-        if (cmd === 'open_release_page') {
-          if (state.releasePageFail)
-            throw 'Browser konnte nicht geöffnet werden.';
-          return null;
         }
         if (cmd === 'download_update') {
           const progress = args?.onProgress as {
@@ -123,11 +114,9 @@ test.beforeEach(async ({ page }) => {
         tokenDelay: 150,
         updateCheckError: false,
         updateCurrent: false,
-        updateMode: 'install',
         downloadFail: false,
         downloadDelay: 150,
         installFail: false,
-        releasePageFail: false,
       },
     },
   );

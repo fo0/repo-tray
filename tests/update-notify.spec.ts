@@ -67,7 +67,7 @@ test('the silent check announces a newer unsigned release and opens only its rel
   await page.getByRole('button', { name: 'Update ansehen' }).click();
   const panel = page.getByRole('region', { name: 'RepoTray aktuell halten' });
   await expect(
-    panel.getByText(`Version ${VERSION} ist verfügbar.`),
+    panel.getByText(`Version ${VERSION}`, { exact: true }),
   ).toBeVisible();
   await expect(panel.getByText('veröffentlicht am 01.11.2026')).toBeVisible();
   await expect(

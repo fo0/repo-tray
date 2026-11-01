@@ -10,8 +10,10 @@ use std::{io::Read, time::Duration};
 /// to 404 until signing is introduced. A signed build then needs a dedicated feed URL that
 /// only ever serves signed manifests instead of this "latest release asset" shortcut.
 pub const ENDPOINT: &str = "https://github.com/fo0/repo-tray/releases/latest/download/latest.json";
-/// Shown when the signed feed above does not exist (HTTP 404 / no manifest).
-pub const NO_SIGNED_FEED: &str = "Kein Update-Feed für signierte Updates veröffentlicht.";
+/// Shown when the signed feed above yields no manifest. The updater plugin reports every
+/// non-success status (404, 403, 429, 5xx) as `ReleaseNotFound`, so the text stays neutral.
+pub const NO_SIGNED_FEED: &str =
+    "Kein Update-Feed für signierte Updates erreichbar oder veröffentlicht.";
 /// Notify mode reads public release metadata only; no token, no download.
 pub const LATEST_RELEASE_API: &str = "https://api.github.com/repos/fo0/repo-tray/releases/latest";
 const RELEASE_PAGE_PREFIX: &str = "https://github.com/fo0/repo-tray/releases/tag/v";

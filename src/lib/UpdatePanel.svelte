@@ -113,11 +113,7 @@
               : ''}</span
           >
         </div>
-        {#if notify}
-          <p class="update-current" role="status">
-            Version {info.version} ist verfügbar.
-          </p>
-        {:else}
+        {#if !notify}
           <ol class="update-steps" aria-label="Update-Ablauf">
             <li
               class:done={[

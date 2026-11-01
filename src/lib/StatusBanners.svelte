@@ -35,12 +35,15 @@
       >Update ansehen</button
     >
   </div>{/if}
-{#if snapshot?.stale || snapshot?.connectivity === 'forbidden'}<div
+{#if snapshot?.stale || snapshot?.connectivity === 'forbidden' || (!demo && snapshot?.message && snapshot.accounts.length > 0)}<div
     class="alert warning"
     role="status"
   >
     <Icon name="warning" size={16} /><span
-      >{snapshot.message ?? 'Demo-Status nicht verfügbar.'}</span
+      >{snapshot.message ??
+        (demo
+          ? 'Demo-Status nicht verfügbar.'
+          : 'GitHub-Daten sind nicht aktuell. Klicke auf Aktualisieren.')}</span
     >
   </div>{/if}
 {#if error}<div class="alert danger" role="alert">
