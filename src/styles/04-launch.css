@@ -1,0 +1,227 @@
+.launch-heading {
+  padding-top: 14px;
+  padding-bottom: 9px;
+}
+.pin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.pin-list.has-pins {
+  border: 1px solid #465b35;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(110deg, #2b3624, #252d20 90%);
+}
+.pin-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 4px;
+  padding: 7px 10px;
+  min-height: 62px;
+}
+.pin-card + .pin-card {
+  border-top: 1px solid #405131;
+}
+.pin-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pin-content h3 {
+  font-size: 12px;
+  font-weight: 550;
+  color: #deebd1;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.pin-repo {
+  font-size: 10px;
+  color: #a0b18e;
+  line-height: 14px;
+  overflow-wrap: anywhere;
+}
+.pin-account {
+  color: #859b74;
+}
+.pin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 9px;
+  row-gap: 2px;
+  min-width: 0;
+  line-height: 14px;
+}
+.pin-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #b2c59e;
+  overflow-wrap: anywhere;
+}
+.pin-mode {
+  font-size: 10px;
+  color: #8da67b;
+}
+.pin-mode.quick {
+  color: #b8d995;
+}
+.pin-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pin-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #bddf92;
+  color: #26331a;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 14px;
+  border: 1px solid #cee7ad;
+  border-radius: 5px;
+  padding: 6px 8px;
+  min-height: 30px;
+  white-space: nowrap;
+}
+.pin-start:hover:not(:disabled) {
+  background: #cdecac;
+}
+.pin-configure {
+  color: #a4bc8d;
+}
+.delete-pin {
+  color: #839b71;
+}
+.delete-pin:hover:not(:disabled) {
+  color: #ed9c93;
+}
+.empty-pins {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px dashed #45553a;
+  border-radius: 8px;
+  padding: 17px 13px;
+  color: #9cb78a;
+  font-size: 10px;
+}
+.empty-pins small {
+  display: block;
+  font-size: 10px;
+  margin-top: 6px;
+  color: #7c916e;
+}
+.workflow-heading {
+  padding-top: 16px;
+  padding-bottom: 9px;
+}
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: transparent;
+  color: #aacd89;
+  font-size: 10px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.text-button:hover:not(:disabled) {
+  color: #cee7b0;
+}
+.repo-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #95a687;
+  padding: 9px 3px 6px;
+  min-width: 0;
+}
+.repo-heading > span:first-of-type {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.read-badge {
+  font-size: 10px;
+  padding: 2px 4px;
+  background: #35382b;
+  color: #abae8e;
+  border-radius: 3px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.workflow-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  background: #20271e;
+  border: 1px solid #333f2c;
+  border-radius: 0;
+  margin-bottom: 0;
+  text-align: left;
+}
+.workflow-item:first-of-type {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+.workflow-item:last-child {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+.workflow-item + .workflow-item {
+  border-top: 0;
+}
+.workflow-copy {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 8px;
+  row-gap: 2px;
+  min-width: 0;
+}
+.workflow-item .workflow-copy strong {
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.workflow-item .workflow-copy small {
+  margin-top: 0;
+  font-size: 10px;
+  line-height: 15px;
+}
+.workflow-item:hover {
+  background: #293324;
+  border-color: #526640;
+}
+.workflow-item strong {
+  display: block;
+  font-weight: 500;
+  font-size: 10px;
+  color: #c6d2bc;
+}
+.workflow-item small {
+  font-size: 10px;
+  color: #738868;
+  display: block;
+  margin-top: 5px;
+}
+.workflow-item > svg {
+  color: #839e71;
+}

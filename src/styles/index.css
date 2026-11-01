@@ -1,0 +1,18 @@
+/*
+ * Panel stylesheet entry. Order matters: later files override earlier ones
+ * (the sheet grew by appending patches), so keep the numeric prefixes in order.
+ */
+@import './00-base.css';
+@import './01-shell.css';
+@import './02-activity.css';
+@import './03-footer-empty-alerts.css';
+@import './04-launch.css';
+@import './05-modal-settings.css';
+@import './06-form-fields.css';
+@import './07-connect-misc.css';
+@import './08-overrides-responsive.css';
+@import './09-auth.css';
+@import './10-panel-additions.css';
+@import './11-repository-browser.css';
+@import './12-settings-startup-updates.css';
+@import './13-connected-auth.css';

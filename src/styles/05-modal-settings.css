@@ -1,0 +1,233 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: #080c08ad;
+  backdrop-filter: blur(6px);
+  z-index: 20;
+}
+.modal {
+  background: #1e251c;
+  border: 1px solid #4a5a3e;
+  border-radius: 13px;
+  box-shadow: 0 25px 80px #0009;
+  width: 440px;
+  max-width: 100%;
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
+  outline: none;
+  overflow: hidden;
+}
+.modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 19px 20px 16px;
+  border-bottom: 1px solid #35412e;
+  flex-shrink: 0;
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  color: #8aab70;
+}
+.modal-heading h2 {
+  font-size: 19px;
+  letter-spacing: -0.5px;
+  font-weight: 550;
+  color: #e1ead9;
+  margin-top: 7px;
+}
+.modal-heading > .icon-button {
+  margin-top: 1px;
+}
+.modal-body {
+  padding: 18px 20px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #45553a transparent;
+}
+.modal form {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.modal-actions {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 11px;
+  border-top: 1px solid #36432e;
+  flex-shrink: 0;
+  background: #20291c;
+}
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 9px 11px;
+  min-height: 34px;
+  white-space: nowrap;
+}
+.primary-button {
+  background: #c2e795;
+  color: #253319;
+  border: 1px solid #d0eeaa;
+  box-shadow: 0 1px 2px #0003;
+}
+.primary-button:hover:not(:disabled) {
+  background: #d0eead;
+}
+.secondary-button {
+  color: #b0c29e;
+  background: #2b3624;
+  border: 1px solid #485a3a;
+}
+.secondary-button:hover:not(:disabled) {
+  background: #35452b;
+}
+.secondary-button.compact {
+  padding: 6px 9px;
+  min-height: 29px;
+  font-size: 10px;
+}
+.settings-intro {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #93b277;
+  margin-bottom: 16px;
+}
+.settings-intro h3 {
+  font-size: 11px;
+  font-weight: 550;
+  color: #c9d8bb;
+}
+.settings-intro p {
+  font-size: 10px;
+  color: #879f75;
+  margin-top: 5px;
+}
+.repo-selection {
+  border: 1px solid #3a4931;
+  border-radius: 7px;
+  overflow: hidden;
+}
+.selection-account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #293322;
+  font-size: 10px;
+  font-weight: 550;
+  color: #becdb0;
+}
+.selection-account > span:last-child {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 400;
+  color: #80996c;
+}
+.mini-avatar {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  background: #3d4d30;
+  border: 1px solid #526640;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #b9d19f;
+}
+.repo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 10px;
+  cursor: pointer;
+  background: #1d251a;
+  border-top: 1px solid #303e28;
+}
+.repo-checkbox:hover {
+  background: #263020;
+}
+.repo-checkbox input,
+.quick-opt-in input {
+  accent-color: #bfdf96;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  margin: 0;
+}
+.repo-checkbox > span {
+  flex: 1;
+  min-width: 0;
+}
+.repo-checkbox strong {
+  font-size: 10px;
+  font-weight: 500;
+  display: block;
+  color: #c7d6b9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repo-checkbox small {
+  display: block;
+  font-size: 10px;
+  color: #829d6d;
+  margin-top: 5px;
+}
+.repo-checkbox > svg {
+  color: #637b52;
+}
+.settings-section {
+  margin-top: 21px;
+}
+.settings-section > h3 {
+  font-size: 10px;
+  font-weight: 550;
+  color: #adbf9d;
+  margin-bottom: 11px;
+}
+.connection-card {
+  border: 1px solid #38492d;
+  border-radius: 7px;
+  background: #25301f;
+  padding: 11px 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #98b383;
+}
+.connection-card > div {
+  flex: 1;
+  min-width: 0;
+}
+.connection-card strong {
+  font-size: 10px;
+  font-weight: 500;
+  color: #c2d1b4;
+}
+.connection-card p {
+  font-size: 10px;
+  color: #7f996b;
+  margin-top: 5px;
+  line-height: 1.6;
+}
+.connection-card .text-button {
+  font-size: 10px;
+}

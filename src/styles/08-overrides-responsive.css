@@ -1,0 +1,213 @@
+.run-name,
+.pin-content h3,
+.workflow-item strong,
+.account-picker select,
+.field > span,
+.boolean-field strong,
+.repo-checkbox strong {
+  font-size: 12px;
+}
+.run-repo,
+.run-branch,
+.run-details > div,
+.run-details strong,
+.pin-repo,
+.workflow-item small,
+.repo-checkbox small,
+.connection-card p,
+.field-help {
+  font-size: 10px;
+}
+.search-field input,
+.tabs > button,
+.section-heading h2,
+.settings-intro h3,
+.connection-card strong,
+.selection-account,
+.field input,
+.field select,
+.empty-state p,
+.outcome p {
+  font-size: 11px;
+}
+.primary-button,
+.secondary-button {
+  font-size: 11px;
+}
+.run-button {
+  min-height: 64px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.filters {
+  flex-wrap: wrap;
+}
+
+@media (min-width: 1400px) {
+  .tray {
+    width: 480px;
+  }
+  .desktop {
+    padding-top: 26px;
+  }
+}
+@media (max-width: 520px) {
+  .desktop {
+    padding: 0;
+    background: var(--panel);
+    justify-content: flex-start;
+  }
+  .desktop-caption,
+  .desktop-footnote {
+    display: none;
+  }
+  .tray {
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .app-header {
+    padding: 12px 18px;
+  }
+  .modal-backdrop {
+    padding: 9px;
+    background: #080c08c9;
+  }
+  .modal {
+    max-height: calc(100dvh - 20px);
+    border-radius: 11px;
+  }
+  .modal-heading {
+    padding: 17px 16px 14px;
+  }
+  .modal-body {
+    padding: 16px;
+  }
+  .modal-actions {
+    padding: 12px 16px;
+  }
+  .content {
+    padding-top: 14px;
+  }
+  .app-footer {
+    padding: 11px 18px;
+  }
+}
+@media (max-width: 370px) {
+  .app-header {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+  .connection {
+    font-size: 10px;
+    padding: 5px 6px;
+  }
+  .toolbar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .tabs {
+    padding-left: 17px;
+  }
+  .content {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+  .filters {
+    gap: 1px;
+  }
+  .filters > button {
+    font-size: 10px;
+    padding: 6px 6px;
+  }
+  .run-button {
+    padding-left: 9px;
+    padding-right: 7px;
+    gap: 7px;
+  }
+  .run-tail {
+    gap: 2px;
+  }
+  .status-label {
+    font-size: 10px;
+  }
+  .run-number {
+    display: none;
+  }
+  .connection-card {
+    gap: 6px;
+  }
+  .connection-card > svg {
+    width: 19px;
+  }
+  .reset-button > span {
+    font-size: 10px;
+    margin-left: 3px;
+  }
+  .modal-actions {
+    gap: 6px;
+  }
+  .primary-button,
+  .secondary-button {
+    font-size: 10px;
+    padding: 8px 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *:before,
+  *:after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.copy-template {
+  display: flex;
+  margin-top: 11px;
+}
+
+.connection-copy {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.connection-copy > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filters > button {
+  min-height: 28px;
+}
+.tabs > button {
+  min-height: 44px;
+}
+.boolean-field {
+  min-height: 34px;
+}
+@media (max-width: 370px) {
+  .app-header {
+    padding: 11px 14px;
+    gap: 8px;
+  }
+  .brand h1 {
+    font-size: 17px;
+  }
+  .brand-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .connection {
+    padding: 5px 6px;
+    gap: 5px;
+  }
+  .connection-copy {
+    gap: 4px;
+  }
+}

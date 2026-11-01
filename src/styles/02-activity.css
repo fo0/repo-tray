@@ -1,0 +1,235 @@
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 11px 0 18px;
+}
+.filters > button {
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: transparent;
+  color: #929c8d;
+  font-size: 10px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.filters > button:hover {
+  color: #d8dfd3;
+  background: #293025;
+}
+.filters > button.chosen {
+  background: #343e2c;
+  border: 1px solid #4b5d3e;
+  color: #d1e7b8;
+}
+.filters > button span {
+  font-size: 10px;
+  color: #aebba1;
+  background: #3d4934;
+  padding: 1px 4px;
+  border-radius: 3px;
+  min-width: 13px;
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3px 9px;
+}
+.section-heading h2 {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  color: #b9c3b1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.section-heading > span {
+  font-size: 10px;
+  color: #788771;
+}
+.run-list {
+  border: 1px solid #303a2c;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1c211b;
+}
+.run + .run {
+  border-top: 1px solid #2d3529;
+}
+.run-button {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  padding: 12px 11px 11px;
+  background: transparent;
+  text-align: left;
+  gap: 10px;
+  min-height: 85px;
+}
+.run-button:hover {
+  background: #252d2166;
+}
+.status-icon {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #30372c;
+  color: #8a9881;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border: 1px solid #394431;
+}
+.status-icon.running {
+  color: var(--accent);
+  background: #344428;
+  border-color: #4b6239;
+  box-shadow: 0 0 0 3px #9ccd6a05;
+}
+.status-icon.queued {
+  color: #bec4a5;
+  background: #363b2d;
+  border-color: #454d37;
+}
+.status-icon.waiting {
+  color: #d6bd80;
+  background: #3b3527;
+  border-color: #51472d;
+}
+.status-icon.failure {
+  color: #ed9c93;
+  background: #3d2c27;
+  border-color: #553931;
+}
+.status-icon.success {
+  color: #a9c892;
+  background: #2d3829;
+  border-color: #3a4c33;
+}
+.run-main {
+  min-width: 0;
+  flex: 1;
+}
+.run-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.1px;
+  color: #e2e7de;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 17px;
+}
+.run-number {
+  font-size: 10px;
+  font-weight: 400;
+  color: #65785b;
+}
+.run-repo {
+  display: block;
+  font-size: 10px;
+  color: #89977f;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.run-branch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #728467;
+  line-height: 14px;
+}
+.run-branch svg {
+  color: #7b906f;
+}
+.meta-dot {
+  margin: 0 2px;
+  color: #53634c;
+}
+.run-tail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 4px;
+  color: #5f7254;
+  flex-shrink: 0;
+}
+.status-label {
+  font-size: 10px;
+  letter-spacing: 0.1px;
+  color: #9b9e82;
+}
+.status-label.running {
+  color: #bddc95;
+}
+.status-label.failure {
+  color: #d79d8d;
+}
+.run-tail > svg {
+  transition: transform 0.15s;
+}
+.expanded .run-tail > svg {
+  transform: rotate(90deg);
+}
+.list-divider {
+  background: #20261d;
+  border-top: 1px solid #303a2c;
+  border-bottom: 1px solid #303a2c;
+  padding: 7px 11px;
+  color: #7c8b71;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.list-divider + .run {
+  border-top: 0;
+}
+.run-details {
+  padding: 0 12px 11px 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.run-details > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  gap: 9px;
+}
+.run-details > div > span {
+  color: #7f8e75;
+}
+.run-details strong {
+  font-size: 10px;
+  font-weight: 400;
+  color: #b3c1a6;
+}
+.detail-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #b1c39f;
+  background: transparent;
+  padding: 6px 0 0;
+  text-decoration: none;
+  align-self: flex-start;
+}
+.detail-link:disabled {
+  color: #85947a;
+  opacity: 0.65;
+}

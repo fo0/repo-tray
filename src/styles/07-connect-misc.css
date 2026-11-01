@@ -1,0 +1,122 @@
+.connect-body {
+  text-align: center;
+  padding: 24px 22px;
+}
+.connect-illustration {
+  margin: 0 auto 18px;
+  position: relative;
+  width: 71px;
+  height: 71px;
+  display: grid;
+  place-items: center;
+  color: #b6ce9f;
+  background: #2b3c22;
+  border: 1px solid #4b6339;
+  border-radius: 19px;
+}
+.connect-illustration > span {
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 3px solid #1e251c;
+  border-radius: 50%;
+  background: #a5c680;
+  color: #2e4221;
+}
+.connect-body h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #d1dec6;
+  letter-spacing: -0.2px;
+}
+.connect-body > p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #91a77f;
+  margin-top: 11px;
+}
+.setup-note {
+  display: flex;
+  text-align: left;
+  align-items: flex-start;
+  gap: 7px;
+  background: #28351f;
+  border: 1px solid #3e542f;
+  color: #9ab882;
+  font-size: 10px;
+  line-height: 1.7;
+  border-radius: 6px;
+  padding: 11px;
+  margin-top: 18px;
+}
+.full-width {
+  width: 100%;
+  margin-top: 19px;
+  font-size: 10px;
+}
+.spinning svg {
+  animation: spin 1.2s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Repository groups preserve account context even while individual runs are open. */
+.repo-run-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.run-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 11px;
+  padding: 3px 3px 9px;
+}
+.run-group-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #a9b69e;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.run-group-header h3 svg {
+  color: #829477;
+}
+.run-group-header > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #708264;
+  flex-shrink: 0;
+}
+.run-group-header > span.has-active {
+  color: #b5d98e;
+}
+.group-live-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #65735c;
+}
+.has-active .group-live-dot {
+  background: #bddf96;
+}
+.app-header[data-tauri-drag-region] {
+  user-select: none;
+  cursor: default;
+}
+.app-header[data-tauri-drag-region] > * {
+  pointer-events: none;
+}
