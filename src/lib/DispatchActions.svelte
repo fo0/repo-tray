@@ -23,11 +23,7 @@
   } = $props();
 </script>
 
-{#if starting}<p
-    class="dialog-alert alert subtle"
-    id="start-continues"
-    role="status"
-  >
+{#if starting}<p class="dialog-alert subtle" id="start-continues" role="status">
     <Icon name="refresh" size={14} /><span
       >Der Start läuft weiter, auch wenn du den Dialog schließt. Das Ergebnis
       erscheint dann im Panel.</span
