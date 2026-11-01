@@ -27,6 +27,59 @@ test('settings tabs support keyboard navigation and keep updates reachable at na
   await expect(page.getByRole('button', { name: 'Einrichten' })).toBeVisible();
 });
 
+test('the settings dialog traps Tab and Shift+Tab and closes with Escape', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Dein Workspace',
+    exact: true,
+  });
+  const first = dialog.getByRole('button', { name: 'Dialog schließen' });
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(
+    dialog.getByRole('button', { name: 'Abbrechen', exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(first).toBeFocused();
+  // The last focusable element follows the active tab.
+  await dialog.getByRole('tab', { name: 'Repositories', exact: true }).click();
+  const save = dialog.getByRole('button', { name: 'Auswahl speichern' });
+  await save.focus();
+  await page.keyboard.press('Tab');
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(save).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+});
+
+test('closing settings with Escape returns focus to the settings button', async ({
+  page,
+}) => {
+  // Fixed in the dialog-focus change (#8)
+  test.fail();
+  await page.goto('/');
+  const opener = page.getByRole('button', {
+    name: 'Einstellungen',
+    exact: true,
+  });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', {
+    name: 'Dein Workspace',
+    exact: true,
+  });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+});
+
 test('repository search preserves hidden selections and edits across settings tabs', async ({
   page,
 }) => {
