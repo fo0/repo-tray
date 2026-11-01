@@ -59,4 +59,4 @@ PC is needed. Keep the published installer/release unchanged.
 The lifecycle and generation approach was compared read-only with
 `fo0/OpenQuota` at `0b21b354e1a0a3f65d78900ec244c43f581542e2`
 (`window.rs`, `popup.rs`, and the tray event wiring). RepoTray's Win32 placement
-and tests are local to this change; OpenQuota was not modified.
+and tests are its own; OpenQuota was not modified.

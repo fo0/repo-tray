@@ -17,6 +17,6 @@ The generator uses only Node.js standard-library file operations and its own geo
 
 `src/lib/Icon.svelte` contains the UI glyphs as explicit SVG primitives on a 24-unit canvas. It retains the existing names, dimensions, current-color styling and decorative accessibility behavior. The `github` name now selects a generic code-hosting symbol; service names remain in the surrounding text. No GitHub logo is bundled.
 
-The runtime tray bitmap is separately constructed from rectangles in `src-tauri/src/desktop.rs` (`tray_image`). It has no external image input and is unchanged by this cleanup.
+The runtime tray bitmap is separately constructed from rectangles in `src-tauri/src/desktop.rs` (`tray_image`). It has no external image input.
 
 Generated review screenshots are local verification output, not source artwork. Dependency licenses and any future imported assets must be reviewed separately; this inventory is not a license for third-party material.

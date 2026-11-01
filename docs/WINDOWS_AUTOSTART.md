@@ -71,8 +71,8 @@ A later manual launch still opens its panel.
 Moving the executable or changing installation directory requires disabling
 startup from the old installation, then enabling it from the new one. The new
 installation treats an old-path value as a conflict, even if the filename is
-the same. **Disable startup before uninstalling**; this change does not add an
-NSIS uninstall hook. If the old executable is already gone, remove only that
+the same. **Disable startup before uninstalling**; the installer has no NSIS
+uninstall hook for it. If the old executable is already gone, remove only that
 identified RepoTray Run value yourself in an authorized Windows session. Do not
 delete the Run key or unrelated entries. No claim is made about which version a
 particular user's computer currently has installed.

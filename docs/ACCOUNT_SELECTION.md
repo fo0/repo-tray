@@ -22,4 +22,4 @@ Public app update checks do not require an active account or token. Changing or 
 
 **Bestehende Anmeldung auf diesem PC verwenden** is an actual keyboard-accessible button with a computer icon, an explicit sign-in-option subtitle and an expanded/collapsed state. Opening it only reveals the explanation and **Lokale Anmeldungen prüfen** button. Discovery still requires that separate click; importing a selected gh credential still requires its existing explicit consent. Closing a running local check cancels it. Browser/PAT work keeps this component mounted, preserving the PAT cancellation regression fix.
 
-No new GitHub App, consent, grant, secret, hosting, release, credential export or GitHub account switch is part of this change. The publisher-dependent browser setup remains described in [browser authentication](BROWSER_AUTH.md).
+Account selection involves no GitHub App, consent, grant, secret, hosting, release, credential export or GitHub account switch. The publisher-dependent browser setup remains described in [browser authentication](BROWSER_AUTH.md).
