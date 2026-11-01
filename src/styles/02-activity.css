@@ -147,6 +147,7 @@
 .run-branch {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 4px;
   font-size: var(--font-size-meta);
   color: var(--muted-text);
@@ -161,8 +162,9 @@
 }
 .run-tail {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
   align-self: flex-start;
   margin-top: 4px;
   color: var(--muted-text);
@@ -179,10 +181,10 @@
 .status-label.failure {
   color: #d79d8d;
 }
-.run-tail > svg {
+.run-state > svg {
   transition: transform 0.15s;
 }
-.expanded .run-tail > svg {
+.expanded .run-state > svg {
   transform: rotate(90deg);
 }
 .list-divider {

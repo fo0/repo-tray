@@ -1,0 +1,28 @@
+/* Activity comfort: relative run times. */
+.run-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.run-time {
+  font-size: var(--font-size-meta);
+  line-height: 14px;
+  color: var(--muted-text);
+  white-space: nowrap;
+}
+.run-ref {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-duration {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .run-state {
+    gap: 2px;
+  }
+}

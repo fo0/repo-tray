@@ -18,6 +18,7 @@
 <script lang="ts">
   import EmptyState from './EmptyState.svelte';
   import RunRow from './RunRow.svelte';
+  import { minuteClock } from './clock';
   import { plural } from './format';
   import { HISTORY_LIMIT, isActive } from './model';
   import type { Run } from './types';
@@ -102,6 +103,7 @@
       account={repoAccountName(run.repoId)}
       {demo}
       {native}
+      now={$minuteClock}
       onToggle={() => onToggle(run.id)}
       {onLinkError}
     />

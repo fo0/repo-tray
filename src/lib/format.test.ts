@@ -1,15 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { get } from 'svelte/store';
+import { minuteClock } from './clock';
 import {
   accountLabel,
   avatarLetter,
   clockTime,
+  dateTime,
   errorMessage,
   FALLBACK_ERROR,
   plural,
+  relativeTime,
   repoLabel,
+  runDuration,
+  runMoment,
 } from './format';
 import { targetKey } from './model';
-import type { Account, DispatchRequest, Repo } from './types';
+import type { Account, DispatchRequest, Repo, Run } from './types';
 
 // Synthetic fixtures only.
 const repo: Repo = {
@@ -108,5 +114,117 @@ describe('targetKey', () => {
     expect(targetKey({ ...target, workflowId: 8 })).not.toBe(base);
     expect(targetKey({ ...target, repoId: 'other' })).not.toBe(base);
     expect(targetKey({ ...target, accountId: 'demo-work' })).not.toBe(base);
+  });
+});
+
+describe('relative run times', () => {
+  // Mid-June keeps every time zone clear of a daylight-saving switch.
+  const noon = new Date(2026, 5, 17, 12, 0);
+  const at = (day: number, hour: number, minute = 0) =>
+    new Date(2026, 5, day, hour, minute).toISOString();
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(noon);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('counts minutes, then hours, as the clock advances', () => {
+    const started = at(17, 12);
+    expect(relativeTime(started)).toBe('gerade eben');
+    vi.advanceTimersByTime(59_000);
+    expect(relativeTime(started)).toBe('gerade eben');
+    vi.advanceTimersByTime(1_000);
+    expect(relativeTime(started)).toBe('vor 1 Min.');
+    vi.advanceTimersByTime(58 * 60_000);
+    expect(relativeTime(started)).toBe('vor 59 Min.');
+    vi.advanceTimersByTime(60_000);
+    expect(relativeTime(started)).toBe('vor 1 Std.');
+    vi.advanceTimersByTime(22 * 3_600_000 + 59 * 60_000);
+    expect(relativeTime(started)).toBe('vor 23 Std.');
+    vi.advanceTimersByTime(60_000);
+    expect(relativeTime(started)).toBe('gestern');
+  });
+  it('says „gestern“ for the previous calendar day, then the date', () => {
+    expect(relativeTime(at(16, 13))).toBe('vor 23 Std.');
+    expect(relativeTime(at(16, 11))).toBe('gestern');
+    expect(relativeTime(at(16, 0, 5))).toBe('gestern');
+    expect(relativeTime(at(15, 23, 59))).toBe('15.06.2026');
+    vi.setSystemTime(new Date(2026, 5, 17, 0, 30));
+    expect(relativeTime(at(16, 0, 10))).toBe('gestern');
+    expect(relativeTime(at(15, 23))).toBe('15.06.2026');
+  });
+  it('reads future times as „gerade eben“ and invalid ones as empty', () => {
+    expect(relativeTime(at(17, 12, 5))).toBe('gerade eben');
+    expect(relativeTime('kein Datum')).toBe('');
+  });
+  it('formats the absolute local date and time', () => {
+    expect(dateTime(new Date(2026, 5, 17, 9, 5))).toBe('17.06.2026, 09:05');
+  });
+
+  const run = (overrides: Partial<Run>): Run => ({
+    id: 42,
+    repoId: 'demo-repo',
+    workflowId: 7,
+    name: 'Build',
+    branch: 'main',
+    status: 'in_progress',
+    conclusion: null,
+    createdAt: at(17, 11, 57),
+    updatedAt: at(17, 11, 58),
+    htmlUrl: '',
+    ...overrides,
+  });
+  it('dates an open run by its start and a completed run by its end', () => {
+    expect(runMoment(run({}), Date.now())).toEqual({
+      datetime: at(17, 11, 57),
+      relative: 'vor 3 Min.',
+      title: 'Gestartet: 17.06.2026, 11:57',
+      spoken: 'gestartet vor 3 Min.',
+    });
+    const done = run({
+      status: 'completed',
+      conclusion: 'success',
+      createdAt: at(15, 8),
+      updatedAt: at(15, 9),
+    });
+    expect(runMoment(done, Date.now(), true)).toEqual({
+      datetime: at(15, 9),
+      relative: '15.06.2026',
+      title: 'Beendet: 15.06.2026, 09:00 · Demo-Zeit',
+      spoken: 'beendet am 15.06.2026',
+    });
+  });
+  it('lets only live open runs count up to now', () => {
+    const open = run({});
+    expect(runDuration(open, Date.now(), true)).toBe('3:00 min');
+    expect(runDuration(open, Date.now(), false)).toBe('1:00 min');
+    const done = run({ status: 'completed', conclusion: 'failure' });
+    expect(runDuration(done, Date.now(), true)).toBe('1:00 min');
+    // A snapshot newer than the last tick never makes the duration shrink.
+    const ahead = run({ updatedAt: at(17, 12, 2) });
+    expect(runDuration(ahead, Date.now(), true)).toBe('5:00 min');
+  });
+
+  it('ticks one shared minute clock that stops with its last subscriber', () => {
+    const seen: number[] = [];
+    const first = minuteClock.subscribe((value) => seen.push(value));
+    const second = minuteClock.subscribe(() => {});
+    expect(vi.getTimerCount()).toBe(1);
+    expect(seen.at(-1)).toBe(noon.getTime());
+    vi.advanceTimersByTime(60_000);
+    expect(seen.at(-1)).toBe(noon.getTime() + 60_000);
+    first();
+    expect(vi.getTimerCount()).toBe(1);
+    second();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('moves relative times and live durations with each tick', () => {
+    const open = run({ createdAt: at(17, 12), updatedAt: at(17, 12) });
+    const stop = minuteClock.subscribe(() => {});
+    expect(relativeTime(open.createdAt, get(minuteClock))).toBe('gerade eben');
+    vi.advanceTimersByTime(3 * 60_000);
+    expect(relativeTime(open.createdAt, get(minuteClock))).toBe('vor 3 Min.');
+    expect(runDuration(open, get(minuteClock), true)).toBe('3:00 min');
+    stop();
   });
 });

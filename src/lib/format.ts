@@ -1,6 +1,6 @@
 import { accountTitle } from './accountSelection';
-import { fullRepo } from './model';
-import type { Snapshot } from './types';
+import { duration, fullRepo, isActive } from './model';
+import type { Run, Snapshot } from './types';
 
 export const FALLBACK_ERROR =
   'Der Vorgang konnte nicht abgeschlossen werden. Versuche es erneut.';
@@ -25,6 +25,70 @@ export function clockTime(value: string | number | Date = new Date()) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+/** Local date and time as `01.11.2026, 09:42` (de-DE). */
+export function dateTime(value: string | number | Date) {
+  return new Date(value).toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const dayStart = (time: number) => new Date(time).setHours(0, 0, 0, 0);
+
+/**
+ * German relative time: „gerade eben“, „vor 3 Min.“, „vor 2 Std.“ (under a
+ * day), „gestern“ (the previous calendar day), then the date. A time ahead of
+ * `now` (clock skew, a stale tick) reads „gerade eben“.
+ */
+export function relativeTime(
+  value: string | number | Date,
+  now: number = Date.now(),
+) {
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return '';
+  const elapsed = now - time;
+  if (elapsed < MINUTE) return 'gerade eben';
+  if (elapsed < HOUR) return `vor ${Math.floor(elapsed / MINUTE)} Min.`;
+  if (elapsed < DAY) return `vor ${Math.floor(elapsed / HOUR)} Std.`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dayStart(time) === dayStart(yesterday.getTime())) return 'gestern';
+  return new Date(time).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+/** When an open run started or a completed run finished, for a `<time>` element. */
+export function runMoment(run: Run, now: number, demo = false) {
+  const active = isActive(run);
+  const at = active ? run.createdAt : run.updatedAt;
+  const relative = relativeTime(at, now);
+  const verb = active ? 'Gestartet' : 'Beendet';
+  return {
+    datetime: at,
+    relative,
+    title: `${verb}: ${dateTime(at)}${demo ? ' · Demo-Zeit' : ''}`,
+    /** For the row's accessible name, e.g. „gestartet vor 3 Min.“. */
+    spoken: `${verb.toLowerCase()} ${/^\d/.test(relative) ? 'am ' : ''}${relative}`,
+  };
+}
+
+/** Run time as `m:ss min`; a live open run keeps counting up to `now`. */
+export function runDuration(run: Run, now: number, live: boolean) {
+  if (!live || !isActive(run)) return duration(run);
+  const updated = Date.parse(run.updatedAt);
+  const end = updated > now ? updated : now;
+  return duration({ ...run, updatedAt: new Date(end).toISOString() });
 }
 
 export function repoLabel(

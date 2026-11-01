@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon, { type IconName } from './Icon.svelte';
   import RunLink from './RunLink.svelte';
-  import { clockTime } from './format';
-  import { duration, safeGitHubUrl, statusLabel } from './model';
+  import { clockTime, runDuration, runMoment } from './format';
+  import { safeGitHubUrl, statusLabel } from './model';
   import type { Run } from './types';
 
   let {
@@ -12,6 +12,7 @@
     account,
     demo,
     native,
+    now,
     onToggle,
     onLinkError,
   }: {
@@ -23,6 +24,8 @@
     account: string;
     demo: boolean;
     native: boolean;
+    /** Shared minute clock (ms) for relative times and running durations. */
+    now: number;
     onToggle: () => void;
     onLinkError: (message: string) => void;
   } = $props();
@@ -39,13 +42,14 @@
             : 'close',
   );
   const runUrl = $derived(safeGitHubUrl(run.htmlUrl));
+  const moment = $derived(runMoment(run, now, demo));
 </script>
 
 <article class="run" class:expanded>
   <button
     class="run-button"
     aria-expanded={expanded}
-    aria-label={`${run.name} · ${repo} · ${statusLabel(run)}`}
+    aria-label={`${run.name} · ${repo} · ${statusLabel(run)} · ${moment.spoken}`}
     onclick={() => onToggle()}
   >
     <span
@@ -61,17 +65,23 @@
       ><span class="run-name"
         >{run.name}<span class="run-number">#{run.id}</span></span
       ><span class="run-repo">{repo}</span><span class="run-branch"
-        ><Icon name="branch" size={11} />{run.branch}<span class="meta-dot"
-          >·</span
-        ><span>{duration(run)}</span></span
+        ><Icon name="branch" size={11} /><span class="run-ref"
+          >{run.branch}</span
+        ><span class="meta-dot">·</span><span class="run-duration"
+          >{runDuration(run, now, !demo)}</span
+        ></span
       ></span
     >
     <span class="run-tail"
-      ><span
-        class="status-label"
-        class:running={run.status === 'in_progress'}
-        class:failure={run.conclusion === 'failure'}>{statusLabel(run)}</span
-      ><Icon name="chevron" size={14} /></span
+      ><span class="run-state"
+        ><span
+          class="status-label"
+          class:running={run.status === 'in_progress'}
+          class:failure={run.conclusion === 'failure'}>{statusLabel(run)}</span
+        ><Icon name="chevron" size={14} /></span
+      ><time class="run-time" datetime={moment.datetime} title={moment.title}
+        >{moment.relative}</time
+      ></span
     >
   </button>
   {#if expanded}<div class="run-details">
