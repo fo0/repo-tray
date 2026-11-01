@@ -21,8 +21,6 @@ export type ModalKind = 'settings' | 'dispatch' | 'connect';
 export class Modals {
   kind = $state<ModalKind | null>(null);
   settingsTab = $state<SettingsTab>('accounts');
-  /** Login of a just-connected account whose repositories come next. */
-  settingsConnected = $state('');
   dispatchSeed = $state.raw<DispatchSeed>({});
   /** Element that opened the first of possibly chained dialogs. */
   opener: HTMLElement | null = null;
@@ -48,9 +46,8 @@ export class Modals {
           : null;
     this.kind = kind;
   };
-  openSettings = (initial: SettingsTab = 'accounts', connected = '') => {
+  openSettings = (initial: SettingsTab = 'accounts') => {
     this.settingsTab = initial;
-    this.settingsConnected = connected;
     this.show('settings');
   };
   openDispatch = (pin?: Pin, workflow?: Workflow, favoriteIntent = false) => {

@@ -47,6 +47,10 @@
   export function focusAccount() {
     accountMenu?.focus();
   }
+  /** Opens the account menu, e.g. from the empty state's „Konto wählen“. */
+  export function openAccountMenu() {
+    accountMenu?.openMenu();
+  }
 </script>
 
 <!-- Natively the bar drags the window: the brand ignores the pointer, so a

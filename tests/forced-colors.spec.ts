@@ -1,25 +1,17 @@
 import { expect, test, type Page } from './support/test';
+import { openPage } from './support/demo';
 
-const dialog = (page: Page) =>
-  page.getByRole('dialog', { name: 'Einstellungen', exact: true });
-
-/** Demo settings with an unsaved repository selection, so its tab shows the dot. */
-async function unsavedDot(page: Page) {
+/** The demo picker with one repository in the tray and one outside it. */
+async function pickerToggles(page: Page) {
   await page.goto('/');
-  await page
-    .getByRole('button', { name: 'Einstellungen', exact: true })
-    .click();
-  await dialog(page)
-    .getByRole('tab', { name: 'Repositories', exact: true })
-    .click();
-  await dialog(page)
-    .getByRole('checkbox', { name: /team-demo\/sandbox-demo/ })
-    .check();
-  const dot = dialog(page).getByRole('img', {
-    name: 'Auswahl nicht gespeichert',
-  });
-  await expect(dot).toBeVisible();
-  return dot;
+  await openPage(page, 'picker');
+  const toggle = (name: string) =>
+    page.getByRole('button', { name, exact: true });
+  const inTray = toggle('Im Tray: demo-dev/launch-kit-demo');
+  const outside = toggle('Hinzufügen: team-demo/sandbox-demo');
+  await expect(inTray).toBeVisible();
+  await expect(outside).toBeVisible();
+  return { inTray, outside };
 }
 
 /** Resolves a CSS system color in the page, e.g. `Canvas`. */
@@ -34,32 +26,39 @@ const systemColor = (page: Page, color: string) =>
     return value;
   }, color);
 
-test('the unsaved tab dot follows forced colors instead of staying amber', async ({
+test('a repository in the tray keeps its „Im Tray“ toggle visible in forced colors', async ({
   page,
 }) => {
   await page.emulateMedia({ forcedColors: 'active' });
-  const dot = await unsavedDot(page);
-  const style = await dot.evaluate((node) => {
-    const computed = getComputedStyle(node);
-    return {
-      background: computed.backgroundColor,
-      border: computed.borderTopColor,
-      borderWidth: computed.borderTopWidth,
-    };
-  });
-  // Hollow: the canvas fill with a text-colored ring, unlike the solid update dot.
-  expect(style.background).toBe(await systemColor(page, 'Canvas'));
-  expect(style.border).toBe(await systemColor(page, 'CanvasText'));
-  expect(style.borderWidth).toBe('1px');
-  expect(style.background).not.toBe(style.border);
+  const { inTray, outside } = await pickerToggles(page);
+  const paint = (locator: typeof inTray) =>
+    locator.evaluate((node) => {
+      const computed = getComputedStyle(node);
+      return {
+        background: computed.backgroundColor,
+        color: computed.color,
+        icon: getComputedStyle(node.querySelector('.pick-icon')!).color,
+      };
+    });
+  const added = await paint(inTray);
+  const addable = await paint(outside);
+  // Drawn like a selected tab: the tinted row and grey border would vanish.
+  expect(added.background).toBe(await systemColor(page, 'Highlight'));
+  expect(added.color).toBe(await systemColor(page, 'HighlightText'));
+  expect(added.icon).toBe(added.color);
+  expect(addable.background).not.toBe(added.background);
 });
 
-test('without forced colors the unsaved tab dot keeps its warning color', async ({
+test('without forced colors the „Im Tray“ toggle keeps the success check', async ({
   page,
 }) => {
-  const dot = await unsavedDot(page);
-  // The --warning alias reads the status token --wait (#fbbf24).
-  await expect(dot).toHaveCSS('background-color', 'rgb(251, 191, 36)');
+  const { inTray, outside } = await pickerToggles(page);
+  // The check reads the status token --ok (#4ade80); adding reads the accent.
+  await expect(inTray.locator('.pick-icon')).toHaveCSS(
+    'color',
+    'rgb(74, 222, 128)',
+  );
+  await expect(outside).toHaveCSS('color', 'rgb(181, 227, 122)');
 });
 
 test('run strip cells stay apart in forced colors', async ({ page }) => {

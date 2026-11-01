@@ -3,15 +3,19 @@ import { focusRevealedRun, landing } from './focus';
 import type { Notices } from './notices.svelte';
 import type { ActivityFilter } from './runs';
 
-/** The overview, or one of its sections maximized to fill the panel body. */
-export type Page = 'overview' | 'runs' | 'favorites' | 'repos';
-export type SectionPage = Exclude<Page, 'overview'>;
+/** A section of the overview, which can be maximized to fill the panel body. */
+export type SectionPage = 'runs' | 'favorites' | 'repos';
+/** The overview, a maximized section, or the repository picker. */
+export type Page = 'overview' | SectionPage | 'picker';
+/** Every page with its own header and way back. */
+export type SubPage = Exclude<Page, 'overview'>;
 
-/** Titles of the maximized pages; the runs section reads „Läuft gerade“. */
-export const PAGE_TITLES: Record<SectionPage, string> = {
+/** Titles of the pages; the runs section reads „Läuft gerade“. */
+export const PAGE_TITLES: Record<SubPage, string> = {
   runs: 'Verlauf',
   favorites: 'Favoriten',
   repos: 'Repositories',
+  picker: 'Repositories im Tray',
 };
 
 /** The panel state „Im Verlauf anzeigen“ changes: expanded run and notices. */
@@ -43,7 +47,7 @@ const focusKey = (opener: HTMLElement | null) =>
 function focusBack(
   opener: HTMLElement | null,
   key: string | null,
-  page: SectionPage,
+  page: SubPage,
 ) {
   const twin = key
     ? document.querySelector<HTMLElement>(
@@ -69,6 +73,8 @@ export class PanelView {
   from = $state<Page>('overview');
   filter = $state<ActivityFilter>('all');
   query = $state('');
+  /** Login of a just-connected account, named by the picker as the next step. */
+  connected = $state('');
   /** Element that opened the current page; not reactive, focus only. */
   opener: HTMLElement | null = null;
   #openerKey: string | null = null;
@@ -78,14 +84,19 @@ export class PanelView {
     this.#panel = panel;
   }
 
-  /** Maximizes a section and moves focus to the page title. */
+  /**
+   * Opens a page and moves focus to its landing: a section's title, the
+   * picker's search. `connected` names a fresh connection in the picker.
+   */
   open = async (
-    page: SectionPage,
+    page: SubPage,
     {
       from = 'overview',
       opener,
-    }: { from?: Page; opener?: HTMLElement | null } = {},
+      connected = '',
+    }: { from?: Page; opener?: HTMLElement | null; connected?: string } = {},
   ) => {
+    this.connected = connected;
     if (this.page !== page) {
       this.#remember(opener);
       this.from = from === page ? 'overview' : from;
@@ -123,6 +134,7 @@ export class PanelView {
     const [opener, key] = [this.opener, this.#openerKey];
     this.page = this.from;
     this.from = 'overview';
+    this.connected = '';
     this.#remember(null);
     if (hasDom()) void tick().then(() => focusBack(opener, key, left));
     return true;

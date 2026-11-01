@@ -210,15 +210,19 @@ test.describe('demo overview', () => {
     );
   });
 
-  test('„Hinzufügen“ opens the repository selection in the settings', async ({
+  test('„Hinzufügen“ opens the repository picker, never the settings', async ({
     page,
   }) => {
-    await section(page, 'repos')
-      .getByRole('button', { name: 'Repositories hinzufügen', exact: true })
-      .click();
-    const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
-    await expect(
-      dialog.getByRole('tab', { name: 'Repositories', exact: true }),
-    ).toHaveAttribute('aria-selected', 'true');
+    const add = section(page, 'repos').getByRole('button', {
+      name: 'Repositories hinzufügen',
+      exact: true,
+    });
+    await add.click();
+    await expectPage(page, 'picker');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByLabel('Repositories filtern')).toBeFocused();
+    await backButton(page).click();
+    await expectPage(page, 'overview');
+    await expect(add).toBeFocused();
   });
 });

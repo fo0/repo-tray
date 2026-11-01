@@ -15,12 +15,13 @@
   import FavoriteTiles from './FavoriteTiles.svelte';
   import Icon from './Icon.svelte';
   import LiveRuns from './LiveRuns.svelte';
+  import NotInTray from './NotInTray.svelte';
   import RepositoryList from './RepositoryList.svelte';
   import SectionHeader from './SectionHeader.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
   import type { repositoryActivity } from './runs';
-  import type { Pin, Run } from './types';
+  import type { Pin, Repo, Run } from './types';
   import type { PanelView } from './view.svelte';
 
   let {
@@ -34,6 +35,7 @@
     accountName,
     searching,
     setup,
+    candidates,
     onClearQuery,
     add,
   }: {
@@ -52,6 +54,8 @@
     searching: boolean;
     /** The missing account or repository step, shown instead of the sections. */
     setup: NextStep | null;
+    /** Search matches outside the tray: „Nicht im Tray“. */
+    candidates: Repo[];
     onClearQuery: () => void;
     /** The „Hinzufügen“ button of the Repositories header. */
     add: Snippet;
@@ -74,14 +78,22 @@
     >{/if}
 {/snippet}
 
+{#snippet notInTray()}{#if candidates.length}<NotInTray
+      {panel}
+      repos={candidates}
+      {accountName}
+    />{/if}{/snippet}
+
 {#if setup}<EmptyState icon="tray" iconSize={25} {...setup} />
-{:else if searching && !live.length && !pins.length && !groups.length}<EmptyState
-    icon="search"
-    iconSize={25}
-    title="Keine Treffer"
-    text="Keine laufenden Runs, Favoriten oder Repositories passen. Versuche einen anderen Suchbegriff."
-    action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
-  />
+{:else if searching && !live.length && !pins.length && !groups.length}
+  <!-- Nothing in the tray matches: only the matches outside it, if any. -->
+  {#if candidates.length}{@render notInTray()}{:else}<EmptyState
+      icon="search"
+      iconSize={25}
+      title="Keine Treffer"
+      text="Keine laufenden Runs, Favoriten oder Repositories passen. Versuche einen anderen Suchbegriff."
+      action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
+    />{/if}
 {:else}
   <section class="overview-section" aria-labelledby="section-runs">
     <SectionHeader
@@ -149,7 +161,13 @@
         uncertainRefs={panel.starts.uncertainRefs}
         expanded={panel.expandedRepos}
         onToggle={panel.toggleRepo}
+        native={panel.native}
+        demo={panel.demo}
+        busy={panel.selection.busy}
+        onRemove={(id) => void panel.selection.remove(id)}
+        onNotice={(text, tone) => panel.showNotice(text, tone)}
       />{:else}<p class="section-empty">Keine passenden Repositories.</p>{/if}
     {@render more('repos', groups.length - shownGroups.length, 'Repositories')}
   </section>
+  {@render notInTray()}
 {/if}

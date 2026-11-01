@@ -62,6 +62,21 @@ describe('PanelView', () => {
     expect(view.from).toBe('overview');
   });
 
+  it('opens the picker over its opener page and names a fresh connection', async () => {
+    const { view } = setup();
+    await view.open('repos');
+    await view.open('picker', { from: 'repos', connected: 'fixture-new' });
+    expect(view.page).toBe('picker');
+    expect(view.connected).toBe('fixture-new');
+    expect(view.back()).toBe(true);
+    expect(view.page).toBe('repos');
+    expect(view.connected).toBe('');
+    // Opened without a connection, the picker names none.
+    await view.open('picker', { connected: 'fixture-new' });
+    await view.open('picker');
+    expect(view.connected).toBe('');
+  });
+
   it('keeps the search and the filter across page switches', async () => {
     const { view } = setup();
     view.query = 'kit';

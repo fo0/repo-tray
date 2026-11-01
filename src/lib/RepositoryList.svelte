@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import RepoMenu from './RepoMenu.svelte';
   import RunStrip from './RunStrip.svelte';
+  import type { NoticeTone } from './StatusBanners.svelte';
   import { plural } from './format';
   import { fullRepo } from './model';
   import { workflowTarget } from './pins';
@@ -17,6 +19,11 @@
     uncertainRefs,
     expanded,
     onToggle,
+    native,
+    demo,
+    busy,
+    onRemove,
+    onNotice,
   }: {
     groups: ReturnType<typeof repositoryActivity>;
     onopen: (workflow: Workflow) => void;
@@ -33,6 +40,13 @@
     /** Expanded repository IDs; owned by the panel so they survive view switches. */
     expanded: Set<string>;
     onToggle: (repoId: string) => void;
+    native: boolean;
+    demo: boolean;
+    /** The repository's tray change is not confirmed yet. */
+    busy: (repoId: string) => boolean;
+    /** Takes a repository out of the tray („⋯“ menu). */
+    onRemove: (repoId: string) => void;
+    onNotice: (text: string, tone: NoticeTone) => void;
   } = $props();
 </script>
 
@@ -54,49 +68,62 @@
     <section
       class="repository-card"
       class:open
+      class:busy={busy(group.repo.id)}
       aria-label={fullRepo(group.repo)}
+      aria-busy={busy(group.repo.id) || undefined}
       data-repo-id={group.repo.id}
     >
       <!-- The strip sits inside the toggle, so its summary is part of what
-           the row reads when it takes focus. -->
-      <button
-        class="repository-toggle"
-        aria-expanded={open}
-        aria-controls={`actions-${group.repo.id}`}
-        onclick={() => onToggle(group.repo.id)}
-      >
-        <span class="repository-copy">
-          <span class="repository-title"
-            ><strong class="repository-name" title={fullRepo(group.repo)}
-              ><span class="repository-owner">{group.repo.owner}</span><span
-                class="repository-slash">/</span
-              ><span class="repository-short">{group.repo.name}</span></strong
-            >{#if repoLocked}{@render warning(
-                'Startstatus ungeklärt in diesem Repository',
-              )}{/if}</span
-          >
-          <small class="repository-meta"
-            ><span class="repository-count"
-              >{plural(group.workflows.length, 'Workflow', 'Workflows')}</span
-            ><span class="meta-dot" aria-hidden="true">·</span>{#if status}<span
-                class="repository-status"
-                data-tone={status.tone}
-                ><Icon name={TONE_ICON[status.tone]} size={12} /><span
-                  >{status.label}</span
-                ></span
-              >{:else}<span class="repository-status"
-                ><span>Noch keine Runs</span></span
-              >{/if}{#if group.repo.permission !== 'write'}<span
-                class="repository-tag"
-                >{group.repo.permission === 'read'
-                  ? 'Nur Lesen'
-                  : 'Kein Zugriff'}</span
-              >{/if}</small
-          >
-        </span>
-        <RunStrip cells={group.recent} />
-        <Icon name="chevron" size={15} class="repository-chevron" />
-      </button>
+           the row reads when it takes focus; the „⋯“ menu is its sibling. -->
+      <div class="repository-head">
+        <button
+          class="repository-toggle"
+          aria-expanded={open}
+          aria-controls={`actions-${group.repo.id}`}
+          onclick={() => onToggle(group.repo.id)}
+        >
+          <span class="repository-copy">
+            <span class="repository-title"
+              ><strong class="repository-name" title={fullRepo(group.repo)}
+                ><span class="repository-owner">{group.repo.owner}</span><span
+                  class="repository-slash">/</span
+                ><span class="repository-short">{group.repo.name}</span></strong
+              >{#if repoLocked}{@render warning(
+                  'Startstatus ungeklärt in diesem Repository',
+                )}{/if}</span
+            >
+            <small class="repository-meta"
+              ><span class="repository-count"
+                >{plural(group.workflows.length, 'Workflow', 'Workflows')}</span
+              ><span class="meta-dot" aria-hidden="true">·</span
+              >{#if status}<span
+                  class="repository-status"
+                  data-tone={status.tone}
+                  ><Icon name={TONE_ICON[status.tone]} size={12} /><span
+                    >{status.label}</span
+                  ></span
+                >{:else}<span class="repository-status"
+                  ><span>Noch keine Runs</span></span
+                >{/if}{#if group.repo.permission !== 'write'}<span
+                  class="repository-tag"
+                  >{group.repo.permission === 'read'
+                    ? 'Nur Lesen'
+                    : 'Kein Zugriff'}</span
+                >{/if}</small
+            >
+          </span>
+          <RunStrip cells={group.recent} />
+          <Icon name="chevron" size={15} class="repository-chevron" />
+        </button>
+        <RepoMenu
+          repo={group.repo}
+          latest={group.latest}
+          {native}
+          {demo}
+          onRemove={() => onRemove(group.repo.id)}
+          {onNotice}
+        />
+      </div>
       <div
         id={`actions-${group.repo.id}`}
         class="repository-actions"

@@ -154,8 +154,18 @@ test('native startup requires an account choice for workflows while updates need
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('Kein aktives Konto');
   expect(await updateCalls(page)).toHaveLength(1);
-  await page
-    .getByRole('button', { name: 'Konto in Einstellungen wählen', exact: true })
+  // „Konto wählen“ opens the account menu in place: nothing is checked yet.
+  await page.getByRole('button', { name: 'Konto wählen', exact: true }).click();
+  const menu = page.getByRole('menu', { name: 'Konto wechseln' });
+  await expect(
+    menu.getByRole('menuitemradio').locator('.menu-item-label'),
+  ).toHaveText(['fixture-user · Token', 'fixture-user · Browser']);
+  await expect(menu.getByRole('menuitemradio').first()).toBeFocused();
+  await expect(menu.getByRole('menuitemradio', { checked: true })).toHaveCount(
+    0,
+  );
+  await menu
+    .getByRole('menuitem', { name: 'Konten verwalten …', exact: true })
     .click();
   const picker = page.getByLabel('Aktives Konto auswählen', { exact: true });
   await expect(
@@ -233,12 +243,19 @@ test('a missing remembered account offers a settings path without falling back t
       'Das gespeicherte Konto ist nicht mehr verbunden. Wähle ein aktives Konto neu aus.',
     ),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Konto in Einstellungen wählen', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Konto wählen', exact: true }).click();
   await expect(
-    page.getByLabel('Aktives Konto auswählen', { exact: true }),
-  ).toHaveValue('');
+    page
+      .getByRole('menu', { name: 'Konto wechseln' })
+      .getByRole('menuitemradio')
+      .locator('.menu-item-label'),
+  ).toHaveText(['fixture-user · Token']);
+  // Escape closes the menu without a choice; nothing was remembered.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(
+    page.getByRole('status', { name: 'Aktives Konto', exact: true }),
+  ).toContainText('Kein aktives Konto');
   expect(await updateCalls(page)).toHaveLength(1);
   expect(
     await page.evaluate((key) => localStorage.getItem(key), key),

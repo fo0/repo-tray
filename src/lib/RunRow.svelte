@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon, { type IconName } from './Icon.svelte';
-  import RunLink from './RunLink.svelte';
+  import RunLink, { copyLink } from './RunLink.svelte';
   import { clockTime, runDuration, runMoment } from './format';
   import { statusLabel } from './runs';
   import { safeGitHubUrl } from './safeGitHubUrl';
@@ -40,17 +40,13 @@
       : 'Für diesen Run gibt es keinen gültigen GitHub-Link',
   );
 
-  async function copyLink() {
-    if (!runUrl) return;
-    try {
-      await navigator.clipboard.writeText(runUrl);
-      onNotice('Link kopiert.', 'subtle');
-    } catch {
-      linkError(
-        'Link konnte nicht kopiert werden. Öffne den Run auf GitHub und kopiere ihn dort.',
-      );
-    }
-  }
+  const copy = () =>
+    runUrl &&
+    copyLink(
+      runUrl,
+      onNotice,
+      'Link konnte nicht kopiert werden. Öffne den Run auf GitHub und kopiere ihn dort.',
+    );
 
   const icon: IconName = $derived(
     run.status === 'in_progress'
@@ -126,7 +122,7 @@
         disabled={!runUrl}
         aria-label={`Link zu ${run.name} #${run.id} kopieren`}
         title={runUrl ? 'Link kopieren' : noLink}
-        onclick={() => void copyLink()}><Icon name="copy" size={14} /></button
+        onclick={() => void copy()}><Icon name="copy" size={14} /></button
       >
     </div>
   </div>

@@ -68,6 +68,10 @@
   export function focus() {
     trigger?.focus();
   }
+  /** Opens the menu on its first entry, e.g. from „Konto wählen“. */
+  export function openMenu() {
+    if (!disabled) show('first');
+  }
 
   function show(focus: MenuFocus) {
     initial = focus;

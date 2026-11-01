@@ -83,12 +83,6 @@
   border-radius: 50%;
   background: #c2e795;
 }
-.settings-repo-search {
-  margin-bottom: 8px;
-}
-.settings-repo-search + .field-help {
-  margin-bottom: 12px;
-}
 .update-panel {
   color: #c9d8bb;
 }

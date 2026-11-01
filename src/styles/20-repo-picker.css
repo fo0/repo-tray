@@ -1,0 +1,242 @@
+/*
+ * Repository management in the panel: the „⋯“ menu of a repository row, the
+ * picker page („Repositories im Tray“) and „Nicht im Tray“ while searching.
+ * Tokens from 00-tokens.css only; no literal colours here.
+ */
+
+/* The row's toggle and its „⋯“ menu are siblings in one hoverable head. */
+.repository-head {
+  display: flex;
+  align-items: center;
+}
+.repository-head:hover {
+  background: var(--hover);
+}
+.repository-head > .repository-toggle {
+  flex: 1;
+  min-width: 0;
+  padding-right: 4px;
+}
+.repository-card.busy .repository-head {
+  opacity: 0.6;
+}
+.repo-menu {
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+.repo-menu-button {
+  min-width: 28px;
+  min-height: 32px;
+  padding: 4px 2px;
+  color: var(--text-3);
+}
+/* The 360 px minimum: the menu takes its room from the strip and the gaps,
+   so the status and the access tag stay readable. */
+@media (max-width: 400px) {
+  .repository-head > .repository-toggle {
+    gap: 6px;
+  }
+  .repository-head .strip-cell {
+    width: 6px;
+  }
+}
+.repo-menu-button.open {
+  background: var(--hover);
+  color: var(--text);
+}
+/* Fixed to the viewport (RepoMenu places it), so the list's clipping and the
+   scrolling body never cut it off. */
+.repo-actions-menu {
+  position: fixed;
+  min-width: 240px;
+}
+a.menu-item {
+  text-decoration: none;
+}
+.menu-item.danger,
+.menu-item.danger > svg {
+  color: var(--fail);
+}
+
+/* A repository that can be added or removed: name, access, toggle. */
+.pick-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 9px;
+}
+.pick + .pick {
+  margin-top: 2px;
+}
+.pick.in {
+  background: var(--raised);
+}
+.pick-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+/* Like the repository rows: `owner/` gives way first, the name stays. */
+.pick-name {
+  display: flex;
+  min-width: 0;
+  font-weight: 560;
+  line-height: 19px;
+  white-space: nowrap;
+}
+.pick-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pick-owner {
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--text-3);
+  font-weight: 450;
+}
+.pick-name > span:last-child {
+  flex: 0 0 auto;
+  max-width: calc(100% - 2.5ch);
+}
+.pick-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+  font-size: var(--font-size-meta);
+}
+.pick-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+.pick-toggle:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+.pick-toggle.added {
+  border-color: var(--border-strong);
+  color: var(--text-2);
+}
+.pick-toggle.added:hover:not(:disabled) {
+  background: var(--hover);
+}
+.pick-icon {
+  display: inline-flex;
+}
+.pick-toggle.added .pick-icon {
+  color: var(--ok);
+}
+.pick-toggle[aria-busy='true'] .pick-icon {
+  color: var(--text-3);
+}
+
+/* „Nicht im Tray“: dashed, so it reads as outside the tray. */
+.pick-list.candidates {
+  padding: 4px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+}
+
+/* The picker page. */
+.picker-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.picker-banner > svg {
+  margin-top: 2px;
+  color: var(--accent);
+}
+.picker-count {
+  margin: 12px 2px 0;
+  color: var(--text-3);
+  font-size: var(--font-size-meta);
+}
+.picker-group {
+  margin-top: 14px;
+}
+.picker-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0 2px 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 620;
+}
+.picker-account .avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+.picker-login {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker-account small {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--font-size-meta);
+  font-weight: 500;
+}
+.picker-hint {
+  margin: 0 2px 6px;
+  color: var(--text-3);
+  font-size: var(--font-size-meta);
+  line-height: 1.5;
+}
+.picker-access {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.picker-access > .field-help {
+  margin: 8px 0 12px;
+}
+/* Pinned to the bottom of the scrolling body, edge to edge. */
+.picker-foot {
+  position: sticky;
+  bottom: -15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px -18px -15px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: var(--font-size-meta);
+}
+.picker-foot > svg {
+  color: var(--ok);
+}

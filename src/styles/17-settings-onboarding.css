@@ -1,5 +1,5 @@
-/* Settings and onboarding: in-place confirmations, the account empty state,
-   unsaved-selection markers and tab badges. */
+/* Settings and onboarding: in-place confirmations, the account empty state
+   and tab badges. */
 
 .danger-button {
   display: inline-flex;
@@ -79,17 +79,6 @@
   flex: 1 0 100%;
 }
 
-/* An unsaved repository selection: marked in its tab and in the count. */
-.unsaved-hint {
-  color: var(--warning);
-}
-.tab-update-dot.unsaved {
-  background: var(--warning);
-}
-.settings-discard .inline-confirm {
-  margin-top: 0;
-}
-
 @media (forced-colors: active) {
   .danger-button,
   .inline-confirm {
@@ -102,11 +91,6 @@
   .tab-update-dot {
     forced-color-adjust: none;
     background: CanvasText;
-  }
-  /* Matches the unsaved rule's specificity; hollow, so it differs from an update. */
-  .tab-update-dot.unsaved {
-    background: Canvas;
-    border: 1px solid CanvasText;
   }
 }
 
@@ -145,26 +129,6 @@
 }
 .account-empty .primary-button {
   margin-top: 4px;
-}
-
-/* The next step after a first connect, shown above the repository list. */
-.settings-next-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding: 10px;
-  border: 1px solid #607f46;
-  border-radius: 6px;
-  background: #304027;
-  color: #d2e3c5;
-  font-size: var(--font-size-meta);
-  line-height: 1.6;
-}
-.settings-next-step > svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: #b7df89;
 }
 
 /* Token permissions in the connect dialogs. */

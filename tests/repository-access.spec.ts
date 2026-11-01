@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { openPage } from './support/demo';
 import {
   type TauriMock,
   installTauriMock,
@@ -9,9 +10,16 @@ import {
 type AccessMock = { stale: boolean };
 let mock: TauriMock<AccessMock>;
 
-// A browser-sign-in account offers the repository-access refresh; the mock
-// revokes one repository and grants another on the first refresh.
+// A browser-sign-in account offers the repository-access refresh in the
+// picker; the mock revokes one repository and grants another on the first
+// refresh.
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'repotray.activeAccount.v1',
+      JSON.stringify('github-device-42'),
+    ),
+  );
   mock = await installTauriMock<{ fixture: typeof fixture }, AccessMock>(
     page,
     ({ fixture }, state) => {
@@ -71,32 +79,46 @@ test.beforeEach(async ({ page }) => {
     { arg: { fixture }, state: { stale: false } },
   );
   await page.goto('/');
-  await page
-    .getByRole('button', { name: 'Einstellungen', exact: true })
-    .click();
-  await page.getByRole('tab', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'picker');
 });
 
-const repoBox = (page: Page, name: string) =>
-  page.getByRole('checkbox', { name: new RegExp(`fixture-user/${name}\\b`) });
+/** A picker toggle; its name starts with the visible state (label in name). */
+const toggle = (
+  page: Page,
+  name: string,
+  state: 'Im Tray' | 'Hinzufügen' | null = null,
+) =>
+  page.getByRole('button', {
+    name: state
+      ? `${state}: fixture-user/${name}`
+      : new RegExp(`^(Im Tray|Hinzufügen): fixture-user/${name}$`),
+    exact: !!state,
+  });
 
 test('refreshing repository access shows granted repositories and drops revoked selections', async ({
   page,
 }) => {
-  await expect(repoBox(page, 'revoked-repo')).toBeChecked();
-  await expect(page.getByText('2 Repositories ausgewählt')).toBeVisible();
+  await expect(toggle(page, 'revoked-repo', 'Im Tray')).toBeVisible();
+  await expect(
+    page.getByText('2 von höchstens 50 Repositories im Tray'),
+  ).toBeVisible();
   await page
     .getByRole('button', { name: 'Repository-Liste aktualisieren' })
     .click();
-  await expect(repoBox(page, 'granted-repo')).not.toBeChecked();
-  await expect(repoBox(page, 'revoked-repo')).toHaveCount(0);
-  await expect(repoBox(page, 'kept-repo')).toBeChecked();
-  await expect(page.getByText('1 Repository ausgewählt')).toBeVisible();
-  await expect(page.getByRole('alert')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Auswahl speichern' }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(toggle(page, 'granted-repo', 'Hinzufügen')).toBeVisible();
+  await expect(toggle(page, 'revoked-repo')).toHaveCount(0);
+  await expect(toggle(page, 'kept-repo', 'Im Tray')).toBeVisible();
+  await expect(
+    page.getByText('1 von höchstens 50 Repositories im Tray'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Mock: Repository-Zugriff nicht abrufbar.'),
+  ).toHaveCount(0);
+  // A granted repository is one click away; it applies at once.
+  await toggle(page, 'granted-repo', 'Hinzufügen').click();
+  await expect(toggle(page, 'granted-repo', 'Im Tray')).toBeVisible();
   expect((await readCalls(page, 'select_repos'))[0]?.args).toEqual({
-    repoIds: ['github-device-42:kept-repo'],
+    repoIds: ['github-device-42:kept-repo', 'github-device-42:granted-repo'],
   });
 });
 
@@ -107,12 +129,27 @@ test('a stale repository-access refresh reports its error and keeps the list', a
   await page
     .getByRole('button', { name: 'Repository-Liste aktualisieren' })
     .click();
-  await expect(page.getByRole('alert')).toContainText(
-    'Mock: Repository-Zugriff nicht abrufbar.',
-  );
-  await expect(repoBox(page, 'revoked-repo')).toBeChecked();
-  await expect(repoBox(page, 'granted-repo')).toHaveCount(0);
+  await expect(
+    page
+      .locator('.alert.warning')
+      .filter({ hasText: 'Mock: Repository-Zugriff nicht abrufbar.' }),
+  ).toBeVisible();
+  await expect(toggle(page, 'revoked-repo', 'Im Tray')).toBeVisible();
+  await expect(toggle(page, 'granted-repo')).toHaveCount(0);
   await expect(
     page.getByRole('button', { name: 'Repository-Liste aktualisieren' }),
   ).toBeEnabled();
+});
+
+test('the picker offers changing the repository access on GitHub', async ({
+  page,
+}) => {
+  await page
+    .getByRole('button', { name: 'Repository-Freigabe auf GitHub ändern' })
+    .click();
+  await expect
+    .poll(
+      async () => (await readCalls(page, 'open_browser_installation')).length,
+    )
+    .toBe(1);
 });

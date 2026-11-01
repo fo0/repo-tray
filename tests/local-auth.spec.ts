@@ -141,8 +141,10 @@ test('local account access requires a click, explicit choice and consent before 
     })
     .check();
   await connect.click();
+  // The new account has no selected repositories yet: the picker comes next.
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
-    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
+    page.getByRole('heading', { name: 'Repositories im Tray', exact: true }),
   ).toBeVisible();
   expect(
     (await calls()).find((c) => c.cmd === 'connect_local_auth')?.args,
@@ -218,15 +220,16 @@ test('discovery shows recognized rather than connected until consent, then retai
   await page
     .getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' })
     .click();
-  // The new account has no selected repositories yet: settings opens there.
-  await expect(page.getByRole('tab', { name: 'Repositories' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  // The new account has no selected repositories yet: the picker opens.
+  await expect(
+    page.getByRole('heading', { name: 'Repositories im Tray', exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole('status').filter({ hasText: 'fixture-sam ist verbunden' }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: 'Konten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
   await expect(
     page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
   ).toContainText('gh-Anmeldung übernommen · Aktiv für RepoTray');

@@ -1,15 +1,12 @@
 .run-name,
 .pin-content h3,
 .field > span,
-.boolean-field strong,
-.repo-checkbox strong {
+.boolean-field strong {
   font-size: 12px;
 }
 .search-field input,
 .section-heading h3,
-.settings-intro h3,
 .connection-card strong,
-.selection-account,
 .field input,
 .field select,
 .empty-state p,

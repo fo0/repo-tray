@@ -5,11 +5,12 @@ flowchart TD
         StartsTs["starts.svelte.ts per-target starts"]
         NoticesTs["notices.svelte.ts banner notices"]
         FavoritesTs["favorites.svelte.ts hearts and undo"]
+        RepoSelectionTs["repoSelection.svelte.ts tray repositories and undo"]
         ModalsTs["modals.svelte.ts dialog and focus return"]
         ViewTs["view.svelte.ts page, search and way back"]
         DispatchFormTs["dispatchForm.svelte.ts start form state"]
         UpdaterTs["updater.svelte.ts and updates.ts"]
-        Components["lib Svelte components: overview, section pages, dialogs"]
+        Components["lib Svelte components: overview, section pages, repository picker, dialogs"]
         FocusTs["focus.ts focus trap and landing"]
         Styles["src/styles ordered CSS"]
         Bridge["bridge.ts native or demo"]
@@ -81,6 +82,8 @@ flowchart TD
     PanelTs --> StartsTs
     PanelTs --> NoticesTs
     PanelTs --> FavoritesTs
+    PanelTs --> RepoSelectionTs
+    RepoSelectionTs -->|"select_repos, one call at a time"| Bridge
     PanelTs --> AccountSel
     PanelTs --> ModelTs
     PanelTs -->|"bridge calls"| Bridge

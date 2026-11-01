@@ -24,9 +24,6 @@
   color: var(--text);
   text-align: left;
 }
-.repository-toggle:hover {
-  background: var(--hover);
-}
 .repository-copy {
   flex: 1;
   min-width: 0;

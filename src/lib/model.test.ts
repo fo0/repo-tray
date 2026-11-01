@@ -95,7 +95,7 @@ describe('dispatch validation', () => {
   it('requires selected repository, write rights, and dispatch availability on default branch', () => {
     const data = snapshot();
     data.repos[0]!.selected = false;
-    expect(validateDispatch(data, request())).toMatch(/Einstellungen/);
+    expect(validateDispatch(data, request())).toMatch(/zum Tray hinzu/);
     data.repos[0]!.selected = true;
     data.repos[0]!.permission = 'read';
     expect(validateDispatch(data, request())).toMatch(/Schreibzugriff/);

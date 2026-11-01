@@ -1,7 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 
-/** The overview, or one of its sections maximized to fill the panel. */
-export type PanelPage = 'overview' | 'runs' | 'favorites' | 'repos';
+/** The overview, one of its sections maximized, or the repository picker. */
+export type PanelPage = 'overview' | 'runs' | 'favorites' | 'repos' | 'picker';
+type Section = keyof typeof SECTION_TITLES;
 
 /** Section titles on the overview; their maximize buttons are named after them. */
 export const SECTION_TITLES = {
@@ -9,18 +10,16 @@ export const SECTION_TITLES = {
   favorites: 'Favoriten',
   repos: 'Repositories',
 } as const;
-/** Titles of the maximized pages. */
+/** Titles of the pages. */
 export const PAGE_TITLES = {
   runs: 'Verlauf',
   favorites: 'Favoriten',
   repos: 'Repositories',
+  picker: 'Repositories im Tray',
 } as const;
 
 /** The maximize button in a section header of the overview. */
-export function maximizeButton(
-  page: Page,
-  name: Exclude<PanelPage, 'overview'>,
-) {
+export function maximizeButton(page: Page, name: Section) {
   return page.getByRole('button', {
     name: `${SECTION_TITLES[name]} maximieren`,
     exact: true,
@@ -37,15 +36,20 @@ export function backButton(page: Page) {
 
 /**
  * Shows `name` the way a user gets there: the back button returns to the
- * overview, a section's maximize button opens its page. Nothing happens when
- * the page is already shown.
+ * overview, a section's maximize button opens its page, the Repositories
+ * section's „Hinzufügen“ opens the picker. Nothing happens when the page is
+ * already shown.
  */
 export async function openPage(page: Page, name: PanelPage) {
   const tray = page.locator('.tray');
   const current = await tray.getAttribute('data-page');
   if (current === name) return;
   if (current !== 'overview') await backButton(page).click();
-  if (name !== 'overview') await maximizeButton(page, name).click();
+  if (name === 'picker')
+    await page
+      .getByRole('button', { name: 'Repositories hinzufügen', exact: true })
+      .click();
+  else if (name !== 'overview') await maximizeButton(page, name).click();
   await expect(tray).toHaveAttribute('data-page', name);
 }
 

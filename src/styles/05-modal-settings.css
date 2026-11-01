@@ -103,96 +103,12 @@
   min-height: 32px;
   font-size: var(--font-size-meta);
 }
-.settings-intro {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #93b277;
-  margin-bottom: 16px;
-}
-.settings-intro h3 {
-  font-size: var(--font-size-meta);
-  font-weight: 550;
-  color: #c9d8bb;
-}
-.settings-intro p {
-  font-size: var(--font-size-meta);
-  color: #879f75;
-  margin-top: 5px;
-}
-.repo-selection {
-  border: 1px solid #3a4931;
-  border-radius: 7px;
-  overflow: hidden;
-}
-.selection-account {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: #293322;
-  font-size: var(--font-size-meta);
-  font-weight: 550;
-  color: #becdb0;
-}
-.selection-account > span:last-child {
-  margin-left: auto;
-  font-size: var(--font-size-meta);
-  font-weight: 400;
-  color: var(--muted-text-raised);
-}
-.mini-avatar {
-  display: grid;
-  place-items: center;
-  width: 17px;
-  height: 17px;
-  background: #3d4d30;
-  border: 1px solid #526640;
-  border-radius: 5px;
-  font-size: var(--font-size-meta);
-  color: #b9d19f;
-}
-.repo-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 11px 10px;
-  cursor: pointer;
-  background: #1d251a;
-  border-top: 1px solid #303e28;
-}
-.repo-checkbox:hover {
-  background: #263020;
-}
-.repo-checkbox input,
 .quick-opt-in input {
   accent-color: #bfdf96;
   width: 13px;
   height: 13px;
   flex-shrink: 0;
   margin: 0;
-}
-.repo-checkbox > span {
-  flex: 1;
-  min-width: 0;
-}
-.repo-checkbox strong {
-  font-size: var(--font-size-meta);
-  font-weight: 500;
-  display: block;
-  color: #c7d6b9;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.repo-checkbox small {
-  display: block;
-  font-size: var(--font-size-meta);
-  color: #829d6d;
-  margin-top: 5px;
-}
-.repo-checkbox > svg {
-  color: #637b52;
 }
 .settings-section {
   margin-top: 21px;

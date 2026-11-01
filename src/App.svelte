@@ -80,10 +80,13 @@
     // An explicit connection selects that entry; the service lists it last.
     const account = value.accounts.at(-1);
     changeAccount(account?.id ?? '');
-    // A new account starts without selected repositories: that is the next step.
-    if (account && !panel.repos.length)
-      openSettings('repositories', account.login);
-    else openSettings();
+    // A new account starts without selected repositories: the picker is the
+    // next step. Its page is set before the dialog closes, so the dialog's
+    // focus return lands in it instead of on a vanished opener.
+    if (account && !panel.repos.length) {
+      void view.open('picker', { connected: account.login, opener: null });
+      modals.close();
+    } else openSettings();
     void updater.check(true);
   }
   function connectedDemo(method: 'browser' | 'token') {
@@ -100,7 +103,8 @@
   /** Empty-state actions open the missing step: connect, account or repositories. */
   function openNextStep() {
     if (native && !snapshot?.accounts.length) modals.show('connect');
-    else openSettings(panel.needsAccount ? 'accounts' : 'repositories');
+    else if (panel.needsAccount) appBar?.openAccountMenu();
+    else void view.open('picker', { from: view.page });
   }
   const shortcuts = createShortcuts({
     blocked: () => modals.kind !== null,
@@ -149,8 +153,7 @@
       {accountName}
       {repoAccountName}
       onClearQuery={clearQuery}
-      onOpenSettings={openNextStep}
-      onAddRepos={() => openSettings('repositories')}
+      onNextStep={openNextStep}
     >
       {#snippet top()}
         <SearchField
@@ -198,9 +201,7 @@
     {updater}
     {appVersion}
     initialTab={modals.settingsTab}
-    connected={modals.settingsConnected}
     busy={panel.settingsBusy}
-    saving={panel.selectionBusy}
     returnFocus={modals.returnFocus}
     onClose={modals.close}
     onConnect={() => modals.show('connect')}
@@ -208,9 +209,6 @@
     onScenario={panel.changeScenario}
     onReset={panel.resetDemo}
     onDisconnect={panel.disconnectAccount}
-    onSaveSelection={panel.saveSelection}
-    onRefreshAccess={panel.refreshAccess}
-    onManageInstallation={panel.manageInstallation}
   />
 {:else if modals.kind === 'connect'}
   <Modal
