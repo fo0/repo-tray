@@ -28,9 +28,8 @@ jobs:
         shell: pwsh
         run: |
           if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Release must be started from main' }
-          $query = "repos/$env:GITHUB_REPOSITORY/actions/workflows/checks.yml/runs?head_sha=$env:RELEASE_SOURCE_SHA&event=push&per_page=1"
           while ($true) {
-            $json = gh api $query
+            $json = gh api --method GET "repos/$env:GITHUB_REPOSITORY/actions/workflows/checks.yml/runs" -f "head_sha=$env:RELEASE_SOURCE_SHA" -f event=push -f per_page=1
             if ($LASTEXITCODE -ne 0) { throw 'Checks status unavailable' }
             $run = @(($json | ConvertFrom-Json).workflow_runs)[0]
             if (!$run) { throw "No push Checks run for $env:RELEASE_SOURCE_SHA" }

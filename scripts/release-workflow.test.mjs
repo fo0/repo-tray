@@ -83,8 +83,8 @@ if (process.env.RELEASE_TEST_COMMAND === 'pnpm') {
 } else if (args[0] === 'api') {
   const endpoint = args.find((arg) => arg.startsWith('repos/'));
   if (endpoint.includes('/actions/runs/')) console.log('2026-11-01T00:15:00Z');
-  else if (endpoint.includes('/actions/workflows/checks.yml/runs?')) {
-    if (!endpoint.includes('head_sha=' + process.env.RELEASE_SOURCE_SHA)) fail('Checks queried for another commit');
+  else if (endpoint.endsWith('/actions/workflows/checks.yml/runs')) {
+    if (!args.includes('head_sha=' + process.env.RELEASE_SOURCE_SHA) || !args.includes('event=push')) fail('Checks queried for another commit or event');
     console.log(JSON.stringify({ workflow_runs: state.checks ? [state.checks] : [] }));
   }
   else if (endpoint.includes('/generate-notes')) console.log(state.emptyNotes ? '' : '## Changes\n- Test release');
