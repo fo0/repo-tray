@@ -40,3 +40,4 @@ Stable project knowledge. **Read at session start.**
 ## User Preferences
 
 - **Chat in German, direct, no filler**; generated files and commits in English (owner, 2026-11-01)
+- **Simple subagent work may run at effort `high`** on the session's model instead of inheriting the session effort (owner, 2026-11-01)
