@@ -4,55 +4,42 @@
   import PinCard from './PinCard.svelte';
   import WorkflowList from './WorkflowList.svelte';
   import { plural } from './format';
-  import type { DispatchTarget, Pin, Repo, Workflow } from './types';
+  import type { Modals } from './modals.svelte';
+  import type { Panel } from './panel.svelte';
+  import { blockedReason } from './startReason';
+  import type { Pin, Repo, Workflow } from './types';
 
   let {
+    panel,
+    modals,
     pins,
     launchRepos,
     workflowsFor,
-    isUncertain,
     repoName,
     accountName,
-    demo,
-    isStarting,
-    busy,
-    blocked,
     searching,
     hasRepos,
-    needsAccount,
-    onLaunch,
-    onConfigure,
-    onRemove,
-    onOpenWorkflow,
-    onNew,
     onClearQuery,
     onOpenSettings,
   }: {
+    /** Starts, favorites and account state come from the panel. */
+    panel: Panel;
+    /** Opens the start dialog for a favorite or workflow. */
+    modals: Modals;
     pins: Pin[];
     /** Repositories with at least one workflow matching the search. */
     launchRepos: Repo[];
     workflowsFor: (repoId: string) => Workflow[];
-    isUncertain: (pin: Pin) => boolean;
     repoName: (repoId: string) => string;
     accountName: (accountId: string) => string;
-    demo: boolean;
-    /** A start for this target is running; only that target is locked. */
-    isStarting: (target: DispatchTarget) => boolean;
-    busy: boolean;
-    /** Why starts are off for every target (offline, forbidden); null otherwise. */
-    blocked: string | null;
     /** A non-blank search query is active. */
     searching: boolean;
     hasRepos: boolean;
-    needsAccount: boolean;
-    onLaunch: (pin: Pin) => void;
-    onConfigure: (pin: Pin) => void;
-    onRemove: (pinId: string) => void;
-    onOpenWorkflow: (workflow: Workflow) => void;
-    onNew: () => void;
     onClearQuery: () => void;
     onOpenSettings: () => void;
   } = $props();
+  const blocked = $derived(blockedReason(panel.snapshot));
+  const needsAccount = $derived(panel.needsAccount);
 </script>
 
 <div class="section-heading launch-heading">
@@ -63,16 +50,16 @@
   {#each pins as pin (pin.id)}
     <PinCard
       {pin}
-      uncertain={isUncertain(pin)}
+      uncertain={panel.starts.isQuarantined(pin)}
       repo={repoName(pin.repoId)}
       account={accountName(pin.accountId)}
-      {demo}
-      starting={isStarting(pin)}
-      {busy}
+      demo={panel.demo}
+      starting={panel.starts.isRunning(pin)}
+      busy={panel.pinsBusy}
       {blocked}
-      onLaunch={() => onLaunch(pin)}
-      onConfigure={() => onConfigure(pin)}
-      onRemove={() => onRemove(pin.id)}
+      onLaunch={() => modals.launchPin(pin)}
+      onConfigure={() => modals.openDispatch(pin)}
+      onRemove={() => panel.favorites.remove(pin.id)}
     />
   {:else}{#if !searching}<div class="empty-pins">
         <Icon name="pin" size={18} /><span
@@ -85,11 +72,17 @@
 </div>
 <div class="section-heading workflow-heading">
   <h2>Workflow auswählen</h2>
-  <button class="text-button" onclick={() => onNew()} disabled={!hasRepos}
-    >Starten…<Icon name="plus" size={13} /></button
+  <button
+    class="text-button"
+    onclick={() => modals.openDispatch()}
+    disabled={!hasRepos}>Starten…<Icon name="plus" size={13} /></button
   >
 </div>
-<WorkflowList repos={launchRepos} {workflowsFor} onOpen={onOpenWorkflow} />
+<WorkflowList
+  repos={launchRepos}
+  {workflowsFor}
+  onOpen={(workflow) => modals.openDispatch(undefined, workflow)}
+/>
 {#if searching && !pins.length && !launchRepos.length}<EmptyState
     icon="search"
     iconSize={26}

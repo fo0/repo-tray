@@ -27,8 +27,7 @@
   import { Modals } from './lib/modals.svelte';
   import { Panel } from './lib/panel.svelte';
   import { createShortcuts } from './lib/shortcuts';
-  import { blockedReason } from './lib/startReason';
-  import type { Pin, Snapshot, Workflow } from './lib/types';
+  import type { Snapshot } from './lib/types';
   import { Updater } from './lib/updater.svelte';
 
   const appVersion = appPackage.version;
@@ -46,14 +45,14 @@
   let expanded = $state<number | null>(null);
   let searchField = $state<ReturnType<typeof SearchField>>();
   let toolbar = $state<ReturnType<typeof Toolbar>>();
-  const modals = new Modals((id) => {
+  const modals = new Modals(panel, (id) => {
     panel.notices.dismissRun(id);
     tab = 'activity';
     filter = 'all';
     query = '';
     expanded = id;
   });
-  const { openSettings, openDispatch } = modals;
+  const { openSettings } = modals;
 
   const needle = $derived(query.trim().toLowerCase());
   /** Whitespace alone filters nothing, so it is no search in any view. */
@@ -144,8 +143,6 @@
     if (native && !snapshot?.accounts.length) modals.show('connect');
     else openSettings(panel.needsAccount ? 'accounts' : 'repositories');
   }
-  const launchPin = (pin: Pin) =>
-    panel.favorites.launch(pin) || openDispatch(pin);
   function selectTab(next: ViewTab) {
     tab = next;
     query = '';
@@ -157,10 +154,6 @@
     focusSearch: () => searchField?.focus(),
     escape: (target) => !!searchField?.escape(target),
   });
-  async function toggleFavorite(workflow: Workflow) {
-    if ((await panel.favorites.toggle(workflow)) === 'incomplete')
-      openDispatch(undefined, workflow, true);
-  }
 </script>
 
 <svelte:window onkeydown={shortcuts} />
@@ -234,24 +227,13 @@
         />
       {:else if tab === 'repositories'}
         <RepositoriesView
+          {panel}
+          {modals}
           {pins}
           groups={view ? repositoryActivity(view, accountId, query) : []}
-          isUncertain={panel.starts.isQuarantined}
-          favorite={panel.favorites.find}
           {repoName}
           {accountName}
-          isStarting={panel.starts.isRunning}
-          busy={panel.pinsBusy}
-          blocked={blockedReason(snapshot)}
-          needsAccount={panel.needsAccount}
-          hasAccounts={!!snapshot.accounts.length}
-          accountNotice={panel.accountNotice}
           {searching}
-          onConfigure={(pin) => openDispatch(pin)}
-          onRemove={panel.favorites.remove}
-          onLaunch={launchPin}
-          onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
-          onFavorite={(workflow) => void toggleFavorite(workflow)}
           onClearQuery={clearQuery}
           onOpenSettings={openNextStep}
         />
@@ -279,24 +261,15 @@
         />
       {:else}
         <LaunchView
+          {panel}
+          {modals}
           {pins}
           {launchRepos}
           workflowsFor={matchedWorkflows}
-          isUncertain={panel.starts.isQuarantined}
           {repoName}
           {accountName}
-          {demo}
-          isStarting={panel.starts.isRunning}
-          busy={panel.pinsBusy}
-          blocked={blockedReason(snapshot)}
           {searching}
           hasRepos={repos.length > 0}
-          needsAccount={panel.needsAccount}
-          onLaunch={launchPin}
-          onConfigure={(pin) => openDispatch(pin)}
-          onRemove={panel.favorites.remove}
-          onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
-          onNew={() => openDispatch()}
           onClearQuery={clearQuery}
           onOpenSettings={() =>
             openSettings(panel.needsAccount ? 'accounts' : 'repositories')}

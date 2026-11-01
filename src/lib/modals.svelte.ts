@@ -1,6 +1,7 @@
 import { tick } from 'svelte';
 import type { DispatchSeed } from './DispatchDialog.svelte';
 import type { SettingsTab } from './SettingsDialog.svelte';
+import type { Panel } from './panel.svelte';
 import { focusRevealedRun } from './focus';
 import type { Pin, Workflow } from './types';
 
@@ -18,10 +19,12 @@ export class Modals {
   dispatchSeed = $state.raw<DispatchSeed>({});
   /** Element that opened the first of possibly chained dialogs. */
   opener: HTMLElement | null = null;
+  #panel: Panel;
   #reveal: (runId: number | null) => void;
 
   /** `reveal` switches the view to the full activity list with the run expanded. */
-  constructor(reveal: (runId: number | null) => void) {
+  constructor(panel: Panel, reveal: (runId: number | null) => void) {
+    this.#panel = panel;
     this.#reveal = reveal;
   }
 
@@ -46,6 +49,15 @@ export class Modals {
   openDispatch = (pin?: Pin, workflow?: Workflow, favoriteIntent = false) => {
     this.dispatchSeed = { pin, workflow, favoriteIntent };
     this.show('dispatch');
+  };
+  /** Quick-starts a favorite, or opens it in the start dialog. */
+  launchPin = (pin: Pin) => {
+    if (!this.#panel.favorites.launch(pin)) this.openDispatch(pin);
+  };
+  /** Toggles a heart favorite; one that still needs input opens the dialog. */
+  toggleFavorite = async (workflow: Workflow) => {
+    if ((await this.#panel.favorites.toggle(workflow)) === 'incomplete')
+      this.openDispatch(undefined, workflow, true);
   };
   /** Shows an accepted start in the full activity list and focuses its row. */
   showRun = async (id: number | null) => {

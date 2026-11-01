@@ -2,69 +2,52 @@
   import EmptyState from './EmptyState.svelte';
   import PinnedFavorites from './PinnedFavorites.svelte';
   import RepositoryList from './RepositoryList.svelte';
+  import type { Modals } from './modals.svelte';
   import type { repositoryActivity } from './model';
-  import type { DispatchTarget, Pin, Workflow } from './types';
+  import type { Panel } from './panel.svelte';
+  import { blockedReason } from './startReason';
+  import type { Pin } from './types';
 
   let {
+    panel,
+    modals,
     pins,
     groups,
-    isUncertain,
-    favorite,
     repoName,
     accountName,
-    isStarting,
-    busy,
-    blocked,
-    needsAccount,
-    hasAccounts,
-    accountNotice,
     searching,
-    onConfigure,
-    onRemove,
-    onLaunch,
-    onOpenWorkflow,
-    onFavorite,
     onClearQuery,
     onOpenSettings,
   }: {
+    /** Starts, favorites and account state come from the panel. */
+    panel: Panel;
+    /** Opens the start dialog for a favorite or workflow. */
+    modals: Modals;
     pins: Pin[];
     groups: ReturnType<typeof repositoryActivity>;
-    isUncertain: (pin: Pin) => boolean;
-    favorite: (workflow: Workflow) => Pin | undefined;
     repoName: (repoId: string) => string;
     accountName: (accountId: string) => string;
-    /** A start for this target is running; only that target is locked. */
-    isStarting: (target: DispatchTarget) => boolean;
-    /** A pin change is running. */
-    busy: boolean;
-    /** Why starts are off for every target (offline, forbidden); null otherwise. */
-    blocked: string | null;
-    needsAccount: boolean;
-    hasAccounts: boolean;
-    accountNotice: string;
     /** A search query is active. */
     searching: boolean;
-    onConfigure: (pin: Pin) => void;
-    onRemove: (pinId: string) => void;
-    onLaunch: (pin: Pin) => void;
-    onOpenWorkflow: (workflow: Workflow) => void;
-    onFavorite: (workflow: Workflow) => void;
     onClearQuery: () => void;
     onOpenSettings: () => void;
   } = $props();
+  const blocked = $derived(blockedReason(panel.snapshot));
+  const needsAccount = $derived(panel.needsAccount);
+  const hasAccounts = $derived(!!panel.snapshot?.accounts.length);
 </script>
 
 <PinnedFavorites
   {pins}
-  {isUncertain}
+  isUncertain={panel.starts.isQuarantined}
   {repoName}
   {accountName}
-  {isStarting}
-  {busy}
+  isStarting={panel.starts.isRunning}
+  busy={panel.pinsBusy}
   {blocked}
-  {onConfigure}
-  {onRemove}
-  {onLaunch}
+  onConfigure={(pin) => modals.openDispatch(pin)}
+  onRemove={panel.favorites.remove}
+  onLaunch={modals.launchPin}
 />
 <div class="section-heading repository-heading">
   <h2>Deine Repositories</h2>
@@ -72,11 +55,11 @@
 </div>
 <RepositoryList
   {groups}
-  onopen={onOpenWorkflow}
-  onfavorite={onFavorite}
-  {favorite}
-  {busy}
-  {isStarting}
+  onopen={(workflow) => modals.openDispatch(undefined, workflow)}
+  onfavorite={(workflow) => void modals.toggleFavorite(workflow)}
+  favorite={panel.favorites.find}
+  busy={panel.pinsBusy}
+  isStarting={panel.starts.isRunning}
   {blocked}
 />
 {#if !groups.length}<EmptyState
@@ -90,7 +73,7 @@
         ? 'Keine passenden Repositories'
         : 'Noch keine Repositories ausgewählt'}
     text={needsAccount
-      ? accountNotice ||
+      ? panel.accountNotice ||
         (hasAccounts
           ? 'Wähle Konto und Repositories in den Einstellungen aus.'
           : 'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.')
