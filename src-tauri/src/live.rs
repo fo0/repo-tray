@@ -252,6 +252,7 @@ impl<T: Transport> LiveStore<T> {
     /// Pins have their own cache table, so saving or deleting one never rewrites the snapshot.
     pub fn save_pin(&mut self, pin: Pin) -> Result<Snapshot, String> {
         validate_pin_fields(&pin)?;
+        check_pin_room(&self.data.pins, &pin.id)?;
         validate_non_secret_inputs(&pin.inputs).map_err(|e| e.to_string())?;
         if !self
             .data

@@ -284,6 +284,10 @@ impl std::str::FromStr for DemoScenario {
 pub const MAX_REQUEST_ID_CHARS: usize = 200;
 pub const MAX_PIN_ID_CHARS: usize = 120;
 pub const MAX_PIN_LABEL_CHARS: usize = 120;
+/// Saved favorites across all accounts; each is one row and one entry in every snapshot.
+pub const MAX_PINS: usize = 100;
+/// Git's own limit for a ref name, in bytes.
+pub const MAX_GIT_REF_BYTES: usize = 255;
 /// Dispatch request IDs each store remembers for idempotent retries.
 pub const MAX_RECORDED_OUTCOMES: usize = 256;
 
@@ -304,11 +308,45 @@ pub fn validate_request_id(request_id: &str) -> Result<(), String> {
 
 /// Shared by the demo and live stores for the user-written pin fields.
 pub fn validate_pin_fields(pin: &Pin) -> Result<(), String> {
-    if bounded_text(&pin.id, MAX_PIN_ID_CHARS) && bounded_text(&pin.label, MAX_PIN_LABEL_CHARS) {
-        Ok(())
-    } else {
-        Err("Eine Vorlage braucht eine ID und einen Namen mit höchstens 120 Zeichen.".into())
+    if !bounded_text(&pin.id, MAX_PIN_ID_CHARS) || !bounded_text(&pin.label, MAX_PIN_LABEL_CHARS) {
+        return Err(
+            "Eine Vorlage braucht eine ID und einen Namen mit höchstens 120 Zeichen.".into(),
+        );
     }
+    if !valid_git_ref(&pin.git_ref) {
+        return Err("Branch oder Tag des Favoriten ist ungültig.".into());
+    }
+    Ok(())
+}
+
+/// Shared by the demo and live stores: a new favorite needs room; replacing one never does.
+pub fn check_pin_room(pins: &[Pin], id: &str) -> Result<(), String> {
+    if pins.len() >= MAX_PINS && !pins.iter().any(|pin| pin.id == id) {
+        return Err(format!(
+            "Höchstens {MAX_PINS} Favoriten – entferne zuerst einen anderen."
+        ));
+    }
+    Ok(())
+}
+
+/// The essentials of `git check-ref-format` for a branch or tag name: at most 255 bytes, no
+/// control characters, whitespace or any of `~^:?*[\`, no `..` or `@{`, not `@`, no leading
+/// `-`, no trailing `.`, and no empty component (so no leading, trailing or double `/`) or
+/// component that starts with `.` or ends with `.lock`.
+pub fn valid_git_ref(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= MAX_GIT_REF_BYTES
+        && name != "@"
+        && !name.starts_with('-')
+        && !name.ends_with('.')
+        && !name.contains("..")
+        && !name.contains("@{")
+        && !name
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace() || "~^:?*[\\".contains(c))
+        && name
+            .split('/')
+            .all(|part| !part.is_empty() && !part.starts_with('.') && !part.ends_with(".lock"))
 }
 
 /// Insertion-ordered, bounded map: the oldest entry is evicted once `capacity` is exceeded.
@@ -388,6 +426,73 @@ mod tests {
         assert!(validate_pin_fields(&pin(&id, "Label")).is_err());
         assert!(validate_pin_fields(&pin(" ", "Label")).is_err());
         assert!(validate_pin_fields(&pin("pin-1", "")).is_err());
+    }
+
+    #[test]
+    fn pinned_refs_follow_the_git_ref_format_essentials() {
+        let longest = "r".repeat(MAX_GIT_REF_BYTES);
+        for valid in [
+            "main",
+            "release/2026.11",
+            "v1.0.0",
+            "feature/über-ä",
+            "refs/heads/main",
+            "a@b",
+            longest.as_str(),
+        ] {
+            assert!(valid_git_ref(valid), "{valid}");
+        }
+        let too_long = "r".repeat(MAX_GIT_REF_BYTES + 1);
+        let too_many_bytes = "ä".repeat(MAX_GIT_REF_BYTES / 2 + 1);
+        for invalid in [
+            "",
+            "@",
+            "-option",
+            "/main",
+            "main/",
+            "main.",
+            "a..b",
+            "a//b",
+            "a@{1}",
+            "has space",
+            "tab\there",
+            "line\nbreak",
+            "del\u{7f}",
+            "nbsp\u{a0}x",
+            "a~1",
+            "a^",
+            "a:b",
+            "a?",
+            "a*",
+            "a[b",
+            "back\\slash",
+            ".hidden",
+            "a/.hidden",
+            "branch.lock",
+            "a.lock/b",
+            too_long.as_str(),
+            too_many_bytes.as_str(),
+        ] {
+            assert!(!valid_git_ref(invalid), "{invalid:?}");
+        }
+        let mut invalid = pin("pin-1", "Label");
+        invalid.git_ref = "a..b".into();
+        assert_eq!(
+            validate_pin_fields(&invalid).unwrap_err(),
+            "Branch oder Tag des Favoriten ist ungültig."
+        );
+    }
+
+    #[test]
+    fn a_new_pin_needs_room_but_replacing_one_never_does() {
+        let full: Vec<_> = (0..MAX_PINS)
+            .map(|index| pin(&format!("pin-{index}"), "Label"))
+            .collect();
+        assert!(check_pin_room(&full[1..], "pin-new").is_ok());
+        assert!(check_pin_room(&full, "pin-new")
+            .unwrap_err()
+            .contains("100"));
+        assert!(check_pin_room(&full, "pin-7").is_ok());
     }
 
     #[test]

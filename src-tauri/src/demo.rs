@@ -162,6 +162,7 @@ impl DemoStore {
 
     pub fn save_pin(&mut self, mut pin: Pin) -> Result<Snapshot, String> {
         validate_pin_fields(&pin)?;
+        check_pin_room(&self.snapshot.pins, &pin.id)?;
         validate_non_secret_inputs(&pin.inputs).map_err(|error| error.to_string())?;
         let request = DispatchRequest {
             account_id: pin.account_id.clone(),
@@ -525,6 +526,12 @@ mod tests {
         let mut pin = store.snapshot.pins[0].clone();
         pin.label = "x".repeat(MAX_PIN_LABEL_CHARS + 1);
         assert!(store.save_pin(pin).is_err());
+        let mut pin = store.snapshot.pins[0].clone();
+        pin.git_ref = "main..evil".into();
+        assert_eq!(
+            store.save_pin(pin).unwrap_err(),
+            "Branch oder Tag des Favoriten ist ungültig."
+        );
     }
 
     #[test]

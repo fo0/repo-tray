@@ -13,6 +13,10 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(super) const REF_PAGES: usize = 3;
 /// Refs offered per startable workflow, the default branch included; pinned refs come on top.
 pub(super) const MAX_REFS: usize = 100;
+/// Pinned refs a repository offers beyond its shared refs, all its workflows together; at
+/// most 255 bytes each (`valid_git_ref`), so 50 selected repositories stay far below the
+/// cache cap.
+pub(super) const MAX_PINNED_REFS: usize = 20;
 /// Every workflow carries its own copy of the repository's refs; all copies of one
 /// repository share this budget, so 50 selected repositories stay far below the cache cap.
 pub(super) const REPO_REF_BYTES: usize = 8 * 1024;
@@ -162,19 +166,54 @@ pub(super) struct RefListing {
     pub(super) truncated: bool,
 }
 
-/// The refs one startable workflow offers, sorted. Dispatch validation in UI and core checks
-/// against exactly this list.
+/// The refs each startable workflow (by ID) offers, sorted. Dispatch validation in UI and
+/// core checks against exactly these lists.
 ///
-/// - The default branch, always.
-/// - Every ref a pin of this repository uses, outside `MAX_REFS` and the byte budget, so a
-///   template stays startable: when the listing names it, or when the listing was cut off and
-///   cannot prove the ref is gone. A vanished ref is still safe: `dispatch` reads the workflow
-///   at that ref before it claims or sends anything, and GitHub's 404 rejects the start.
-/// - Branches and tags in turns, in GitHub's order, while `MAX_REFS` and the repository's
-///   byte budget (shared by `copies` workflows) allow; neither kind starves the other.
+/// - Every workflow: the repository's `bounded_refs`, shared by all startable workflows.
+/// - On top, on its own workflow only: the ref of a pin of that workflow, so a favorite stays
+///   startable, when it is a valid ref name and the listing names it or was cut off and cannot
+///   prove it gone. Pins count in their order, at most `MAX_PINNED_REFS` per repository. A
+///   vanished ref is still safe: `dispatch` reads the workflow at that ref before it claims
+///   or sends anything, and GitHub's 404 rejects the start.
+pub(super) fn offered_refs(
+    default_branch: &str,
+    listing: &RefListing,
+    startable: &[u64],
+    pins: &[(u64, &str)],
+) -> BTreeMap<u64, Vec<String>> {
+    let shared: BTreeSet<_> = bounded_refs(default_branch, listing, startable.len())
+        .into_iter()
+        .collect();
+    let mut offered: BTreeMap<_, _> = startable.iter().map(|id| (*id, shared.clone())).collect();
+    let mut extras = 0;
+    for (workflow, name) in pins {
+        if extras >= MAX_PINNED_REFS {
+            break;
+        }
+        let Some(refs) = offered.get_mut(workflow) else {
+            continue;
+        };
+        let listed = listing
+            .branches
+            .iter()
+            .chain(&listing.tags)
+            .any(|known| known == name);
+        if valid_git_ref(name) && (listed || listing.truncated) && refs.insert((*name).into()) {
+            extras += 1;
+        }
+    }
+    offered
+        .into_iter()
+        .map(|(id, refs)| (id, refs.into_iter().collect()))
+        .collect()
+}
+
+/// The refs every startable workflow of a repository offers, sorted: the default branch,
+/// always, then branches and tags in turns, in GitHub's order, while `MAX_REFS` and the
+/// repository's byte budget (shared by `copies` workflows) allow; neither kind starves the
+/// other.
 pub(super) fn bounded_refs(
     default_branch: &str,
-    pinned: &[&str],
     listing: &RefListing,
     copies: usize,
 ) -> Vec<String> {
@@ -183,16 +222,6 @@ pub(super) fn bounded_refs(
     let cost = |name: &str| name.len() + 3;
     let mut used = cost(default_branch);
     let mut refs = BTreeSet::from([default_branch.to_owned()]);
-    for name in pinned {
-        let listed = listing
-            .branches
-            .iter()
-            .chain(&listing.tags)
-            .any(|known| known == name);
-        if (listed || listing.truncated) && refs.insert((*name).to_owned()) {
-            used += cost(name);
-        }
-    }
     let turns = listing.branches.len().max(listing.tags.len());
     let alternating = (0..turns)
         .flat_map(|index| [listing.branches.get(index), listing.tags.get(index)])

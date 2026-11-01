@@ -116,7 +116,24 @@ fn invalid_input_is_refused_and_the_outcome_ledger_is_bounded() {
         inputs: Inputs::new(),
         quick_start: false,
     };
-    assert!(live.save_pin(pin).unwrap_err().contains("120"));
+    assert!(live.save_pin(pin.clone()).unwrap_err().contains("120"));
+    let named = |id: String, git_ref: &str| Pin {
+        id,
+        label: "Fixture pin".into(),
+        git_ref: git_ref.into(),
+        ..pin.clone()
+    };
+    assert_eq!(
+        live.save_pin(named("pin-1".into(), "-delete")).unwrap_err(),
+        "Branch oder Tag des Favoriten ist ungültig."
+    );
+    live.data.pins = (0..MAX_PINS)
+        .map(|index| named(format!("pin-{index}"), "main"))
+        .collect();
+    assert!(live
+        .save_pin(named("pin-new".into(), "main"))
+        .unwrap_err()
+        .contains("100"));
 }
 
 #[test]

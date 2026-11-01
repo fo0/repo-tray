@@ -1,7 +1,7 @@
 //! The refresh orchestration: account catalogs, repository metadata and runs, each scope
 //! on its own timer, settled into one snapshot and notice.
 use super::{
-    catalog::{account_repos, bounded_refs, list_values, merge_catalog, RefListing, REF_PAGES},
+    catalog::{account_repos, list_values, merge_catalog, offered_refs, RefListing, REF_PAGES},
     empty_snapshot, number, text,
     transport::OAuthClient,
     with_notice, LiveStore, Schedule, BROWSER_SETUP_NOTICE,
@@ -113,17 +113,19 @@ impl<T: Transport> LiveStore<T> {
             .pins
             .iter()
             .filter(|pin| pin.repo_id == repo.id)
-            .map(|pin| pin.git_ref.as_str())
+            .map(|pin| (pin.workflow_id, pin.git_ref.as_str()))
             .collect();
-        let copies = workflows.iter().filter(|w| w.dispatch).count();
-        let refs = bounded_refs(&repo.default_branch, &pinned, &listing, copies);
+        let startable: Vec<_> = workflows
+            .iter()
+            .filter(|w| w.dispatch)
+            .map(|w| w.id)
+            .collect();
+        let mut offered = offered_refs(&repo.default_branch, &listing, &startable, &pinned);
         for workflow in &mut workflows {
             // Only startable workflows offer a ref choice; the others show the default branch.
-            workflow.refs = if workflow.dispatch {
-                refs.clone()
-            } else {
-                vec![repo.default_branch.clone()]
-            };
+            workflow.refs = offered
+                .remove(&workflow.id)
+                .unwrap_or_else(|| vec![repo.default_branch.clone()]);
         }
         Ok(workflows)
     }
