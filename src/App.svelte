@@ -52,7 +52,8 @@
     Workflow,
   } from './lib/types';
 
-  let snapshot = $state<Snapshot | null>(null);
+  // Snapshots are replaced wholesale, never mutated: no deep proxy needed.
+  let snapshot = $state.raw<Snapshot | null>(null);
   const demo = $derived(snapshot?.mode !== 'live');
   const updater = new Updater(native);
   const settingsTabs = [
@@ -109,24 +110,29 @@
           : !accountId || repo.accountId === accountId),
     ) ?? [],
   );
+  /** Native views stay empty until an account is chosen deliberately. */
+  const viewSnapshot = $derived(
+    snapshot && (!native || accountId) ? snapshot : null,
+  );
+  /** Repository IDs the current snapshot has selected (persisted selection). */
+  const savedSelection = $derived(
+    snapshot?.repos.filter((repo) => repo.selected).map((repo) => repo.id) ??
+      [],
+  );
   const runs = $derived(
-    snapshot && (!native || accountId)
-      ? historyRuns(snapshot, accountId, query, filter)
-      : [],
+    viewSnapshot ? historyRuns(viewSnapshot, accountId, query, filter) : [],
   );
   const repoGroups = $derived(
-    snapshot && (!native || accountId)
-      ? repositoryActivity(snapshot, accountId, query)
-      : [],
+    viewSnapshot ? repositoryActivity(viewSnapshot, accountId, query) : [],
   );
   const activeRuns = $derived(
-    snapshot && (!native || accountId)
-      ? visibleRuns(snapshot, accountId, '', 'active').length
+    viewSnapshot
+      ? visibleRuns(viewSnapshot, accountId, '', 'active').length
       : 0,
   );
   const failedRuns = $derived(
-    snapshot && (!native || accountId)
-      ? visibleRuns(snapshot, accountId, '', 'failed').length
+    viewSnapshot
+      ? visibleRuns(viewSnapshot, accountId, '', 'failed').length
       : 0,
   );
   const pins = $derived(
@@ -206,9 +212,7 @@
         accountId: id,
       });
       acceptSnapshot(value);
-      selectedRepos = value.repos
-        .filter((repo) => repo.selected)
-        .map((repo) => repo.id);
+      selectedRepos = savedSelection;
     } catch (cause) {
       dialogError = errorMessage(cause);
     } finally {
@@ -394,9 +398,7 @@
   }
   function openSettings() {
     closeModal();
-    selectedRepos =
-      snapshot?.repos.filter((repo) => repo.selected).map((repo) => repo.id) ??
-      [];
+    selectedRepos = savedSelection;
     settingsTab = 'accounts';
     repoSettingsQuery = '';
     modal = 'settings';
@@ -703,9 +705,7 @@
         accountId = '';
         scenario = 'normal';
         quarantinedTargets = new Set();
-        selectedRepos = value.repos
-          .filter((repo) => repo.selected)
-          .map((repo) => repo.id);
+        selectedRepos = savedSelection;
         closeModal();
         showNotice(
           'Demo zurückgesetzt. Lokale Vorlagen und Auswahl wurden zurückgesetzt.',
