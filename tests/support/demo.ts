@@ -1,21 +1,77 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Loads the browser demo and switches to the activity tab. */
+/** The overview, or one of its sections maximized to fill the panel. */
+export type PanelPage = 'overview' | 'runs' | 'favorites' | 'repos';
+
+/** Section titles on the overview; their maximize buttons are named after them. */
+export const SECTION_TITLES = {
+  runs: 'Läuft gerade',
+  favorites: 'Favoriten',
+  repos: 'Repositories',
+} as const;
+/** Titles of the maximized pages. */
+export const PAGE_TITLES = {
+  runs: 'Verlauf',
+  favorites: 'Favoriten',
+  repos: 'Repositories',
+} as const;
+
+/** The maximize button in a section header of the overview. */
+export function maximizeButton(
+  page: Page,
+  name: Exclude<PanelPage, 'overview'>,
+) {
+  return page.getByRole('button', {
+    name: `${SECTION_TITLES[name]} maximieren`,
+    exact: true,
+  });
+}
+
+/** The back button of a maximized page. */
+export function backButton(page: Page) {
+  return page.getByRole('button', {
+    name: 'Zurück zur Übersicht',
+    exact: true,
+  });
+}
+
+/**
+ * Shows `name` the way a user gets there: the back button returns to the
+ * overview, a section's maximize button opens its page. Nothing happens when
+ * the page is already shown.
+ */
+export async function openPage(page: Page, name: PanelPage) {
+  const tray = page.locator('.tray');
+  const current = await tray.getAttribute('data-page');
+  if (current === name) return;
+  if (current !== 'overview') await backButton(page).click();
+  if (name !== 'overview') await maximizeButton(page, name).click();
+  await expect(tray).toHaveAttribute('data-page', name);
+}
+
+/** Asserts the shown page: a maximized page by its title, else the overview. */
+export async function expectPage(page: Page, name: PanelPage) {
+  await expect(page.locator('.tray')).toHaveAttribute('data-page', name);
+  const title = page.locator('.page-title');
+  if (name === 'overview') await expect(title).toHaveCount(0);
+  else await expect(title).toHaveText(PAGE_TITLES[name]);
+}
+
+/** Loads the browser demo and maximizes the runs: the Verlauf. */
 export async function openDemoActivity(page: Page) {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /RepoTray/ })).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Einstellungen', exact: true }),
   ).toBeEnabled();
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
 }
 
-/** Opens a fresh launch dialog from the favorites tab. */
+/** Opens a fresh launch dialog from the Favoriten page. */
 export async function openLaunch(page: Page) {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await page
-    .locator('.workflow-heading')
-    .getByRole('button', { name: 'Starten…', exact: true })
+    .getByRole('button', { name: 'Workflow starten …', exact: true })
     .click();
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }
@@ -55,7 +111,7 @@ export async function openConnection(page: Page) {
   return page.getByRole('dialog', { name: 'GitHub verbinden' });
 }
 
-/** A saved template card on the favorites tab, found by its heading. */
+/** A saved template card on the Favoriten page, found by its heading. */
 export function templateCard(page: Page, name: string) {
   return page.getByRole('article').filter({
     has: page.getByRole('heading', { name, exact: true }),

@@ -40,7 +40,7 @@
   justify-content: space-between;
   padding: 0 3px 9px;
 }
-.section-heading h2 {
+.section-heading h3 {
   font-size: var(--font-size-meta);
   font-weight: 600;
   letter-spacing: 0.1px;

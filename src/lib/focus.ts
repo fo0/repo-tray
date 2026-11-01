@@ -13,9 +13,13 @@ export function focusLost() {
   return !active || active === document.body || !active.isConnected;
 }
 
-/** The active view tab: the place to land when nothing better is left. */
-function activeViewTab() {
-  return document.querySelector<HTMLElement>('[aria-current="page"]');
+/**
+ * Where focus lands when nothing better is left: the search field on the
+ * overview, the title of a maximized section page. Exactly one element per
+ * page carries `data-focus-landing`.
+ */
+export function landing() {
+  return document.querySelector<HTMLElement>('[data-focus-landing]');
 }
 
 /** The first control of the notice next to this one, after it first. */
@@ -28,10 +32,10 @@ export function neighbourNotice(node: HTMLElement) {
 
 /**
  * Where focus goes when the notice holding it closes: the neighbour found
- * while it was still listed, if it is still there, else the active view tab.
+ * while it was still listed, if it is still there, else the page's landing.
  */
 export function focusAfterNotice(neighbour: HTMLElement | null) {
-  (neighbour?.isConnected ? neighbour : activeViewTab())?.focus();
+  (neighbour?.isConnected ? neighbour : landing())?.focus();
 }
 
 /** Removed or disabled elements cannot take focus back. */
@@ -46,14 +50,14 @@ function usable(target: HTMLElement | null | undefined) {
  * Restores focus once the page behind the dialog is interactive again: the
  * dialog's `destroy()` runs while the background is still `inert`, where
  * `focus()` is silently ignored. An opener that was removed or disabled
- * meanwhile (e.g. by a running start) hands focus to the active view tab.
+ * meanwhile (e.g. by a running start) hands focus to the page's landing.
  * Never steals focus that was placed deliberately in the meantime, and
  * leaves it to a dialog that replaced this one.
  */
 function restoreFocus(target: HTMLElement | null | undefined, frames = 3) {
   if (!focusLost()) return;
   if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-  const next = usable(target) ? target : activeViewTab();
+  const next = usable(target) ? target : landing();
   if (!next) return;
   if (next.closest('[inert]')) {
     if (frames > 0)
@@ -64,13 +68,13 @@ function restoreFocus(target: HTMLElement | null | undefined, frames = 3) {
 }
 
 /**
- * After „In Aktivität anzeigen“: focuses the expanded run's toggle, or the
- * active view tab while the run is not listed yet.
+ * After „Im Verlauf anzeigen“: focuses the expanded run's toggle, or the
+ * page's landing while the run is not listed yet.
  */
 export function focusRevealedRun() {
   (
     document.querySelector<HTMLElement>('.run button[aria-expanded="true"]') ??
-    activeViewTab()
+    landing()
   )?.focus();
 }
 

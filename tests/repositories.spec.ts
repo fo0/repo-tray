@@ -1,11 +1,9 @@
 import { expect, test } from './support/test';
-import { chooseAccount } from './support/demo';
+import { chooseAccount, expectPage, openPage } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await expect(
-    page.getByRole('button', { name: 'Repositories', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  await expectPage(page, 'overview');
 });
 
 test('repository disclosures show actions and both row and start button open the correct configuration', async ({
@@ -45,16 +43,16 @@ test('repository disclosures show actions and both row and start button open the
   ).toBeHidden();
 });
 
-test('expanded repositories stay open across view switches', async ({
+test('expanded repositories stay open across page switches', async ({
   page,
 }) => {
   const toggles = page.locator('.repository-toggle');
   await toggles.first().click();
   await toggles.nth(1).click();
   await toggles.nth(1).click();
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'runs');
+  await openPage(page, 'favorites');
+  await openPage(page, 'overview');
   await expect(toggles.first()).toHaveAttribute('aria-expanded', 'true');
   await expect(toggles.nth(1)).toHaveAttribute('aria-expanded', 'false');
   await expect(
@@ -92,19 +90,17 @@ test('heart favorites persist and remain scoped to their original account', asyn
       exact: true,
     }),
   ).toBeVisible();
-  const position = await page.evaluate(() => ({
-    search: document.querySelector('.search-field')!.getBoundingClientRect()
-      .bottom,
-    pinnedTop: document
-      .querySelector('.repository-favorites')!
-      .getBoundingClientRect().top,
-    pinnedBottom: document
-      .querySelector('.repository-favorites')!
-      .getBoundingClientRect().bottom,
-    repositories: document
-      .querySelector('.repository-list')!
-      .getBoundingClientRect().top,
-  }));
+  const position = await page.evaluate(() => {
+    const box = (selector: string) =>
+      document.querySelector(selector)!.getBoundingClientRect();
+    const favorites = box('[aria-labelledby="section-favorites"]');
+    return {
+      search: box('.search-field').bottom,
+      pinnedTop: favorites.top,
+      pinnedBottom: favorites.bottom,
+      repositories: box('.repository-list').top,
+    };
+  });
   expect(position.pinnedTop).toBeGreaterThanOrEqual(position.search);
   expect(position.pinnedBottom).toBeLessThanOrEqual(position.repositories);
   await page.reload();
@@ -115,7 +111,7 @@ test('heart favorites persist and remain scoped to their original account', asyn
       exact: true,
     }),
   ).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await expect(
     page.locator('.pin-card').filter({
       has: page.getByRole('heading', { name: 'Runner health', exact: true }),
@@ -128,7 +124,7 @@ test('heart favorites persist and remain scoped to their original account', asyn
     }),
   ).toHaveCount(0);
   await chooseAccount(page, 'team-demo');
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'overview');
   await repo.locator('.repository-toggle').click();
   await repo
     .getByRole('button', {
@@ -170,7 +166,9 @@ test('pinned favorites open the stored configuration and unpin from both views',
       exact: true,
     })
     .click();
-  await expect(pinned).toHaveCount(0);
+  // The section stays, with its maximize button and a hint instead of rows.
+  await expect(pinned.locator('.pinned-action')).toHaveCount(0);
+  await expect(pinned).toContainText('Noch keine Favoriten.');
   await page.locator('.repository-toggle').first().click();
   await expect(
     page.getByRole('button', {
@@ -178,11 +176,12 @@ test('pinned favorites open the stored configuration and unpin from both views',
       exact: true,
     }),
   ).toHaveAttribute('aria-pressed', 'false');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await expect(page.locator('.pin-card')).toHaveCount(0);
   await page.reload();
-  await expect(pinned).toHaveCount(0);
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await expect(pinned).toContainText('Noch keine Favoriten.');
+  await expect(pinned.locator('.pinned-action')).toHaveCount(0);
+  await openPage(page, 'runs');
   await expect(page.getByText('#9001', { exact: true })).toHaveCount(0);
 });
 
@@ -205,7 +204,7 @@ test('activity defaults to an interleaved history and retains a new run after it
     dialog.getByText('Simulierter Start angenommen', { exact: true }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   await expect(
     page.getByRole('button', { name: 'Alle', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');

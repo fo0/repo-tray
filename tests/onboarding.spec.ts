@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { expectPage } from './support/demo';
 import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
 
 /** Native first launch: no account; a token connects one with unselected repositories. */
@@ -191,11 +192,19 @@ test('the repository empty state opens the repository tab, and removing the last
   ).toBeVisible();
 });
 
-test('every view without an account names the same next step: connect', async ({
+test('every page without an account names the same next step: connect', async ({
   page,
 }) => {
-  for (const tab of ['Repositories', 'Aktivität', 'Favoriten']) {
-    await page.getByRole('button', { name: new RegExp(`^${tab}`) }).click();
+  // Without an account the overview shows only that step, no sections to
+  // maximize; the shortcuts still reach every page.
+  for (const [name, key] of [
+    ['overview', null],
+    ['repos', 'Control+1'],
+    ['runs', 'Control+2'],
+    ['favorites', 'Control+3'],
+  ] as const) {
+    if (key) await page.keyboard.press(key);
+    await expectPage(page, name);
     const empty = page.locator('.empty-state');
     await expect(
       empty.getByRole('heading', { name: 'Verbinde dein GitHub-Konto' }),

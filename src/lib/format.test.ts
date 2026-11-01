@@ -234,6 +234,24 @@ describe('relative run times', () => {
     second();
     expect(vi.getTimerCount()).toBe(0);
   });
+  it('lets a view that joins a running clock catch up at once', async () => {
+    const seen: number[] = [];
+    const overview = minuteClock.subscribe((value) => seen.push(value));
+    vi.setSystemTime(noon.getTime() + 45_000);
+    const page = minuteClock.subscribe(() => {});
+    // No tick is due yet; the new reader still gets the current time.
+    expect(vi.getTimerCount()).toBe(1);
+    await Promise.resolve();
+    expect(seen.at(-1)).toBe(noon.getTime() + 45_000);
+    // The next tick counts from the catch-up, still on one shared timer.
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(59_000);
+    expect(seen.at(-1)).toBe(noon.getTime() + 45_000);
+    vi.advanceTimersByTime(1_000);
+    expect(seen.at(-1)).toBe(noon.getTime() + 105_000);
+    overview();
+    page();
+  });
   it('moves relative times and live durations with each tick', () => {
     const open = run({ createdAt: at(17, 12), updatedAt: at(17, 12) });
     const stop = minuteClock.subscribe(() => {});

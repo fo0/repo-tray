@@ -27,7 +27,7 @@
     error: string;
     /** General notice and per-target start results, oldest first. */
     notices: Notice[];
-    /** Whether a run of this account is in the activity list right now. */
+    /** Whether a run of this account is in the Verlauf right now. */
     showsAccount: (accountId: string) => boolean;
     /** A dialog hides the notices: none closes on its own meanwhile. */
     paused?: boolean;
@@ -67,7 +67,7 @@
     text={notice.text}
     tone={notice.tone}
     actionLabel={notice.action?.label ??
-      (runId ? 'In Aktivität anzeigen' : undefined)}
+      (runId ? 'Im Verlauf anzeigen' : undefined)}
     onAction={notice.action?.run ??
       (runId ? () => onShowRun(runId) : undefined)}
     navigates={!notice.action}

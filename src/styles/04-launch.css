@@ -1,7 +1,3 @@
-.launch-heading {
-  padding-top: 14px;
-  padding-bottom: 9px;
-}
 .pin-list {
   display: flex;
   flex-direction: column;
@@ -139,10 +135,6 @@
   margin-top: 6px;
   color: var(--muted-text);
 }
-.workflow-heading {
-  padding-top: 16px;
-  padding-bottom: 9px;
-}
 .text-button {
   display: inline-flex;
   align-items: center;
@@ -163,91 +155,4 @@
 }
 .text-button:hover:not(:disabled) {
   color: #cee7b0;
-}
-.repo-heading {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-meta);
-  color: #95a687;
-  padding: 9px 3px 6px;
-  min-width: 0;
-}
-.repo-heading > span:first-of-type {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.read-badge {
-  font-size: var(--font-size-meta);
-  padding: 2px 4px;
-  background: #35382b;
-  color: #abae8e;
-  border-radius: 3px;
-  white-space: nowrap;
-  margin-left: auto;
-}
-.workflow-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  min-height: 36px;
-  padding: 7px 10px;
-  background: #20271e;
-  border: 1px solid #333f2c;
-  border-radius: 0;
-  margin-bottom: 0;
-  text-align: left;
-}
-.workflow-item:first-of-type {
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
-}
-.workflow-item:last-child {
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-.workflow-item + .workflow-item {
-  border-top: 0;
-}
-.workflow-copy {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  column-gap: 8px;
-  row-gap: 2px;
-  min-width: 0;
-}
-.workflow-item .workflow-copy strong {
-  font-size: 12px;
-  line-height: 18px;
-  overflow-wrap: anywhere;
-}
-.workflow-item .workflow-copy small {
-  margin-top: 0;
-  font-size: var(--font-size-meta);
-  line-height: 15px;
-}
-.workflow-item:hover {
-  background: #293324;
-  border-color: #526640;
-}
-.workflow-item strong {
-  display: block;
-  font-weight: 500;
-  font-size: var(--font-size-meta);
-  color: #c6d2bc;
-}
-.workflow-item small {
-  font-size: var(--font-size-meta);
-  color: var(--muted-text-raised);
-  display: block;
-  margin-top: 5px;
-}
-.workflow-item > svg {
-  color: #839e71;
 }

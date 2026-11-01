@@ -27,11 +27,7 @@
     outline-color: Highlight;
   }
 
-  /* Current view, selected settings tab and active filter. */
-  .tabs > button.active:after {
-    forced-color-adjust: none;
-    background: Highlight;
-  }
+  /* Selected settings tab and active filter. */
   .settings-tabs button[aria-selected='true'],
   .filters > button.chosen {
     forced-color-adjust: none;
@@ -42,6 +38,13 @@
   .filters > button.chosen span {
     background: HighlightText;
     color: Highlight;
+  }
+
+  /* The live dot of „Läuft gerade“ is a background fill. */
+  .live-dot {
+    forced-color-adjust: none;
+    background: Highlight;
+    box-shadow: none;
   }
 
   /* Menu items mark hover and focus with a fill; draw an outline instead. */

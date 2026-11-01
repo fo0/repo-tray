@@ -117,6 +117,19 @@
     ],
     bolt: [wire('14,3 5,13 11,13 10,21 19,10 13,10 14,3')],
     arrow: [line(4, 12, 20, 12), wire('14,6 20,12 14,18')],
+    // Two corner arrows pointing out (fill the panel) or in (back to the overview).
+    maximize: [
+      wire('14,4 20,4 20,10'),
+      line(20, 4, 13.5, 10.5),
+      wire('10,20 4,20 4,14'),
+      line(4, 20, 10.5, 13.5),
+    ],
+    minimize: [
+      wire('14,4 14,10 20,10'),
+      line(14, 10, 20.5, 3.5),
+      wire('10,20 10,14 4,14'),
+      line(10, 14, 3.5, 20.5),
+    ],
     copy: [
       box(8.5, 8.5, 12, 12),
       {

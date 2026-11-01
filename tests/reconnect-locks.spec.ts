@@ -1,7 +1,7 @@
 import { expect, test } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCalls } from './support/tauriMock';
-import { templateCard } from './support/demo';
+import { openPage, templateCard } from './support/demo';
 
 /**
  * Native panel whose start answers uncertain and persists a claim, like the
@@ -84,7 +84,7 @@ test.beforeEach(async ({ page }) => {
 test('after an uncertain start, disconnecting and reconnecting the account unlocks the target', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   const card = templateCard(page, 'Windows build');
   await card.locator('.pin-start').click();
   let dialog = page.getByRole('dialog', { name: 'Workflow starten' });
@@ -118,7 +118,7 @@ test('after an uncertain start, disconnecting and reconnecting the account unloc
   await page.getByRole('button', { name: 'Dialog schließen' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await expect(card.locator('.uncertain-start')).toHaveCount(0);
   await card.locator('.pin-start').click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });

@@ -1,8 +1,4 @@
 /* Repository browser: quick disclosure with separate configure/start/favorite targets. */
-.repository-heading {
-  padding-top: 12px;
-  padding-bottom: 8px;
-}
 .repository-list {
   display: flex;
   flex-direction: column;
@@ -173,16 +169,6 @@
   padding-inline: 15px;
 }
 
-.repository-favorites {
-  margin-top: 12px;
-  margin-bottom: 3px;
-}
-.pinned-heading {
-  padding-bottom: 6px;
-}
-.pinned-heading h2 {
-  color: #c5d8ae;
-}
 .pinned-list {
   border: 1px solid #445437;
   border-radius: 7px;

@@ -1,33 +1,24 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import ActivityView from './lib/ActivityView.svelte';
   import AppBar from './lib/AppBar.svelte';
   import AppFooter from './lib/AppFooter.svelte';
   import ConnectPanel from './lib/ConnectPanel.svelte';
   import DispatchDialog from './lib/DispatchDialog.svelte';
-  import EmptyState from './lib/EmptyState.svelte';
-  import LaunchView from './lib/LaunchView.svelte';
   import Modal from './lib/Modal.svelte';
   import NativeConnect from './lib/NativeConnect.svelte';
-  import RepositoriesView from './lib/RepositoriesView.svelte';
+  import PanelBody from './lib/PanelBody.svelte';
   import SearchField from './lib/SearchField.svelte';
   import SettingsDialog from './lib/SettingsDialog.svelte';
   import StatusBanners from './lib/StatusBanners.svelte';
-  import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
   import appPackage from '../package.json';
   import { bridge, native, observeSnapshots } from './lib/bridge';
   import { accountLabel, repoLabel } from './lib/format';
-  import {
-    historyRuns,
-    repositoryActivity,
-    visibleRuns,
-    type ActivityFilter,
-  } from './lib/runs';
   import { Modals } from './lib/modals.svelte';
   import { Panel } from './lib/panel.svelte';
   import { createShortcuts } from './lib/shortcuts';
   import type { Snapshot } from './lib/types';
   import { Updater } from './lib/updater.svelte';
+  import { PanelView } from './lib/view.svelte';
 
   const appVersion = appPackage.version;
   const panel = new Panel({ bridge, native, observe: observeSnapshots });
@@ -35,68 +26,29 @@
   const snapshot = $derived(panel.snapshot);
   const demo = $derived(panel.demo);
   const accountId = $derived(panel.accountId);
-  const repos = $derived(panel.repos);
 
   let demoAccountConnected = $state(false);
-  let tab = $state<ViewTab>('repositories');
-  let query = $state('');
-  let filter = $state<ActivityFilter>('all');
   let searchField = $state<ReturnType<typeof SearchField>>();
   let appBar = $state<ReturnType<typeof AppBar>>();
-  const modals = new Modals(panel, (id) => {
-    panel.notices.dismissRun(id);
-    tab = 'activity';
-    filter = 'all';
-    query = '';
-    panel.expandedRun = id;
-  });
+  const view = new PanelView(panel);
+  const modals = new Modals(panel, view.showRun);
   const { openSettings } = modals;
 
-  const needle = $derived(query.trim().toLowerCase());
-  /** Whitespace alone filters nothing, so it is no search in any view. */
-  const searching = $derived(needle !== '');
-  const matches = (text: string) =>
-    !needle || text.toLowerCase().includes(needle);
   const repoName = (id: string) => repoLabel(snapshot, id);
   const accountName = (id: string) => accountLabel(snapshot, id, native);
   const repoAccountName = (id: string) =>
     accountName(
       snapshot?.repos.find((repo) => repo.id === id)?.accountId ?? '',
     );
-  const matchedWorkflows = (id: string) =>
-    snapshot?.workflows.filter(
-      (workflow) =>
-        workflow.repoId === id && matches(`${workflow.name} ${repoName(id)}`),
-    ) ?? [];
   /** Empty-state „Suche leeren“: its button goes, focus moves to the field. */
   const clearQuery = () => {
-    query = '';
+    view.query = '';
     searchField?.focus();
   };
   const warn = (value: string) => panel.showNotice(value, 'warning');
 
   /** A load error offers a retry before any snapshot exists. */
   const canRefresh = $derived(!!snapshot || !!panel.error);
-  const view = $derived(panel.viewSnapshot);
-  const runs = $derived(
-    view ? historyRuns(view, accountId, query, filter) : [],
-  );
-  const activeRuns = $derived(
-    view ? visibleRuns(view, accountId, '', 'active').length : 0,
-  );
-  const failedRuns = $derived(
-    view ? visibleRuns(view, accountId, '', 'failed').length : 0,
-  );
-  const pins = $derived(
-    snapshot?.pins.filter(
-      (pin) =>
-        repos.some((repo) => repo.id === pin.repoId) &&
-        matches(`${pin.label} ${repoName(pin.repoId)}`),
-    ) ?? [],
-  );
-  const launchRepos = $derived(
-    repos.filter((repo) => matchedWorkflows(repo.id).length > 0),
-  );
 
   onMount(() => {
     const stop = panel.load(() => {
@@ -119,7 +71,7 @@
   }
   function changeAccount(value: string) {
     panel.changeAccount(value);
-    query = '';
+    view.reset();
     if (modals.kind === 'dispatch') modals.close();
   }
   function connectedNative(value: Snapshot) {
@@ -150,16 +102,13 @@
     if (native && !snapshot?.accounts.length) modals.show('connect');
     else openSettings(panel.needsAccount ? 'accounts' : 'repositories');
   }
-  function selectTab(next: ViewTab) {
-    tab = next;
-    query = '';
-  }
   const shortcuts = createShortcuts({
     blocked: () => modals.kind !== null,
     refresh: () => void (canRefresh && refreshPanel()),
-    selectTab,
+    toggleSection: view.toggle,
     focusSearch: () => searchField?.focus(),
-    escape: (target) => !!searchField?.escape(target),
+    // Search first, then the open page; menus handle their own Escape.
+    escape: (target) => !!searchField?.escape(target) || view.back(),
   });
 </script>
 
@@ -172,7 +121,7 @@
   inert={modals.kind !== null}
   aria-hidden={modals.kind !== null ? 'true' : undefined}
 >
-  <section class="tray" aria-label="RepoTray">
+  <section class="tray" aria-label="RepoTray" data-page={view.page}>
     <AppBar
       bind:this={appBar}
       {native}
@@ -192,89 +141,37 @@
       onSettings={() => openSettings()}
     />
 
-    <ViewTabs {tab} {activeRuns} onSelect={selectTab} />
-
-    <div class="content">
-      <SearchField bind:this={searchField} {tab} bind:query />
-
-      <StatusBanners
-        update={updater.info}
-        {demo}
-        {snapshot}
-        error={panel.error}
-        notices={panel.notices.items}
-        showsAccount={panel.showsAccount}
-        paused={modals.kind !== null}
-        onShowUpdate={() => openSettings('updates')}
-        onShowRun={modals.showRun}
-        onDismissNotice={(id) => panel.notices.dismiss(id)}
-      />
-
-      {#if !snapshot}
-        <EmptyState
-          icon="tray"
-          iconSize={26}
-          title={!panel.error
-            ? 'Workflows werden geladen …'
-            : demo
-              ? 'Demo nicht geladen'
-              : 'Daten konnten nicht geladen werden'}
-          text={!panel.error
-            ? 'Dein Überblick ist gleich bereit.'
-            : demo
-              ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
-              : 'Prüfe deine Verbindung und lade erneut (F5).'}
+    <PanelBody
+      {panel}
+      {modals}
+      {view}
+      {repoName}
+      {accountName}
+      {repoAccountName}
+      onClearQuery={clearQuery}
+      onOpenSettings={openNextStep}
+      onAddRepos={() => openSettings('repositories')}
+    >
+      {#snippet top()}
+        <SearchField
+          bind:this={searchField}
+          page={view.page}
+          bind:query={view.query}
         />
-      {:else if tab === 'repositories'}
-        <RepositoriesView
-          {panel}
-          {modals}
-          {pins}
-          groups={view ? repositoryActivity(view, accountId, query) : []}
-          {repoName}
-          {accountName}
-          {searching}
-          onClearQuery={clearQuery}
-          onOpenSettings={openNextStep}
-        />
-      {:else if tab === 'activity'}
-        <ActivityView
-          {runs}
-          {filter}
-          expanded={panel.expandedRun}
-          {activeRuns}
-          {failedRuns}
+        <StatusBanners
+          update={updater.info}
           {demo}
-          {native}
-          needsAccount={panel.needsAccount}
-          hasAccounts={!!snapshot.accounts.length}
-          hasRepos={repos.length > 0}
-          {searching}
-          accountNotice={panel.accountNotice}
-          {repoName}
-          {repoAccountName}
-          onFilter={(next) => (filter = next)}
-          onToggle={panel.toggleRun}
-          onOpenSettings={openNextStep}
-          onClearQuery={clearQuery}
-          onNotice={(text, tone) => panel.showNotice(text, tone)}
+          {snapshot}
+          error={panel.error}
+          notices={panel.notices.items}
+          showsAccount={panel.showsAccount}
+          paused={modals.kind !== null}
+          onShowUpdate={() => openSettings('updates')}
+          onShowRun={modals.showRun}
+          onDismissNotice={(id) => panel.notices.dismiss(id)}
         />
-      {:else}
-        <LaunchView
-          {panel}
-          {modals}
-          {pins}
-          {launchRepos}
-          workflowsFor={matchedWorkflows}
-          {repoName}
-          {accountName}
-          {searching}
-          hasRepos={repos.length > 0}
-          onClearQuery={clearQuery}
-          onOpenSettings={openNextStep}
-        />
-      {/if}
-    </div>
+      {/snippet}
+    </PanelBody>
 
     <AppFooter
       stale={!!snapshot?.stale}

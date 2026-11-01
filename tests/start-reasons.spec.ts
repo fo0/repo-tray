@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './support/test';
-import { openLaunch, scenario, templateCard } from './support/demo';
+import { openLaunch, openPage, scenario, templateCard } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -76,7 +76,7 @@ test('the dialog start button names why it is off', async ({ page }) => {
 test('a running start names itself on the locked favorite', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await page.clock.install();
   await page.clock.pauseAt(Date.now() + 2000);
   const card = templateCard(page, 'Windows build');

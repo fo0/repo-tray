@@ -1,4 +1,5 @@
 import { expect, test, type Page } from './support/test';
+import { openPage } from './support/demo';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
 const key = 'repotray.activeAccount.v1';
@@ -196,7 +197,7 @@ test('source-specific settings selection survives restart and pins remain tied t
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('github-device-42');
   await closeSettings(page);
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await expect(
     page.getByRole('heading', { name: 'Browser Vorlage', exact: true }),
   ).toBeVisible();

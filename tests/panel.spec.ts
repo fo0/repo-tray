@@ -18,7 +18,7 @@ test('account and owner context, filters and search stay isolated', async ({
   await expect(
     page.getByText('demo-dev/launch-kit-demo', { exact: true }),
   ).toHaveCount(0);
-  const search = page.getByLabel('Aktivität durchsuchen');
+  const search = page.getByLabel('Verlauf durchsuchen');
   await search.fill('unmatched-query');
   await expect(
     page.getByRole('heading', { name: 'Keine passenden Runs' }),

@@ -1,0 +1,252 @@
+/*
+ * Overview with maximizable sections („Ein Blick“): section headers, the
+ * running-now rows, „+N weitere“, and the header of a maximized page.
+ * Tokens from 00-tokens.css only; no literal colours here.
+ */
+
+/* Text for assistive tech only, e.g. the unit of a section count. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.overview-section + .overview-section {
+  margin-top: 6px;
+}
+
+/* Section header: uppercase title, count, actions and the maximize button. */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin: 10px 2px 6px;
+}
+.section-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--font-size-meta);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.section-header h2 > svg {
+  flex-shrink: 0;
+}
+.section-count {
+  font-size: var(--font-size-meta);
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.section-maximize {
+  color: var(--text-3);
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--run);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--run) 22%, transparent);
+}
+
+/* „+ Hinzufügen“ and „Workflow starten …“: a soft accent pill. */
+.add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.add-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* One muted line for an empty section. */
+.section-empty {
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+/* „+N weitere“ under a capped section opens its maximized page. */
+.text-button.more-button {
+  margin: 8px 4px 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.text-button.more-button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* Running now: compact rows that open the run in the Verlauf. */
+.live-runs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--raised);
+  overflow: hidden;
+}
+.live-runs > li + li {
+  border-top: 1px solid var(--border);
+}
+.live-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.live-run:hover {
+  background: var(--hover);
+}
+.live-run:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.live-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.live-icon.run {
+  color: var(--run);
+}
+.live-icon.wait {
+  color: var(--wait);
+}
+.live-icon.queue {
+  color: var(--text-2);
+}
+.live-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.live-title strong {
+  font-weight: 620;
+}
+.live-repo {
+  margin-left: 4px;
+  color: var(--text-3);
+}
+.live-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 34%;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-2);
+  font:
+    500 var(--font-size-meta) / 1 ui-monospace,
+    monospace;
+}
+.live-branch > svg {
+  flex-shrink: 0;
+}
+.live-branch > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-elapsed {
+  flex-shrink: 0;
+  color: var(--text-2);
+  font-size: var(--font-size-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Header of a maximized page: the way back, the title, page actions. It sits
+   above the scrolling body, so it stays in reach on long lists. */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 48px;
+  padding: 4px 12px 4px 10px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.page-back {
+  color: var(--text-2);
+}
+.page-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text);
+}
+.page-title:focus {
+  outline: none;
+}
+.page-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.page-body > .pin-list,
+.page-body > .empty-pins,
+.page-body > .repository-list {
+  margin-top: 12px;
+}

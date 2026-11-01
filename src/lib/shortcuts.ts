@@ -1,8 +1,8 @@
-import type { ViewTab } from './ViewTabs.svelte';
+import type { SectionPage } from './view.svelte';
 
 export type Shortcut =
   | { kind: 'refresh' }
-  | { kind: 'tab'; tab: ViewTab }
+  | { kind: 'section'; page: SectionPage }
   | { kind: 'search' }
   | { kind: 'escape' };
 
@@ -16,26 +16,35 @@ export interface ShortcutActions {
   blocked: () => boolean;
   /** Refreshes when the panel's refresh button would be enabled. */
   refresh: () => void;
-  selectTab: (tab: ViewTab) => void;
+  /** Maximizes a section, or returns to the overview from its open page. */
+  toggleSection: (page: SectionPage) => void;
   focusSearch: () => void;
-  /** Escape on `target`; returns whether something (the search) handled it. */
+  /**
+   * Escape on `target`; returns whether something handled it: the search
+   * first, then the open page (back to the overview). Menus and dialogs
+   * handle their own Escape before this runs.
+   */
   escape: (target: EventTarget | null) => boolean;
 }
 
-/** Ctrl+1/2/3 in the order of the view tabs. */
-export const TAB_ORDER: readonly ViewTab[] = [
-  'repositories',
-  'activity',
-  'launch',
+/** Ctrl+1/2/3: the same content per key as the former view tabs. */
+export const SECTION_ORDER: readonly SectionPage[] = [
+  'repos',
+  'runs',
+  'favorites',
 ];
+
+/** The Ctrl+digit that maximizes a section, e.g. 2 for the runs. */
+export const sectionKey = (page: SectionPage) =>
+  SECTION_ORDER.indexOf(page) + 1;
 
 /** The „Tastenkürzel“ hint, one shortcut per line (tooltip text). */
 export const SHORTCUT_HINT = [
   'Tastenkürzel',
   '/ – Suche',
   'F5 oder Strg+R – Aktualisieren',
-  'Strg+1, 2, 3 – Repositories, Aktivität, Favoriten',
-  'Esc – Suche leeren oder verlassen, Dialog schließen',
+  'Strg+1, 2, 3 – Repositories, Verlauf, Favoriten maximieren; nochmal zurück',
+  'Esc – Suche leeren oder verlassen, Menü oder Dialog schließen, zurück zur Übersicht',
 ].join('\n');
 
 /** A Latin letter by its key; other layouts fall back to the physical key. */
@@ -58,8 +67,8 @@ export function shortcutFor(event: KeyPress): Shortcut | null {
     const digit =
       /^(?:Digit|Numpad)([1-3])$/.exec(event.code)?.[1] ??
       /^[1-3]$/.exec(event.key)?.[0];
-    const tab = digit ? TAB_ORDER[Number(digit) - 1] : undefined;
-    return tab ? { kind: 'tab', tab } : null;
+    const page = digit ? SECTION_ORDER[Number(digit) - 1] : undefined;
+    return page ? { kind: 'section', page } : null;
   }
   if (event.key === 'Escape') return { kind: 'escape' };
   if (event.key === '/') return { kind: 'search' };
@@ -94,9 +103,9 @@ export function createShortcuts(actions: ShortcutActions) {
       case 'refresh':
         actions.refresh();
         return;
-      case 'tab':
+      case 'section':
         event.preventDefault();
-        actions.selectTab(shortcut.tab);
+        actions.toggleSection(shortcut.page);
         return;
       case 'search':
         event.preventDefault();

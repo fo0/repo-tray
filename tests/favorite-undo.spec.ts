@@ -1,5 +1,11 @@
 import { expect, test } from './support/test';
-import { openDemoActivity, openLaunch, templateCard } from './support/demo';
+import {
+  maximizeButton,
+  openDemoActivity,
+  openLaunch,
+  openPage,
+  templateCard,
+} from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
@@ -11,7 +17,7 @@ const removed = (label: string) =>
 test('„Rückgängig“ restores a removed favorite with its label, inputs and mode', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   const card = templateCard(page, 'Windows build');
   await card
     .getByRole('button', { name: 'Favorit Windows build entfernen' })
@@ -42,7 +48,7 @@ test('„Rückgängig“ restores a removed favorite with its label, inputs and 
   ).toBeAttached();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await expect(card).toBeVisible();
 });
 
@@ -50,7 +56,7 @@ test('the heart removes a renamed favorite with undo, and the removal is final a
   page,
 }) => {
   await page.clock.install();
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'overview');
   const kit = page.getByRole('region', {
     name: 'demo-dev/launch-kit-demo',
     exact: true,
@@ -82,7 +88,8 @@ test('the heart removes a renamed favorite with undo, and the removal is final a
   await page.clock.runFor(8100);
   await expect(notice).toHaveCount(0);
   await page.reload();
-  await expect(pinned).toHaveCount(0);
+  await expect(pinned).toContainText('Noch keine Favoriten.');
+  await expect(pinned.locator('.pinned-action')).toHaveCount(0);
 });
 
 test('keyboard removal moves focus to the next favorite, „Rückgängig“ to the restored card', async ({
@@ -111,7 +118,7 @@ test('keyboard removal moves focus to the next favorite, „Rückgängig“ to t
   await expect(notice).toHaveCount(0);
   await expect(first.locator('.pin-start')).toBeFocused();
 
-  // The last card left hands focus to the view tab.
+  // The last card left hands focus to the page title.
   await remove('Quick build').focus();
   await page.keyboard.press('Enter');
   await expect(second).toHaveCount(0);
@@ -119,23 +126,21 @@ test('keyboard removal moves focus to the next favorite, „Rückgängig“ to t
   await page.keyboard.press('Enter');
   await expect(first).toHaveCount(0);
   await expect(
-    page.getByRole('button', { name: 'Favoriten', exact: true }),
+    page.getByRole('heading', { level: 2, name: 'Favoriten', exact: true }),
   ).toBeFocused();
 });
 
-test('removing the last pinned favorite with the keyboard focuses the view tab', async ({
+test('removing the last pinned favorite with the keyboard focuses the section’s maximize button', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'overview');
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await pinned
     .getByRole('button', { name: 'Favorit Windows build entfernen' })
     .focus();
   await page.keyboard.press('Enter');
-  await expect(pinned).toHaveCount(0);
-  await expect(
-    page.getByRole('button', { name: 'Repositories', exact: true }),
-  ).toBeFocused();
+  await expect(pinned.locator('.pinned-action')).toHaveCount(0);
+  await expect(maximizeButton(page, 'favorites')).toBeFocused();
   const notice = page.getByRole('status').filter(removed('Windows build'));
   await notice.getByRole('button', { name: 'Rückgängig', exact: true }).focus();
   await page.keyboard.press('Enter');

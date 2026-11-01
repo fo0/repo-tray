@@ -6,10 +6,11 @@ flowchart TD
         NoticesTs["notices.svelte.ts banner notices"]
         FavoritesTs["favorites.svelte.ts hearts and undo"]
         ModalsTs["modals.svelte.ts dialog and focus return"]
+        ViewTs["view.svelte.ts page, search and way back"]
         DispatchFormTs["dispatchForm.svelte.ts start form state"]
         UpdaterTs["updater.svelte.ts and updates.ts"]
-        Components["lib Svelte components"]
-        FocusTs["focus.ts focus trap"]
+        Components["lib Svelte components: overview, section pages, dialogs"]
+        FocusTs["focus.ts focus trap and landing"]
         Styles["src/styles ordered CSS"]
         Bridge["bridge.ts native or demo"]
         IpcTs["ipc.ts typed command map, only invoke"]
@@ -73,6 +74,9 @@ flowchart TD
     AppSvelte --> Components
     AppSvelte --> Bridge
     AppSvelte --> ModalsTs
+    AppSvelte --> ViewTs
+    ModalsTs -.->|"reveal callback: show run"| ViewTs
+    ViewTs --> FocusTs
     AppSvelte --> ShortcutsTs
     PanelTs --> StartsTs
     PanelTs --> NoticesTs
@@ -154,6 +158,7 @@ flowchart TD
     click NoticesTs "src/lib/notices.svelte.ts"
     click FavoritesTs "src/lib/favorites.svelte.ts"
     click ModalsTs "src/lib/modals.svelte.ts"
+    click ViewTs "src/lib/view.svelte.ts"
     click DispatchFormTs "src/lib/dispatchForm.svelte.ts"
     click UpdaterTs "src/lib/updater.svelte.ts"
     click Components "src/lib"
@@ -203,7 +208,7 @@ flowchart TD
     classDef external fill:#ff6347,stroke:#cc4f39,color:#fff
     classDef infra fill:#7b42bc,stroke:#5e338f,color:#fff
 
-    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,ModalsTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
+    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,ModalsTs,ViewTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
     class MainRs,DesktopRs,DesktopAuth,DesktopStartup,TrayPopup,DesktopUpdates,LibRs,LiveRs,LiveMods,GithubRs,GithubMods,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,StartupRs,PopupRs,RunLinkRs,UpdatesRs,DemoRs backend
     class DemoFixture,RunLinksFixture,SQLite database
     class GitHubApi,Keyring,Releases,RunKey external

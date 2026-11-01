@@ -1,5 +1,5 @@
 import { expect, test } from './support/test';
-import { chooseAccount } from './support/demo';
+import { chooseAccount, openPage } from './support/demo';
 import { NOW, openNativeActivity, row } from './support/nativeActivity';
 
 // Relative and absolute times are asserted; a fixed zone keeps them stable.
@@ -43,7 +43,7 @@ test('demo runs keep their fixture durations and mark the demo time', async ({
   await page.clock.install({ time: demoNow - 5_000 });
   await page.goto('/');
   await page.clock.pauseAt(demoNow);
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   const running = row(page, 8401);
   await expect(running.locator('time')).toHaveText('vor 18 Min.');
   await expect(running.locator('time')).toHaveAttribute(
@@ -90,16 +90,16 @@ test('a search of only spaces is no search in the activity list', async ({
 }) => {
   await page.goto('/');
   await chooseAccount(page, 'team-demo');
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
-  await page.getByLabel('Aktivität durchsuchen').fill('   ');
+  await page.getByLabel('Verlauf durchsuchen').fill('   ');
   await expect(
     page.getByRole('heading', { name: 'Hier ist gerade Ruhe' }),
   ).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Keine passenden Runs' }),
   ).toHaveCount(0);
-  await page.getByLabel('Aktivität durchsuchen').fill('unmatched-query');
+  await page.getByLabel('Verlauf durchsuchen').fill('unmatched-query');
   await expect(
     page.getByRole('heading', { name: 'Keine passenden Runs' }),
   ).toBeVisible();
@@ -109,7 +109,7 @@ test('the history note opens on demand from the info button', async ({
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   const note = page.getByText('Offene Runs werden automatisch aktualisiert.');
   const info = page.getByRole('button', {
     name: 'Hinweis zum Verlauf',

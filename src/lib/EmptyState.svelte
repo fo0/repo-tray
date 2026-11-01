@@ -6,6 +6,12 @@
     icon: IconName;
     run: () => void;
   }
+  /** The missing setup step every page names alike: account or repositories. */
+  export interface NextStep {
+    title: string;
+    text: string;
+    action: EmptyAction;
+  }
 </script>
 
 <script lang="ts">

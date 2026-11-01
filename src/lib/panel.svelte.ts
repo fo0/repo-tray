@@ -97,19 +97,19 @@ export class Panel {
       ) ?? []
     );
   }
-  /** Expanded repositories of the browser; kept while the view is switched. */
+  /** Expanded repositories; shared by the overview and the Repositories page. */
   expandedRepos = $state.raw(new Set<string>());
   toggleRepo = (repoId: string) => {
     const next = new Set(this.expandedRepos);
     if (!next.delete(repoId)) next.add(repoId);
     this.expandedRepos = next;
   };
-  /** The run whose details are open in the activity list, if any. */
+  /** The run whose details are open in the Verlauf, if any. */
   expandedRun = $state<number | null>(null);
   toggleRun = (runId: number) => {
     this.expandedRun = this.expandedRun === runId ? null : runId;
   };
-  /** Whether this account's runs appear in the activity list right now. */
+  /** Whether this account's runs appear in the Verlauf right now. */
   showsAccount = (accountId: string) =>
     this.native
       ? accountId === this.accountId

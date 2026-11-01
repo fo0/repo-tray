@@ -1,4 +1,5 @@
 import { expect, test, type Page } from './support/test';
+import { openPage } from './support/demo';
 import { openNativeActivity, row, RUN_URL } from './support/nativeActivity';
 import { readCalls } from './support/tauriMock';
 
@@ -83,7 +84,7 @@ test('demo runs offer both row actions disabled with the demo hint', async ({
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   const running = row(page, 8401);
   for (const name of [
     'Desktop build #8401 auf GitHub öffnen',

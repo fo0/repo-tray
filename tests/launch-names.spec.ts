@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './support/test';
-import { openLaunch, scenario } from './support/demo';
+import { openLaunch, openPage, scenario } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -8,29 +8,30 @@ test.beforeEach(async ({ page }) => {
   ).toBeEnabled();
 });
 
-/** Accessible names of every visible „Starten…“ button except the generic one. */
+/**
+ * Accessible names of every visible „Starten…“ button; the generic
+ * „Workflow starten …“ of the Favoriten page reads differently.
+ */
 function startNames(page: Page) {
   return page.evaluate(() =>
     [...document.querySelectorAll('button')]
       .filter(
         (button) =>
           button.textContent?.trim() === 'Starten…' &&
-          button.getBoundingClientRect().height > 0 &&
-          !button.closest('.workflow-heading'),
+          button.getBoundingClientRect().height > 0,
       )
       .map((button) => button.getAttribute('aria-label') ?? ''),
   );
 }
 
-/** Whether `selector` shows the same glyph as the heart of the favorites tab. */
-function showsHeart(page: Page, selector: string) {
-  return page.evaluate((selector) => {
-    const heart = [...document.querySelectorAll('nav.tabs button')]
-      .find((button) => button.textContent?.includes('Favoriten'))
-      ?.querySelector('svg')?.innerHTML;
-    const icon = document.querySelector(selector)?.querySelector('svg');
-    return !!heart && icon?.innerHTML === heart;
-  }, selector);
+/** Whether `selector` shows exactly the glyph `heart`. */
+function showsHeart(page: Page, selector: string, heart: string) {
+  return page.evaluate(
+    ([selector, heart]) =>
+      document.querySelector(selector)?.querySelector('svg')?.innerHTML ===
+      heart,
+    [selector, heart] as const,
+  );
 }
 
 test('every „Starten…“ button names its target uniquely', async ({ page }) => {
@@ -57,7 +58,7 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
   ).toHaveClass(/pinned-copy/);
   await expect(pinned.getByRole('button', { name: /öffnen/ })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   const favorites = await startNames(page);
   expect(favorites).toEqual(['Favorit Windows build starten…']);
 });
@@ -65,14 +66,16 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
 test('favorites use the heart icon in headings, empty state and save summary', async ({
   page,
 }) => {
-  expect(await showsHeart(page, '.pinned-heading h2')).toBe(true);
+  // The reference: the heart that removes a favorite on the overview.
+  const heart = await page.locator('.pinned-remove svg').innerHTML();
+  expect(await showsHeart(page, '#section-favorites', heart)).toBe(true);
   const dialog = await openLaunch(page);
-  expect(await showsHeart(page, '.save-pin summary')).toBe(true);
+  expect(await showsHeart(page, '.save-pin summary', heart)).toBe(true);
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page
     .getByRole('button', { name: 'Favorit Windows build entfernen' })
     .click();
-  expect(await showsHeart(page, '.empty-pins')).toBe(true);
+  expect(await showsHeart(page, '.empty-pins', heart)).toBe(true);
 });
 
 test('repository and workflow rows mark a locked start like favorites do', async ({
@@ -87,15 +90,7 @@ test('repository and workflow rows mark a locked start like favorites do', async
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
 
-  // Favorites tab: the workflow list marks the workflow with its ref.
-  await expect(
-    page
-      .locator('.workflow-item')
-      .filter({ hasText: 'Desktop build' })
-      .getByRole('img', { name: 'Startstatus ungeklärt · develop' }),
-  ).toBeVisible();
-
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'overview');
   const kit = page.getByRole('region', {
     name: 'demo-dev/launch-kit-demo',
     exact: true,
@@ -155,7 +150,7 @@ test('two quick-start favorites name their quick start and their lock uniquely',
 
   // An uncertain quick start locks main: both favorites on it say which.
   await scenario(page, 'uncertain');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await quick('Main quick').click();
   const locked = (label: string) =>
     page.getByRole('button', {
@@ -167,7 +162,7 @@ test('two quick-start favorites name their quick start and their lock uniquely',
   await expect(
     page.getByRole('button', { name: 'Startstatus ungeklärt', exact: true }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await openPage(page, 'overview');
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await expect(
     pinned.getByRole('img', { name: 'Startstatus ungeklärt: Main quick' }),

@@ -1,14 +1,12 @@
 .run-name,
 .pin-content h3,
-.workflow-item strong,
 .field > span,
 .boolean-field strong,
 .repo-checkbox strong {
   font-size: 12px;
 }
 .search-field input,
-.tabs > button,
-.section-heading h2,
+.section-heading h3,
 .settings-intro h3,
 .connection-card strong,
 .selection-account,
@@ -106,9 +104,6 @@
 }
 .filters > button {
   min-height: 32px;
-}
-.tabs > button {
-  min-height: 44px;
 }
 .boolean-field {
   min-height: 34px;

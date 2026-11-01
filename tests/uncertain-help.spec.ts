@@ -2,6 +2,7 @@ import { expect, guardConsole, test, type Page } from './support/test';
 import {
   chooseAccount,
   openDemoActivity,
+  openPage,
   scenario,
   templateCard,
 } from './support/demo';
@@ -12,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 
 async function uncertainTemplate(page: Page, quickStart = false) {
   await chooseAccount(page, 'demo-dev');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   const card = templateCard(page, 'Windows build');
   if (quickStart) {
     await card

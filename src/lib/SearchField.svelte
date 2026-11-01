@@ -1,13 +1,28 @@
+<script module lang="ts">
+  import type { Page } from './view.svelte';
+
+  /** What the field searches on each page: its name and its placeholder. */
+  const LABELS: Record<Page, [label: string, placeholder: string]> = {
+    overview: [
+      'Übersicht durchsuchen',
+      'Workflow, Repository oder Branch suchen …',
+    ],
+    runs: ['Verlauf durchsuchen', 'Repository, Workflow oder Branch suchen …'],
+    favorites: ['Favoriten durchsuchen', 'Favorit oder Repository suchen …'],
+    repos: ['Repositories durchsuchen', 'Repository oder Workflow suchen …'],
+  };
+</script>
+
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import type { ViewTab } from './ViewTabs.svelte';
   import { SHORTCUT_HINT } from './shortcuts';
 
   let {
-    tab,
+    page,
     query = $bindable(),
   }: {
-    tab: ViewTab;
+    /** The shown page; the search filters what it lists. */
+    page: Page;
     query: string;
   } = $props();
 
@@ -27,20 +42,15 @@
   }
 </script>
 
+<!-- On the overview the field is where focus lands when nothing better is
+     left; a maximized page lands on its title instead. -->
 <label class="search-field"
   ><Icon name="search" size={17} /><input
     bind:this={input}
-    aria-label={tab === 'activity'
-      ? 'Aktivität durchsuchen'
-      : tab === 'repositories'
-        ? 'Repositories durchsuchen'
-        : 'Favoriten und Workflows durchsuchen'}
+    aria-label={LABELS[page][0]}
     aria-keyshortcuts="/"
-    placeholder={tab === 'activity'
-      ? 'Repository, Workflow oder Branch suchen …'
-      : tab === 'repositories'
-        ? 'Repository oder Workflow suchen …'
-        : 'Favoriten und Workflows suchen …'}
+    placeholder={LABELS[page][1]}
+    data-focus-landing={page === 'overview' ? true : undefined}
     bind:value={query}
   />{#if query}<button
       class="icon-button small"

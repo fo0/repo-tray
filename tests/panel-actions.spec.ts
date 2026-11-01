@@ -2,7 +2,9 @@ import { expect, test, type Page } from './support/test';
 import {
   accountMenuButton,
   chooseAccount,
+  expectPage,
   openLaunch,
+  openPage,
   scenario,
   templateCard,
 } from './support/demo';
@@ -43,9 +45,7 @@ test('closing a notice removes only the notice', async ({ page }) => {
     .getByRole('button', { name: 'Meldung schließen', exact: true })
     .click();
   await expect(confirmation).toHaveCount(0);
-  await expect(
-    page.getByRole('button', { name: 'Repositories', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  await expectPage(page, 'overview');
   await expect(
     page.getByRole('button', { name: 'Aktualisieren', exact: true }),
   ).toBeEnabled();
@@ -91,7 +91,7 @@ test('demo reset restores templates, scenario and account selection', async ({
   await expect(templateCard(page, 'Windows build')).toBeVisible();
 
   await page.reload();
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await expect(templateCard(page, 'Windows build')).toBeVisible();
   await expect(templateCard(page, 'Reset me')).toHaveCount(0);
   await page
@@ -135,11 +135,11 @@ test('demo reset is the explicit way to release a quarantined demo start', async
   ).toHaveCount(0);
 });
 
-test('„In Aktivität anzeigen“ opens the accepted run in the full activity list', async ({
+test('„Im Verlauf anzeigen“ opens the accepted run in the full Verlauf', async ({
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
   await expect(
     page.getByRole('button', { name: /^Fehlgeschlagen/ }),
@@ -150,16 +150,14 @@ test('„In Aktivität anzeigen“ opens the accepted run in the full activity l
     dialog.getByText('Simulierter Start angenommen', { exact: true }),
   ).toBeVisible();
   await dialog
-    .getByRole('button', { name: 'In Aktivität anzeigen', exact: true })
+    .getByRole('button', { name: 'Im Verlauf anzeigen', exact: true })
     .click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(
-    page.getByRole('button', { name: /^Aktivität/ }),
-  ).toHaveAttribute('aria-current', 'page');
+  await expectPage(page, 'runs');
   await expect(
     page.getByRole('button', { name: 'Alle', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByLabel('Aktivität durchsuchen')).toHaveValue('');
+  await expect(page.getByLabel('Verlauf durchsuchen')).toHaveValue('');
   const run = page.getByRole('article').filter({ hasText: '#9001' });
   await expect(run.getByRole('button', { expanded: true })).toBeVisible();
   await expect(

@@ -15,7 +15,7 @@ export interface Notice {
   key: string;
   text: string;
   tone: NoticeTone;
-  /** An accepted start the banner can show in the activity list. */
+  /** An accepted start the banner can show in the Verlauf. */
   runId?: number | undefined;
   /** Account of that run; the activity action only fits while it is shown. */
   accountId?: string;

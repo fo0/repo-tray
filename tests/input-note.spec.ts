@@ -1,7 +1,7 @@
 import { expect, test } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock } from './support/tauriMock';
-import { templateCard } from './support/demo';
+import { openPage, templateCard } from './support/demo';
 
 const NOTE = 'Zu viele Umgebungen – Auswahl nicht verfügbar.';
 
@@ -48,7 +48,7 @@ test('an environment input the service could not list shows its note and offers 
     ),
   );
   await page.goto('/');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await templateCard(page, 'Windows build').locator('.pin-start').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const select = dialog.getByRole('combobox', { name: 'Umgebung' });

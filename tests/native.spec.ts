@@ -1,4 +1,5 @@
 import { expect, test } from './support/test';
+import { openPage } from './support/demo';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
   type TauriMock,
@@ -160,10 +161,9 @@ test('native token flow clears input, labels live mode and returns to repository
   await expect(
     page.getByRole('status', { name: 'Verbindungsstatus' }),
   ).not.toContainText('Demo');
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await openPage(page, 'favorites');
   await page
-    .locator('.workflow-heading')
-    .getByRole('button', { name: 'Starten…', exact: true })
+    .getByRole('button', { name: 'Workflow starten …', exact: true })
     .click();
   await expect(
     page.getByRole('button', { name: 'Workflow starten', exact: true }),

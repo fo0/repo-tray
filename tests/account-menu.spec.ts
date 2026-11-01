@@ -121,7 +121,9 @@ test.describe('browser demo', () => {
     await page.locator('.menu-separator').click({ force: true });
     await expect(menu(page)).toBeVisible();
     // A click outside closes the menu and leaves the page as it was.
-    await page.getByRole('heading', { name: 'Deine Repositories' }).click();
+    await page
+      .getByRole('heading', { name: 'Repositories', exact: true })
+      .click();
     await expect(menu(page)).toHaveCount(0);
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });

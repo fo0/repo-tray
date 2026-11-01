@@ -15,7 +15,7 @@
   }: {
     text: string;
     tone: NoticeTone;
-    /** Optional follow-up action, e.g. „In Aktivität anzeigen“. */
+    /** Optional follow-up action, e.g. „Im Verlauf anzeigen“. */
     actionLabel?: string | undefined;
     onAction?: (() => void) | undefined;
     /** The action leads elsewhere (arrow icon) rather than acting in place. */

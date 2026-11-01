@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import fixture from '../../fixtures/demo.json' with { type: 'json' };
+import { openPage } from './demo';
 import { installTauriMock } from './tauriMock';
 
 export const NOW = Date.parse('2026-11-01T09:00:00Z');
@@ -58,7 +59,7 @@ export async function openNativeActivity(page: Page) {
   await page.goto('/');
   // Paused, so the view reads exactly NOW when it subscribes to the clock.
   await page.clock.pauseAt(NOW);
-  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await openPage(page, 'runs');
   return mock;
 }
 

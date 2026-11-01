@@ -16,7 +16,7 @@
 </script>
 
 <script lang="ts">
-  import EmptyState from './EmptyState.svelte';
+  import EmptyState, { type NextStep } from './EmptyState.svelte';
   import Icon from './Icon.svelte';
   import RunRow from './RunRow.svelte';
   import { minuteClock } from './clock';
@@ -33,16 +33,12 @@
     failedRuns,
     demo,
     native,
-    needsAccount,
-    hasAccounts,
-    hasRepos,
+    setup,
     searching,
-    accountNotice,
     repoName,
     repoAccountName,
     onFilter,
     onToggle,
-    onOpenSettings,
     onClearQuery,
     onNotice,
   }: {
@@ -54,16 +50,13 @@
     failedRuns: number;
     demo: boolean;
     native: boolean;
-    needsAccount: boolean;
-    hasAccounts: boolean;
-    hasRepos: boolean;
+    /** The missing account or repository step, named like on every page. */
+    setup: NextStep | null;
     searching: boolean;
-    accountNotice: string;
     repoName: (repoId: string) => string;
     repoAccountName: (repoId: string) => string;
     onFilter: (filter: ActivityFilter) => void;
     onToggle: (runId: number) => void;
-    onOpenSettings: () => void;
     onClearQuery: () => void;
     onNotice: (text: string, tone: NoticeTone) => void;
   } = $props();
@@ -92,7 +85,7 @@
     >{/each}
 </div>
 <div class="section-heading">
-  <h2>{HEADINGS[filter]}</h2>
+  <h3>{HEADINGS[filter]}</h3>
   <span class="history-count"
     >{plural(runs.length, 'Run', 'Runs')}<button
       class="info-button"
@@ -127,48 +120,16 @@
       onToggle={() => onToggle(run.id)}
       {onNotice}
     />
-  {:else}<EmptyState
-      icon="activity"
-      iconSize={25}
-      title={needsAccount
-        ? hasAccounts
-          ? 'Wähle ein aktives Konto'
-          : 'Verbinde dein GitHub-Konto'
-        : !hasRepos
-          ? 'Noch keine Repositories ausgewählt'
-          : searching
-            ? 'Keine passenden Runs'
-            : 'Hier ist gerade Ruhe'}
-      text={needsAccount
-        ? accountNotice ||
-          (hasAccounts
-            ? 'Öffne die Einstellungen und wähle dort Konto und Anmeldequelle. Repository-Starts bleiben an ihr Konto gebunden.'
-            : 'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.')
-        : !hasRepos
-          ? 'Wähle Repositories in den Einstellungen aus.'
-          : searching
-            ? 'Versuche einen anderen Suchbegriff.'
-            : 'Für diesen Filter gibt es keine Runs.'}
-      action={needsAccount
-        ? hasAccounts
-          ? {
-              label: 'Konto in Einstellungen wählen',
-              icon: 'arrow',
-              run: onOpenSettings,
-            }
-          : {
-              label: 'GitHub-Konto verbinden',
-              icon: 'plus',
-              run: onOpenSettings,
-            }
-        : !hasRepos
-          ? {
-              label: 'Repositories auswählen',
-              icon: 'arrow',
-              run: onOpenSettings,
-            }
-          : searching
-            ? { label: 'Suche leeren', icon: 'close', run: onClearQuery }
-            : undefined}
-    />{/each}
+  {:else}{#if setup}<EmptyState icon="activity" iconSize={25} {...setup} />
+    {:else}<EmptyState
+        icon="activity"
+        iconSize={25}
+        title={searching ? 'Keine passenden Runs' : 'Hier ist gerade Ruhe'}
+        text={searching
+          ? 'Versuche einen anderen Suchbegriff.'
+          : 'Für diesen Filter gibt es keine Runs.'}
+        action={searching
+          ? { label: 'Suche leeren', icon: 'close', run: onClearQuery }
+          : undefined}
+      />{/if}{/each}
 </div>
