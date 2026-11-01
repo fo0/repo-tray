@@ -74,19 +74,11 @@ Rust 2021 · Tauri 2 · Cargo (`src-tauri/`) · rusqlite · keyring · rustfmt +
 
 ## Project Overview
 
-Windows tray companion for GitHub Actions: watch runs, launch `workflow_dispatch` workflows, pin templates. Svelte panel → Tauri IPC → Rust service owning GitHub access, OS-vault credentials and SQLite cache. `pnpm dev` = browser demo on synthetic fixtures.
+Windows tray companion for GitHub Actions: watch runs, launch `workflow_dispatch` workflows, pin templates. Svelte panel → Tauri IPC → Rust service owning GitHub access, OS-vault credentials and SQLite cache.
 
 ## Project Structure
 
-```
-src/        Svelte panel, lib/ = components, controllers, IPC map, demo; styles/ = ordered CSS
-src-tauri/  Rust core crate + desktop bin, Tauri config, icons
-tests/      Playwright specs (demo + IPC mock)
-scripts/    icon generator, release/updater helpers + node:test
-fixtures/   synthetic demo data
-docs/       product docs, adr/, ARCHITECTURE.mmd
-.github/    ci.yml (pull requests), release.yml (manual)
-```
+`src/` panel · `src-tauri/` Rust · `tests/` Playwright · `scripts/` · `fixtures/` · `docs/` (incl. `adr/`) · `.github/` — annotated tree: `agent_docs/project_structure.md`.
 
 ## Commands
 
@@ -113,16 +105,16 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features -
 
 ## Key Patterns
 
-- **IPC contract** — camelCase JSON; change both sides + demo; only `src/lib/ipc.ts` calls the shell — `src/lib/types.ts` ↔ `src-tauri/src/models.rs`, `src/lib/demo.ts`
+- **IPC contract** — internal Tauri IPC only, camelCase JSON; change both sides + demo; only `src/lib/ipc.ts` calls the shell — `src/lib/types.ts` ↔ `src-tauri/src/models.rs`, `src/lib/bridge.ts`, `src/lib/demo.ts`
 - **Dispatch quarantine** — claim persisted before POST, ambiguous never re-sent, released only by explicit user confirmation — `src-tauri/src/live/dispatch.rs`, `cache.rs`
-- **Rust transport** — serialized queue, ETag, backoff, `api.github.com` only — `src-tauri/src/github/client.rs`, `github.rs`
+- **Rust transport** — GitHub REST `2026-03-10`, serialized queue, ETag, backoff, `api.github.com` only — `src-tauri/src/github/client.rs`, `github.rs`
 
 ## Coding Conventions
 
 - Credentials never reach IPC, snapshots, SQLite, logs or fixtures; no vault → fail closed.
 - The panel never calls GitHub; network lives in Rust.
-- Dispatch ack ≠ build success; never auto-retry an uncertain dispatch.
-- UI labels German, code/comments/README English.
+- Dispatch ack ≠ build success.
+- **UI:** labels German; owner UX rules in `agent_docs/ux_rules.md` are binding — read before any UI change; they override older UI docs and ADRs.
 - Tests and demo: synthetic fixtures, labelled mocks only.
 - Max file length: ~300 lines TS/Svelte, ~500 Rust (house threshold)
 
@@ -140,27 +132,23 @@ None needed to run; build-time and test variables: `agent_docs/env-vars.md`.
 
 ### Secrets Locations
 
-Never committed — local `.env` (gitignored), CI secret store, runtime tokens in the OS credential vault (never the repo), release only `GITHUB_TOKEN`, fixtures synthetic. New secret: placeholder in `.env.example`, ask the user; never `gh secret set` unprompted.
+Never committed (where they live: `agent_docs/env-vars.md → Secrets Locations`). New secret: placeholder in `.env.example`, ask the user; never `gh secret set` unprompted.
 
 ## Deployment
 
-**Trigger:** manual _Release_ on `main` only — runs CI for that commit, then publishes; merges never release · **Pipeline:** `.github/workflows/release.yml` · **Environments:** single — GitHub Release, unsigned Windows EXE. Agent scope: branches and PRs, **no release** without an explicit user command; merge gate: `/pr merge`. Detail: `docs/RELEASES.md`.
-
-## API / Interfaces
-
-Internal Tauri IPC only; consumes GitHub REST `2026-03-10`. Reference: `src/lib/ipc.ts`, `src/lib/bridge.ts`, `src/lib/types.ts`.
+**Trigger:** manual _Release_ on `main` only — runs CI for that commit, then publishes; merges never release · **Pipeline:** `.github/workflows/release.yml`. Agent scope: branches and PRs, **no release** without an explicit user command; merge gate: `/pr merge`. Detail: `docs/RELEASES.md`.
 
 ## Testing
 
-**Vitest 3 · Playwright · node:test · cargo test** · see _Commands_ · layout + boundaries: `agent_docs/testing.md`. Constraints: `agent_docs/review_process.md → Test execution constraints`.
+**Vitest 3 · Playwright · node:test · cargo test** · see _Commands_ · layout, boundaries, constraints: `agent_docs/testing.md`.
 
 ## External Integrations / MCPs
 
-Catalog: `agent_docs/mcp_catalog.md` — never auto-detected, never hard-required; an unattended run reaches only a committed `.mcp.json` entry or a claude.ai connector. **Trigger tools** (`permissions.allow`) are prompt-free only in a trusted local workspace. **Self-heal, local only:** append the missing `mcp__<that server>__*` glob and commit it — additive, never `deny`/`ask`; web/cloud appends nothing and names the user-scope fix: `agent_docs/mcp_catalog.md → Prompt-free triggers everywhere`.
+Catalog, unattended reach, prompt-free trigger tools: `agent_docs/mcp_catalog.md` — never auto-detected, never hard-required. A prompting trigger tool → **self-heal, local only, additive** (`→ Prompt-free triggers everywhere`).
 
 ## Architecture Decisions
 
-ADRs in `docs/adr/`: grep them before contradicting one; reverse one only by superseding it (`agent_docs/adr_template.md → Lifecycle`).
+ADRs in `docs/adr/`: grep them before contradicting one; reverse one only by superseding it — an owner request is reason enough (`agent_docs/adr_template.md → Lifecycle`).
 
 ## Documentation Rules
 

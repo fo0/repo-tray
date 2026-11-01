@@ -36,6 +36,8 @@ after this repo's **workspace-trust dialog** has been accepted. That single fact
 | **Local CLI**                                                       | The trust dialog appears on the first interactive run in the repo; accept it and the repo block is live                                                                                                                                                                    | Accept the dialog — or put the rules in user settings below and cover every repo at once                             |
 | **Claude Code web / cloud** (routines, Claude Tag, mobile included) | No trust dialog exists and every session starts from a fresh container, so the block is dropped at startup — `Ignoring N permissions.allow entries from .claude/settings.json: this workspace has not been trusted` — and `delete_trigger` & friends prompt on every merge | User settings, installed by the environment's **setup script** (below). Nothing inside the repo can fix this surface |
 
+**Self-heal, local only** (moved from `CLAUDE.md`): when a trigger tool prompts in the local CLI, append the missing `mcp__<that server>__*` glob to `.claude/settings.json` → `permissions.allow` and commit it — additive, never a `deny` or `ask` entry. Web/cloud appends nothing and names the user-scope fix below.
+
 Same rules either way, in `~/.claude/settings.json` — user scope carries no trust gate and applies to every repo:
 
 ```json
