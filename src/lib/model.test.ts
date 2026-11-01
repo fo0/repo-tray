@@ -16,7 +16,7 @@ import {
   validateDispatch,
   visibleRuns,
 } from './model';
-import type { DispatchRequest, Pin, Snapshot, Workflow } from './types';
+import type { DispatchRequest, Pin, Run, Snapshot, Workflow } from './types';
 
 const snapshot = () => structuredClone(fixture) as Snapshot;
 const request = (
@@ -124,6 +124,37 @@ describe('activity model', () => {
     expect(duration(data.runs[0])).toBe('1m 00s');
     expect(fullRepo(data.repos[1])).toBe('example-org/runner-tools-demo');
   });
+  it.each([
+    ['queued', null, 'In Warteschlange'],
+    ['in_progress', null, 'Läuft'],
+    ['waiting', null, 'Wartet'],
+    ['completed', 'success', 'Erfolgreich'],
+    ['completed', 'failure', 'Fehlgeschlagen'],
+    ['completed', 'cancelled', 'Abgebrochen'],
+    ['completed', null, 'Abgebrochen'],
+  ] as [Run['status'], Run['conclusion'], string][])(
+    'labels status %s with conclusion %s as %s',
+    (status, conclusion, label) => {
+      const run = { ...snapshot().runs[0], status, conclusion };
+      expect(statusLabel(run)).toBe(label);
+    },
+  );
+  it.each([
+    [59, '59s'],
+    [0, '0s'],
+    [65, '1m 05s'],
+    [-30, '0s'], // updatedAt before createdAt (clock skew) clamps to zero
+  ])('formats a run of %i seconds as %s', (seconds, label) => {
+    const createdAt = '2026-10-31T09:00:00Z';
+    const updatedAt = new Date(Date.parse(createdAt) + seconds * 1000);
+    expect(
+      duration({
+        ...snapshot().runs[0],
+        createdAt,
+        updatedAt: updatedAt.toISOString(),
+      }),
+    ).toBe(label);
+  });
 });
 
 describe('dispatch validation', () => {
@@ -134,6 +165,27 @@ describe('dispatch validation', () => {
       target: 'windows-x64',
       version: '0.1.0',
       dry_run: true,
+    });
+  });
+  it('falls back to false for booleans and an empty string otherwise without defaults', () => {
+    const workflow: Workflow = {
+      ...snapshot().workflows[0],
+      inputs: (
+        ['boolean', 'string', 'choice', 'number', 'environment'] as const
+      ).map((type) => ({
+        name: `no_default_${type}`,
+        label: type,
+        type,
+        required: false,
+        options: [],
+      })),
+    };
+    expect(defaultInputs(workflow)).toEqual({
+      no_default_boolean: false,
+      no_default_string: '',
+      no_default_choice: '',
+      no_default_number: '',
+      no_default_environment: '',
     });
   });
   it.each([
