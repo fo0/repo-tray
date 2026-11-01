@@ -83,9 +83,7 @@
 >
 <p class="field-help">
   {plural(selected.length, 'Repository', 'Repositories')} ausgewählt{#if dirty}<span
-      class="unsaved-hint"
-    >
-      · noch nicht gespeichert</span
+      class="unsaved-hint">{' · noch nicht gespeichert'}</span
     >{/if}
 </p>
 <div class="repo-selection">

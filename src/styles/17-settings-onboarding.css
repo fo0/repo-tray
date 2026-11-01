@@ -63,6 +63,10 @@
 .connected-auth-card {
   flex-wrap: wrap;
 }
+/* Beats `.connected-auth-card > div { flex: 1 }`: the question takes its own row. */
+.connected-auth-card > .inline-confirm {
+  flex: 1 0 100%;
+}
 
 /* An unsaved repository selection: marked in its tab and in the count. */
 .unsaved-hint {
