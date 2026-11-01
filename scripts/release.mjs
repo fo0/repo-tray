@@ -151,8 +151,9 @@ export function assertVersions(directory, plan) {
 }
 export function releaseNotes(plan, generatedNotes) {
   validatePlan(plan);
-  if (!generatedNotes.trim()) throw new Error('Generated changelog is empty');
-  return `${plan.title}\n\nVersion: ${plan.version}\nSource: ${plan.source_sha}\n\n${generatedNotes.trim()}\n\nWindows installer: not Authenticode signed. Existing updater-enabled installations can download the signed update in RepoTray and install it after confirmation. First installations and migration from older builds use the EXE once.\n`;
+  const changelog =
+    generatedNotes.trim() || 'No additional release notes were generated.';
+  return `${plan.title}\n\nVersion: ${plan.version}\nSource: ${plan.source_sha}\n\n${changelog}\n\nWindows installer: not Authenticode signed. Download the EXE and install it manually. This release does not include signed Tauri updater artifacts.\n`;
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, ...args] = process.argv.slice(2);

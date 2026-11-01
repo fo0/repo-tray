@@ -4,7 +4,9 @@ import { versionFromTag } from './release.mjs';
 
 export function updaterConfig(publicKey, releaseConfig) {
   if (!publicKey?.trim())
-    throw new Error('REPOTRAY_UPDATER_PUBLIC_KEY is required');
+    throw new Error(
+      'A public key is required only for separately configured signed updater artifacts',
+    );
   const decoded = Buffer.from(publicKey.trim(), 'base64').toString('utf8');
   const lines = decoded.trim().split(/\r?\n/);
   if (

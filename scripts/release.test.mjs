@@ -169,7 +169,10 @@ test('automatic changelog retains generated content and source provenance', () =
   assert.match(notes, /2026-10-31 16:33/);
   assert.match(notes, /Improve workflow search \(#4\)/);
   assert.ok(notes.includes(sourceSha));
-  assert.throws(() => releaseNotes(plan, '  '));
+  assert.match(
+    releaseNotes(plan, '  '),
+    /No additional release notes were generated/,
+  );
 });
 test('CLI generates versions and release notes without signing configuration', (t) => {
   const directory = workspace(t);
