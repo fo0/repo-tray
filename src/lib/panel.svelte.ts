@@ -8,7 +8,7 @@ import {
 import type { Bridge } from './demo';
 import { errorMessage } from './format';
 import { RequestEpoch, validateDispatch } from './model';
-import { favoriteDraft, findFavorite } from './pins';
+import { favoriteDraft, findFavorite, removedNotice } from './pins';
 import { Starts } from './starts.svelte';
 import type { DemoScenario, Pin, Snapshot, Workflow } from './types';
 
@@ -60,7 +60,6 @@ export class Panel {
   #observe: PanelDeps['observe'];
   #accountReady = false;
 
-  demo = $derived(this.snapshot?.mode !== 'live');
   blocked = $derived(this.snapshot?.connectivity !== 'online');
   settingsBusy = $derived(
     this.selectionBusy || this.accountBusy || this.accessBusy || this.resetBusy,
@@ -75,6 +74,10 @@ export class Panel {
     this.starts = new Starts(this, bridge);
   }
 
+  /** Native is never labelled demo, not even before its first snapshot. */
+  get demo() {
+    return this.snapshot ? this.snapshot.mode !== 'live' : !this.native;
+  }
   /** Native mode without a deliberately chosen account shows no repository data. */
   get needsAccount() {
     return this.native && !this.accountId;
@@ -122,7 +125,7 @@ export class Panel {
     ) {
       this.changeAccount('');
       this.accountNotice =
-        'Das aktive Konto wurde entfernt. Wähle ein anderes Konto bewusst aus.';
+        'Das aktive Konto wurde entfernt. Wähle ein anderes aktives Konto aus.';
     }
   }
 
@@ -167,7 +170,7 @@ export class Panel {
     this.accountNotice = '';
     if (this.native && !rememberActiveAccount(this.accountId))
       this.accountNotice =
-        'Die Kontoauswahl gilt für diese Sitzung; sie konnte nicht gespeichert werden.';
+        'Die Kontoauswahl konnte nicht gespeichert werden und gilt nur für diese Sitzung.';
     this.error = '';
     this.notice = null;
   }
@@ -211,12 +214,15 @@ export class Panel {
       return 'incomplete';
     await this.#pinMutation(
       () => this.#bridge.savePin(pin),
-      'Action als Favorit gespeichert.',
+      `„${pin.label}“ als Favorit gespeichert.`,
     );
   }
 
   deletePin = (pinId: string) =>
-    this.#pinMutation(() => this.#bridge.deletePin(pinId), 'Vorlage entfernt.');
+    this.#pinMutation(
+      () => this.#bridge.deletePin(pinId),
+      removedNotice(this.snapshot, pinId),
+    );
 
   /** View-level pin changes report in the banner, not in a dialog. */
   #pinMutation = (run: () => Promise<Snapshot>, done: string) =>
@@ -278,7 +284,7 @@ export class Panel {
       this.scenario = 'normal';
       this.starts.clearQuarantine();
       this.showNotice(
-        'Demo zurückgesetzt. Lokale Vorlagen und Auswahl wurden zurückgesetzt.',
+        'Demo zurückgesetzt. Favoriten und Auswahl sind wieder im Ausgangszustand.',
       );
     });
 

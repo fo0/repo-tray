@@ -79,6 +79,23 @@ describe('Panel starts', () => {
   });
 });
 
+describe('Panel mode', () => {
+  it('labels only the browser demo as demo before the first snapshot arrives', () => {
+    const pending = new Promise<Snapshot>(() => {});
+    const observe = async () => () => {};
+    for (const native of [true, false]) {
+      const bridge = {
+        ...createDemoBridge(undefined, 0),
+        snapshot: () => pending,
+      };
+      const panel = new Panel({ bridge, native, observe });
+      panel.load();
+      expect(panel.snapshot).toBe(null);
+      expect(panel.demo).toBe(!native);
+    }
+  });
+});
+
 describe('Panel busy state', () => {
   it('owns a pin deletion until it settles and holds pushed snapshots meanwhile', async () => {
     const answer = deferred<Snapshot>();
@@ -93,7 +110,7 @@ describe('Panel busy state', () => {
     await deletion;
     expect(panel.pinsBusy).toBe(false);
     expect(panel.snapshot).toBe(after);
-    expect(panel.notice?.text).toBe('Vorlage entfernt.');
+    expect(panel.notice?.text).toBe('Favorit „Windows build“ entfernt.');
   });
 
   it('keeps operations independent: a template save does not mark pins busy', async () => {

@@ -172,7 +172,7 @@ export function createDemoBridge(
       const claim = claims.get(request.requestId);
       if (claim && claim !== signature)
         return reject(
-          'Diese Anfrage-ID wurde bereits mit anderen Parametern verwendet.',
+          'Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet.',
         );
       const previous = outcomes.get(request.requestId);
       if (previous) return copy(previous);
@@ -182,10 +182,12 @@ export function createDemoBridge(
         return {
           state: 'uncertain',
           message:
-            'Der letzte Start dieses Ziels ist ungeklärt. Kein erneuter Start. Prüfe zuerst den Status; zum erneuten Testen Demo zurücksetzen.',
+            'Demo: Der letzte Start für diesen Workflow und Branch ist unbestätigt und wurde nicht erneut gesendet. Setze die Demo zurück, um erneut zu testen.',
         };
       if (pending.has(key))
-        return reject('Ein Start für dieses Ziel wird bereits verarbeitet.');
+        return reject(
+          'Ein Start für diesen Workflow und Branch wird bereits verarbeitet.',
+        );
       claims.set(request.requestId, signature);
       pending.add(key);
       const ticket = generation;
@@ -199,7 +201,7 @@ export function createDemoBridge(
           return reject('Offline: Kein simulierter Start möglich.');
         if (scenario === 'forbidden')
           return reject(
-            'Zugriff verweigert: Actions-Schreibberechtigung fehlt.',
+            'Zugriff verweigert: Die Token-Berechtigung „Actions: Lesen und Schreiben“ fehlt.',
           );
         if (scenario === 'uncertain') {
           const { accountId, repoId, workflowId, ref } = request;
@@ -213,7 +215,7 @@ export function createDemoBridge(
           const outcome: DispatchOutcome = {
             state: 'uncertain',
             message:
-              'Demo: Antwort unterbrochen. Annahme unbestätigt. Dieses Ziel bleibt gegen einen erneuten Start gesperrt. Prüfe den Status.',
+              'Demo: Antwort unterbrochen. Der Start ist unbestätigt und läuft eventuell bereits. Ein erneuter Start für diesen Workflow und Branch bleibt gesperrt.',
           };
           outcomes.set(request.requestId, outcome);
           return copy(outcome);
@@ -253,7 +255,7 @@ export function createDemoBridge(
       const current = uncertain.get(key);
       if (current && current.claimedAt !== start.claimedAt)
         throw new Error(
-          'Für dieses Ziel gibt es eine neuere Startsperre. Prüfe die Runs erneut.',
+          'Für diesen Workflow und Branch gibt es eine neuere Startsperre. Prüfe die Runs erneut.',
         );
       uncertain.delete(key);
       return snapshot();
