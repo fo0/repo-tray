@@ -1,17 +1,4 @@
 /* Repository browser: quick disclosure with separate configure/start/favorite targets. */
-.tabs {
-  gap: 0;
-  padding-inline: 18px;
-}
-.tabs > button {
-  flex: 1;
-  min-width: 0;
-  gap: 5px;
-}
-.tab-count {
-  margin-left: 0;
-  padding: 1px 4px;
-}
 .repository-heading {
   padding-top: 12px;
   padding-bottom: 8px;
