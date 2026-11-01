@@ -15,6 +15,17 @@ export function errorMessage(cause: unknown, fallback = FALLBACK_ERROR) {
       : fallback;
 }
 
+/**
+ * User-facing text for a rejected native command. Tauri rejects with the Rust
+ * error string (German, written for the user); an `Error` can only come from
+ * JavaScript internals and would surface English internals, so it and any
+ * other value get the fallback. The demo bridge throws German `Error`s and
+ * keeps `errorMessage`.
+ */
+export function ipcErrorMessage(cause: unknown, fallback = FALLBACK_ERROR) {
+  return typeof cause === 'string' && cause.trim() ? cause : fallback;
+}
+
 /** A count with its German noun form, e.g. `1 Repository` or `3 Repositories`. */
 export function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;

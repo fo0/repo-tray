@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import Icon from './Icon.svelte';
-  import { errorMessage } from './format';
+  import { ipcErrorMessage } from './format';
   import { call } from './ipc';
   import type { DeviceFlowStatus, Snapshot } from './types';
   /** The native flow status plus the panel's own starting and error states. */
@@ -70,7 +70,7 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message = errorMessage(
+      message = ipcErrorMessage(
         cause,
         'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.',
       );
@@ -83,7 +83,7 @@
       await call('open_browser_auth', { flowId });
     } catch (cause) {
       if (active)
-        message = errorMessage(
+        message = ipcErrorMessage(
           cause,
           'Öffne github.com/login/device und gib den Code ein.',
         );
@@ -107,7 +107,10 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message = errorMessage(cause, 'Anmeldung konnte nicht gestartet werden.');
+      message = ipcErrorMessage(
+        cause,
+        'Anmeldung konnte nicht gestartet werden.',
+      );
       setBusy(false);
     }
   }
@@ -142,7 +145,10 @@
       await call('open_browser_installation');
     } catch (cause) {
       if (active)
-        message = errorMessage(cause, 'GitHub konnte nicht geöffnet werden.');
+        message = ipcErrorMessage(
+          cause,
+          'GitHub konnte nicht geöffnet werden.',
+        );
     }
   }
   onDestroy(() => {

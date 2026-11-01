@@ -17,6 +17,7 @@ import {
   dateTime,
   errorMessage,
   FALLBACK_ERROR,
+  ipcErrorMessage,
   plural,
   relativeTime,
   repoLabel,
@@ -49,6 +50,22 @@ describe('errorMessage', () => {
   it('falls back for anything else', () => {
     expect(errorMessage({ code: 1 })).toBe(FALLBACK_ERROR);
     expect(errorMessage(undefined, 'Eigener Text.')).toBe('Eigener Text.');
+  });
+});
+
+describe('ipcErrorMessage', () => {
+  it('shows the native error string', () => {
+    expect(ipcErrorMessage('Token wurde abgelehnt.')).toBe(
+      'Token wurde abgelehnt.',
+    );
+  });
+  it('never shows JavaScript internals, blank strings or other values', () => {
+    expect(
+      ipcErrorMessage(new TypeError('x is undefined'), 'Eigener Text.'),
+    ).toBe('Eigener Text.');
+    expect(ipcErrorMessage('  ', 'Eigener Text.')).toBe('Eigener Text.');
+    expect(ipcErrorMessage({ code: 1 })).toBe(FALLBACK_ERROR);
+    expect(ipcErrorMessage(undefined)).toBe(FALLBACK_ERROR);
   });
 });
 

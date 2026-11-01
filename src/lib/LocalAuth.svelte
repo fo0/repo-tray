@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import Icon from './Icon.svelte';
-  import { errorMessage, plural } from './format';
+  import { ipcErrorMessage, plural } from './format';
   import { call } from './ipc';
   import type {
     Account as ConnectedAccount,
@@ -70,7 +70,7 @@
       if (usable.length === 1 && usable[0]) selected = usable[0].login;
     } catch (cause) {
       if (active && ticket === generation)
-        error = errorMessage(
+        error = ipcErrorMessage(
           cause,
           'Lokale Anmeldung konnte nicht geprüft werden. Versuche es erneut.',
         );
@@ -92,7 +92,7 @@
       if (active && ticket === generation) onConnected(snapshot);
     } catch (cause) {
       if (active && ticket === generation)
-        error = errorMessage(
+        error = ipcErrorMessage(
           cause,
           'Lokale Anmeldung wurde nicht übernommen. Prüfe Konto, Netzwerk und Betriebssystem-Tresor und suche erneut.',
         );

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import Icon from './Icon.svelte';
-  import { errorMessage } from './format';
+  import { ipcErrorMessage } from './format';
   import { call } from './ipc';
   import LocalAuth from './LocalAuth.svelte';
   import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
@@ -40,7 +40,7 @@
       if (active) onConnected(snapshot);
     } catch (cause) {
       if (active)
-        error = errorMessage(
+        error = ipcErrorMessage(
           cause,
           'Verbindung fehlgeschlagen. Prüfe Token und Netzwerk und versuche es erneut.',
         );
