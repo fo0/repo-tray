@@ -1,45 +1,29 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { installTauriMock, readCommands } from './support/tauriMock';
 
 for (const configured of [false, true]) {
   test(`browser sign-in is paused even with publisher configuration ${configured}`, async ({
     page,
   }) => {
-    await page.addInitScript(
-      ({ fixture, configured }) => {
-        const calls: string[] = [];
-        let callback = 0;
-        Object.assign(window, {
-          isTauri: true,
-          __pausedBrowserCalls: calls,
-          __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
-          __TAURI_INTERNALS__: {
-            invoke: async (cmd: string) => {
-              calls.push(cmd);
-              if (cmd === 'snapshot')
-                return {
-                  ...fixture,
-                  accounts: [],
-                  repos: [],
-                  workflows: [],
-                  runs: [],
-                  pins: [],
-                  mode: 'live',
-                };
-              if (cmd === 'browser_auth_config') return { configured };
-              if (cmd === 'plugin:event|listen') return ++callback;
-              return null;
-            },
-            transformCallback: () => ++callback,
-            unregisterCallback() {},
-            metadata: {
-              currentWindow: { label: 'main' },
-              currentWebview: { label: 'main', windowLabel: 'main' },
-            },
-          },
-        });
-      },
-      { fixture, configured },
+    await installTauriMock(
+      page,
+      ({ fixture, configured }) =>
+        (cmd) => {
+          if (cmd === 'snapshot')
+            return {
+              ...fixture,
+              accounts: [],
+              repos: [],
+              workflows: [],
+              runs: [],
+              pins: [],
+              mode: 'live',
+            };
+          if (cmd === 'browser_auth_config') return { configured };
+          return null;
+        },
+      { arg: { fixture, configured }, state: {} },
     );
     await page.goto('/');
     await page
@@ -66,11 +50,7 @@ for (const configured of [false, true]) {
         name: 'Bestehende Anmeldung auf diesem PC verwenden',
       }),
     ).toBeEnabled();
-    const calls = await page.evaluate(
-      () =>
-        (window as unknown as { __pausedBrowserCalls: string[] })
-          .__pausedBrowserCalls,
-    );
+    const calls = await readCommands(page);
     expect(
       calls.some((cmd) =>
         [

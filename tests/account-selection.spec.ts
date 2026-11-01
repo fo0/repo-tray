@@ -1,9 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import {
+  configureMock,
+  installTauriMock,
+  readCalls,
+  readCommands,
+} from './support/tauriMock';
 const key = 'repotray.activeAccount.v1';
+type AccountMock = { updateDelay: number };
 async function setup(page: Page, saved: string | null = null) {
-  await page.addInitScript(
-    ({ fixture, saved, key }) => {
+  await installTauriMock<
+    { fixture: typeof fixture; saved: string | null; key: string },
+    AccountMock
+  >(
+    page,
+    ({ fixture, saved, key }, state) => {
       if (!sessionStorage.getItem('fixture-bootstrapped')) {
         if (saved) localStorage.setItem(key, JSON.stringify(saved));
         sessionStorage.setItem('fixture-bootstrapped', 'true');
@@ -51,104 +62,78 @@ async function setup(page: Page, saved: string | null = null) {
       snapshot.repos = snapshot.repos.filter((repo) =>
         snapshot.accounts.some((account) => account.id === repo.accountId),
       );
-      const calls: { cmd: string; args?: Record<string, unknown> }[] = [];
-      let callback = 0;
-      Object.assign(window, {
-        isTauri: true,
-        __accountCalls: calls,
-        __updateDelay: 0,
-        __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
-        __TAURI_INTERNALS__: {
-          invoke: async (cmd: string, args?: Record<string, unknown>) => {
-            calls.push({ cmd, args });
-            if (
-              [
-                'snapshot',
-                'refresh_snapshot',
-                'select_repos',
-                'refresh_repositories',
-              ].includes(cmd)
-            )
-              return structuredClone(snapshot);
-            if (cmd === 'browser_auth_config') return { configured: true };
-            if (cmd === 'discover_local_auth')
-              return { accounts: [], notices: [] };
-            if (cmd === 'check_update') {
-              await new Promise((resolve) =>
-                setTimeout(
-                  resolve,
-                  (window as unknown as { __updateDelay: number })
-                    .__updateDelay,
-                ),
-              );
-              return {
-                version: '0.2.0',
-                notes: `Öffentliches Update`,
-                downloadUrl:
-                  'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
-              };
-            }
-            if (cmd === 'disconnect_account') {
-              const id = String(args?.accountId);
-              snapshot = {
-                ...snapshot,
-                accounts: snapshot.accounts.filter(
-                  (account) => account.id !== id,
-                ),
-                repos: snapshot.repos.filter((repo) => repo.accountId !== id),
-                pins: snapshot.pins.filter((pin) => pin.accountId !== id),
-              };
-              return structuredClone(snapshot);
-            }
-            if (cmd === 'plugin:event|listen') return ++callback;
-            return null;
-          },
-          transformCallback: () => ++callback,
-          unregisterCallback() {},
-          metadata: {
-            currentWindow: { label: 'main' },
-            currentWebview: { label: 'main', windowLabel: 'main' },
-          },
-        },
-      });
+      return async (cmd, args) => {
+        if (
+          [
+            'snapshot',
+            'refresh_snapshot',
+            'select_repos',
+            'refresh_repositories',
+          ].includes(cmd)
+        )
+          return structuredClone(snapshot);
+        if (cmd === 'browser_auth_config') return { configured: true };
+        if (cmd === 'discover_local_auth') return { accounts: [], notices: [] };
+        if (cmd === 'check_update') {
+          await new Promise((resolve) =>
+            setTimeout(resolve, state.updateDelay),
+          );
+          return {
+            version: '0.2.0',
+            notes: `Öffentliches Update`,
+            downloadUrl:
+              'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
+          };
+        }
+        if (cmd === 'disconnect_account') {
+          const id = String(args?.accountId);
+          snapshot = {
+            ...snapshot,
+            accounts: snapshot.accounts.filter((account) => account.id !== id),
+            repos: snapshot.repos.filter((repo) => repo.accountId !== id),
+            pins: snapshot.pins.filter((pin) => pin.accountId !== id),
+          };
+          return structuredClone(snapshot);
+        }
+        return null;
+      };
     },
-    { fixture, saved, key },
+    { arg: { fixture, saved, key }, state: { updateDelay: 0 } },
   );
   await page.goto('/');
 }
-async function settings(page: Page) {
-  if (
-    await page
-      .getByRole('dialog', { name: 'Dein Workspace', exact: true })
-      .isVisible()
-  )
-    return;
+const workspace = (page: Page) =>
+  page.getByRole('dialog', { name: 'Dein Workspace', exact: true });
+/** Opens settings from the panel; waits for any earlier dialog to be gone. */
+async function openSettings(page: Page) {
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
+  await expect(workspace(page)).toBeVisible();
 }
 async function closeSettings(page: Page) {
-  await page
-    .getByRole('dialog', { name: 'Dein Workspace', exact: true })
+  await workspace(page)
     .getByRole('button', { name: 'Abbrechen', exact: true })
     .click();
+  await expect(workspace(page)).toHaveCount(0);
 }
-async function chooseAccount(page: Page, id: string, keepOpen = false) {
-  await settings(page);
+/** Picks the active account inside settings that are already open. */
+async function pickAccount(page: Page, id: string) {
+  await expect(workspace(page)).toBeVisible();
   await page.getByRole('tab', { name: 'Konten', exact: true }).click();
   await page
     .getByLabel('Aktives Konto auswählen', { exact: true })
     .selectOption(id);
-  if (!keepOpen) await closeSettings(page);
 }
-async function updateCalls(page: Page) {
-  return page.evaluate(() =>
-    (
-      window as unknown as {
-        __accountCalls: { cmd: string; args?: Record<string, unknown> }[];
-      }
-    ).__accountCalls.filter((call) => call.cmd === 'check_update'),
-  );
+/** Opens settings, picks the active account and closes settings again. */
+async function chooseAccount(page: Page, id: string) {
+  await openSettings(page);
+  await pickAccount(page, id);
+  await closeSettings(page);
+}
+function updateCalls(page: Page) {
+  return readCalls(page, 'check_update');
 }
 
 test('native startup requires an account choice for workflows while updates need no account', async ({
@@ -200,7 +185,7 @@ test('source-specific settings selection survives restart and pins remain tied t
   await expect(
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('fixture-user · Browser');
-  await settings(page);
+  await openSettings(page);
   await expect(
     page.getByLabel('Aktives Konto auswählen', { exact: true }),
   ).toHaveValue('github-device-42');
@@ -219,15 +204,7 @@ test('source-specific settings selection survives restart and pins remain tied t
   await expect(
     page.getByRole('heading', { name: 'Browser Vorlage', exact: true }),
   ).toHaveCount(0);
-  expect(
-    (
-      await page.evaluate(
-        () =>
-          (window as unknown as { __accountCalls: { cmd: string }[] })
-            .__accountCalls,
-      )
-    ).some((call) => call.cmd === 'dispatch_workflow'),
-  ).toBe(false);
+  expect(await readCommands(page)).not.toContain('dispatch_workflow');
 });
 
 test('a missing remembered account offers a settings path without falling back to the same login through another source', async ({
@@ -265,7 +242,7 @@ test('disconnecting another source preserves the active account; removing the ac
   page,
 }) => {
   await setup(page, 'github-device-42');
-  await settings(page);
+  await openSettings(page);
   await page
     .getByRole('button', { name: 'fixture-user · Token trennen', exact: true })
     .click();
@@ -282,7 +259,7 @@ test('disconnecting another source preserves the active account; removing the ac
   await expect(
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('fixture-user · Browser');
-  await settings(page);
+  await openSettings(page);
   await page
     .getByRole('button', {
       name: 'fixture-user · Browser trennen',
@@ -306,12 +283,12 @@ test('public update results survive account switches without using any account t
   page,
 }) => {
   await setup(page, 'github-42');
-  await settings(page);
+  await openSettings(page);
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
     page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
-  await chooseAccount(page, 'github-device-42', true);
+  await pickAccount(page, 'github-device-42');
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
     page.getByText('Öffentliches Update', { exact: true }),
@@ -324,14 +301,14 @@ test('an in-flight public update check remains valid after switching the workflo
   page,
 }) => {
   await setup(page, 'github-42');
-  await settings(page);
+  await openSettings(page);
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
     page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
-  await page.evaluate(() => Object.assign(window, { __updateDelay: 600 }));
+  await configureMock<AccountMock>(page, { updateDelay: 600 });
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
-  await chooseAccount(page, 'github-device-42', true);
+  await pickAccount(page, 'github-device-42');
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
     page.getByRole('button', { name: 'Auf Updates prüfen' }),
@@ -350,7 +327,7 @@ test('stored token and active method are visible in settings and connection dial
   page,
 }, testInfo) => {
   await setup(page, 'github-42');
-  await settings(page);
+  await openSettings(page);
   const stored = page.getByRole('region', { name: 'Verbundene Anmeldungen' });
   const token = stored
     .locator('.connected-auth-card')
@@ -384,7 +361,7 @@ test('using an already connected source makes it active without reconnecting or 
   page,
 }) => {
   await setup(page, 'github-42');
-  await settings(page);
+  await openSettings(page);
   await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
   await page
     .getByRole('button', {
@@ -398,15 +375,11 @@ test('using an already connected source makes it active without reconnecting or 
   await expect(
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('fixture-user · Browser');
-  const calls = await page.evaluate(
-    () =>
-      (window as unknown as { __accountCalls: { cmd: string }[] })
-        .__accountCalls,
-  );
+  const calls = await readCommands(page);
   expect(
-    calls.some((call) =>
+    calls.some((cmd) =>
       ['connect_token', 'connect_local_auth', 'start_browser_auth'].includes(
-        call.cmd,
+        cmd,
       ),
     ),
   ).toBe(false);
@@ -430,7 +403,7 @@ test('active account and local method button review screenshots', async ({
     path: testInfo.outputPath('active-account-panel-360.png'),
   });
   await page.setViewportSize({ width: 500, height: 840 });
-  await settings(page);
+  await openSettings(page);
   await expect(
     page.getByRole('heading', { name: 'Aktives Konto', exact: true }),
   ).toBeVisible();
@@ -445,7 +418,7 @@ test('active account and local method button review screenshots', async ({
     });
   expect(
     await page
-      .locator('.active-account-settings')
+      .getByRole('region', { name: 'Aktives Konto', exact: true })
       .evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
   ).toBe(true);
   await page.setViewportSize({ width: 500, height: 840 });
@@ -480,15 +453,7 @@ test('active account and local method button review screenshots', async ({
   await expect(
     page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }),
   ).toBeVisible();
-  expect(
-    (
-      await page.evaluate(
-        () =>
-          (window as unknown as { __accountCalls: { cmd: string }[] })
-            .__accountCalls,
-      )
-    ).some((call) => call.cmd === 'discover_local_auth'),
-  ).toBe(false);
+  expect(await readCommands(page)).not.toContain('discover_local_auth');
   await page
     .getByRole('dialog', { name: 'GitHub verbinden' })
     .screenshot({ path: testInfo.outputPath('local-login-expanded.png') });

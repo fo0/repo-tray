@@ -1,9 +1,24 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import {
+  configureMock,
+  installTauriMock,
+  readCommands,
+} from './support/tauriMock';
+
+type NativeMock = {
+  tokenDelay: number;
+  updateCheckError: boolean;
+  updateCurrent: boolean;
+  downloadFail: boolean;
+  downloadDelay: number;
+  installFail: boolean;
+};
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(
-    ({ fixture }) => {
+  await installTauriMock<{ fixture: typeof fixture }, NativeMock>(
+    page,
+    ({ fixture }, state) => {
       let snapshot: typeof fixture = {
         ...structuredClone(fixture),
         accounts: [],
@@ -15,116 +30,95 @@ test.beforeEach(async ({ page }) => {
         stale: false,
         connectivity: 'online',
       };
-      const calls: string[] = [];
-      let callback = 0;
       let authGeneration = 0;
-      const internal = {
-        invoke: async (cmd: string, args?: Record<string, unknown>) => {
-          calls.push(cmd);
-          if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
-            return structuredClone(snapshot);
-          if (cmd === 'connect_token') {
-            const ticket = ++authGeneration;
-            if (args?.token !== 'synthetic-test-token')
-              throw 'GitHub hat den Token nicht bestätigt.';
-            const delay =
-              (window as unknown as { __nativeTokenDelay?: number })
-                .__nativeTokenDelay ?? 150;
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            if (ticket !== authGeneration) throw 'Anmeldung wurde abgebrochen.';
-            snapshot = {
-              ...structuredClone(fixture),
-              mode: 'live',
-              accounts: fixture.accounts.slice(0, 1),
-              repos: fixture.repos.filter(
-                (repo) => repo.accountId === 'demo-personal',
-              ),
-              stale: false,
-              connectivity: 'online',
-            };
-            return structuredClone(snapshot);
-          }
-          if (cmd === 'cancel_connect') {
-            authGeneration++;
-            return null;
-          }
-          if (cmd === 'check_update') {
-            const settings = window as unknown as {
-              __updateCheckError?: boolean;
-              __updateCurrent?: boolean;
-            };
-            if (settings.__updateCheckError)
-              throw 'Updateprüfung fehlgeschlagen. Prüfe die Verbindung.';
-            if (settings.__updateCurrent) return null;
-            return {
-              version: '0.2.0',
-              notes: 'Test-Changelog · nur IPC-Mock',
-              downloadUrl:
-                'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
-            };
-          }
-          if (cmd === 'download_update') {
-            const settings = window as unknown as {
-              __downloadFail?: boolean;
-              __downloadDelay?: number;
-            };
-            const progress = args?.onProgress as {
-              onmessage: (value: unknown) => void;
-            };
-            progress.onmessage({
-              downloaded: 5242880,
-              total: 10485760,
-              stage: 'downloading',
-            });
-            await new Promise((resolve) =>
-              setTimeout(resolve, settings.__downloadDelay ?? 150),
-            );
-            progress.onmessage({
-              downloaded: 0,
-              total: null,
-              stage: 'verifying',
-            });
-            if (settings.__downloadFail)
-              throw 'Signaturprüfung fehlgeschlagen. Es wurde nichts installiert.';
-            return null;
-          }
-          if (cmd === 'install_update') {
-            if (
-              (window as unknown as { __installFail?: boolean }).__installFail
-            )
-              throw 'Installation konnte nicht gestartet werden.';
-            return null;
-          }
-          if (cmd === 'select_repos') return structuredClone(snapshot);
-          if (cmd === 'disconnect_account') {
-            snapshot = {
-              ...snapshot,
-              accounts: [],
-              repos: [],
-              workflows: [],
-              runs: [],
-              pins: [],
-            };
-            return structuredClone(snapshot);
-          }
-          if (cmd === 'plugin:event|listen') return ++callback;
+      return async (cmd, args) => {
+        if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
+          return structuredClone(snapshot);
+        if (cmd === 'connect_token') {
+          const ticket = ++authGeneration;
+          if (args?.token !== 'synthetic-test-token')
+            throw 'GitHub hat den Token nicht bestätigt.';
+          await new Promise((resolve) => setTimeout(resolve, state.tokenDelay));
+          if (ticket !== authGeneration) throw 'Anmeldung wurde abgebrochen.';
+          snapshot = {
+            ...structuredClone(fixture),
+            mode: 'live',
+            accounts: fixture.accounts.slice(0, 1),
+            repos: fixture.repos.filter(
+              (repo) => repo.accountId === 'demo-personal',
+            ),
+            stale: false,
+            connectivity: 'online',
+          };
+          return structuredClone(snapshot);
+        }
+        if (cmd === 'cancel_connect') {
+          authGeneration++;
           return null;
-        },
-        transformCallback: () => ++callback,
-        unregisterCallback: () => {},
-        metadata: {
-          currentWindow: { label: 'main' },
-          currentWebview: { label: 'main', windowLabel: 'main' },
-        },
+        }
+        if (cmd === 'check_update') {
+          if (state.updateCheckError)
+            throw 'Updateprüfung fehlgeschlagen. Prüfe die Verbindung.';
+          if (state.updateCurrent) return null;
+          return {
+            version: '0.2.0',
+            notes: 'Test-Changelog · nur IPC-Mock',
+            downloadUrl:
+              'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
+          };
+        }
+        if (cmd === 'download_update') {
+          const progress = args?.onProgress as {
+            onmessage: (value: unknown) => void;
+          };
+          progress.onmessage({
+            downloaded: 5242880,
+            total: 10485760,
+            stage: 'downloading',
+          });
+          await new Promise((resolve) =>
+            setTimeout(resolve, state.downloadDelay),
+          );
+          progress.onmessage({
+            downloaded: 0,
+            total: null,
+            stage: 'verifying',
+          });
+          if (state.downloadFail)
+            throw 'Signaturprüfung fehlgeschlagen. Es wurde nichts installiert.';
+          return null;
+        }
+        if (cmd === 'install_update') {
+          if (state.installFail)
+            throw 'Installation konnte nicht gestartet werden.';
+          return null;
+        }
+        if (cmd === 'select_repos') return structuredClone(snapshot);
+        if (cmd === 'disconnect_account') {
+          snapshot = {
+            ...snapshot,
+            accounts: [],
+            repos: [],
+            workflows: [],
+            runs: [],
+            pins: [],
+          };
+          return structuredClone(snapshot);
+        }
+        return null;
       };
-      Object.assign(window, {
-        isTauri: true,
-        __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
-        __TAURI_INTERNALS__: internal,
-        __nativeCalls: calls,
-      });
     },
-    { fixture },
+    {
+      arg: { fixture },
+      state: {
+        tokenDelay: 150,
+        updateCheckError: false,
+        updateCurrent: false,
+        downloadFail: false,
+        downloadDelay: 150,
+        installFail: false,
+      },
+    },
   );
   await page.goto('/');
 });
@@ -175,7 +169,7 @@ test('native token flow clears input, labels live mode and returns to repository
 test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled by its cleanup', async ({
   page,
 }) => {
-  await page.evaluate(() => Object.assign(window, { __nativeTokenDelay: 600 }));
+  await configureMock<NativeMock>(page, { tokenDelay: 600 });
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
@@ -190,9 +184,7 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
     .getByRole('button', { name: 'Token prüfen und verbinden' })
     .click();
   await expect(scan).toBeDisabled();
-  const calls = await page.evaluate(
-    () => (window as unknown as { __nativeCalls: string[] }).__nativeCalls,
-  );
+  const calls = await readCommands(page);
   expect(calls.filter((cmd) => cmd === 'connect_token')).toHaveLength(1);
   expect(calls).not.toContain('cancel_connect');
   expect(calls).not.toContain('discover_local_auth');
@@ -209,7 +201,7 @@ test('public update downloads inside the app and installs only after a separate 
   await page.getByRole('tab', { name: 'Updates' }).click();
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await expect(page.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
-  await page.evaluate(() => Object.assign(window, { __downloadDelay: 700 }));
+  await configureMock<NativeMock>(page, { downloadDelay: 700 });
   await page
     .getByRole('button', { name: 'Update herunterladen', exact: true })
     .click();
@@ -226,17 +218,16 @@ test('public update downloads inside the app and installs only after a separate 
     name: 'Installieren und neu starten',
   });
   await expect(install).toBeEnabled();
-  let calls = await page.evaluate(
-    () => (window as unknown as { __nativeCalls: string[] }).__nativeCalls,
-  );
+  const calls = await readCommands(page);
   expect(calls.filter((cmd) => cmd === 'download_update')).toHaveLength(1);
   expect(calls).not.toContain('install_update');
   expect(calls).not.toContain('open_update');
   await install.click();
-  calls = await page.evaluate(
-    () => (window as unknown as { __nativeCalls: string[] }).__nativeCalls,
-  );
-  expect(calls.filter((cmd) => cmd === 'install_update')).toHaveLength(1);
+  await expect
+    .poll(async () =>
+      (await readCommands(page)).filter((cmd) => cmd === 'install_update'),
+    )
+    .toHaveLength(1);
   await expect(
     page.getByRole('button', { name: 'Installation wird gestartet …' }),
   ).toBeDisabled();
@@ -249,7 +240,7 @@ test('a failed download never enables installation and can be retried', async ({
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await page.getByRole('tab', { name: 'Updates' }).click();
-  await page.evaluate(() => Object.assign(window, { __downloadFail: true }));
+  await configureMock<NativeMock>(page, { downloadFail: true });
   await page
     .getByRole('button', { name: 'Update herunterladen', exact: true })
     .click();
@@ -259,9 +250,10 @@ test('a failed download never enables installation and can be retried', async ({
   await expect(
     page.getByRole('button', { name: 'Installieren und neu starten' }),
   ).toHaveCount(0);
-  await page.evaluate(() =>
-    Object.assign(window, { __downloadFail: false, __installFail: true }),
-  );
+  await configureMock<NativeMock>(page, {
+    downloadFail: false,
+    installFail: true,
+  });
   await page
     .getByRole('button', { name: 'Update herunterladen', exact: true })
     .click();
@@ -280,9 +272,7 @@ test('failed update checks clear stale results and a successful retry can report
   page,
 }) => {
   await page.getByRole('button', { name: 'Update ansehen' }).click();
-  await page.evaluate(() =>
-    Object.assign(window, { __updateCheckError: true }),
-  );
+  await configureMock<NativeMock>(page, { updateCheckError: true });
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await expect(page.getByRole('alert')).toContainText(
     'Updateprüfung fehlgeschlagen',
@@ -290,9 +280,10 @@ test('failed update checks clear stale results and a successful retry can report
   await expect(
     page.getByRole('button', { name: 'Update herunterladen', exact: true }),
   ).toHaveCount(0);
-  await page.evaluate(() =>
-    Object.assign(window, { __updateCheckError: false, __updateCurrent: true }),
-  );
+  await configureMock<NativeMock>(page, {
+    updateCheckError: false,
+    updateCurrent: true,
+  });
   await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
   await expect(
     page.getByText('Du verwendest die aktuelle Version.'),
@@ -309,7 +300,7 @@ test('update details and install confirmation fit a narrow panel', async ({
     'aria-selected',
     'true',
   );
-  const panel = page.locator('.update-panel');
+  const panel = page.getByRole('region', { name: 'RepoTray aktuell halten' });
   await expect(panel.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
   expect(
     await panel.evaluate((node) => node.scrollWidth <= node.clientWidth),

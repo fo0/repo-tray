@@ -2,6 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  configureMock,
+  installTauriMock,
+  readCalls,
+  readCommands,
+} from './support/tauriMock';
 
 type MockState = {
   status: string;
@@ -11,20 +17,9 @@ type MockState = {
   delay: number;
 };
 async function setup(page: Page, status = 'disabled') {
-  await page.addInitScript(
-    ({ fixture, status }) => {
-      const state = {
-        status,
-        registered: [
-          'enabled',
-          'disabledByWindows',
-          'unknownApproval',
-        ].includes(status),
-        readError: false,
-        writeError: false,
-        delay: 0,
-      };
-      const calls: { cmd: string; args?: Record<string, unknown> }[] = [];
+  await installTauriMock<{ fixture: typeof fixture }, MockState>(
+    page,
+    ({ fixture }, state) => {
       const snapshot = {
         ...fixture,
         mode: 'live',
@@ -36,43 +31,39 @@ async function setup(page: Page, status = 'disabled') {
         runs: [],
         pins: [],
       };
-      let callback = 0;
-      Object.assign(window, {
-        isTauri: true,
-        __startupMock: state,
-        __startupCalls: calls,
-        __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
-        __TAURI_INTERNALS__: {
-          invoke: async (cmd: string, args?: Record<string, unknown>) => {
-            calls.push({ cmd, args });
-            if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
-              return structuredClone(snapshot);
-            if (cmd === 'autostart_status') {
-              if (state.readError)
-                throw 'Windows-Autostart konnte nicht gelesen werden.';
-              return { status: state.status, registered: state.registered };
-            }
-            if (cmd === 'set_autostart') {
-              await new Promise((resolve) => setTimeout(resolve, state.delay));
-              if (state.writeError)
-                throw 'Windows-Autostart konnte nicht geändert werden.';
-              state.registered = Boolean(args?.enabled);
-              state.status = args?.enabled ? 'enabled' : 'disabled';
-              return { status: state.status, registered: state.registered };
-            }
-            if (cmd === 'plugin:event|listen') return ++callback;
-            return null;
-          },
-          transformCallback: () => ++callback,
-          unregisterCallback() {},
-          metadata: {
-            currentWindow: { label: 'main' },
-            currentWebview: { label: 'main', windowLabel: 'main' },
-          },
-        },
-      });
+      return async (cmd, args) => {
+        if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
+          return structuredClone(snapshot);
+        if (cmd === 'autostart_status') {
+          if (state.readError)
+            throw 'Windows-Autostart konnte nicht gelesen werden.';
+          return { status: state.status, registered: state.registered };
+        }
+        if (cmd === 'set_autostart') {
+          await new Promise((resolve) => setTimeout(resolve, state.delay));
+          if (state.writeError)
+            throw 'Windows-Autostart konnte nicht geändert werden.';
+          state.registered = Boolean(args?.enabled);
+          state.status = args?.enabled ? 'enabled' : 'disabled';
+          return { status: state.status, registered: state.registered };
+        }
+        return null;
+      };
     },
-    { fixture, status },
+    {
+      arg: { fixture },
+      state: {
+        status,
+        registered: [
+          'enabled',
+          'disabledByWindows',
+          'unknownApproval',
+        ].includes(status),
+        readError: false,
+        writeError: false,
+        delay: 0,
+      },
+    },
   );
   await page.goto('/');
   await openAppSettings(page);
@@ -84,20 +75,10 @@ async function openAppSettings(page: Page) {
   await page.getByRole('tab', { name: 'App', exact: true }).click();
 }
 async function configure(page: Page, values: Partial<MockState>) {
-  await page.evaluate((values) => {
-    Object.assign(
-      (window as unknown as { __startupMock: MockState }).__startupMock,
-      values,
-    );
-  }, values);
+  await configureMock<MockState>(page, values);
 }
 async function mutations(page: Page) {
-  return page.evaluate(
-    () =>
-      (
-        window as unknown as { __startupCalls: { cmd: string }[] }
-      ).__startupCalls.filter((call) => call.cmd === 'set_autostart').length,
-  );
+  return (await readCalls(page, 'set_autostart')).length;
 }
 async function capture(page: Page, filename: string) {
   const output = process.env.STARTUP_REVIEW_DIR;
@@ -137,11 +118,7 @@ test('explicit opt-in, persisted OS readback, disable and pending-write guard', 
   await expect(checkbox).toBeEnabled();
   await expect(checkbox).not.toBeChecked();
   expect(await mutations(page)).toBe(2);
-  const calls = await page.evaluate(() =>
-    (
-      window as unknown as { __startupCalls: { cmd: string }[] }
-    ).__startupCalls.map((call) => call.cmd),
-  );
+  const calls = await readCommands(page);
   expect(calls.some((cmd) => /auth|connect|dispatch/.test(cmd))).toBe(false);
 });
 
@@ -163,16 +140,7 @@ test('Windows veto is shown at 360px, can open Windows settings and remove only 
   await capture(page, '03-windows-autostart-windows-sperre.png');
   await page.getByRole('button', { name: 'Windows-Autostart öffnen' }).click();
   await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (
-            window as unknown as { __startupCalls: { cmd: string }[] }
-          ).__startupCalls.filter(
-            (call) => call.cmd === 'open_startup_settings',
-          ).length,
-      ),
-    )
+    .poll(async () => (await readCalls(page, 'open_startup_settings')).length)
     .toBe(1);
   await page
     .getByRole('button', { name: 'Autostarteintrag entfernen' })

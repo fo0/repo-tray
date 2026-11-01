@@ -1,11 +1,23 @@
 import { expect, test } from '@playwright/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import {
+  configureMock,
+  installTauriMock,
+  readCalls,
+  readMockState,
+} from './support/tauriMock';
+
+type LocalMock = {
+  scanDelay: number;
+  empty: boolean;
+  /** Counts discovery responses after the panel had a full task to apply them. */
+  scansSettled: number;
+};
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(
-    ({ fixture }) => {
-      let callback = 0;
-      const calls: { cmd: string; args?: Record<string, unknown> }[] = [];
+  await installTauriMock<{ fixture: typeof fixture }, LocalMock>(
+    page,
+    ({ fixture }, state) => {
       const empty = {
         ...structuredClone(fixture),
         accounts: [],
@@ -49,63 +61,45 @@ test.beforeEach(async ({ page }) => {
           actionsWrite: 'Nicht nachgewiesen.',
         },
       ];
-      Object.assign(window, {
-        isTauri: true,
-        __localCalls: calls,
-        __localScanDelay: 0,
-        __localEmpty: false,
-        __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
-        __TAURI_INTERNALS__: {
-          invoke: async (cmd: string, args?: Record<string, unknown>) => {
-            calls.push({ cmd, args });
-            if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
-              return structuredClone(empty);
-            if (cmd === 'discover_local_auth') {
-              const state = window as unknown as {
-                __localScanDelay: number;
-                __localEmpty: boolean;
-              };
-              await new Promise((resolve) =>
-                setTimeout(resolve, state.__localScanDelay),
-              );
-              return {
-                accounts: state.__localEmpty ? [] : accounts,
-                notices: [
-                  'Git erkannt; keine API-Anmeldung belegt.',
-                  'GCM-Credentials werden nicht exportiert.',
-                ],
-              };
-            }
-            if (cmd === 'connect_local_auth') {
-              if (args?.login !== 'fixture-sam' || args?.confirmImport !== true)
-                throw 'Selection mismatch';
-              return {
-                ...structuredClone(fixture),
-                mode: 'live',
-                connectivity: 'online',
-                stale: false,
-                accounts: [
-                  {
-                    id: 'github-gh-42',
-                    login: 'fixture-sam',
-                    label: 'GitHub · gh CLI (Kopie)',
-                  },
-                ],
-              };
-            }
-            if (cmd === 'plugin:event|listen') return ++callback;
-            return null;
-          },
-          transformCallback: () => ++callback,
-          unregisterCallback: () => {},
-          metadata: {
-            currentWindow: { label: 'main' },
-            currentWebview: { label: 'main', windowLabel: 'main' },
-          },
-        },
-      });
+      return async (cmd, args) => {
+        if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
+          return structuredClone(empty);
+        if (cmd === 'discover_local_auth') {
+          await new Promise((resolve) => setTimeout(resolve, state.scanDelay));
+          // Count it one task later, once the panel has consumed the result.
+          setTimeout(() => state.scansSettled++, 0);
+          return {
+            accounts: state.empty ? [] : accounts,
+            notices: [
+              'Git erkannt; keine API-Anmeldung belegt.',
+              'GCM-Credentials werden nicht exportiert.',
+            ],
+          };
+        }
+        if (cmd === 'connect_local_auth') {
+          if (args?.login !== 'fixture-sam' || args?.confirmImport !== true)
+            throw 'Selection mismatch';
+          return {
+            ...structuredClone(fixture),
+            mode: 'live',
+            connectivity: 'online',
+            stale: false,
+            accounts: [
+              {
+                id: 'github-gh-42',
+                login: 'fixture-sam',
+                label: 'GitHub · gh CLI (Kopie)',
+              },
+            ],
+          };
+        }
+        return null;
+      };
     },
-    { fixture },
+    {
+      arg: { fixture },
+      state: { scanDelay: 0, empty: false, scansSettled: 0 },
+    },
   );
   await page.goto('/');
   await page
@@ -117,15 +111,7 @@ test.beforeEach(async ({ page }) => {
 test('local account access requires a click, explicit choice and consent before secret import', async ({
   page,
 }) => {
-  const calls = () =>
-    page.evaluate(
-      () =>
-        (
-          window as unknown as {
-            __localCalls: { cmd: string; args?: Record<string, unknown> }[];
-          }
-        ).__localCalls,
-    );
+  const calls = () => readCalls(page);
   expect((await calls()).some((c) => c.cmd.includes('local_auth'))).toBe(false);
   await page
     .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
@@ -172,7 +158,7 @@ test('local account access requires a click, explicit choice and consent before 
 test('unavailable sources stay unavailable and cancellation discards late process results', async ({
   page,
 }) => {
-  await page.evaluate(() => Object.assign(window, { __localScanDelay: 400 }));
+  await configureMock<LocalMock>(page, { scanDelay: 400 });
   await page
     .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
     .click();
@@ -180,11 +166,12 @@ test('unavailable sources stay unavailable and cancellation discards late proces
   await page
     .getByRole('button', { name: 'Prüfung abbrechen', exact: true })
     .click();
-  await page.waitForTimeout(500);
+  // The absence check proves nothing until the late result was delivered.
+  await expect
+    .poll(() => readMockState<LocalMock, 'scansSettled'>(page, 'scansSettled'))
+    .toBe(1);
   await expect(page.getByLabel('Lokales Konto · gh CLI')).toHaveCount(0);
-  await page.evaluate(() =>
-    Object.assign(window, { __localScanDelay: 0, __localEmpty: true }),
-  );
+  await configureMock<LocalMock>(page, { scanDelay: 0, empty: true });
   await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
   await expect(
     page.getByText('Keine geeignete lokale API-Anmeldung verfügbar.'),
