@@ -30,7 +30,7 @@
   }
   button span {
     flex-basis: 100%;
-    font-size: 10px;
+    font-size: 11px;
   }
   p {
     margin-top: 8px;

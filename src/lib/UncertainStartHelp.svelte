@@ -164,7 +164,7 @@
     background: transparent;
     color: var(--warning);
     font: inherit;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 14px;
     text-align: left;
     cursor: help;

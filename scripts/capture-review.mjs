@@ -1,5 +1,5 @@
 import { chromium, expect } from '@playwright/test';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -363,9 +363,13 @@ try {
     throw new Error(
       `Unexpected external network requests: ${externalRequests.length}`,
     );
+  const styleSources = (await readdir(path.join(root, 'src/styles')))
+    .filter((file) => file.endsWith('.css'))
+    .sort()
+    .map((file) => `src/styles/${file}`);
   const frontendSources = [
     'src/App.svelte',
-    'src/app.css',
+    ...styleSources,
     'src/lib/ConnectPanel.svelte',
   ];
   const sourceFingerprints = Object.fromEntries(

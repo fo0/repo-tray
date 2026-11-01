@@ -347,7 +347,7 @@
   }
   .local-method-copy small {
     color: #a9bd98;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.4;
   }
   .local-method-chevron {
@@ -379,7 +379,7 @@
     padding: 0;
     margin: 14px 0;
     list-style: none;
-    font-size: 10px;
+    font-size: 11px;
     color: #a5b398;
   }
   .local-auth-steps li {

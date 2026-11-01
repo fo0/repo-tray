@@ -1,5 +1,5 @@
 import { chromium, expect } from '@playwright/test';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -168,14 +168,19 @@ try {
   if (externalRequests.length) throw new Error('Unexpected external requests');
   const fingerprints = Object.fromEntries(
     await Promise.all(
-      ['src/App.svelte', 'src/app.css', 'src/lib/ConnectPanel.svelte'].map(
-        async (file) => [
-          file,
-          createHash('sha256')
-            .update(await readFile(path.join(root, file)))
-            .digest('hex'),
-        ],
-      ),
+      [
+        'src/App.svelte',
+        ...(await readdir(path.join(root, 'src/styles')))
+          .filter((file) => file.endsWith('.css'))
+          .sort()
+          .map((file) => `src/styles/${file}`),
+        'src/lib/ConnectPanel.svelte',
+      ].map(async (file) => [
+        file,
+        createHash('sha256')
+          .update(await readFile(path.join(root, file)))
+          .digest('hex'),
+      ]),
     ),
   );
   await writeFile(
