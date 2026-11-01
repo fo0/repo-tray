@@ -9,7 +9,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: 'list',
+  // CI keeps annotations plus an HTML report (playwright-report/) that links
+  // the retained traces in test-results/ for upload as workflow artifacts.
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
     viewport: { width: 500, height: 840 },
