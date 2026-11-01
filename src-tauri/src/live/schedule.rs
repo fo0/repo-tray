@@ -31,8 +31,13 @@ impl Schedule {
     pub(super) fn metadata_due(&self, repo: &str, now: u64) -> bool {
         self.metadata.get(repo).is_none_or(|at| reached(*at, now))
     }
+    /// A successful listing proves the account authorized again, so any hold left on it goes.
     pub(super) fn catalog_read(&mut self, account: &str, failure: Option<&ScopeError>, now: u64) {
         let delay = match failure {
+            None => {
+                self.held.remove(account);
+                CATALOG_SECONDS
+            }
             Some(ScopeError::Transient(_)) => RETRY_SECONDS,
             _ => CATALOG_SECONDS,
         };
@@ -58,11 +63,17 @@ impl Schedule {
         self.held.insert(account.to_owned(), (until, error));
         self.catalog.insert(account.to_owned(), until);
     }
-    pub(super) fn held(&self, account: &str, now: u64) -> Option<&ScopeError> {
-        self.held
+    /// The error an account is held for. A hold that has ended, also by a backward clock jump,
+    /// is dropped, so it never applies again once the clock catches up with its old deadline.
+    pub(super) fn held(&mut self, account: &str, now: u64) -> Option<&ScopeError> {
+        if self
+            .held
             .get(account)
-            .filter(|(until, _)| !reached(*until, now))
-            .map(|(_, error)| error)
+            .is_some_and(|(until, _)| reached(*until, now))
+        {
+            self.held.remove(account);
+        }
+        self.held.get(account).map(|(_, error)| error)
     }
     /// A new, reconnected or removed account starts its timers over.
     pub(super) fn forget_account(&mut self, account: &str, repos: &[Repo]) {

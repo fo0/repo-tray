@@ -283,10 +283,32 @@ fn a_backward_clock_jump_neither_stalls_reads_nor_extends_a_hold() {
     h.remote().requests.clear();
     advance(RETRY_SECONDS);
     h.live.refresh();
-    let remote = h.remote();
-    assert_eq!(remote.count("github-1", "/user/repos"), 0);
-    assert_eq!(remote.count("github-1", "/branches"), 0);
-    assert_eq!(remote.count("github-2", "/"), 0);
+    {
+        let remote = h.remote();
+        assert_eq!(remote.count("github-1", "/user/repos"), 0);
+        assert_eq!(remote.count("github-1", "/branches"), 0);
+        assert_eq!(remote.count("github-2", "/"), 0);
+    }
+    // The account recovers and the clock goes back again, ending the new hold early. Once the
+    // clock catches up to within an interval of that hold's old deadline, it never reapplies.
+    h.remote().account_status.remove("github-2");
+    rewind(86_400);
+    let snapshot = h.live.refresh();
+    assert_ne!(snapshot.connectivity, Connectivity::Forbidden);
+    advance(86_400 - RETRY_SECONDS);
+    h.remote().requests.clear();
+    let snapshot = h.live.refresh();
+    assert_ne!(
+        snapshot.connectivity,
+        Connectivity::Forbidden,
+        "{:?}",
+        snapshot.message
+    );
+    assert!(!snapshot
+        .message
+        .as_deref()
+        .is_some_and(|message| message.contains("fixture-github-2")));
+    assert_eq!(h.remote().count("github-2", "/user/repos"), 1);
 }
 
 #[test]
