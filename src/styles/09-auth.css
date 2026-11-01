@@ -1,14 +1,6 @@
 .auth-preview {
   text-align: left;
 }
-.auth-demo-note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #a8c58e;
-  margin-bottom: 16px;
-}
 .auth-symbol {
   width: 42px;
   height: 42px;
@@ -86,52 +78,6 @@
     monospace;
   letter-spacing: 3px;
   color: #d6edbc;
-}
-.auth-steps {
-  padding-left: 20px;
-  margin: 15px 0;
-  font-size: 12px;
-  line-height: 1.8;
-  color: #bbcdb0;
-}
-.auth-test-states {
-  margin-top: 13px;
-  font-size: 11px;
-  color: #879d76;
-}
-.auth-test-states summary {
-  cursor: pointer;
-  min-height: 28px;
-}
-.auth-test-states > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
-}
-.auth-account {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  margin-top: 16px;
-  background: #2b3a22;
-  border: 1px solid #4b6237;
-  border-radius: 7px;
-}
-.auth-account > div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  flex: 1;
-}
-.auth-account strong {
-  font-size: 13px;
-  color: #d8e5cb;
-}
-.auth-account > div > span {
-  font-size: 11px;
-  color: #a2b88f;
 }
 
 .auth-preview .auth-symbol {

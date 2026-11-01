@@ -11,12 +11,9 @@
   font-size: 13px;
   font-weight: 400;
   --panel: #1b1e1c;
-  --surface: #222623;
   --line: #303530;
   --muted: #858e86;
-  --text: #e8e9e5;
   --accent: #c4ed89;
-  --accent-dim: #a9cc7b;
   --danger: #f08e8e;
   --warning: #d6b77b;
   color-scheme: dark;
