@@ -1,5 +1,7 @@
+import { tick } from 'svelte';
 import type { DispatchSeed } from './DispatchDialog.svelte';
 import type { SettingsTab } from './SettingsDialog.svelte';
+import { focusRevealedRun } from './focus';
 import type { Pin, Workflow } from './types';
 
 export type ModalKind = 'settings' | 'dispatch' | 'connect';
@@ -45,9 +47,11 @@ export class Modals {
     this.dispatchSeed = { pin, workflow, favoriteIntent };
     this.show('dispatch');
   };
-  /** Shows an accepted start in the full activity list. */
-  showRun = (id: number | null) => {
+  /** Shows an accepted start in the full activity list and focuses its row. */
+  showRun = async (id: number | null) => {
     this.close();
     this.#reveal(id);
+    await tick();
+    focusRevealedRun();
   };
 }

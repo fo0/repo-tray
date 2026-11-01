@@ -59,9 +59,44 @@ for (const [name, close] of Object.entries(closers)) {
     ).toHaveAttribute('aria-current', 'page');
     const run = page.getByRole('article').filter({ hasText: '#9001' });
     await expect(run.getByRole('button', { expanded: true })).toBeVisible();
+    await expect(run.getByRole('button', { expanded: true })).toBeFocused();
     await expect(page.getByText(/9002/)).toHaveCount(0);
   });
 }
+
+test('closing the start dialog while its opener is locked moves focus to the view tab', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await holdStarts(page);
+  await templateCard(page, 'Windows build')
+    .getByRole('button', { name: 'Starten…', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await expect(
+    dialog.getByRole('button', { name: /Simuliert/ }),
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Favoriten', exact: true }),
+  ).toBeFocused();
+  await page.clock.runFor(400);
+});
+
+test('„In Aktivität anzeigen“ in the dialog focuses the expanded run', async ({
+  page,
+}) => {
+  const dialog = await openLaunch(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await dialog
+    .getByRole('button', { name: 'In Aktivität anzeigen', exact: true })
+    .click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const run = page.getByRole('article').filter({ hasText: '#9001' });
+  await expect(run.getByRole('button', { expanded: true })).toBeFocused();
+});
 
 test('a reopened start dialog shows the result of the running start and stays locked', async ({
   page,

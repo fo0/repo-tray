@@ -13,21 +13,49 @@ function focusLost() {
   return !active || active === document.body || !active.isConnected;
 }
 
+/** The active view tab: the place to land when nothing better is left. */
+function activeViewTab() {
+  return document.querySelector<HTMLElement>('[aria-current="page"]');
+}
+
+/** Removed or disabled elements cannot take focus back. */
+function usable(target: HTMLElement | null | undefined) {
+  return (
+    !!target?.isConnected &&
+    !(target instanceof HTMLButtonElement && target.disabled)
+  );
+}
+
 /**
  * Restores focus once the page behind the dialog is interactive again: the
  * dialog's `destroy()` runs while the background is still `inert`, where
- * `focus()` is silently ignored. Never steals focus that was placed
- * deliberately in the meantime, and leaves it to a dialog that replaced this one.
+ * `focus()` is silently ignored. An opener that was removed or disabled
+ * meanwhile (e.g. by a running start) hands focus to the active view tab.
+ * Never steals focus that was placed deliberately in the meantime, and
+ * leaves it to a dialog that replaced this one.
  */
 function restoreFocus(target: HTMLElement | null | undefined, frames = 3) {
-  if (!target?.isConnected || !focusLost()) return;
+  if (!focusLost()) return;
   if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-  if (target.closest('[inert]')) {
+  const next = usable(target) ? target : activeViewTab();
+  if (!next) return;
+  if (next.closest('[inert]')) {
     if (frames > 0)
       requestAnimationFrame(() => restoreFocus(target, frames - 1));
     return;
   }
-  target.focus();
+  next.focus();
+}
+
+/**
+ * After „In Aktivität anzeigen“: focuses the expanded run's toggle, or the
+ * active view tab while the run is not listed yet.
+ */
+export function focusRevealedRun() {
+  (
+    document.querySelector<HTMLElement>('.run button[aria-expanded="true"]') ??
+    activeViewTab()
+  )?.focus();
 }
 
 /** A small modal focus loop, including focus restoration when the dialog closes. */
