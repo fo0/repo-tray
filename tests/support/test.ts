@@ -1,4 +1,9 @@
-import { test as base, expect, type ConsoleMessage } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type ConsoleMessage,
+  type Page,
+} from '@playwright/test';
 
 /**
  * Shared Playwright entry point: every spec imports `test` and `expect` from
@@ -13,20 +18,29 @@ function expected(message: ConsoleMessage) {
   return /\/favicon\.ico$/.test(message.location().url);
 }
 
+/**
+ * Collects page errors, console errors and Svelte warnings of `page`. Specs that
+ * open their own context page call this and assert the list is empty at the end.
+ */
+export function guardConsole(page: Page): string[] {
+  const problems: string[] = [];
+  page.on('pageerror', (error) =>
+    problems.push(`pageerror: ${error.stack ?? error.message}`),
+  );
+  page.on('console', (message) => {
+    if (message.type() === 'error' && !expected(message))
+      problems.push(`console.error: ${message.text()}`);
+    // Svelte's dev warnings name real defects, e.g. a non-reactive binding.
+    if (message.type() === 'warning' && message.text().includes('[svelte]'))
+      problems.push(`svelte warning: ${message.text()}`);
+  });
+  return problems;
+}
+
 export const test = base.extend<{ cleanConsole: void }>({
   cleanConsole: [
     async ({ page }, use) => {
-      const problems: string[] = [];
-      page.on('pageerror', (error) =>
-        problems.push(`pageerror: ${error.stack ?? error.message}`),
-      );
-      page.on('console', (message) => {
-        if (message.type() === 'error' && !expected(message))
-          problems.push(`console.error: ${message.text()}`);
-        // Svelte's dev warnings name real defects, e.g. a non-reactive binding.
-        if (message.type() === 'warning' && message.text().includes('[svelte]'))
-          problems.push(`svelte warning: ${message.text()}`);
-      });
+      const problems = guardConsole(page);
       await use();
       expect(problems, 'uncaught page errors or console errors').toEqual([]);
     },

@@ -33,9 +33,9 @@
     native: boolean;
     /** A status refresh is running. */
     checking: boolean;
-    /** The snapshot holds the persisted claim, so it can be released. */
+    /** A claim (persisted, or this session's untimed lock) exists, so it can be released. */
     releasable: boolean;
-    /** The persisted claim the confirmation holds on to when it opens. */
+    /** The claim the confirmation holds on to when it opens (untimed for a session lock). */
     claim?: UncertainStart | undefined;
     releasing: boolean;
     onCheckStatus: () => void;

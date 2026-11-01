@@ -92,6 +92,16 @@ fn release_removes_only_the_reviewed_claim() {
         Release::Replaced
     );
     assert_eq!(cache.uncertain_starts().unwrap(), vec![start.clone()]);
+    // A panel-only session lock carries no time; it must never release a timed claim.
+    let untimed = UncertainStart {
+        claimed_at: None,
+        ..start.clone()
+    };
+    assert_eq!(
+        cache.release_uncertain_start(&untimed).unwrap(),
+        Release::Replaced
+    );
+    assert_eq!(cache.uncertain_starts().unwrap(), vec![start.clone()]);
     assert_eq!(
         cache.release_uncertain_start(&start).unwrap(),
         Release::Released

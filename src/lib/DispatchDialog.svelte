@@ -77,7 +77,7 @@
 
   const target = $derived(form.target);
   const uncertain = $derived(panel.starts.isQuarantined(target));
-  /** The persisted claim behind `uncertain`, exactly as reported. */
+  /** The persisted claim behind `uncertain` as reported, else this session's untimed lock. */
   const claim = $derived(panel.starts.claimFor(target));
   /** A start for this target is running, from this dialog or a quick start. */
   const starting = $derived(panel.starts.isRunning(target));

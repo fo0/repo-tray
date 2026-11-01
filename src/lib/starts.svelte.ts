@@ -140,8 +140,9 @@ export class Starts {
   }
 
   /**
-   * Releases exactly this persisted claim after the user checked the runs on
-   * GitHub. Never dispatches; rejects with a user-facing error.
+   * Releases exactly this claim after the user checked the runs on GitHub. An
+   * untimed session lock never releases a timed claim the service still holds:
+   * that refusal keeps the lock and refreshes. Never dispatches.
    */
   async release(start: UncertainStart) {
     const panel = this.#panel;

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from './support/test';
+import { expect, guardConsole, test, type Page } from './support/test';
 import { openDemoActivity, scenario, templateCard } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
@@ -125,6 +125,8 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     viewport: { width: 360, height: 760 },
   });
   const page = await context.newPage();
+  // This page lives outside the default fixture, so it needs its own console guard.
+  const problems = guardConsole(page);
   try {
     await page.goto('/');
     const card = await uncertainTemplate(page, true);
@@ -162,6 +164,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
         () => document.documentElement.scrollWidth > innerWidth,
       ),
     ).toBe(false);
+    expect(problems, 'uncaught page errors or console errors').toEqual([]);
   } finally {
     await context.close();
   }
