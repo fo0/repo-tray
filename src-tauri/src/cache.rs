@@ -14,8 +14,8 @@ mod payload;
 
 use migrations::migrate;
 use payload::{
-    decode, encode, public_snapshot, reject_credential_strings, validate_account_id,
-    validate_identifier, validate_pin, validate_target,
+    decode, encode, public_snapshot, reject_credential_strings, validate_account_id, validate_pin,
+    validate_target,
 };
 
 const MAX_CACHE_BYTES: usize = 2 * 1024 * 1024;
@@ -53,12 +53,6 @@ impl From<serde_json::Error> for CacheError {
     fn from(error: serde_json::Error) -> Self {
         Self::Serialization(error)
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AccountSettings {
-    pub selected_repo_ids: Vec<String>,
 }
 
 /// App-wide preferences. Unknown fields are tolerated so an older build can read a newer row.
@@ -316,32 +310,6 @@ impl Cache {
             params![account_id, pin_id],
         )?;
         Ok(())
-    }
-
-    pub fn save_settings(
-        &self,
-        account_id: &str,
-        settings: &AccountSettings,
-    ) -> Result<(), CacheError> {
-        validate_account_id(account_id)?;
-        for id in &settings.selected_repo_ids {
-            validate_identifier(id)?;
-        }
-        self.write_settings_row(account_id, &encode(settings)?)
-    }
-
-    pub fn load_settings(&self, account_id: &str) -> Result<AccountSettings, CacheError> {
-        validate_account_id(account_id)?;
-        match self.read_settings_row(account_id)? {
-            Some(payload) => {
-                let settings: AccountSettings = decode(&payload)?;
-                for id in &settings.selected_repo_ids {
-                    validate_identifier(id)?;
-                }
-                Ok(settings)
-            }
-            None => Ok(AccountSettings::default()),
-        }
     }
 
     pub fn save_app_settings(&self, settings: &AppSettings) -> Result<(), CacheError> {

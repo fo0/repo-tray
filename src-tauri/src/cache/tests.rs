@@ -147,19 +147,6 @@ fn snapshot_pins_and_settings_are_account_isolated() {
         .runs
         .iter()
         .all(|run| personal_ids.contains(&run.repo_id)));
-    cache
-        .save_settings(
-            "demo-personal",
-            &AccountSettings {
-                selected_repo_ids: vec!["demo-personal-kit".into()],
-            },
-        )
-        .unwrap();
-    assert!(cache
-        .load_settings("demo-work")
-        .unwrap()
-        .selected_repo_ids
-        .is_empty());
     cache.delete_account("demo-personal").unwrap();
     assert!(cache.load_snapshot("demo-personal").unwrap().is_none());
     assert!(cache.load_pins("demo-personal").unwrap().is_empty());
@@ -433,7 +420,6 @@ fn app_settings_persist_and_the_reserved_key_is_not_an_account() {
     }
     let mut cache = Cache::open(&path).unwrap();
     assert!(cache.load_app_settings().unwrap().notifications);
-    assert!(cache.load_settings(APP_SETTINGS_KEY).is_err());
     assert!(cache.delete_account(APP_SETTINGS_KEY).is_err());
     assert!(cache.load_app_settings().unwrap().notifications);
     drop(cache);
