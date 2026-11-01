@@ -109,6 +109,12 @@
     };
   });
 
+  /** A refresh that recovers from a load error also runs the skipped startup update check. */
+  async function refreshPanel() {
+    const recovering = !panel.snapshot;
+    const next = await panel.refresh();
+    if (native && recovering && next) void updater.check(true);
+  }
   function changeAccount(value: string) {
     panel.changeAccount(value);
     query = '';
@@ -149,7 +155,7 @@
   }
   const shortcuts = createShortcuts({
     blocked: () => modals.kind !== null,
-    refresh: () => void (canRefresh && panel.refresh()),
+    refresh: () => void (canRefresh && refreshPanel()),
     selectTab,
     focusSearch: () => searchField?.focus(),
     escape: (target) => !!searchField?.escape(target),
@@ -189,7 +195,7 @@
       ready={!!snapshot}
       {canRefresh}
       onAccountChange={changeAccount}
-      onRefresh={() => void panel.refresh()}
+      onRefresh={() => void refreshPanel()}
       onSettings={() => openSettings()}
     />
 
@@ -223,7 +229,7 @@
             ? 'Dein Überblick ist gleich bereit.'
             : demo
               ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
-              : 'Prüfe deine Verbindung und klicke auf Aktualisieren.'}
+              : 'Prüfe deine Verbindung und lade erneut (F5).'}
         />
       {:else if tab === 'repositories'}
         <RepositoriesView
@@ -283,7 +289,7 @@
       updatedAt={snapshot?.updatedAt}
       refreshing={panel.refreshing}
       {canRefresh}
-      onRefresh={() => void panel.refresh()}
+      onRefresh={() => void refreshPanel()}
     />
   </section>
   <div class="desktop-footnote" aria-hidden="true">

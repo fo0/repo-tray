@@ -35,7 +35,7 @@ test('a native load error keeps refresh available until a retry succeeds', async
     page.getByRole('heading', { name: 'Daten konnten nicht geladen werden' }),
   ).toBeVisible();
   await expect(
-    page.getByText('Prüfe deine Verbindung und klicke auf Aktualisieren.'),
+    page.getByText('Prüfe deine Verbindung und lade erneut (F5).'),
   ).toBeVisible();
   const refresh = page.getByRole('button', {
     name: 'Aktualisieren',
@@ -66,4 +66,10 @@ test('a native load error keeps refresh available until a retry succeeds', async
   expect(
     (await readCommands(page)).filter((cmd) => cmd === 'refresh_snapshot'),
   ).toHaveLength(2);
+  // The startup update check skipped by the failed load runs once on recovery.
+  await expect
+    .poll(async () =>
+      (await readCommands(page)).filter((cmd) => cmd === 'check_update'),
+    )
+    .toHaveLength(1);
 });
