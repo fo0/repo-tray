@@ -82,7 +82,8 @@
       class:spinning={refreshing}
       class="icon-button"
       aria-label="Aktualisieren"
-      title={demo ? 'Demo-Status aktualisieren' : 'GitHub-Status aktualisieren'}
+      aria-keyshortcuts="F5 Control+R"
+      title={`${demo ? 'Demo' : 'GitHub'}-Status aktualisieren (F5)`}
       onclick={() => onRefresh()}
       disabled={refreshing || !ready}><Icon name="refresh" size={16} /></button
     ><button

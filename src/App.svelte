@@ -31,6 +31,7 @@
   } from './lib/model';
   import { Panel } from './lib/panel.svelte';
   import { pinRequest } from './lib/pins';
+  import { createShortcuts } from './lib/shortcuts';
   import type { Pin, Snapshot, Workflow } from './lib/types';
   import { Updater } from './lib/updater.svelte';
 
@@ -183,25 +184,24 @@
       void panel.starts.dispatch(pinRequest(pin), { label: pin.label });
     else openDispatch(pin);
   }
+  function selectTab(next: ViewTab) {
+    tab = next;
+    query = '';
+  }
+  const shortcuts = createShortcuts({
+    blocked: () => modal !== null,
+    refresh: () => void (snapshot && panel.refresh()),
+    selectTab,
+    focusSearch: () => searchField?.focus(),
+    escape: (target) => !!searchField?.escape(target),
+  });
   async function toggleFavorite(workflow: Workflow) {
     if ((await panel.toggleFavorite(workflow)) === 'incomplete')
       openDispatch(undefined, workflow, true);
   }
 </script>
 
-<svelte:window
-  onkeydown={(event) => {
-    if (
-      event.key === '/' &&
-      !modal &&
-      !(event.target instanceof HTMLInputElement) &&
-      !(event.target instanceof HTMLSelectElement)
-    ) {
-      event.preventDefault();
-      searchField?.focus();
-    }
-  }}
-/>
+<svelte:window onkeydown={shortcuts} />
 
 <main class="desktop" inert={modal !== null}>
   <div class="desktop-caption" aria-hidden="true">
@@ -231,14 +231,7 @@
       onSettings={() => openSettings()}
     />
 
-    <ViewTabs
-      {tab}
-      {activeRuns}
-      onSelect={(next) => {
-        tab = next;
-        query = '';
-      }}
-    />
+    <ViewTabs {tab} {activeRuns} onSelect={selectTab} />
 
     <div class="content">
       <SearchField bind:this={searchField} {tab} bind:query />

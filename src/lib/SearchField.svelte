@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import type { ViewTab } from './ViewTabs.svelte';
+  import { SHORTCUT_HINT } from './shortcuts';
 
   let {
     tab,
@@ -16,6 +17,14 @@
   export function focus() {
     input?.focus();
   }
+
+  /** Escape in the field clears the query first, then leaves the field. */
+  export function escape(target: EventTarget | null) {
+    if (!input || target !== input) return false;
+    if (query) query = '';
+    else input.blur();
+    return true;
+  }
 </script>
 
 <label class="search-field"
@@ -26,6 +35,7 @@
       : tab === 'repositories'
         ? 'Repositories durchsuchen'
         : 'Favoriten und Workflows durchsuchen'}
+    aria-keyshortcuts="/"
     placeholder={tab === 'activity'
       ? 'Repository, Workflow oder Branch suchen …'
       : tab === 'repositories'
@@ -36,5 +46,5 @@
       class="icon-button small"
       aria-label="Suche leeren"
       onclick={() => (query = '')}><Icon name="close" size={14} /></button
-    >{:else}<kbd>/</kbd>{/if}</label
+    >{:else}<kbd title={SHORTCUT_HINT}>/</kbd>{/if}</label
 >
