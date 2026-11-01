@@ -454,7 +454,7 @@ pub fn run() {
                                     let _ = engine.set_notifications_enabled(
                                         state.notifications.load(Ordering::Relaxed),
                                     );
-                                };
+                                }
                             });
                         }
                     }
