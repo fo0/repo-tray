@@ -186,6 +186,7 @@ fn credential_looking_github_metadata_is_redacted_instead_of_failing() {
         required: false,
         default: Some(InputValue::String("gpt2-small".into())),
         options: vec![],
+        note: None,
     });
     workflow.inputs[0]
         .options

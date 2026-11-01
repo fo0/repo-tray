@@ -73,9 +73,22 @@ impl<T: Transport> LiveStore<T> {
             if !workflow.refs.contains(&request.git_ref) {
                 return Err("Branch oder Tag unbekannt. Klicke auf Aktualisieren.".into());
             }
-            let actual = self.yaml(&repo, &workflow.path, &request.git_ref)?;
+            let mut actual = self.yaml(&repo, &workflow.path, &request.git_ref)?;
             if !actual.dispatch {
                 return Err("workflow_dispatch fehlt im gewählten Branch oder Tag.".into());
+            }
+            // Environments belong to the repository, not the ref: one the last refresh could
+            // not list completely stays unavailable for every ref's environment inputs.
+            let unavailable = workflow
+                .inputs
+                .iter()
+                .find(|input| input.r#type == InputType::Environment && input.note.is_some())
+                .and_then(|input| input.note.clone());
+            for input in &mut actual.inputs {
+                if input.r#type == InputType::Environment && unavailable.is_some() {
+                    input.options.clear();
+                    input.note = unavailable.clone();
+                }
             }
             let inputs =
                 validate_inputs(&actual.inputs, &request.inputs).map_err(|e| e.to_string())?;

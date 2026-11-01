@@ -76,6 +76,11 @@ pub(super) struct Remote {
     pub(super) endless_branches: bool,
     /// Workflow listings paginate without end, past the transport's page budget.
     pub(super) endless_workflows: bool,
+    /// The workflow file on every known ref; `on: workflow_dispatch` without inputs if unset.
+    pub(super) workflow_source: Option<&'static str>,
+    pub(super) environments: Vec<String>,
+    /// Environment listings paginate without end, past the transport's page budget.
+    pub(super) endless_environments: bool,
     pub(super) dispatches: VecDeque<Result<ApiResponse, TransportError>>,
     /// Every request as `(account, method, path?query)`.
     pub(super) requests: Vec<(String, Method, String)>,
@@ -131,6 +136,23 @@ impl Remote {
                     body: br#"{"workflows": []}"#.to_vec(),
                 })
             }
+            ["environments"] if self.endless_environments => {
+                let page: u32 = query.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
+                let listed: Vec<_> = (0..100).map(|i| format!("env-{page}-{i}")).collect();
+                let next = format!("<https://api.github.com/repos/fixture-owner/fixture-{repo}/environments?per_page=100&page={}>; rel=\"next\"", page + 1);
+                Ok(ApiResponse {
+                    status: 200,
+                    headers: BTreeMap::from([("Link".to_string(), next)]),
+                    body: serde_json::to_vec(
+                        &serde_json::json!({ "environments": names(&listed) }),
+                    )
+                    .unwrap(),
+                })
+            }
+            ["environments"] => json(
+                200,
+                serde_json::json!({ "environments": names(&self.environments) }),
+            ),
             ["branches"] => json(200, names(&self.branches)),
             ["tags"] => json(200, names(&self.tags)),
             ["actions", "workflows"] => json(
@@ -140,8 +162,8 @@ impl Remote {
             ["contents", ".github", "workflows", "build.yml"] => {
                 let git_ref = query.get("ref").cloned().unwrap_or_default();
                 if self.branches.contains(&git_ref) || self.tags.contains(&git_ref) {
-                    let content =
-                        base64::engine::general_purpose::STANDARD.encode("on: workflow_dispatch\n");
+                    let source = self.workflow_source.unwrap_or("on: workflow_dispatch\n");
+                    let content = base64::engine::general_purpose::STANDARD.encode(source);
                     json(
                         200,
                         serde_json::json!({"encoding": "base64", "content": content}),

@@ -66,6 +66,9 @@ pub struct InputSpec {
     pub default: Option<InputValue>,
     #[serde(default)]
     pub options: Vec<String>,
+    /// Why the input offers no choice right now (German, shown with it); no value is valid then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

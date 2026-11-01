@@ -423,3 +423,57 @@ fn a_workflow_listing_past_the_page_budget_keeps_known_workflows_and_names_the_c
         "{message}"
     );
 }
+
+#[test]
+fn an_environment_listing_past_the_page_budget_disables_only_that_input() {
+    let mut remote = Remote::new();
+    remote.workflow_source = Some(
+        "on:\n  workflow_dispatch:\n    inputs:\n      target: {type: environment}\n      note: {type: string}\n",
+    );
+    remote.endless_environments = true;
+    remote.runs.insert(1, vec![run(1, 11, "in_progress")]);
+    remote.dispatches.push_back(confirmation(1, 77));
+    let mut h = Harness::new("endless-environments", remote, &["github-1"]);
+    h.select(&["github-1:1"]);
+    assert!(!h.live.data.stale, "{:?}", h.live.data.message);
+    // The workflow stays startable; only the environment choice is unavailable.
+    let workflow = &h.live.data.workflows[0];
+    assert!(workflow.dispatch);
+    let target = &workflow.inputs[0];
+    assert!(target.options.is_empty());
+    assert_eq!(
+        target.note.as_deref(),
+        Some("Zu viele Umgebungen – Auswahl nicht verfügbar.")
+    );
+    assert_eq!(workflow.inputs[1].note, None);
+    assert_eq!(h.live.data.runs.len(), 1, "the repository is polled");
+    // No value is accepted for the unavailable input, and nothing is claimed or sent.
+    let mut guessed = request("start-1", "main");
+    guessed
+        .inputs
+        .insert("target".into(), InputValue::String("production".into()));
+    let outcome = h.live.dispatch(guessed);
+    assert_eq!(outcome.state, DispatchState::Rejected);
+    assert_eq!(
+        outcome.message,
+        "„target“: Zu viele Umgebungen – Auswahl nicht verfügbar."
+    );
+    assert_eq!(h.remote().posts(), 0);
+    // Without it the workflow still starts.
+    let outcome = h.live.dispatch(request("start-2", "main"));
+    assert_eq!(
+        outcome.state,
+        DispatchState::Accepted,
+        "{}",
+        outcome.message
+    );
+    // Run polling continues: a new run of the repository appears.
+    h.remote()
+        .runs
+        .get_mut(&1)
+        .unwrap()
+        .push(run(1, 12, "queued"));
+    advance(CATALOG_SECONDS);
+    let snapshot = h.live.refresh();
+    assert!(snapshot.runs.iter().any(|run| run.id == 12));
+}

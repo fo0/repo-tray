@@ -212,6 +212,7 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
             required,
             default,
             options,
+            note: None,
         };
         if let Some(default) = &spec.default {
             validate_value(&spec, default)?;
@@ -252,6 +253,13 @@ pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs,
 
 fn validate_value(spec: &InputSpec, value: &InputValue) -> Result<(), WorkflowError> {
     let name = shown(&spec.name);
+    // An input without a choice right now (such as a cut-off environment list) takes no
+    // value: a guessed one could start the workflow somewhere unintended.
+    if let Some(note) = &spec.note {
+        if !value.is_empty() {
+            return Err(error(format!("„{name}“: {note}")));
+        }
+    }
     let expected = match (spec.r#type, value) {
         (InputType::Boolean, InputValue::Boolean(_))
         | (InputType::Number, InputValue::Number(_))

@@ -16,6 +16,9 @@ use crate::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Shown with an environment input whose listing exceeded the page budget.
+const ENVIRONMENTS_UNAVAILABLE: &str = "Zu viele Umgebungen – Auswahl nicht verfügbar.";
+
 impl<T: Transport> LiveStore<T> {
     /// Lists every account whose catalog is due, each on its own timer. A failing account
     /// keeps its last known repositories: a transient failure retries after a minute, an
@@ -84,23 +87,31 @@ impl<T: Transport> LiveStore<T> {
                     Some("environments"),
                     now,
                 );
-                match environments {
-                    Ok(values) => {
-                        let names: Vec<_> = values
+                // A cut-off list would offer only some environments: the input offers none
+                // and says why, while the workflow, its other inputs and the runs stay live.
+                let (names, note) = match environments {
+                    Ok(values) => (
+                        values
                             .iter()
                             .filter_map(|v| v["name"].as_str().map(str::to_string))
-                            .collect();
-                        if let Some(p) = &mut parsed {
-                            for input in &mut p.inputs {
-                                if input.r#type == InputType::Environment {
-                                    input.options = names.clone();
-                                }
-                            }
+                            .collect(),
+                        None,
+                    ),
+                    Err(ScopeError::Transient(Cause::Truncated)) => {
+                        (vec![], Some(ENVIRONMENTS_UNAVAILABLE.to_string()))
+                    }
+                    Err(_) => {
+                        parsed = None;
+                        (vec![], None)
+                    }
+                };
+                if let Some(p) = &mut parsed {
+                    for input in &mut p.inputs {
+                        if input.r#type == InputType::Environment {
+                            input.options = names.clone();
+                            input.note = note.clone();
                         }
                     }
-                    // A cut-off list would offer only some environments: name it instead.
-                    Err(error @ ScopeError::Transient(Cause::Truncated)) => return Err(error),
-                    Err(_) => parsed = None,
                 }
             }
             workflows.push(Workflow {

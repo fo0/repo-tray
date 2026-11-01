@@ -142,3 +142,30 @@ fn secret_detection_covers_case_separators_and_token_values() {
     let values = Inputs::from([("version".into(), InputValue::String("ghp_example".into()))]);
     assert!(validate_non_secret_inputs(&values).is_err());
 }
+
+#[test]
+fn an_input_without_a_choice_takes_no_value_and_blocks_only_when_required() {
+    let mut inputs = parse_workflow_yaml(
+        "on:\n  workflow_dispatch:\n    inputs:\n      target: {type: environment}\n      stage: {type: environment, required: true}\n",
+    )
+    .unwrap()
+    .inputs;
+    for input in &mut inputs {
+        input.note = Some("Fixture-Hinweis.".into());
+    }
+    let supplied = |name: &str, value: &str| {
+        Inputs::from([(name.to_string(), InputValue::String(value.into()))])
+    };
+    assert_eq!(
+        validate_inputs(&inputs[..1], &supplied("target", "production"))
+            .unwrap_err()
+            .0,
+        "„target“: Fixture-Hinweis."
+    );
+    assert!(validate_inputs(&inputs[..1], &supplied("target", " ")).is_ok());
+    assert!(validate_inputs(&inputs[..1], &Inputs::new()).is_ok());
+    assert_eq!(
+        validate_inputs(&inputs[1..], &Inputs::new()).unwrap_err().0,
+        "Pflichtfeld „stage“ fehlt."
+    );
+}
