@@ -1,4 +1,5 @@
 use crate::auth::{AuthError, SecretToken};
+use crate::github::{ApiRequest, TransportError};
 use crate::live::*;
 
 /// Synthetic vault: holds nothing, so no test can read or write a real credential.
@@ -12,6 +13,20 @@ impl NativeKeyring for EmptyVault {
     }
     fn delete_token(&self, _: &str) -> Result<(), AuthError> {
         Ok(())
+    }
+}
+
+/// Synthetic vault that cannot be read, as when the OS vault is locked or unavailable.
+struct BrokenVault;
+impl NativeKeyring for BrokenVault {
+    fn read_token(&self, _: &str) -> Result<Option<SecretToken>, AuthError> {
+        Err(AuthError::KeyringUnavailable)
+    }
+    fn write_token(&self, _: &str, _: &SecretToken) -> Result<(), AuthError> {
+        Err(AuthError::KeyringUnavailable)
+    }
+    fn delete_token(&self, _: &str) -> Result<(), AuthError> {
+        Err(AuthError::KeyringUnavailable)
     }
 }
 
@@ -117,4 +132,19 @@ fn a_failed_cache_write_is_a_notice_and_never_marks_live_data_stale() {
     assert!(!live.data.stale);
     assert_eq!(live.data.connectivity, Connectivity::Online);
     assert_eq!(live.data.message.as_deref(), Some(CACHE_NOTICE));
+}
+
+#[test]
+fn a_missing_or_unreadable_credential_fails_before_sending_and_is_not_a_network_error() {
+    let request = ApiRequest::get("github-1", url(&["user"], &[]).unwrap()).unwrap();
+    for (vault, expected) in [
+        (
+            Arc::new(EmptyVault) as Arc<dyn NativeKeyring>,
+            TransportError::NoCredential,
+        ),
+        (Arc::new(BrokenVault), TransportError::VaultUnavailable),
+    ] {
+        let mut transport = HttpTransport::new(vault).unwrap();
+        assert_eq!(transport.send(&request).unwrap_err(), expected);
+    }
 }

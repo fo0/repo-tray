@@ -1,9 +1,10 @@
 //! Seed history once; discover open runs and follow them only until completion.
 //! Every repository refreshes on its own: a failing one keeps its last known runs.
 use crate::{
+    auth::CredentialError,
     github::{
         local_time, resource_gone, run_from_wire, ApiClient, ApiError, ApiRequest, RunTracker,
-        Transport,
+        Transport, TransportError,
     },
     live::url,
     models::{Repo, Run, RunStatus},
@@ -25,6 +26,10 @@ pub(crate) enum Cause {
     Unreachable,
     /// Already user-facing German text, such as a malformed response or an unusable credential.
     Text(String),
+    /// The vault holds no credential for the account; nothing was sent.
+    MissingCredential,
+    /// The vault could not be read; nothing was sent.
+    VaultUnavailable,
 }
 
 /// Why one refresh scope (an account or a repository) failed. That scope keeps its last
@@ -33,7 +38,8 @@ pub(crate) enum Cause {
 pub(crate) enum ScopeError {
     /// 403/404/410 on a repository endpoint: that repository's Actions are not reachable.
     Denied(Cause),
-    /// 401 or an unusable credential: the whole account needs attention.
+    /// 401, or a credential that is missing, unreadable or unusable: the whole account needs
+    /// attention.
     Unauthorized(Cause),
     /// Network, rate limit, server or malformed responses: retried on a later refresh.
     Transient(Cause),
@@ -52,20 +58,25 @@ impl ScopeError {
     /// `owner/name` when the failing scope is a repository.
     pub(crate) fn describe(&self, login: &str, repo: Option<&str>) -> String {
         let scope = repo.unwrap_or(login);
-        match self {
-            Self::Unauthorized(Cause::Text(text)) => format!("{login}: {text}"),
-            Self::Unauthorized(_) => {
+        let (Self::Denied(cause) | Self::Unauthorized(cause) | Self::Transient(cause)) = self;
+        match (self, cause) {
+            (_, Cause::MissingCredential) => format!(
+                "Zugang von {login} fehlt im Tresor – verbinde das Konto neu oder trenne es."
+            ),
+            (_, Cause::VaultUnavailable) => format!(
+                "Betriebssystem-Tresor nicht verfügbar – Zugang von {login} kann nicht gelesen werden."
+            ),
+            (Self::Unauthorized(_), Cause::Text(text)) => format!("{login}: {text}"),
+            (Self::Unauthorized(_), _) => {
                 format!("Zugang von {login} abgelaufen oder widerrufen – verbinde das Konto neu.")
             }
-            Self::Denied(cause) | Self::Transient(cause) => match cause {
-                Cause::Http(status) => format!("GitHub-Fehler {status} bei {scope}."),
-                Cause::RateLimited { retry_at } => format!(
-                    "GitHub-Limit erreicht – neuer Versuch um {}.",
-                    local_time(*retry_at)
-                ),
-                Cause::Unreachable => "GitHub nicht erreichbar – prüfe deine Verbindung.".into(),
-                Cause::Text(text) => format!("{scope}: {text}"),
-            },
+            (_, Cause::Http(status)) => format!("GitHub-Fehler {status} bei {scope}."),
+            (_, Cause::RateLimited { retry_at }) => format!(
+                "GitHub-Limit erreicht – neuer Versuch um {}.",
+                local_time(*retry_at)
+            ),
+            (_, Cause::Unreachable) => "GitHub nicht erreichbar – prüfe deine Verbindung.".into(),
+            (_, Cause::Text(text)) => format!("{scope}: {text}"),
         }
     }
 }
@@ -77,9 +88,26 @@ impl From<ApiError> for ScopeError {
             ApiError::Http(status @ (403 | 404 | 410)) => Self::Denied(Cause::Http(status)),
             ApiError::Http(status) => Self::Transient(Cause::Http(status)),
             ApiError::RateLimited { retry_at } => Self::Transient(Cause::RateLimited { retry_at }),
+            ApiError::Transport(TransportError::NoCredential) => {
+                Self::Unauthorized(Cause::MissingCredential)
+            }
+            ApiError::Transport(TransportError::VaultUnavailable) => {
+                Self::Unauthorized(Cause::VaultUnavailable)
+            }
             ApiError::Transport(_) => Self::Transient(Cause::Unreachable),
             other => Self::Transient(Cause::Text(other.to_string())),
         }
+    }
+}
+
+/// A credential that cannot be used holds the account; nothing reached GitHub.
+impl From<CredentialError> for ScopeError {
+    fn from(error: CredentialError) -> Self {
+        Self::Unauthorized(match error {
+            CredentialError::Missing => Cause::MissingCredential,
+            CredentialError::VaultUnavailable => Cause::VaultUnavailable,
+            CredentialError::Unusable(text) => Cause::Text(text),
+        })
     }
 }
 

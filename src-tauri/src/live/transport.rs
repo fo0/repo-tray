@@ -1,7 +1,7 @@
 //! The production GitHub transport: HTTPS with the account's bearer token from the vault.
 use super::now;
 use crate::{
-    auth::{NativeKeyring, SecretToken},
+    auth::{CredentialError, NativeKeyring, SecretToken},
     browser_auth::{self, NativeOAuthTransport, OAuthEndpoint, OAuthResponse, OAuthTransport},
     github::{ApiRequest, ApiResponse, Method, Transport, TransportError},
 };
@@ -46,7 +46,11 @@ impl Transport for HttpTransport {
                     oauth,
                     now(),
                 )
-                .map_err(|_| TransportError::BeforeSend)?,
+                .map_err(|error| match error {
+                    CredentialError::Missing => TransportError::NoCredential,
+                    CredentialError::VaultUnavailable => TransportError::VaultUnavailable,
+                    CredentialError::Unusable(_) => TransportError::BeforeSend,
+                })?,
             );
             stored.as_ref()
         }

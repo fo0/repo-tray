@@ -153,7 +153,7 @@ impl<T: Transport> LiveStore<T> {
                 Ok(oauth) => {
                     browser_auth::access_token(self.keyring.as_ref(), &account.id, oauth, now)
                         .map(drop)
-                        .map_err(|error| ScopeError::Unauthorized(Cause::Text(error)))
+                        .map_err(ScopeError::from)
                 }
                 Err(error) => Err(ScopeError::Transient(Cause::Text(error))),
             };

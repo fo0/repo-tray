@@ -60,6 +60,9 @@ struct Remote {
     repos: BTreeMap<String, Vec<u64>>,
     /// Status every request of an account is answered with (401: revoked).
     account_status: BTreeMap<String, u16>,
+    /// Accounts whose vault entry is gone: the transport fails before sending, as
+    /// `HttpTransport` does.
+    missing: BTreeSet<String>,
     /// Status the Actions run endpoints of a repository answer with.
     runs_status: BTreeMap<u64, u16>,
     runs: BTreeMap<u64, Vec<Value>>,
@@ -186,6 +189,9 @@ impl Transport for Fake {
         remote
             .requests
             .push((account.clone(), request.method(), target));
+        if remote.missing.contains(&account) {
+            return Err(TransportError::NoCredential);
+        }
         if let Some(status) = remote.account_status.get(&account) {
             return json(*status, serde_json::json!({}));
         }
@@ -569,6 +575,50 @@ fn a_revoked_account_neither_storms_healthy_metadata_nor_retries_before_its_hold
     assert_eq!(remote.count("github-2", "/"), 1);
     assert_eq!(remote.count("github-1", "/user/repos"), 1);
     assert_eq!(remote.count("github-1", "/branches"), 1);
+}
+
+#[test]
+fn a_missing_vault_entry_holds_its_account_and_asks_to_reconnect_or_disconnect() {
+    let mut remote = Remote::new();
+    remote.repos.insert("github-2".into(), vec![2]);
+    remote.missing.insert("github-2".into());
+    let mut h = Harness::new("missing", remote, &["github-1", "github-2"]);
+    h.select(&["github-1:1"]);
+    let snapshot = h.live.snapshot();
+    assert!(snapshot.stale);
+    assert_eq!(snapshot.connectivity, Connectivity::Forbidden);
+    assert_eq!(
+        snapshot.message.as_deref(),
+        Some("Letzter Stand · Zugang von fixture-github-2 fehlt im Tresor – verbinde das Konto neu oder trenne es.")
+    );
+    assert!(snapshot.workflows.iter().any(|w| w.repo_id == "github-1:1"));
+    // Held like a revoked account: no retry after a minute, one after the full interval.
+    h.remote().requests.clear();
+    advance(RETRY_SECONDS);
+    h.live.refresh();
+    assert_eq!(h.remote().count("github-2", "/"), 0);
+    advance(CATALOG_SECONDS - RETRY_SECONDS);
+    h.live.refresh();
+    assert_eq!(h.remote().count("github-2", "/"), 1);
+    // Disconnecting it is possible and leaves the healthy account fresh.
+    let snapshot = h.live.disconnect("github-2").unwrap();
+    assert_eq!(snapshot.accounts, vec![account("github-1")]);
+    advance(RETRY_SECONDS);
+    let snapshot = h.live.refresh();
+    assert!(!snapshot.stale, "{:?}", snapshot.message);
+    // An entry that vanishes between catalog reads is caught by the run poll and held too.
+    h.remote().missing.insert("github-1".into());
+    advance(RETRY_SECONDS);
+    let snapshot = h.live.refresh();
+    assert_eq!(snapshot.connectivity, Connectivity::Forbidden);
+    assert_eq!(
+        snapshot.message.as_deref(),
+        Some("Letzter Stand · Zugang von fixture-github-1 fehlt im Tresor – verbinde das Konto neu oder trenne es.")
+    );
+    h.remote().requests.clear();
+    advance(RETRY_SECONDS);
+    h.live.refresh();
+    assert_eq!(h.remote().count("github-1", "/"), 0);
 }
 
 #[test]

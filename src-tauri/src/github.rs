@@ -1,6 +1,7 @@
 //! HTTP policy and protocol contracts, with an injected transport and no live adapter.
 //! The desktop MVP cannot reach GitHub through this module by itself.
 
+use crate::auth::{MISSING_CREDENTIAL, VAULT_UNAVAILABLE};
 use crate::models::Inputs;
 use crate::workflow::{looks_like_credential, sensitive_key};
 use std::collections::BTreeMap;
@@ -209,6 +210,10 @@ pub enum TransportError {
     BeforeSend,
     /// Timeout, cancelled connection, or any failure after a POST might have been sent.
     OutcomeUnknown,
+    /// Nothing was sent: the vault holds no credential for the account.
+    NoCredential,
+    /// Nothing was sent: the vault could not be read.
+    VaultUnavailable,
 }
 
 /// A future native adapter must disable redirects and inject credentials outside these types.
@@ -232,6 +237,11 @@ impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Policy(message) => f.write_str(message),
+            Self::Transport(TransportError::NoCredential) => f.write_str(MISSING_CREDENTIAL),
+            Self::Transport(TransportError::VaultUnavailable) => write!(
+                f,
+                "{VAULT_UNAVAILABLE} Der Zugang kann nicht gelesen werden."
+            ),
             Self::Transport(_) => f.write_str("GitHub nicht erreichbar – prüfe deine Verbindung."),
             Self::Http(status) => write!(f, "GitHub-Fehler {status}."),
             Self::RateLimited { retry_at } => write!(

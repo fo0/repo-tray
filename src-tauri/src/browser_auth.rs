@@ -1,5 +1,7 @@
 //! Server-free GitHub App device authorization. Only public status crosses IPC.
-use crate::auth::{DeviceAuthorization, DevicePollResult, NativeKeyring, SecretToken};
+use crate::auth::{
+    CredentialError, DeviceAuthorization, DevicePollResult, NativeKeyring, SecretToken,
+};
 use serde::{Deserialize, Serialize};
 use std::{io::Read, sync::Mutex, time::Duration};
 
@@ -385,12 +387,12 @@ pub fn access_token(
     account: &str,
     transport: &mut impl OAuthTransport,
     now: u64,
-) -> Result<SecretToken, String> {
+) -> Result<SecretToken, CredentialError> {
     let _guard = CREDENTIALS.lock().map_err(|_| REAUTH)?;
     let stored = keyring
         .read_token(account)
-        .map_err(|_| "Betriebssystem-Tresor nicht verfügbar.")?
-        .ok_or(REAUTH)?;
+        .map_err(|_| CredentialError::VaultUnavailable)?
+        .ok_or(CredentialError::Missing)?;
     if !is_browser_account(account) {
         return Ok(stored);
     }
@@ -408,7 +410,7 @@ pub fn access_token(
     if credential.client_id != id {
         return Err(REAUTH.into());
     }
-    rotate(keyring, account, transport, credential, now)
+    Ok(rotate(keyring, account, transport, credential, now)?)
 }
 /// Commit only while the originating auth attempt still owns the result. The check
 /// after a potentially blocking vault write is the commit point; cancellation that

@@ -480,6 +480,14 @@ fn user_facing_errors_are_german_with_a_local_clock_time() {
     assert!(ApiError::Transport(TransportError::BeforeSend)
         .to_string()
         .contains("nicht erreichbar"));
+    assert_eq!(
+        ApiError::Transport(TransportError::NoCredential).to_string(),
+        "Zugang fehlt im Tresor – verbinde das Konto neu oder trenne es."
+    );
+    assert_eq!(
+        ApiError::Transport(TransportError::VaultUnavailable).to_string(),
+        "Betriebssystem-Tresor nicht verfügbar. Der Zugang kann nicht gelesen werden."
+    );
 }
 
 #[test]

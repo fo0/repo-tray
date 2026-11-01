@@ -436,6 +436,23 @@ fn scope_errors_separate_denied_repositories_from_accounts_and_transient_failure
             ScopeError::Transient(_)
         ));
     }
+    // A missing or unreadable credential never reads as a network problem.
+    assert_eq!(
+        ScopeError::from(ApiError::Transport(TransportError::NoCredential)),
+        ScopeError::Unauthorized(Cause::MissingCredential)
+    );
+    assert_eq!(
+        ScopeError::from(ApiError::Transport(TransportError::VaultUnavailable)),
+        ScopeError::Unauthorized(Cause::VaultUnavailable)
+    );
+    assert_eq!(
+        ScopeError::from(CredentialError::Missing),
+        ScopeError::Unauthorized(Cause::MissingCredential)
+    );
+    assert_eq!(
+        ScopeError::from(CredentialError::Unusable("Fixture-Text.".into())),
+        ScopeError::Unauthorized(Cause::Text("Fixture-Text.".into()))
+    );
 }
 #[test]
 fn every_scope_failure_reads_as_german_and_names_its_scope() {
@@ -455,6 +472,17 @@ fn every_scope_failure_reads_as_german_and_names_its_scope() {
     assert_eq!(
         describe(ApiError::Transport(TransportError::OutcomeUnknown), None),
         "GitHub nicht erreichbar – prüfe deine Verbindung."
+    );
+    assert_eq!(
+        describe(
+            ApiError::Transport(TransportError::NoCredential),
+            Some("fixture-owner/fixture-name")
+        ),
+        "Zugang von fixture-alex fehlt im Tresor – verbinde das Konto neu oder trenne es."
+    );
+    assert_eq!(
+        describe(ApiError::Transport(TransportError::VaultUnavailable), None),
+        "Betriebssystem-Tresor nicht verfügbar – Zugang von fixture-alex kann nicht gelesen werden."
     );
     let limited = describe(
         ApiError::RateLimited {

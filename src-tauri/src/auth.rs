@@ -55,6 +55,45 @@ impl fmt::Display for AuthError {
 
 impl std::error::Error for AuthError {}
 
+pub const MISSING_CREDENTIAL: &str =
+    "Zugang fehlt im Tresor – verbinde das Konto neu oder trenne es.";
+pub const VAULT_UNAVAILABLE: &str = "Betriebssystem-Tresor nicht verfügbar.";
+
+/// Why an account's stored credential cannot be used. A missing entry and an unreadable
+/// vault are kept apart from each other and from network failures, so neither is retried
+/// or labelled as a connection problem.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CredentialError {
+    /// The vault answered and holds no entry for the account.
+    Missing,
+    /// The vault itself could not be read; fail closed.
+    VaultUnavailable,
+    /// The entry exists but cannot be used; user-facing German text.
+    Unusable(String),
+}
+
+impl fmt::Display for CredentialError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Missing => f.write_str(MISSING_CREDENTIAL),
+            Self::VaultUnavailable => f.write_str(VAULT_UNAVAILABLE),
+            Self::Unusable(text) => f.write_str(text),
+        }
+    }
+}
+
+impl From<String> for CredentialError {
+    fn from(text: String) -> Self {
+        Self::Unusable(text)
+    }
+}
+
+impl From<&str> for CredentialError {
+    fn from(text: &str) -> Self {
+        Self::Unusable(text.into())
+    }
+}
+
 /// A deliberately non-serializable, non-cloneable secret. Debug never prints its contents.
 /// Bytes are overwritten on drop; native adapters must also avoid intermediate log strings.
 pub struct SecretToken(Vec<u8>);
