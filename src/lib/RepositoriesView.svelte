@@ -91,17 +91,21 @@
         : 'Noch keine Repositories ausgewählt'}
     text={needsAccount
       ? accountNotice ||
-        'Wähle Konto und Repositories in den Einstellungen aus.'
+        (hasAccounts
+          ? 'Wähle Konto und Repositories in den Einstellungen aus.'
+          : 'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.')
       : searching
         ? 'Versuche einen anderen Suchbegriff.'
         : 'Wähle Repositories in den Einstellungen aus.'}
     action={searching
       ? { label: 'Suche leeren', icon: 'close', run: onClearQuery }
-      : {
-          label: needsAccount
-            ? 'Konto in Einstellungen wählen'
-            : 'Repositories auswählen',
-          icon: 'arrow',
-          run: onOpenSettings,
-        }}
+      : needsAccount && !hasAccounts
+        ? { label: 'GitHub-Konto verbinden', icon: 'plus', run: onOpenSettings }
+        : {
+            label: needsAccount
+              ? 'Konto in Einstellungen wählen'
+              : 'Repositories auswählen',
+            icon: 'arrow',
+            run: onOpenSettings,
+          }}
   />{/if}

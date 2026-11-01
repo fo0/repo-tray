@@ -25,9 +25,9 @@
     type ActivityFilter,
   } from './lib/model';
   import { Modals } from './lib/modals.svelte';
-  import { blockedReason } from './lib/startReason';
   import { Panel } from './lib/panel.svelte';
   import { createShortcuts } from './lib/shortcuts';
+  import { blockedReason } from './lib/startReason';
   import type { Pin, Snapshot, Workflow } from './lib/types';
   import { Updater } from './lib/updater.svelte';
 
@@ -165,7 +165,13 @@
 
 <svelte:window onkeydown={shortcuts} />
 
-<main class="desktop" inert={modals.kind !== null}>
+<!-- `inert` already hides the page from assistive tech while a dialog is
+     open; aria-hidden states it for tools that do not model `inert`. -->
+<main
+  class="desktop"
+  inert={modals.kind !== null}
+  aria-hidden={modals.kind !== null ? 'true' : undefined}
+>
   <div class="desktop-caption" aria-hidden="true">
     <span class="caption-dot"></span> YOUR REPOS. WITHIN REACH.
   </div>

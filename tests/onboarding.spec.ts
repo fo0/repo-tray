@@ -82,7 +82,12 @@ test('the first-launch action opens the connect dialog directly and a first conn
   const empty = page.locator('.empty-state').filter({
     has: page.getByRole('heading', { name: 'Verbinde dein GitHub-Konto' }),
   });
-  await empty.getByRole('button').click();
+  await expect(empty).toContainText(
+    'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.',
+  );
+  await empty
+    .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
+    .click();
   await expect(connect(page)).toBeVisible();
   await expect(settings(page)).toHaveCount(0);
   await connectToken(page);
@@ -94,8 +99,13 @@ test('the first-launch action opens the connect dialog directly and a first conn
     'fixture-new ist verbunden. Wähle jetzt die Repositories',
   );
   // The connection itself chose the account; no silent pick happened before.
+  // The panel behind the open dialog is hidden from the accessibility tree.
   await expect(
-    page.getByRole('status', { name: 'Aktives Konto', exact: true }),
+    page.getByRole('status', {
+      name: 'Aktives Konto',
+      exact: true,
+      includeHidden: true,
+    }),
   ).toContainText('fixture-new · Token');
   await settings(page)
     .getByRole('checkbox', { name: /fixture-new\/alpha/ })
@@ -145,7 +155,7 @@ test('the repository empty state opens the repository tab, and removing the last
     .filter({
       has: page.getByRole('heading', { name: 'Verbinde dein GitHub-Konto' }),
     })
-    .getByRole('button')
+    .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
   await connectToken(page);
   await settings(page)
