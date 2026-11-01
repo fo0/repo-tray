@@ -6,8 +6,10 @@
   import Icon from './lib/Icon.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
   import RunLink from './lib/RunLink.svelte';
+  import SearchField from './lib/SearchField.svelte';
   import StatusBanners, { type NoticeTone } from './lib/StatusBanners.svelte';
   import Toolbar from './lib/Toolbar.svelte';
+  import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
@@ -72,7 +74,7 @@
   let settingsTab = $state<SettingsTab>('accounts');
   let repoSettingsQuery = $state('');
   let demoAccountConnected = $state(false);
-  let tab = $state<'repositories' | 'activity' | 'launch'>('repositories');
+  let tab = $state<ViewTab>('repositories');
   let accountId = $state('');
   let accountSelectionNotice = $state('');
   let accountSelectionReady = false;
@@ -102,7 +104,7 @@
   let pinQuickStart = $state(false);
   let editingPinId = $state<string | null>(null);
   let mutationBusy = $state(false);
-  let searchInput = $state<HTMLInputElement>();
+  let searchField = $state<ReturnType<typeof SearchField>>();
   let toolbar = $state<ReturnType<typeof Toolbar>>();
   const viewEpoch = new RequestEpoch();
   const dialogEpoch = new RequestEpoch();
@@ -740,7 +742,7 @@
       !(event.target instanceof HTMLSelectElement)
     ) {
       event.preventDefault();
-      searchInput?.focus();
+      searchField?.focus();
     }
   }}
 />
@@ -773,57 +775,17 @@
       onSettings={openSettings}
     />
 
-    <nav class="tabs" aria-label="Ansicht">
-      <button
-        class:active={tab === 'repositories'}
-        aria-current={tab === 'repositories' ? 'page' : undefined}
-        onclick={() => {
-          tab = 'repositories';
-          query = '';
-        }}><Icon name="repo" size={16} />Repositories</button
-      >
-      <button
-        class:active={tab === 'activity'}
-        aria-current={tab === 'activity' ? 'page' : undefined}
-        onclick={() => {
-          tab = 'activity';
-          query = '';
-        }}
-        ><Icon name="activity" size={17} />Aktivität{#if activeRuns}<span
-            class="tab-count">{activeRuns}</span
-          >{/if}</button
-      >
-      <button
-        class:active={tab === 'launch'}
-        aria-current={tab === 'launch' ? 'page' : undefined}
-        onclick={() => {
-          tab = 'launch';
-          query = '';
-        }}><Icon name="heart" size={16} />Favoriten</button
-      >
-    </nav>
+    <ViewTabs
+      {tab}
+      {activeRuns}
+      onSelect={(next) => {
+        tab = next;
+        query = '';
+      }}
+    />
 
     <div class="content">
-      <label class="search-field"
-        ><Icon name="search" size={17} /><input
-          bind:this={searchInput}
-          aria-label={tab === 'activity'
-            ? 'Aktivität durchsuchen'
-            : tab === 'repositories'
-              ? 'Repositories durchsuchen'
-              : 'Workflows durchsuchen'}
-          placeholder={tab === 'activity'
-            ? 'Repository, Workflow oder Branch suchen …'
-            : tab === 'repositories'
-              ? 'Repository oder Action suchen …'
-              : 'Favoriten und Workflows suchen …'}
-          bind:value={query}
-        />{#if query}<button
-            class="icon-button small"
-            aria-label="Suche leeren"
-            onclick={() => (query = '')}><Icon name="close" size={14} /></button
-          >{:else}<kbd>/</kbd>{/if}</label
-      >
+      <SearchField bind:this={searchField} {tab} bind:query />
 
       <StatusBanners
         update={updater.info}
