@@ -7,6 +7,7 @@
   let {
     snapshot,
     demo,
+    connected = '',
     busy,
     query = $bindable(),
     selected = $bindable(),
@@ -15,6 +16,8 @@
   }: {
     snapshot: Snapshot | null;
     demo: boolean;
+    /** Login of a just-connected account whose repositories come next. */
+    connected?: string;
     /** A repository mutation is running. */
     busy: boolean;
     /** Filter text; owned by the dialog so it survives tab switches. */
@@ -55,6 +58,12 @@
   }
 </script>
 
+{#if connected}<p class="settings-next-step" role="status">
+    <Icon name="check" size={15} /><span
+      ><strong>{connected}</strong> ist verbunden. Wähle jetzt die Repositories, die
+      in deinem Tray erscheinen sollen, und speichere die Auswahl.</span
+    >
+  </p>{/if}
 <div class="settings-intro">
   <Icon name="repo" size={19} />
   <div>

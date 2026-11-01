@@ -30,6 +30,7 @@
     updater,
     appVersion,
     initialTab = 'accounts',
+    connected = '',
     busy,
     saving,
     returnFocus,
@@ -52,6 +53,8 @@
     updater: Updater;
     appVersion: string;
     initialTab?: SettingsTab;
+    /** Login of a just-connected account; the repository tab names the next step. */
+    connected?: string;
     /** A settings mutation is running. */
     busy: boolean;
     /** The repository selection is being saved. */
@@ -194,6 +197,7 @@
       <ReposTab
         {snapshot}
         {demo}
+        {connected}
         {busy}
         bind:query
         bind:selected

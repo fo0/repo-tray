@@ -25,6 +25,9 @@ type BusyFlag =
   | 'accountBusy'
   | 'accessBusy'
   | 'resetBusy';
+/** With accounts left the user picks one; without any, connecting comes first. */
+const nextAccountStep = (value: Snapshot, pick: string) =>
+  value.accounts.length ? pick : 'Verbinde ein GitHub-Konto, um fortzufahren.';
 export interface PanelDeps {
   bridge: Bridge;
   native: boolean;
@@ -115,7 +118,7 @@ export class Panel {
       );
       this.accountId = restored.id;
       this.accountNotice = restored.missing
-        ? 'Das gespeicherte Konto ist nicht mehr verbunden. Wähle ein aktives Konto neu aus.'
+        ? `Das gespeicherte Konto ist nicht mehr verbunden. ${nextAccountStep(value, 'Wähle ein aktives Konto neu aus.')}`
         : '';
       if (restored.missing) rememberActiveAccount('');
       this.#accountReady = true;
@@ -124,8 +127,7 @@ export class Panel {
       !value.accounts.some((account) => account.id === this.accountId)
     ) {
       this.changeAccount('');
-      this.accountNotice =
-        'Das aktive Konto wurde entfernt. Wähle ein anderes aktives Konto aus.';
+      this.accountNotice = `Das aktive Konto wurde entfernt. ${nextAccountStep(value, 'Wähle ein anderes aktives Konto aus.')}`;
     }
   }
 

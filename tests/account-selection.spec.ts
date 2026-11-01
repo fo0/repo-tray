@@ -269,9 +269,10 @@ test('disconnecting another source preserves the active account; removing the ac
   ).toContainText('fixture-user · Browser');
   await openSettings(page);
   await disconnect(page, 'fixture-user · Browser');
+  // No account is left to fall back to; settings ask for a new connection.
   await expect(
-    page.getByLabel('Aktives Konto auswählen', { exact: true }),
-  ).toHaveValue('');
+    page.getByRole('heading', { name: 'Noch kein Konto verbunden' }),
+  ).toBeVisible();
   await closeSettings(page);
   await expect(
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),

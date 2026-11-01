@@ -127,7 +127,7 @@ async function login(page: import('@playwright/test').Page) {
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await page
-    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
   const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   await expect(
@@ -179,7 +179,7 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await page
-    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
   await page
     .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
@@ -334,7 +334,7 @@ test('native invalid token is rejected and disconnect removes the account view',
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await page
-    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
   await page.getByLabel('GitHub-Token').fill('invalid-synthetic-token');
   await page
@@ -350,6 +350,6 @@ test('native invalid token is rejected and disconnect removes the account view',
     .getByRole('button', { name: 'Trennen', exact: true })
     .click();
   await expect(
-    page.getByText('0 Konten verbunden', { exact: true }),
+    page.getByRole('heading', { name: 'Noch kein Konto verbunden' }),
   ).toBeVisible();
 });

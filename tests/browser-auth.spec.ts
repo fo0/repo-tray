@@ -30,7 +30,7 @@ for (const configured of [false, true]) {
       .getByRole('button', { name: 'Einstellungen', exact: true })
       .click();
     await page
-      .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+      .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
       .click();
     await expect(
       page.getByRole('button', { name: /Mit GitHub anmelden/ }),

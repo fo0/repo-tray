@@ -91,6 +91,4 @@
       </div>
     {/each}
   </section>
-{:else}
-  <p class="auth-not-connected">Noch kein Konto mit RepoTray verbunden.</p>
 {/if}

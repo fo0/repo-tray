@@ -43,7 +43,3 @@
   line-height: 1.6;
   margin-top: 3px;
 }
-.auth-preview .auth-not-connected {
-  color: #b4c6a3;
-  font-size: var(--font-size-meta);
-}

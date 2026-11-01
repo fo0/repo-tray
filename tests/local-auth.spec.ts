@@ -106,7 +106,7 @@ test.beforeEach(async ({ page }) => {
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   await page
-    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
 });
 
@@ -220,6 +220,15 @@ test('discovery shows recognized rather than connected until consent, then retai
   await page
     .getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' })
     .click();
+  // The new account has no selected repositories yet: settings opens there.
+  await expect(page.getByRole('tab', { name: 'Repositories' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(
+    page.getByRole('status').filter({ hasText: 'fixture-sam ist verbunden' }),
+  ).toBeVisible();
+  await page.getByRole('tab', { name: 'Konten', exact: true }).click();
   await expect(
     page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
   ).toContainText('gh-Anmeldung übernommen · Aktiv für RepoTray');

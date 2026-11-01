@@ -73,3 +73,60 @@
     color: LinkText;
   }
 }
+
+/* Settings without any connected account: one empty state, one action. */
+.account-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 16px;
+  border: 1px solid #3d4f31;
+  border-radius: 8px;
+  background: #25301f;
+  text-align: center;
+}
+.account-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #34452a;
+  color: #c2e795;
+}
+.account-empty h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d8e8ca;
+}
+.account-empty p {
+  max-width: 34ch;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+  color: var(--muted-text-raised);
+}
+.account-empty .primary-button {
+  margin-top: 4px;
+}
+
+/* The next step after a first connect, shown above the repository list. */
+.settings-next-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px;
+  border: 1px solid #607f46;
+  border-radius: 6px;
+  background: #304027;
+  color: #d2e3c5;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+}
+.settings-next-step > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #b7df89;
+}

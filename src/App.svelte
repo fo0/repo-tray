@@ -47,6 +47,8 @@
   /** Element that opened the first of possibly chained dialogs. */
   let opener: HTMLElement | null = null;
   let settingsTab = $state<SettingsTab>('accounts');
+  /** Login of a just-connected account whose repositories come next. */
+  let settingsConnected = $state('');
   let dispatchSeed = $state.raw<DispatchSeed>({});
   let demoAccountConnected = $state(false);
   let tab = $state<ViewTab>('repositories');
@@ -116,8 +118,13 @@
   function connectedNative(value: Snapshot) {
     panel.viewEpoch.invalidate();
     panel.accept(value);
-    changeAccount(value.accounts.at(-1)?.id ?? '');
-    openSettings();
+    // An explicit connection selects that entry; the service lists it last.
+    const account = value.accounts.at(-1);
+    changeAccount(account?.id ?? '');
+    // A new account starts without selected repositories: that is the next step.
+    if (account && !panel.repos.length)
+      openSettings('repositories', account.login);
+    else openSettings();
     void updater.check(true);
   }
   function connectedDemo(method: 'browser' | 'token') {
@@ -144,9 +151,15 @@
           : null;
     modal = kind;
   }
-  function openSettings(initial: SettingsTab = 'accounts') {
+  function openSettings(initial: SettingsTab = 'accounts', connected = '') {
     settingsTab = initial;
+    settingsConnected = connected;
     showModal('settings');
+  }
+  /** Empty-state actions open the missing step: connect, account or repositories. */
+  function openNextStep() {
+    if (native && !snapshot?.accounts.length) showModal('connect');
+    else openSettings(panel.needsAccount ? 'accounts' : 'repositories');
   }
   function openDispatch(
     pin?: Pin,
@@ -286,7 +299,7 @@
           onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
           onFavorite={(workflow) => void toggleFavorite(workflow)}
           onClearQuery={clearQuery}
-          onOpenSettings={() => openSettings()}
+          onOpenSettings={openNextStep}
         />
       {:else if tab === 'activity'}
         <ActivityView
@@ -306,7 +319,7 @@
           {repoAccountName}
           onFilter={(next) => (filter = next)}
           onToggle={(id) => (expanded = expanded === id ? null : id)}
-          onOpenSettings={() => openSettings()}
+          onOpenSettings={openNextStep}
           onClearQuery={clearQuery}
           onLinkError={warn}
         />
@@ -331,7 +344,8 @@
           onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
           onNew={() => openDispatch()}
           onClearQuery={clearQuery}
-          onOpenSettings={() => openSettings()}
+          onOpenSettings={() =>
+            openSettings(panel.needsAccount ? 'accounts' : 'repositories')}
         />
       {/if}
     </div>
@@ -361,6 +375,7 @@
     {updater}
     {appVersion}
     initialTab={settingsTab}
+    connected={settingsConnected}
     busy={panel.settingsBusy}
     saving={panel.selectionBusy}
     returnFocus={() => opener}

@@ -169,3 +169,31 @@ test('removing the last account focuses the connect action; a failed disconnect 
     page.getByRole('button', { name: 'GitHub-Konto verbinden', exact: true }),
   ).toBeFocused();
 });
+
+test('removing the active account while another remains never picks a replacement', async ({
+  page,
+}) => {
+  await setup(page);
+  const token = card(page, 'Token');
+  await token
+    .getByRole('button', { name: 'fixture-user · Token trennen', exact: true })
+    .click();
+  await token.getByRole('button', { name: 'Trennen', exact: true }).click();
+  await expect(token).toHaveCount(0);
+  const picker = page.getByLabel('Aktives Konto auswählen', { exact: true });
+  await expect(picker).toBeFocused();
+  await expect(picker).toHaveValue('');
+  await expect(
+    page
+      .getByRole('tabpanel', { name: 'Konten' })
+      .getByRole('status')
+      .filter({ hasText: 'Das aktive Konto wurde entfernt.' }),
+  ).toHaveText(
+    'Das aktive Konto wurde entfernt. Wähle ein anderes aktives Konto aus.',
+  );
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem('repotray.activeAccount.v1'),
+    ),
+  ).toBeNull();
+});
