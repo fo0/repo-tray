@@ -38,11 +38,11 @@ jobs:
             printf 'rust=true\ndesktop=true\n' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)')
           touches() { grep -qE "$1" <<< "$files" && echo true || echo false; }
           # Rust tests embed fixtures/; release:test reads scripts/ and release.yml.
           echo "rust=$(touches '^(src-tauri/|fixtures/|\.github/workflows/checks\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "desktop=$(touches '^(src-tauri/|fixtures/|scripts/|\.github/workflows/|package\.json$|pnpm-lock\.yaml$|\.node-version$)')" >> "$GITHUB_OUTPUT"
+          echo "desktop=$(touches '^(src-tauri/|fixtures/|scripts/|\.github/workflows/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.node-version$)')" >> "$GITHUB_OUTPUT"
   panel:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -138,13 +138,10 @@ jobs:
           path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
   release:
-    # `[release]` or `[publish-existing:vYYYY.MMDD.HHmm]` in a main push message
-    # publishes once every job above passed for that exact commit.
+    # `[release]` in a main push message publishes once every job above passed for
+    # that exact commit.
     needs: [panel, rust-core, windows-desktop]
-    if: >-
-      github.event_name == 'push' &&
-      (contains(github.event.head_commit.message, '[release]') ||
-       contains(github.event.head_commit.message, '[publish-existing:'))
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[release]')
     permissions:
       contents: write # Create and publish the GitHub release.
       actions: read # Read the run's creation time, which sets the version.

@@ -1,11 +1,6 @@
 name: Release
 on:
   workflow_dispatch:
-    inputs:
-      existing_tag:
-        description: Publish an already built draft (leave empty for a new build)
-        required: false
-        type: string
   # Checks calls this after all its jobs passed on a main push whose message asks for
   # a release; see its `release` job.
   workflow_call:
@@ -15,7 +10,7 @@ jobs:
   require-checks:
     # A manual build releases only a commit whose push Checks passed, and waits while
     # they still run. The [release] path is called by Checks after its jobs passed.
-    if: github.event_name == 'workflow_dispatch' && inputs.existing_tag == ''
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -46,12 +41,12 @@ jobs:
     needs: require-checks
     if: >-
       !cancelled() &&
-      ((github.event_name == 'workflow_dispatch' && inputs.existing_tag == '' &&
-        needs.require-checks.result == 'success') ||
+      ((github.event_name == 'workflow_dispatch' && needs.require-checks.result == 'success') ||
        (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]')))
     runs-on: windows-latest
     timeout-minutes: 90
-    # Shared with publish-existing: release operations queue, never cancel each other.
+    # One release at a time: a running one is never cancelled, a newer request
+    # replaces one that is still pending.
     concurrency:
       group: repotray-release
       cancel-in-progress: false
@@ -142,83 +137,3 @@ jobs:
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
-
-  publish-existing:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.existing_tag != '') ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-existing:'))
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # Same group as windows-release.
-    concurrency:
-      group: repotray-release
-      cancel-in-progress: false
-    permissions:
-      contents: write # Publish the existing draft.
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      EXISTING_TAG: ${{ inputs.existing_tag }}
-      REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Download and publish the already built EXE
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Publish from main only' }
-          $tag = $env:EXISTING_TAG
-          if (!$tag) {
-            $match = [regex]::Match($env:REQUEST_MESSAGE, '\[publish-existing:(v[0-9]+\.[0-9]+\.[0-9]+)\]')
-            if (!$match.Success) { throw 'Existing release tag missing' }
-            $tag = $match.Groups[1].Value
-          }
-          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release tag' }
-          # Read the REST response directly: gh release view has no databaseId field.
-          $json = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag"
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot read existing release' }
-          $release = $json | ConvertFrom-Json
-          if ($release.tag_name -ne $tag -or $release.prerelease) { throw 'Release does not match the requested stable tag' }
-          # Prefer an existing tag. A draft may have uploaded assets before its tag exists.
-          $tagRef = git ls-remote --refs --tags origin "refs/tags/$tag"
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect release tag' }
-          if ($tagRef) {
-            git fetch --no-tags origin "refs/tags/$tag"
-          } elseif ($release.draft) {
-            $target = $release.target_commitish
-            # Our generated notes retain the exact build source, when available.
-            if ($release.body -match '(?m)^Source: ([a-f0-9]{40})\r?$') { $target = $Matches[1] }
-            if ($target -notmatch '^[a-f0-9]{40}$') {
-              if (!$target.StartsWith('refs/heads/')) { $target = "refs/heads/$target" }
-              git check-ref-format $target
-              if ($LASTEXITCODE -ne 0) { throw 'Invalid draft release target' }
-            }
-            git fetch --no-tags origin $target
-          } else {
-            throw 'Published release tag is missing'
-          }
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot fetch release source' }
-          $source = git rev-parse --verify 'FETCH_HEAD^{commit}'
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release source' }
-          git merge-base --is-ancestor $source origin/main
-          if ($LASTEXITCODE -ne 0) { throw 'Release source is outside main' }
-          $filename = "RepoTray_$($tag.Substring(1))_x64-setup.exe"
-          $assets = @($release.assets | Where-Object { $_.name -eq $filename })
-          if ($assets.Count -ne 1 -or $assets[0].size -le 0) { throw 'Expected one built Windows EXE' }
-          gh release download $tag --pattern $filename --dir release-work
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot download built EXE' }
-          $downloaded = Get-Item (Join-Path release-work $filename)
-          if ($downloaded.Length -ne $assets[0].size) { throw 'Downloaded EXE size differs from GitHub asset' }
-          $hash = (Get-FileHash $downloaded.FullName -Algorithm SHA256).Hash.ToLower()
-          # Older GitHub assets may have no digest. Validate it whenever supplied.
-          if ($assets[0].digest -and $assets[0].digest -ne "sha256:$hash") { throw 'Downloaded EXE hash differs from GitHub asset' }
-          if ($release.draft) {
-            gh release edit $tag --target $source --draft=false --latest
-            if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
-          }
-          $publishedJson = gh release view $tag --json isDraft,tagName,url
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot confirm release publication' }
-          $published = $publishedJson | ConvertFrom-Json
-          if ($published.isDraft -or $published.tagName -ne $tag) { throw 'Release was not published' }
-          Write-Output $published.url
