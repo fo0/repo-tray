@@ -24,7 +24,7 @@
   import { RequestEpoch, targetKey } from './model';
   import { blockedReason, startReason } from './startReason';
   import type { Panel } from './panel.svelte';
-  import type { DispatchOutcome as Outcome } from './types';
+  import type { DispatchOutcome as Outcome, UncertainStart } from './types';
 
   let {
     panel,
@@ -142,11 +142,15 @@
         'Status geprüft. GitHub hat den Start weiterhin nicht bestätigt. Ein erneuter Start bleibt gesperrt.';
     }
   }
-  /** Explicit release after checking GitHub; never starts anything. */
-  async function release() {
-    if (!claim) return;
+  /**
+   * Explicit release after checking GitHub; never starts anything. Releases
+   * the claim the confirmation held when it opened, never a newer one.
+   */
+  async function release(confirmed?: UncertainStart) {
+    const held = confirmed ?? claim;
+    if (!held) return;
     const key = targetKey(target);
-    await panel.starts.release(claim);
+    await panel.starts.release(held);
     if (!alive || targetKey(target) !== key) return;
     outcome = null;
     watched = null;

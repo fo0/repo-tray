@@ -7,7 +7,7 @@ import {
 } from './support/tauriMock';
 import { openLaunch, scenario, templateCard } from './support/demo';
 
-type ReleaseMock = { releaseError: string };
+type ReleaseMock = { releaseError: string; claimedAt: string };
 const claim = {
   accountId: 'demo-personal',
   repoId: 'demo-personal-kit',
@@ -24,27 +24,35 @@ async function nativeWithClaim(page: Page) {
   >(
     page,
     ({ fixture, claim }, state) => {
-      let snapshot = {
+      let released = false;
+      const current = () => ({ ...claim, claimedAt: state.claimedAt });
+      const snapshot = () => ({
         ...structuredClone(fixture),
         mode: 'live',
         stale: false,
         connectivity: 'online',
-        uncertainStarts: [claim],
-      };
+        uncertainStarts: released ? [] : [current()],
+      });
       return (cmd, args) => {
-        if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
-          return structuredClone(snapshot);
+        if (cmd === 'snapshot' || cmd === 'refresh_snapshot') return snapshot();
         if (cmd === 'release_uncertain_start') {
           if (state.releaseError) throw state.releaseError;
-          snapshot = { ...snapshot, uncertainStarts: [] };
-          return structuredClone(snapshot);
+          // Like the service: only the claim it currently holds is released.
+          const start = (args as { start: { claimedAt: string } }).start;
+          if (start.claimedAt !== state.claimedAt)
+            throw 'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.';
+          released = true;
+          return snapshot();
         }
         if (cmd === 'dispatch_workflow')
           throw 'Mock: Dieser Test startet nichts.';
         return null;
       };
     },
-    { arg: { fixture, claim }, state: { releaseError: '' } },
+    {
+      arg: { fixture, claim },
+      state: { releaseError: '', claimedAt: claim.claimedAt },
+    },
   );
   await page.addInitScript(() =>
     localStorage.setItem(
@@ -83,10 +91,9 @@ test('a persisted claim locks the start after a restart until it is released exp
   ).toBeFocused();
   expect(await readCalls(page, 'release_uncertain_start')).toEqual([]);
 
-  // A refused release keeps the lock and shows the reason.
+  // A refused release keeps the lock, ends the confirmation and shows the reason.
   await configureMock<ReleaseMock>(page, {
-    releaseError:
-      'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre.',
+    releaseError: 'Mock: Die Sperre konnte nicht aufgehoben werden.',
   });
   await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
   await confirm
@@ -94,12 +101,17 @@ test('a persisted claim locks the start after a restart until it is released exp
       name: 'Ich habe die Runs auf GitHub geprüft – Sperre aufheben',
     })
     .click();
-  await expect(confirm.getByRole('alert')).toHaveText(
-    'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre.',
+  await expect(confirm).toHaveCount(0);
+  await expect(dialog.getByRole('alert')).toHaveText(
+    'Mock: Die Sperre konnte nicht aufgehoben werden.',
   );
+  await expect(
+    dialog.getByRole('button', { name: 'Sperre aufheben…' }),
+  ).toBeFocused();
   await expect(start).toBeDisabled();
 
   await configureMock<ReleaseMock>(page, { releaseError: '' });
+  await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
   await confirm
     .getByRole('button', {
       name: 'Ich habe die Runs auf GitHub geprüft – Sperre aufheben',
@@ -156,4 +168,44 @@ test('the demo releases its own uncertain start the same way', async ({
   dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await expect(dialog.getByText(/Demo-Run #9001/)).toBeVisible();
+});
+
+test('a refused release refreshes the claim, so confirming again releases the newer one', async ({
+  page,
+}) => {
+  await nativeWithClaim(page);
+  await templateCard(page, 'Windows build').locator('.pin-start').click();
+  const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
+  // Another start claimed the target again; the panel has not seen it yet.
+  const newer = { ...claim, claimedAt: '2026-11-01T09:00:00Z' };
+  await configureMock<ReleaseMock>(page, { claimedAt: newer.claimedAt });
+  const ask = dialog.getByRole('button', { name: 'Sperre aufheben…' });
+  const confirm = dialog.getByRole('group', { name: 'Sperre aufheben' });
+  const release = confirm.getByRole('button', {
+    name: 'Ich habe die Runs auf GitHub geprüft – Sperre aufheben',
+  });
+  await ask.click();
+  await release.click();
+  await expect(confirm).toHaveCount(0);
+  await expect(dialog.getByRole('alert')).toContainText(
+    'gibt es eine neuere Startsperre',
+  );
+  await expect(ask).toBeFocused();
+  await expect.poll(() => readCalls(page, 'refresh_snapshot')).toHaveLength(1);
+  await expect(
+    dialog.getByRole('button', { name: 'Workflow starten' }),
+  ).toBeDisabled();
+
+  // Confirming again releases the claim the refresh brought, nothing else.
+  await ask.click();
+  await release.click();
+  await expect(
+    dialog.getByText(
+      'Sperre aufgehoben. Du kannst den Workflow wieder starten.',
+    ),
+  ).toBeVisible();
+  expect(
+    (await readCalls(page, 'release_uncertain_start')).map((call) => call.args),
+  ).toEqual([{ start: claim }, { start: newer }]);
+  expect(await readCalls(page, 'dispatch_workflow')).toEqual([]);
 });

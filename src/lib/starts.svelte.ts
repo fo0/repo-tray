@@ -2,6 +2,7 @@ import type { Bridge } from './demo';
 import { errorMessage } from './format';
 import { targetKey, validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
+import { START_REASONS } from './startReason';
 import type {
   DispatchOutcome,
   DispatchRequest,
@@ -113,11 +114,21 @@ export class Starts {
       const session = new Map(this.#session);
       session.delete(key);
       this.#session = session;
-      // The answer is authoritative; older reads in flight must not win.
-      panel.viewEpoch.next();
-      panel.refreshing = false;
+      // The answer is authoritative; older reads in flight must not win. A
+      // running mutation keeps its ticket: it reports and accepts its own
+      // answer, which at worst shows the claim again until the next snapshot.
+      if (!panel.mutating) {
+        panel.viewEpoch.next();
+        panel.refreshing = false;
+      }
       panel.accept(value);
       panel.notices.clear(key);
+    } catch (cause) {
+      // A refusal (e.g. a newer claim) means the snapshot is outdated: show
+      // the current claim, so a retry does not fail the same way. A running
+      // mutation brings a fresh snapshot anyway and must not be cancelled.
+      if (!panel.mutating) void panel.refresh();
+      throw cause;
     } finally {
       const rest = new Set(this.releasing);
       rest.delete(key);
@@ -136,6 +147,9 @@ export class Starts {
     const panel = this.#panel;
     const key = targetKey(payload);
     if (!panel.snapshot || this.running.has(key)) return null;
+    // A locked target is never sent again, whatever the caller checked.
+    if (this.claims.has(key))
+      return this.#settle({ error: START_REASONS.uncertain }, payload, options);
     const invalid = validateDispatch(panel.snapshot, payload);
     if (invalid) return this.#settle({ error: invalid }, payload, options);
     const seq = ++this.#seq;
@@ -155,12 +169,13 @@ export class Starts {
           ref,
         });
       }
-      // The snapshot then shows the new run or the persisted claim.
-      if (outcome.state !== 'rejected') this.#stale = true;
       result = { outcome };
     } catch (cause) {
       result = { error: errorMessage(cause) };
     }
+    // The snapshot then shows the new run or the persisted claim; even a
+    // rejected or failed start can leave a claim the service could not remove.
+    this.#stale = true;
     // Record the result before freeing the target, so a watching dialog
     // never sees a free target without its result.
     this.settled = new Map(this.settled).set(key, { seq, result });
@@ -178,6 +193,11 @@ export class Starts {
   async #catchUp() {
     const panel = this.#panel;
     this.#stale = false;
+    // A running mutation answers with a fresh snapshot of its own; a read
+    // now would only cancel it.
+    if (panel.mutating) return;
+    // Cancels older reads only: no mutation holds a ticket right now, and
+    // one that starts meanwhile cancels this read instead.
     const ticket = panel.viewEpoch.next();
     panel.refreshing = false;
     try {
