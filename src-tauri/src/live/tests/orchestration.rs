@@ -406,3 +406,20 @@ fn schedule_timers_are_per_scope_and_unauthorized_waits_the_full_interval() {
     assert!(schedule.catalog_due("d", 9_000) && schedule.metadata_due("d:1", 9_000));
     assert_eq!(schedule.held("e", 9_000), None);
 }
+
+#[test]
+fn a_workflow_listing_past_the_page_budget_keeps_known_workflows_and_names_the_cut() {
+    let mut h = Harness::new("endless-workflows", Remote::new(), &["github-1"]);
+    h.select(&["github-1:1"]);
+    assert_eq!(h.live.data.workflows.len(), 1);
+    h.remote().endless_workflows = true;
+    advance(CATALOG_SECONDS);
+    let snapshot = h.live.refresh();
+    assert_eq!(snapshot.workflows.len(), 1, "the known workflows stay");
+    assert!(snapshot.stale);
+    let message = snapshot.message.unwrap_or_default();
+    assert!(
+        message.contains("Liste von fixture-owner/fixture-1 unvollständig – zu viele Einträge."),
+        "{message}"
+    );
+}

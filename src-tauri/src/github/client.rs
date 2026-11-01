@@ -23,6 +23,14 @@ pub struct Pages {
     pub truncated: bool,
 }
 
+/// The bodies of a listing that fit the page budget, or `Truncated`.
+fn complete(pages: Pages) -> Result<Vec<Vec<u8>>, ApiError> {
+    if pages.truncated {
+        return Err(ApiError::Truncated);
+    }
+    Ok(pages.bodies)
+}
+
 pub(super) struct ClientState<T> {
     transport: T,
     pub(super) pages: BTreeMap<(String, ApiUrl), CachedPage>,
@@ -75,18 +83,19 @@ impl<T: Transport> ApiClient<T> {
     }
 
     /// Each page has its own account-scoped ETag and cached body, including its next link.
-    /// A listing longer than the page budget returns its first pages instead of failing.
+    /// A listing longer than the page budget fails with `Truncated`: callers of a complete
+    /// listing (such as active runs) must never mistake its first pages for all of it.
     pub fn get_pages(
         &self,
         account_id: &str,
         first: ApiUrl,
         now: u64,
     ) -> Result<Vec<Vec<u8>>, ApiError> {
-        self.traverse(account_id, first, now, true, MAX_PAGES)
-            .map(|pages| pages.bodies)
+        complete(self.traverse(account_id, first, now, true, MAX_PAGES)?)
     }
 
-    /// `get_pages` with a smaller page budget; `truncated` reports a cut-off listing.
+    /// A listing within a page budget (at most the transport's); `truncated` reports a
+    /// cut-off listing whose first pages the caller may use as such.
     pub fn get_pages_limited(
         &self,
         account_id: &str,
@@ -105,8 +114,7 @@ impl<T: Transport> ApiClient<T> {
         first: ApiUrl,
         now: u64,
     ) -> Result<Vec<Vec<u8>>, ApiError> {
-        self.traverse(account_id, first, now, false, MAX_PAGES)
-            .map(|pages| pages.bodies)
+        complete(self.traverse(account_id, first, now, false, MAX_PAGES)?)
     }
 
     fn traverse(

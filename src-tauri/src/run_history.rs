@@ -30,6 +30,8 @@ pub(crate) enum Cause {
     MissingCredential,
     /// The vault could not be read; nothing was sent.
     VaultUnavailable,
+    /// A listing that must be complete exceeded the page budget.
+    Truncated,
 }
 
 /// Why one refresh scope (an account or a repository) failed. That scope keeps its last
@@ -76,6 +78,7 @@ impl ScopeError {
                 local_time(*retry_at)
             ),
             (_, Cause::Unreachable) => "GitHub nicht erreichbar – prüfe deine Verbindung.".into(),
+            (_, Cause::Truncated) => format!("Liste von {scope} unvollständig – zu viele Einträge."),
             (_, Cause::Text(text)) => format!("{scope}: {text}"),
         }
     }
@@ -95,6 +98,7 @@ impl From<ApiError> for ScopeError {
                 Self::Unauthorized(Cause::VaultUnavailable)
             }
             ApiError::Transport(_) => Self::Transient(Cause::Unreachable),
+            ApiError::Truncated => Self::Transient(Cause::Truncated),
             other => Self::Transient(Cause::Text(other.to_string())),
         }
     }

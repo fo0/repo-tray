@@ -4,7 +4,7 @@ use crate::{
     browser_auth,
     github::{ApiClient, Transport},
     models::*,
-    run_history::ScopeError,
+    run_history::{Cause, ScopeError},
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -45,6 +45,22 @@ pub(super) fn list_values<T: Transport>(
         );
     }
     Ok((all, pages.truncated))
+}
+
+/// A listing that must be complete (workflows, environments): one longer than the page
+/// budget fails the scope, which keeps its last known data and names the cut-off listing,
+/// instead of silently dropping the entries past the budget.
+pub(super) fn list_all<T: Transport>(
+    client: &ApiClient<T>,
+    account: &str,
+    path: &[&str],
+    key: Option<&str>,
+    now: u64,
+) -> Result<Vec<Value>, ScopeError> {
+    match list_values(client, account, path, key, usize::MAX, now)? {
+        (_, true) => Err(ScopeError::Transient(Cause::Truncated)),
+        (values, false) => Ok(values),
+    }
 }
 
 /// One account's repositories as far as GitHub lists them.

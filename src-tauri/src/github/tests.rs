@@ -394,13 +394,22 @@ fn chained_pages(count: usize) -> Vec<Result<ApiResponse, TransportError>> {
 }
 
 #[test]
-fn long_listings_return_their_first_pages_instead_of_failing() {
+fn long_listings_fail_when_complete_and_report_their_cut_when_budgeted() {
     let first = || ApiUrl::parse("https://api.github.com/user/repos?page=1").unwrap();
+    // A complete listing never passes its first pages off as all of it.
     let (full, sent) = client(chained_pages(MAX_PAGES));
-    let pages = full.get_pages("personal", first(), 0).unwrap();
-    assert_eq!(pages.len(), MAX_PAGES);
-    assert_eq!(pages[0], b"[1]".to_vec());
+    assert_eq!(
+        full.get_pages("personal", first(), 0).unwrap_err(),
+        ApiError::Truncated
+    );
     assert_eq!(sent.lock().unwrap().len(), MAX_PAGES);
+    let mut exact = chained_pages(MAX_PAGES - 1);
+    exact.push(Ok(response(200, &[], &format!("[{MAX_PAGES}]"))));
+    let (fits, _) = client(exact);
+    assert_eq!(
+        fits.get_pages("personal", first(), 0).unwrap().len(),
+        MAX_PAGES
+    );
 
     let (budgeted, sent) = client(chained_pages(3));
     let limited = budgeted

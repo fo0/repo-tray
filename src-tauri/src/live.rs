@@ -217,22 +217,6 @@ impl<T: Transport> LiveStore<T> {
             .next()
             .ok_or(ApiError::InvalidResponse)
     }
-    fn list(&self, account: &str, path: &[&str], key: Option<&str>) -> Result<Vec<Value>, String> {
-        let mut all = vec![];
-        let pages = self
-            .pages(account, path, &[("per_page", "100")])
-            .map_err(|e| e.to_string())?;
-        for page in pages {
-            all.extend(
-                key.map_or(&page, |k| &page[k])
-                    .as_array()
-                    .ok_or("GitHub-Liste ungültig.")?
-                    .iter()
-                    .cloned(),
-            );
-        }
-        Ok(all)
-    }
     /// Writes the public metadata cache. A failed write never marks data stale: what is in
     /// memory is still what GitHub returned, so the failure only becomes a notice.
     fn persist(&mut self) {

@@ -74,6 +74,8 @@ pub(super) struct Remote {
     pub(super) tags: Vec<String>,
     /// Branch listings paginate without end, so the ref picker cuts them off.
     pub(super) endless_branches: bool,
+    /// Workflow listings paginate without end, past the transport's page budget.
+    pub(super) endless_workflows: bool,
     pub(super) dispatches: VecDeque<Result<ApiResponse, TransportError>>,
     /// Every request as `(account, method, path?query)`.
     pub(super) requests: Vec<(String, Method, String)>,
@@ -118,6 +120,15 @@ impl Remote {
                     status: 200,
                     headers: BTreeMap::from([("Link".to_string(), next)]),
                     body: serde_json::to_vec(&names(&listed)).unwrap(),
+                })
+            }
+            ["actions", "workflows"] if self.endless_workflows => {
+                let page: u32 = query.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
+                let next = format!("<https://api.github.com/repos/fixture-owner/fixture-{repo}/actions/workflows?per_page=100&page={}>; rel=\"next\"", page + 1);
+                Ok(ApiResponse {
+                    status: 200,
+                    headers: BTreeMap::from([("Link".to_string(), next)]),
+                    body: br#"{"workflows": []}"#.to_vec(),
                 })
             }
             ["branches"] => json(200, names(&self.branches)),

@@ -227,10 +227,14 @@ pub enum ApiError {
     Policy(&'static str),
     Transport(TransportError),
     Http(u16),
-    RateLimited { retry_at: u64 },
+    RateLimited {
+        retry_at: u64,
+    },
     InvalidResponse,
     CacheMiss,
     QueueUnavailable,
+    /// The listing has more pages than the page budget; a prefix could hide entries.
+    Truncated,
 }
 
 impl fmt::Display for ApiError {
@@ -252,6 +256,7 @@ impl fmt::Display for ApiError {
             Self::InvalidResponse => f.write_str("GitHub-Antwort ungültig."),
             Self::CacheMiss => f.write_str("GitHub-Antwort passt nicht zum Zwischenspeicher."),
             Self::QueueUnavailable => f.write_str("Anfragewarteschlange nicht verfügbar."),
+            Self::Truncated => f.write_str("GitHub-Liste unvollständig – zu viele Einträge."),
         }
     }
 }

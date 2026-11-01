@@ -1,7 +1,9 @@
 //! The refresh orchestration: account catalogs, repository metadata and runs, each scope
 //! on its own timer, settled into one snapshot and notice.
 use super::{
-    catalog::{account_repos, list_values, merge_catalog, offered_refs, RefListing, REF_PAGES},
+    catalog::{
+        account_repos, list_all, list_values, merge_catalog, offered_refs, RefListing, REF_PAGES,
+    },
     empty_snapshot, number, text,
     transport::OAuthClient,
     with_notice, LiveStore, Schedule, BROWSER_SETUP_NOTICE,
@@ -60,12 +62,11 @@ impl<T: Transport> LiveStore<T> {
             }
         }
         let mut workflows = vec![];
-        let (values, _) = list_values(
+        let values = list_all(
             &self.client,
             &repo.account_id,
             &[base.as_slice(), &["actions", "workflows"]].concat(),
             Some("workflows"),
-            usize::MAX,
             now,
         )?;
         for value in values {
@@ -76,10 +77,12 @@ impl<T: Transport> LiveStore<T> {
                 .as_ref()
                 .is_some_and(|p| p.inputs.iter().any(|i| i.r#type == InputType::Environment))
             {
-                let environments = self.list(
+                let environments = list_all(
+                    &self.client,
                     &repo.account_id,
-                    &["repos", &repo.owner, &repo.name, "environments"],
+                    &[base.as_slice(), &["environments"]].concat(),
                     Some("environments"),
+                    now,
                 );
                 match environments {
                     Ok(values) => {
@@ -95,6 +98,8 @@ impl<T: Transport> LiveStore<T> {
                             }
                         }
                     }
+                    // A cut-off list would offer only some environments: name it instead.
+                    Err(error @ ScopeError::Transient(Cause::Truncated)) => return Err(error),
                     Err(_) => parsed = None,
                 }
             }

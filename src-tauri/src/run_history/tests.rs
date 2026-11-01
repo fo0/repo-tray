@@ -15,6 +15,8 @@ struct Remote {
     accounts: Vec<&'static str>,
     /// HTTP status answered for every request under `/repos/<owner>/<name>/`.
     failing: BTreeMap<&'static str, u16>,
+    /// Every active-run list page links a next page, as a listing past the page budget does.
+    endless_active: bool,
 }
 struct Mock(Arc<Mutex<Remote>>);
 impl Transport for Mock {
@@ -41,6 +43,18 @@ impl Transport for Mock {
             });
         }
         let query: BTreeMap<_, _> = uri.query_pairs().into_owned().collect();
+        let mut headers = BTreeMap::new();
+        if remote.endless_active && query.contains_key("status") {
+            let page = query
+                .get("page")
+                .map_or(1, |page| page.parse::<u64>().unwrap());
+            let mut next = uri.clone();
+            next.query_pairs_mut()
+                .clear()
+                .extend_pairs(query.iter().filter(|(key, _)| *key != "page"))
+                .append_pair("page", &(page + 1).to_string());
+            headers.insert("Link".to_string(), format!("<{next}>; rel=\"next\""));
+        }
         let body = if let Some(status) = query.get("status") {
             serde_json::json!({"workflow_runs":remote.active.iter().filter(|run| run["status"] == *status).collect::<Vec<_>>()})
         } else if query.contains_key("created") {
@@ -73,7 +87,7 @@ impl Transport for Mock {
         };
         Ok(ApiResponse {
             status: 200,
-            headers: BTreeMap::new(),
+            headers,
             body: serde_json::to_vec(&body).unwrap(),
         })
     }
@@ -454,6 +468,37 @@ fn scope_errors_separate_denied_repositories_from_accounts_and_transient_failure
         ScopeError::Unauthorized(Cause::Text("Fixture-Text.".into()))
     );
 }
+#[test]
+fn an_active_run_list_past_the_page_budget_fails_the_repository_instead_of_hiding_runs() {
+    let remote = Arc::new(Mutex::new(Remote {
+        active: vec![run(2, "queued")],
+        endless_active: true,
+        ..Remote::default()
+    }));
+    let client = ApiClient::new(Mock(remote));
+    let known = vec![parse_run("fixture-repo", &run(1, "in_progress")).unwrap()];
+    let error = refresh_repo_runs(&client, &repo(), &known, Some(100), 115).unwrap_err();
+    assert_eq!(error, ScopeError::Transient(Cause::Truncated));
+    assert_eq!(
+        error.describe("fixture-alex", Some("fixture-owner/fixture-name")),
+        "Liste von fixture-owner/fixture-name unvollständig – zu viele Einträge."
+    );
+    let mut blocked = BTreeSet::new();
+    let pass = refresh_selected(
+        &client,
+        &[repo()],
+        &known,
+        &BTreeMap::new(),
+        &BTreeMap::from([("fixture-repo".to_string(), 100)]),
+        &mut blocked,
+        115,
+    );
+    // The repository keeps its last known runs and is reported, not polled.
+    assert_eq!(pass.runs, known);
+    assert!(pass.polled.is_empty());
+    assert_eq!(pass.failures.len(), 1);
+}
+
 #[test]
 fn every_scope_failure_reads_as_german_and_names_its_scope() {
     let describe = |error: ApiError, repo| ScopeError::from(error).describe("fixture-alex", repo);
