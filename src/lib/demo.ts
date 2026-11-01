@@ -255,7 +255,7 @@ export function createDemoBridge(
       const current = uncertain.get(key);
       if (current && current.claimedAt !== start.claimedAt)
         throw new Error(
-          'Für diesen Workflow und Branch gibt es eine neuere Startsperre. Prüfe die Runs erneut.',
+          'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.',
         );
       uncertain.delete(key);
       return snapshot();

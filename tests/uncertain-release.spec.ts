@@ -86,7 +86,7 @@ test('a persisted claim locks the start after a restart until it is released exp
   // A refused release keeps the lock and shows the reason.
   await configureMock<ReleaseMock>(page, {
     releaseError:
-      'Für diesen Workflow und Branch gibt es eine neuere Startsperre.',
+      'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre.',
   });
   await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
   await confirm
@@ -95,7 +95,7 @@ test('a persisted claim locks the start after a restart until it is released exp
     })
     .click();
   await expect(confirm.getByRole('alert')).toHaveText(
-    'Für diesen Workflow und Branch gibt es eine neuere Startsperre.',
+    'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre.',
   );
   await expect(start).toBeDisabled();
 
