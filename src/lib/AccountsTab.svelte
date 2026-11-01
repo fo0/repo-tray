@@ -108,6 +108,7 @@
       <ConnectedAccounts
         {accounts}
         activeAccountId={accountId}
+        uncertainStarts={snapshot?.uncertainStarts}
         disabled={busy}
         onUse={onChangeAccount}
         onDisconnect={disconnect}

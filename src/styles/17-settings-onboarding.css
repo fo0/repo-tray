@@ -16,7 +16,7 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.danger-button:hover:not(:disabled) {
+.danger-button:hover:not(:disabled):not([aria-disabled='true']) {
   background: #6d342e;
 }
 .text-button.danger-text {
@@ -48,6 +48,12 @@
   color: inherit;
   font-size: inherit;
 }
+.inline-confirm p .inline-confirm-warning {
+  display: block;
+  margin-top: 6px;
+  color: var(--warning);
+  font-weight: 600;
+}
 .inline-confirm p strong {
   display: block;
   margin-bottom: 2px;
@@ -59,6 +65,11 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+/* Busy: inert but still focusable, so focus never falls out of the dialog. */
+.inline-confirm-actions [aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.42;
 }
 .connected-auth-card {
   flex-wrap: wrap;

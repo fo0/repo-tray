@@ -3,16 +3,19 @@
   import Icon from './Icon.svelte';
   import InlineConfirm from './InlineConfirm.svelte';
   import { accountTitle } from './accountSelection';
-  import type { Account } from './types';
+  import type { Account, UncertainStart } from './types';
   let {
     accounts,
     activeAccountId,
+    uncertainStarts = [],
     disabled = false,
     onUse,
     onDisconnect,
   }: {
     accounts: Account[];
     activeAccountId: string;
+    /** Locked starts; disconnecting their account releases the lock. */
+    uncertainStarts?: UncertainStart[];
     disabled?: boolean;
     onUse: (id: string) => void;
     /**
@@ -24,6 +27,13 @@
   let confirming = $state<string | null>(null);
   const triggers: Record<string, HTMLButtonElement | undefined> = {};
   const imported = (account: Account) => account.id.startsWith('github-gh-');
+  /** What a disconnect deletes, as the vault and cache delete it. */
+  const consequence = (account: Account) =>
+    `Gespeicherter Zugang, Repository-Auswahl und Favoriten dieses Kontos werden gelöscht.${imported(account) ? ' Der gh-CLI-Zugang selbst bleibt unberührt.' : ''}`;
+  const unresolved = (account: Account) =>
+    uncertainStarts.some((start) => start.accountId === account.id)
+      ? 'Achtung: Für dieses Konto gibt es ungeklärte Starts. Nach dem Trennen sind sie nicht mehr gesperrt – prüfe die Runs auf GitHub vorher.'
+      : undefined;
 
   async function focusTrigger(id: string) {
     await tick();
@@ -80,8 +90,9 @@
           >{/if}
         {#if confirming === account.id}<InlineConfirm
             id={`disconnect-${account.id}`}
-            title={`${account.login} trennen?`}
-            text={`Gespeicherte Favoriten dieses Kontos werden gelöscht.${imported(account) ? ' Der gh-CLI-Zugang selbst bleibt unberührt.' : ''}`}
+            title={`${accountTitle(account)} trennen?`}
+            text={consequence(account)}
+            warning={unresolved(account)}
             confirmLabel="Trennen"
             busyLabel="Wird getrennt …"
             busy={disabled}
