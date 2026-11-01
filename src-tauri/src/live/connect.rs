@@ -1,6 +1,7 @@
 //! Adding and removing accounts: a token, a gh CLI import or a browser sign-in.
 use super::{
-    empty_snapshot, now, number, text, url, HttpTransport, LiveStore, ACCOUNT_SAVE_FAILED,
+    empty_snapshot, now, number, text, url, with_notice, HttpTransport, LiveStore,
+    ACCOUNT_SAVE_FAILED,
 };
 use crate::{
     auth::{NativeKeyring, SecretToken},
@@ -121,7 +122,7 @@ impl<T: Transport> LiveStore<T> {
     /// Adds a verified account. Its cache row is written before `commit` stores the
     /// credential, so a connected account always survives a restart and stays removable from
     /// the panel even when a later full snapshot write fails. A failed row write leaves the
-    /// vault untouched.
+    /// vault untouched; a failed commit never leaves a vault entry that no account can remove.
     pub(super) fn connect_account(
         &mut self,
         account: Account,
@@ -142,18 +143,38 @@ impl<T: Transport> LiveStore<T> {
                 .map_err(|_| ACCOUNT_SAVE_FAILED)?;
         }
         if let Err(error) = commit(self.keyring.as_ref()) {
-            if !stored {
-                // Best effort; only the row goes, never pins, settings or claims. A row left
-                // behind shows an account that asks to be reconnected or disconnected.
-                let _ = self.cache.delete_snapshot(&id);
-            }
-            return Err(error);
+            return Err(if stored {
+                error
+            } else {
+                self.abandon_new_account(account, error)
+            });
         }
         self.schedule.forget_account(&id, &self.data.repos);
         self.data.accounts.retain(|a| a.id != id);
         self.data.accounts.push(account);
         self.refresh();
         Ok(self.snapshot())
+    }
+    /// Cleans up after a new account whose credential commit failed. Its row goes (best
+    /// effort; never pins, settings or claims) unless the credential is still in the vault, as
+    /// after a cancel whose rollback failed: then the entry is deleted once more, and if that
+    /// fails too the row and the account stay, so the panel can disconnect it. A row left
+    /// behind by a failed delete shows an account that asks to be reconnected or disconnected.
+    fn abandon_new_account(&mut self, account: Account, error: String) -> String {
+        let stranded = matches!(self.keyring.read_token(&account.id), Ok(Some(_)))
+            && browser_auth::disconnect_credential(self.keyring.as_ref(), &account.id).is_err();
+        if !stranded {
+            let _ = self.cache.delete_snapshot(&account.id);
+            return error;
+        }
+        let notice = format!(
+            "Der Zugang von {} liegt noch im Tresor – trenne das Konto, um ihn zu entfernen.",
+            account.login
+        );
+        self.data.accounts.retain(|known| known.id != account.id);
+        self.data.accounts.push(account);
+        self.data.message = Some(with_notice(self.data.message.take(), &notice));
+        with_notice(Some(error), &notice)
     }
     pub fn disconnect(&mut self, account: &str) -> Result<Snapshot, String> {
         if !self.data.accounts.iter().any(|a| a.id == account) {
