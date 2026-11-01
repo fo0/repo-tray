@@ -12,6 +12,7 @@ import {
   RequestEpoch,
   safePin,
   statusLabel,
+  targetKey,
   validateDispatch,
   visibleRuns,
 } from './model';
@@ -325,5 +326,29 @@ describe('stale UI response guard', () => {
     expect(changes).toEqual([]);
     epochs.invalidate(); // closing a dialog or changing account invalidates its response
     expect(epochs.current(current)).toBe(false);
+  });
+});
+
+describe('targetKey', () => {
+  const target = {
+    accountId: 'demo-personal',
+    repoId: 'demo-repo',
+    workflowId: 7,
+    ref: 'main',
+  };
+  it('ignores inputs and request IDs', () => {
+    const request: DispatchRequest = {
+      ...target,
+      inputs: { a: 1 },
+      requestId: 'x',
+    };
+    expect(targetKey(request)).toBe(targetKey(target));
+  });
+  it('distinguishes every target field', () => {
+    const base = targetKey(target);
+    expect(targetKey({ ...target, ref: 'release' })).not.toBe(base);
+    expect(targetKey({ ...target, workflowId: 8 })).not.toBe(base);
+    expect(targetKey({ ...target, repoId: 'other' })).not.toBe(base);
+    expect(targetKey({ ...target, accountId: 'demo-work' })).not.toBe(base);
   });
 });

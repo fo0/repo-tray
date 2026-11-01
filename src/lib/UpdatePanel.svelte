@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { errorMessage } from './format';
   import { call } from './ipc';
   import type { DownloadProgress, UpdateInfo } from './types';
   import { releaseDate, type UpdatePhase } from './updates';
@@ -51,10 +52,10 @@
       // Rust validates the version and opens only its GitHub tag page.
       await call('open_release_page', { version: info.version });
     } catch (cause) {
-      openError =
-        typeof cause === 'string'
-          ? cause
-          : 'Die Release-Seite konnte nicht geöffnet werden. Versuche es erneut.';
+      openError = errorMessage(
+        cause,
+        'Die Release-Seite konnte nicht geöffnet werden. Versuche es erneut.',
+      );
     } finally {
       opening = false;
     }

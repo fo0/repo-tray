@@ -1,10 +1,9 @@
 import fixture from '../../fixtures/demo.json';
-import { safePin, validateDispatch } from './model';
+import { safePin, targetKey, validateDispatch } from './model';
 import type {
   DemoScenario,
   DispatchOutcome,
   DispatchRequest,
-  DispatchTarget,
   Pin,
   Snapshot,
   UncertainStart,
@@ -33,13 +32,6 @@ export interface PreferenceStorage {
 }
 export const PREFERENCE_KEY = 'repotray.demo.preferences.v1';
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-const targetKey = (target: DispatchTarget) =>
-  JSON.stringify([
-    target.accountId,
-    target.repoId,
-    target.workflowId,
-    target.ref,
-  ]);
 const fingerprint = (request: DispatchRequest) =>
   JSON.stringify([
     targetKey(request),

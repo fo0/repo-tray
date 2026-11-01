@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import Icon from './Icon.svelte';
+  import { errorMessage } from './format';
   import { call } from './ipc';
   import type { DeviceFlowStatus, Snapshot } from './types';
   /** The native flow status plus the panel's own starting and error states. */
@@ -69,10 +70,10 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message =
-        typeof cause === 'string'
-          ? cause
-          : 'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.';
+      message = errorMessage(
+        cause,
+        'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.',
+      );
       setBusy(false);
       void call('cancel_connect').catch(() => {});
     }
@@ -82,10 +83,10 @@
       await call('open_browser_auth', { flowId });
     } catch (cause) {
       if (active)
-        message =
-          typeof cause === 'string'
-            ? cause
-            : 'Öffne github.com/login/device und gib den Code ein.';
+        message = errorMessage(
+          cause,
+          'Öffne github.com/login/device und gib den Code ein.',
+        );
     }
   }
   async function begin() {
@@ -106,10 +107,7 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message =
-        typeof cause === 'string'
-          ? cause
-          : 'Anmeldung konnte nicht gestartet werden.';
+      message = errorMessage(cause, 'Anmeldung konnte nicht gestartet werden.');
       setBusy(false);
     }
   }
@@ -144,10 +142,7 @@
       await call('open_browser_installation');
     } catch (cause) {
       if (active)
-        message =
-          typeof cause === 'string'
-            ? cause
-            : 'GitHub konnte nicht geöffnet werden.';
+        message = errorMessage(cause, 'GitHub konnte nicht geöffnet werden.');
     }
   }
   onDestroy(() => {

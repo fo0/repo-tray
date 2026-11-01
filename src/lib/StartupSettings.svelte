@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
+  import { errorMessage } from './format';
   import { call } from './ipc';
   import type { StartupStatus } from './types';
 
@@ -41,7 +42,7 @@
     } catch (cause) {
       if (!disposed) {
         current = null;
-        error = String(cause);
+        error = errorMessage(cause);
       }
     } finally {
       if (!disposed) busy = false;
@@ -63,7 +64,7 @@
       // A failed write or readback is uncertain. Do not keep an optimistic state.
       if (!disposed) {
         current = null;
-        error = String(cause);
+        error = errorMessage(cause);
       }
     } finally {
       if (!disposed) busy = false;
@@ -74,7 +75,7 @@
     try {
       await call('open_startup_settings');
     } catch (cause) {
-      if (!disposed) error = String(cause);
+      if (!disposed) error = errorMessage(cause);
     }
   }
 

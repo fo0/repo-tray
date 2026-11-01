@@ -23,8 +23,7 @@ import {
   runDuration,
   runMoment,
 } from './format';
-import { targetKey } from './model';
-import type { Account, DispatchRequest, Repo, Run } from './types';
+import type { Account, Repo, Run } from './types';
 
 // Synthetic fixtures only.
 const repo: Repo = {
@@ -99,30 +98,6 @@ describe('avatarLetter', () => {
   it('guards empty or missing logins', () => {
     expect(avatarLetter('', '?')).toBe('?');
     expect(avatarLetter(undefined, 'A')).toBe('A');
-  });
-});
-
-describe('targetKey', () => {
-  const target = {
-    accountId: 'demo-personal',
-    repoId: 'demo-repo',
-    workflowId: 7,
-    ref: 'main',
-  };
-  it('ignores inputs and request IDs', () => {
-    const request: DispatchRequest = {
-      ...target,
-      inputs: { a: 1 },
-      requestId: 'x',
-    };
-    expect(targetKey(request)).toBe(targetKey(target));
-  });
-  it('distinguishes every target field', () => {
-    const base = targetKey(target);
-    expect(targetKey({ ...target, ref: 'release' })).not.toBe(base);
-    expect(targetKey({ ...target, workflowId: 8 })).not.toBe(base);
-    expect(targetKey({ ...target, repoId: 'other' })).not.toBe(base);
-    expect(targetKey({ ...target, accountId: 'demo-work' })).not.toBe(base);
   });
 });
 
