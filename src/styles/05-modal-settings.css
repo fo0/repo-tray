@@ -32,7 +32,7 @@
   flex-shrink: 0;
 }
 .eyebrow {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 600;
   letter-spacing: 1.8px;
   color: #8aab70;
@@ -101,7 +101,7 @@
 .secondary-button.compact {
   padding: 6px 9px;
   min-height: 29px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
 }
 .settings-intro {
   display: flex;
@@ -116,7 +116,7 @@
   color: #c9d8bb;
 }
 .settings-intro p {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #879f75;
   margin-top: 5px;
 }
@@ -131,15 +131,15 @@
   gap: 6px;
   padding: 8px 10px;
   background: #293322;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 550;
   color: #becdb0;
 }
 .selection-account > span:last-child {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 400;
-  color: #80996c;
+  color: var(--muted-text-raised);
 }
 .mini-avatar {
   display: grid;
@@ -149,7 +149,7 @@
   background: #3d4d30;
   border: 1px solid #526640;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #b9d19f;
 }
 .repo-checkbox {
@@ -177,7 +177,7 @@
   min-width: 0;
 }
 .repo-checkbox strong {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 500;
   display: block;
   color: #c7d6b9;
@@ -187,7 +187,7 @@
 }
 .repo-checkbox small {
   display: block;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #829d6d;
   margin-top: 5px;
 }
@@ -198,7 +198,7 @@
   margin-top: 21px;
 }
 .settings-section > h3 {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 550;
   color: #adbf9d;
   margin-bottom: 11px;
@@ -218,16 +218,16 @@
   min-width: 0;
 }
 .connection-card strong {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 500;
   color: #c2d1b4;
 }
 .connection-card p {
-  font-size: 10px;
-  color: #7f996b;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text-raised);
   margin-top: 5px;
   line-height: 1.6;
 }
 .connection-card .text-button {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
 }

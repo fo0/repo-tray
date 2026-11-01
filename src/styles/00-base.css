@@ -12,7 +12,15 @@
   font-weight: 400;
   --panel: #1b1e1c;
   --line: #303530;
+  /* Muted text tokens, each at least 4.5:1 (WCAG AA) on the surfaces it is
+     used on: --muted 4.97:1 on --panel; --muted-text 4.6:1 or more on base and
+     hover surfaces up to #293025; --muted-text-raised 4.5:1 or more on raised
+     green surfaces up to #2b3624 (pins, selection rows, cards). */
   --muted: #858e86;
+  --muted-text: #8c9b80;
+  --muted-text-raised: #90a085;
+  /* Smallest text size; metadata never goes below it. */
+  --font-size-meta: 11px;
   --accent: #c4ed89;
   --danger: #f08e8e;
   --warning: #d6b77b;
@@ -61,6 +69,11 @@ a {
 input,
 select {
   min-width: 0;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-text);
+  opacity: 1;
 }
 button svg,
 a svg {

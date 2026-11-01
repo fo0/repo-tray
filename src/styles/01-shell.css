@@ -10,7 +10,7 @@
     linear-gradient(135deg, #111412, #121513 60%, #101211);
 }
 .desktop-caption {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 600;
   letter-spacing: 2.3px;
   color: #667062;
@@ -76,7 +76,7 @@
   margin-left: 1px;
 }
 .demo-tag {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 650;
   letter-spacing: 0.4px;
   color: #b7d69e;
@@ -90,7 +90,7 @@
   border: 1px solid #384334;
   border-radius: 6px;
   background: #222a1f;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   line-height: 1.3;
   color: #9ca895;
   min-width: 0;
@@ -135,7 +135,7 @@
   background: #333b30;
   color: #c7d5bd;
   border: 1px solid #49533e;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 700;
 }
 .account-picker select {
@@ -162,8 +162,8 @@
   align-items: center;
 }
 .repo-count {
-  color: #7e897c;
-  font-size: 10px;
+  color: var(--muted-text);
+  font-size: var(--font-size-meta);
   margin-right: 5px;
 }
 .icon-button {
@@ -226,7 +226,7 @@
 .tab-count {
   background: #36452a;
   color: #c8e7a4;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   border: 1px solid #465938;
   border-radius: 4px;
   padding: 1px 4px;
@@ -262,19 +262,19 @@
   color: #d9e0d4;
   flex: 1;
   width: 100%;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   padding: 0;
 }
 .search-field input::placeholder {
-  color: #737e6f;
+  color: var(--muted-text);
 }
 .search-field input:focus-visible {
   outline: none;
 }
 .search-field kbd {
   font-family: inherit;
-  font-size: 10px;
-  color: #687660;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
   background: #242c21;
   border: 1px solid #35422e;
   padding: 0 4px;

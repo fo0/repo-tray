@@ -11,6 +11,7 @@
 .pin-title-line > .pin-ref {
   flex-shrink: 0;
   max-width: 45%;
+  line-height: 12px;
 }
 .notice-banner {
   align-items: center;

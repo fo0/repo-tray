@@ -5,7 +5,7 @@
   margin-bottom: 14px;
 }
 .field > span {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 500;
   color: #bbcdb0;
   display: flex;
@@ -13,9 +13,9 @@
   gap: 4px;
 }
 .field > span > small {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 400;
-  color: #6d885b;
+  color: var(--muted-text);
   margin-left: auto;
 }
 .field input,
@@ -26,7 +26,7 @@
   background: #181f15;
   border: 1px solid #3e5032;
   color: #d2e0c6;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   height: 35px;
 }
 .field select {
@@ -39,7 +39,7 @@
   box-shadow: 0 0 0 2px #8fb66e16;
 }
 .field-help {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   line-height: 1.65;
   color: #829c6e;
   margin-top: -6px;
@@ -51,18 +51,18 @@
   background: transparent;
   color: #b4c2a6;
   padding: 14px 0 0;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
 }
 .reset-button > span {
-  font-size: 10px;
-  color: #728a60;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
   margin-left: 7px;
 }
 .dialog-alert {
   margin: 0 20px 14px;
   padding: 9px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   line-height: 1.6;
 }
 .simulation-note {
@@ -73,7 +73,7 @@
   border: 1px solid #3c512e;
   background: #293820;
   color: #aaca90;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   border-radius: 6px;
   margin-bottom: 18px;
 }
@@ -82,8 +82,8 @@
   margin-left: 2px;
 }
 .workflow-path {
-  font-size: 10px;
-  color: #728a60;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
   margin-top: -8px;
   margin-bottom: 15px;
   overflow-wrap: anywhere;
@@ -94,13 +94,13 @@
   border-top: 1px solid #35462b;
   padding-top: 16px;
   margin: 18px 0 14px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   letter-spacing: 1.5px;
   color: #8da879;
 }
 .input-heading > span:last-child {
   letter-spacing: 0;
-  color: #677f56;
+  color: var(--muted-text);
 }
 .boolean-field {
   display: flex;
@@ -113,14 +113,14 @@
 }
 .boolean-field strong {
   display: block;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 500;
   color: #bacdae;
 }
 .boolean-field small {
   display: block;
-  font-size: 10px;
-  color: #728c60;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
   margin-top: 5px;
 }
 .boolean-field input {
@@ -176,7 +176,7 @@
   align-items: center;
   gap: 6px;
   color: #a5bd93;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   cursor: pointer;
   list-style: none;
   background: #26331f;
@@ -198,13 +198,13 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   line-height: 1.5;
   color: #b0c59e;
 }
 .quick-opt-in small {
   display: block;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #829f6c;
   margin-top: 5px;
   max-width: 280px;
@@ -227,11 +227,11 @@
   color: #bddb9f;
 }
 .outcome strong {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 600;
 }
 .outcome p {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   line-height: 1.7;
   margin-top: 6px;
 }

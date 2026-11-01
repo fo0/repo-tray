@@ -7,17 +7,6 @@
 .repo-checkbox strong {
   font-size: 12px;
 }
-.run-repo,
-.run-branch,
-.run-details > div,
-.run-details strong,
-.pin-repo,
-.workflow-item small,
-.repo-checkbox small,
-.connection-card p,
-.field-help {
-  font-size: 10px;
-}
 .search-field input,
 .tabs > button,
 .section-heading h2,
@@ -137,7 +126,6 @@
     height: 26px;
   }
   .connection {
-    font-size: 10px;
     padding: 5px 6px;
     gap: 5px;
   }
@@ -156,7 +144,6 @@
     gap: 1px;
   }
   .filters > button {
-    font-size: 10px;
     padding: 6px 6px;
   }
   .run-button {
@@ -166,9 +153,6 @@
   }
   .run-tail {
     gap: 2px;
-  }
-  .status-label {
-    font-size: 10px;
   }
   .run-number {
     display: none;
@@ -180,7 +164,6 @@
     width: 19px;
   }
   .reset-button > span {
-    font-size: 10px;
     margin-left: 3px;
   }
   .modal-actions {
@@ -188,7 +171,6 @@
   }
   .primary-button,
   .secondary-button {
-    font-size: 10px;
     padding: 8px 9px;
   }
 }

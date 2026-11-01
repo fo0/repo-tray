@@ -9,7 +9,7 @@
   border-radius: 5px;
   background: transparent;
   color: #929c8d;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -27,7 +27,7 @@
   color: #d1e7b8;
 }
 .filters > button span {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #aebba1;
   background: #3d4934;
   padding: 1px 4px;
@@ -41,7 +41,7 @@
   padding: 0 3px 9px;
 }
 .section-heading h2 {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 600;
   letter-spacing: 0.1px;
   color: #b9c3b1;
@@ -50,8 +50,8 @@
   gap: 6px;
 }
 .section-heading > span {
-  font-size: 10px;
-  color: #788771;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
 }
 .run-list {
   border: 1px solid #303a2c;
@@ -131,13 +131,13 @@
   line-height: 17px;
 }
 .run-number {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 400;
-  color: #65785b;
+  color: var(--muted-text);
 }
 .run-repo {
   display: block;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #89977f;
   line-height: 18px;
   white-space: nowrap;
@@ -148,8 +148,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
-  color: #728467;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
   line-height: 14px;
 }
 .run-branch svg {
@@ -165,11 +165,11 @@
   gap: 6px;
   align-self: flex-start;
   margin-top: 4px;
-  color: #5f7254;
+  color: var(--muted-text);
   flex-shrink: 0;
 }
 .status-label {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   letter-spacing: 0.1px;
   color: #9b9e82;
 }
@@ -190,8 +190,8 @@
   border-top: 1px solid #303a2c;
   border-bottom: 1px solid #303a2c;
   padding: 7px 11px;
-  color: #7c8b71;
-  font-size: 10px;
+  color: var(--muted-text);
+  font-size: var(--font-size-meta);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -207,14 +207,14 @@
 .run-details > div {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   gap: 9px;
 }
 .run-details > div > span {
-  color: #7f8e75;
+  color: var(--muted-text);
 }
 .run-details strong {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   font-weight: 400;
   color: #b3c1a6;
 }
@@ -222,7 +222,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #b1c39f;
   background: transparent;
   padding: 6px 0 0;

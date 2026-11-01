@@ -59,8 +59,8 @@
   gap: 5px;
   margin-top: 2px;
   line-height: 14px;
-  color: #87967d;
-  font-size: 10px;
+  color: var(--muted-text);
+  font-size: var(--font-size-meta);
 }
 .repository-live {
   color: #b6d592;
@@ -110,8 +110,8 @@
 }
 .action-copy small {
   display: block;
-  font-size: 10px;
-  color: #8c9b80;
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
   margin-top: 0;
 }
 .action-copy:hover strong {
@@ -145,7 +145,7 @@
   background: #34472a;
   color: #cbe6ad;
   padding: 4px 7px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   min-height: 28px;
   flex-shrink: 0;
 }
@@ -158,7 +158,7 @@
   font-size: 11px;
 }
 .history-note {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   color: #8b9980;
   line-height: 1.7;
   padding: 0 3px 13px;
@@ -219,7 +219,7 @@
   align-items: baseline;
   flex-wrap: wrap;
   column-gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   line-height: 14px;
   color: #8fa57c;
   overflow-wrap: anywhere;
