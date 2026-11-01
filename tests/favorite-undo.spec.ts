@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openDemoActivity, templateCard } from './support/demo';
+import { openDemoActivity, openLaunch, templateCard } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
@@ -83,4 +83,63 @@ test('the heart removes a renamed favorite with undo, and the removal is final a
   await expect(notice).toHaveCount(0);
   await page.reload();
   await expect(pinned).toHaveCount(0);
+});
+
+test('keyboard removal moves focus to the next favorite, „Rückgängig“ to the restored card', async ({
+  page,
+}) => {
+  const dialog = await openLaunch(page);
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Quick build');
+  await dialog
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
+    .click();
+  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  const first = templateCard(page, 'Windows build');
+  const second = templateCard(page, 'Quick build');
+  const remove = (label: string) =>
+    page.getByRole('button', { name: `Favorit ${label} entfernen` });
+
+  await remove('Windows build').focus();
+  await page.keyboard.press('Enter');
+  await expect(first).toHaveCount(0);
+  await expect(remove('Quick build')).toBeFocused();
+
+  const notice = page.getByRole('status').filter(removed('Windows build'));
+  await notice.getByRole('button', { name: 'Rückgängig', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(notice).toHaveCount(0);
+  await expect(first.locator('.pin-start')).toBeFocused();
+
+  // The last card left hands focus to the view tab.
+  await remove('Quick build').focus();
+  await page.keyboard.press('Enter');
+  await expect(second).toHaveCount(0);
+  await expect(remove('Windows build')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(first).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Favoriten', exact: true }),
+  ).toBeFocused();
+});
+
+test('removing the last pinned favorite with the keyboard focuses the view tab', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
+  await pinned
+    .getByRole('button', { name: 'Favorit Windows build entfernen' })
+    .focus();
+  await page.keyboard.press('Enter');
+  await expect(pinned).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Repositories', exact: true }),
+  ).toBeFocused();
+  const notice = page.getByRole('status').filter(removed('Windows build'));
+  await notice.getByRole('button', { name: 'Rückgängig', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    pinned.getByRole('button', { name: 'Favorit Windows build öffnen…' }),
+  ).toBeFocused();
 });

@@ -189,6 +189,8 @@ export class Panel {
         'Die Kontoauswahl konnte nicht gespeichert werden und gilt nur für diese Sitzung.';
     this.error = '';
     this.notices.clear(PANEL_NOTICE);
+    // „Rückgängig“ belongs to the previous account's view.
+    this.favorites.clearUndo();
   }
 
   /** Resolves to null when the refresh failed or a newer view change won. */
@@ -223,6 +225,7 @@ export class Panel {
     !!(await this.#mutation('templateBusy', async (ticket) => {
       const value = await this.#bridge.savePin(pin);
       if (this.viewEpoch.current(ticket)) this.accept(value);
+      this.favorites.saved(pin);
       return true;
     }));
 

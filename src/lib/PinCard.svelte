@@ -42,7 +42,8 @@
   );
 </script>
 
-<article class="pin-card">
+<!-- `data-pin-*` lets focus move to a neighbour or a restored card. -->
+<article class="pin-card" data-pin-id={pin.id}>
   <div class="pin-content">
     <div class="pin-title-line">
       <h3>{pin.label}</h3>
@@ -88,6 +89,7 @@
       >{/if}
     <button
       class="icon-button small delete-pin"
+      data-pin-remove
       aria-label={`Favorit ${pin.label} entfernen`}
       title="Favorit entfernen"
       onclick={() => onRemove()}

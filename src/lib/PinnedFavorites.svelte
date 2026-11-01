@@ -45,7 +45,8 @@
         {@const reason = pin.quickStart
           ? startReason({ blocked, running: starting, uncertain })
           : startReason({ running: starting })}
-        <article class="pinned-action" class:uncertain>
+        <!-- `data-pin-*` lets focus move to a neighbour or a restored card. -->
+        <article class="pinned-action" class:uncertain data-pin-id={pin.id}>
           <button
             class="pinned-copy"
             onclick={() => onConfigure(pin)}
@@ -71,6 +72,7 @@
             >{/if}
           <button
             class="icon-button pinned-remove"
+            data-pin-remove
             aria-label={`Favorit ${pin.label} entfernen`}
             title="Favorit entfernen"
             disabled={busy || starting}
