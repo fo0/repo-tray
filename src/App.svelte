@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import AppFooter from './lib/AppFooter.svelte';
   import Icon from './lib/Icon.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
   import appPackage from '../package.json';
@@ -1344,28 +1345,13 @@
       {/if}
     </div>
 
-    <footer class="app-footer">
-      <span
-        ><span class="footer-dot"></span>{snapshot?.stale
-          ? demo
-            ? 'Veralteter Demo-Stand'
-            : 'Veralteter Stand'
-          : demo
-            ? 'Alles lokal. Alles im Blick.'
-            : 'GitHub Actions im Blick.'}</span
-      ><button
-        onclick={refresh}
-        disabled={refreshing || !snapshot}
-        title={demo
-          ? 'Demo-Status aktualisieren'
-          : 'GitHub-Status aktualisieren'}
-        >{refreshing
-          ? 'Aktualisiert …'
-          : snapshot
-            ? `Stand ${clockTime(snapshot.updatedAt)}`
-            : 'Lädt …'}<Icon name="refresh" size={11} /></button
-      >
-    </footer>
+    <AppFooter
+      stale={!!snapshot?.stale}
+      {demo}
+      updatedAt={snapshot?.updatedAt}
+      {refreshing}
+      onRefresh={refresh}
+    />
   </section>
   <div class="desktop-footnote" aria-hidden="true">
     <span class="tiny-line"></span> MADE FOR YOUR FLOW
