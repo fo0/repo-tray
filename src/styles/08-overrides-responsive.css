@@ -114,6 +114,18 @@
   min-height: 34px;
 }
 @media (max-width: 370px) {
+  /* Keep a favorite card on one repository line at the narrowest panel width. */
+  .pin-card {
+    column-gap: 6px;
+    padding-inline: 8px;
+  }
+  .pin-start {
+    padding-inline: 6px;
+    gap: 3px;
+  }
+  .pin-actions {
+    gap: 2px;
+  }
   .app-header {
     padding: 11px 14px;
     gap: 8px;
