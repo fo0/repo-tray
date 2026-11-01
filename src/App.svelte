@@ -5,6 +5,7 @@
   import AppHeader from './lib/AppHeader.svelte';
   import EmptyState from './lib/EmptyState.svelte';
   import Icon from './lib/Icon.svelte';
+  import PinnedFavorites from './lib/PinnedFavorites.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
   import RunLink from './lib/RunLink.svelte';
   import SearchField from './lib/SearchField.svelte';
@@ -55,6 +56,7 @@
     DemoScenario,
     DispatchOutcome,
     DispatchRequest,
+    DispatchTarget,
     InputValue,
     Pin,
     Snapshot,
@@ -174,10 +176,11 @@
       : 'Wähle Repository und Workflow.',
   );
   const blocked = $derived(snapshot?.connectivity !== 'online');
-  const targetUncertain = $derived(
-    quarantinedTargets.has(targetKey(request('context'))),
-  );
+  const targetUncertain = $derived(isQuarantined(request('context')));
 
+  function isQuarantined(target: DispatchTarget) {
+    return quarantinedTargets.has(targetKey(target));
+  }
   function matchedWorkflows(id: string) {
     return (
       snapshot?.workflows.filter(
@@ -814,67 +817,18 @@
             : 'Dein Überblick ist gleich bereit.'}
         />
       {:else if tab === 'repositories'}
-        {#if pins.length}
-          <section
-            class="repository-favorites"
-            aria-label="Angeheftete Favoriten"
-          >
-            <div class="section-heading pinned-heading">
-              <h2><Icon name="pin" size={13} />Favoriten</h2>
-              <span>{pins.length} angeheftet</span>
-            </div>
-            <div class="pinned-list">
-              {#each pins as pin (pin.id)}
-                {@const uncertain = quarantinedTargets.has(targetKey(pin))}
-                <article class="pinned-action" class:uncertain>
-                  <button
-                    class="pinned-copy"
-                    onclick={() => openDispatch(pin)}
-                    aria-label={`Favorit ${pin.label} konfigurieren`}
-                    title={`${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
-                    disabled={dispatching}
-                  >
-                    <strong>{pin.label}</strong>
-                    <small
-                      ><span>{repoName(pin.repoId)}</span><span
-                        class="pinned-ref">· {pin.ref}</span
-                      ></small
-                    >
-                  </button>
-                  {#if uncertain}<span
-                      class="pinned-warning"
-                      title="Startstatus ungeklärt · Öffnen, um den Status zu prüfen"
-                      role="img"
-                      aria-label="Startstatus ungeklärt"
-                      ><Icon name="warning" size={14} /></span
-                    >{/if}
-                  <button
-                    class="icon-button pinned-remove"
-                    aria-label={`Favorit ${pin.label} entfernen`}
-                    title="Favorit entfernen"
-                    disabled={mutationBusy || dispatching}
-                    onclick={() => deletePin(pin.id)}
-                    ><Icon name="heart" size={15} /></button
-                  >
-                  <button
-                    class="action-start pinned-start"
-                    onclick={() => launchPin(pin)}
-                    disabled={dispatching ||
-                      (pin.quickStart && (blocked || uncertain))}
-                    title={pin.quickStart
-                      ? 'Mit gespeicherten Parametern starten'
-                      : 'Gespeicherte Parameter öffnen und bestätigen'}
-                  >
-                    <Icon
-                      name={pin.quickStart ? 'bolt' : 'play'}
-                      size={12}
-                    />{pin.quickStart ? 'Schnellstart' : 'Öffnen'}
-                  </button>
-                </article>
-              {/each}
-            </div>
-          </section>
-        {/if}
+        <PinnedFavorites
+          {pins}
+          isUncertain={isQuarantined}
+          {repoName}
+          {accountName}
+          {dispatching}
+          busy={mutationBusy}
+          {blocked}
+          onConfigure={(pin) => openDispatch(pin)}
+          onRemove={deletePin}
+          onLaunch={launchPin}
+        />
         <div class="section-heading repository-heading">
           <h2>Deine Repositories</h2>
           <span>Zuletzt aktiv zuerst</span>
