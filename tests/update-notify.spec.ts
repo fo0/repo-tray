@@ -65,6 +65,10 @@ test('the silent check announces a newer unsigned release and opens only its rel
   await page.setViewportSize({ width: 360, height: 760 });
   await expect(page.getByText(`RepoTray ${VERSION} verfügbar`)).toBeVisible();
   await page.getByRole('button', { name: 'Update ansehen' }).click();
+  // The update dot is announced as part of the tab name, not as bare decoration.
+  await expect(
+    page.getByRole('tab', { name: /^Updates\s*Update verfügbar$/ }),
+  ).toHaveAttribute('aria-selected', 'true');
   const panel = page.getByRole('region', { name: 'RepoTray aktuell halten' });
   await expect(
     panel.getByText(`Version ${VERSION}`, { exact: true }),

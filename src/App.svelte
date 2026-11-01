@@ -16,26 +16,20 @@
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import { invoke } from '@tauri-apps/api/core';
-  import UpdatePanel from './lib/UpdatePanel.svelte';
-  import StartupSettings from './lib/StartupSettings.svelte';
   import { Updater } from './lib/updater.svelte';
   import NativeConnect from './lib/NativeConnect.svelte';
-  import ConnectedAccounts from './lib/ConnectedAccounts.svelte';
   import ConnectPanel from './lib/ConnectPanel.svelte';
+  import SettingsDialog, {
+    type SettingsTab,
+  } from './lib/SettingsDialog.svelte';
   import {
-    accountTitle,
     readActiveAccount,
     rememberActiveAccount,
     restoreActiveAccount,
   } from './lib/accountSelection';
   import { bridge, native, observeSnapshots } from './lib/bridge';
   import Modal from './lib/Modal.svelte';
-  import {
-    accountLabel,
-    avatarLetter,
-    errorMessage,
-    repoLabel,
-  } from './lib/format';
+  import { accountLabel, errorMessage, repoLabel } from './lib/format';
   import {
     defaultInputs,
     fullRepo,
@@ -63,15 +57,8 @@
   let snapshot = $state.raw<Snapshot | null>(null);
   const demo = $derived(snapshot?.mode !== 'live');
   const updater = new Updater(native);
-  const settingsTabs = [
-    { id: 'accounts', label: 'Konten' },
-    { id: 'repositories', label: 'Repositories' },
-    { id: 'app', label: 'App' },
-    { id: 'updates', label: 'Updates' },
-  ] as const;
-  type SettingsTab = (typeof settingsTabs)[number]['id'];
+  /** Tab the settings dialog opens on. */
   let settingsTab = $state<SettingsTab>('accounts');
-  let repoSettingsQuery = $state('');
   let demoAccountConnected = $state(false);
   let tab = $state<ViewTab>('repositories');
   let accountId = $state('');
@@ -85,7 +72,6 @@
   let modal = $state<ModalKind | null>(null);
   /** Element that opened the first of possibly chained dialogs. */
   let opener: HTMLElement | null = null;
-  let selectedRepos = $state<string[]>([]);
   let scenario = $state<DemoScenario>('normal');
   let refreshing = $state(false);
   let saving = $state(false);
@@ -125,11 +111,6 @@
   /** Native views stay empty until an account is chosen deliberately. */
   const viewSnapshot = $derived(
     snapshot && (!native || accountId) ? snapshot : null,
-  );
-  /** Repository IDs the current snapshot has selected (persisted selection). */
-  const savedSelection = $derived(
-    snapshot?.repos.filter((repo) => repo.selected).map((repo) => repo.id) ??
-      [],
   );
   const runs = $derived(
     viewSnapshot ? historyRuns(viewSnapshot, accountId, query, filter) : [],
@@ -224,9 +205,6 @@
         accountId: id,
       });
       acceptSnapshot(value);
-      selectedRepos = savedSelection;
-    } catch (cause) {
-      dialogError = errorMessage(cause);
     } finally {
       mutationBusy = false;
     }
@@ -377,31 +355,20 @@
     }
   }
   async function manageBrowserRepositories() {
-    try {
-      await invoke('open_browser_installation');
-    } catch (cause) {
-      dialogError = errorMessage(cause);
-    }
+    await invoke('open_browser_installation');
   }
   async function refreshRepositoryAccess() {
-    if (mutationBusy) return;
+    if (mutationBusy) return null;
     const ticket = viewEpoch.next();
     mutationBusy = true;
-    dialogError = '';
     try {
       const value = await invoke<Snapshot>('refresh_repositories');
-      if (viewEpoch.current(ticket)) {
-        acceptSnapshot(value);
-        selectedRepos = selectedRepos.filter((id) =>
-          value.repos.some((repo) => repo.id === id),
-        );
-        if (value.stale)
-          dialogError =
-            value.message ??
-            'Repository-Zugriff konnte nicht aktualisiert werden.';
-      }
+      if (!viewEpoch.current(ticket)) return null;
+      acceptSnapshot(value);
+      return value;
     } catch (cause) {
-      if (viewEpoch.current(ticket)) dialogError = errorMessage(cause);
+      if (!viewEpoch.current(ticket)) return null;
+      throw cause;
     } finally {
       if (viewEpoch.current(ticket)) mutationBusy = false;
     }
@@ -429,32 +396,9 @@
     resetDialog();
     modal = kind;
   }
-  function openSettings() {
-    selectedRepos = savedSelection;
-    settingsTab = 'accounts';
-    repoSettingsQuery = '';
+  function openSettings(initial: SettingsTab = 'accounts') {
+    settingsTab = initial;
     showModal('settings');
-  }
-  function openUpdateSettings() {
-    openSettings();
-    settingsTab = 'updates';
-  }
-  function settingsTabKey(event: KeyboardEvent) {
-    const direction =
-      event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-    if (!direction && event.key !== 'Home' && event.key !== 'End') return;
-    event.preventDefault();
-    const index = settingsTabs.findIndex((item) => item.id === settingsTab);
-    const next =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? settingsTabs.length - 1
-          : (index + direction + settingsTabs.length) % settingsTabs.length;
-    settingsTab = settingsTabs[next].id;
-    (event.currentTarget as HTMLElement)
-      .querySelectorAll<HTMLButtonElement>('[role=tab]')
-      [next]?.focus();
   }
   function selectWorkflow(value: number) {
     dialogEpoch.invalidate();
@@ -691,61 +635,41 @@
       mutationBusy = false;
     }
   }
-  async function saveSettings() {
+  async function saveSettings(repoIds: string[]) {
     if (mutationBusy) return;
     mutationBusy = true;
-    const ticket = dialogEpoch.next();
-    viewEpoch.invalidate();
+    const ticket = viewEpoch.next();
     refreshing = false;
-    dialogError = '';
     try {
-      const value = await bridge.selectRepos(selectedRepos);
-      if (dialogEpoch.current(ticket)) {
-        acceptSnapshot(value);
-        closeModal();
-        showNotice('Repository-Auswahl gespeichert.');
-      }
-    } catch (cause) {
-      if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
+      const value = await bridge.selectRepos(repoIds);
+      if (viewEpoch.current(ticket)) acceptSnapshot(value);
+      showNotice('Repository-Auswahl gespeichert.');
     } finally {
-      if (dialogEpoch.current(ticket)) mutationBusy = false;
+      mutationBusy = false;
     }
   }
   async function changeScenario(value: DemoScenario) {
-    const ticket = dialogEpoch.next();
-    viewEpoch.invalidate();
+    const ticket = viewEpoch.next();
     refreshing = false;
     scenario = value;
-    dialogError = '';
-    try {
-      const data = await bridge.setDemoScenario(value);
-      if (dialogEpoch.current(ticket)) snapshot = data;
-    } catch (cause) {
-      if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
-    }
+    const data = await bridge.setDemoScenario(value);
+    if (viewEpoch.current(ticket)) snapshot = data;
   }
   async function resetDemo() {
-    const ticket = dialogEpoch.next();
-    viewEpoch.invalidate();
+    const ticket = viewEpoch.next();
     refreshing = false;
     mutationBusy = true;
     try {
       const value = await bridge.resetDemo();
-      if (dialogEpoch.current(ticket)) {
-        acceptSnapshot(value);
-        accountId = '';
-        scenario = 'normal';
-        quarantinedTargets = new Set();
-        selectedRepos = savedSelection;
-        closeModal();
-        showNotice(
-          'Demo zurückgesetzt. Lokale Vorlagen und Auswahl wurden zurückgesetzt.',
-        );
-      }
-    } catch (cause) {
-      if (dialogEpoch.current(ticket)) dialogError = errorMessage(cause);
+      if (viewEpoch.current(ticket)) acceptSnapshot(value);
+      accountId = '';
+      scenario = 'normal';
+      quarantinedTargets = new Set();
+      showNotice(
+        'Demo zurückgesetzt. Lokale Vorlagen und Auswahl wurden zurückgesetzt.',
+      );
     } finally {
-      if (dialogEpoch.current(ticket)) mutationBusy = false;
+      mutationBusy = false;
     }
   }
 </script>
@@ -789,7 +713,7 @@
       ready={!!snapshot}
       onAccountChange={changeAccount}
       onRefresh={refresh}
-      onSettings={openSettings}
+      onSettings={() => openSettings()}
     />
 
     <ViewTabs
@@ -811,7 +735,7 @@
         {error}
         {notice}
         {noticeTone}
-        onShowUpdate={openUpdateSettings}
+        onShowUpdate={() => openSettings('updates')}
         onDismissNotice={() => (notice = '')}
       />
 
@@ -873,7 +797,7 @@
                     ? 'Konto in Einstellungen wählen'
                     : 'Repositories auswählen',
                   icon: 'arrow',
-                  run: openSettings,
+                  run: () => openSettings(),
                 }}
           />{/if}
       {:else if tab === 'activity'}
@@ -894,7 +818,7 @@
           {repoAccountName}
           onFilter={(next) => (filter = next)}
           onToggle={(id) => (expanded = expanded === id ? null : id)}
-          onOpenSettings={openSettings}
+          onOpenSettings={() => openSettings()}
           onLinkError={warn}
         />
       {:else}
@@ -918,7 +842,7 @@
           onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
           onNew={() => openDispatch()}
           onClearQuery={clearQuery}
-          onOpenSettings={openSettings}
+          onOpenSettings={() => openSettings()}
         />
       {/if}
     </div>
@@ -937,606 +861,362 @@
   </div>
 </main>
 
-{#if modal}
-  {#key modal}<Modal
-      title={modal === 'settings'
-        ? 'Dein Workspace'
-        : modal === 'connect'
-          ? 'GitHub verbinden'
-          : 'Workflow starten'}
-      eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
-      wide={modal === 'settings'}
-      returnFocus={() => opener}
-      onClose={closeModal}
+{#if modal === 'settings'}
+  <SettingsDialog
+    {snapshot}
+    {native}
+    {demo}
+    {accountId}
+    accountNotice={accountSelectionNotice}
+    {scenario}
+    {updater}
+    {appVersion}
+    initialTab={settingsTab}
+    busy={mutationBusy}
+    returnFocus={() => opener}
+    onClose={closeModal}
+    onConnect={() => showModal('connect')}
+    onChangeAccount={changeAccount}
+    onScenario={changeScenario}
+    onReset={resetDemo}
+    onDisconnect={disconnectAccount}
+    onSaveSelection={saveSettings}
+    onRefreshAccess={refreshRepositoryAccess}
+    onManageInstallation={manageBrowserRepositories}
+  />
+{:else if modal === 'connect'}
+  <Modal
+    title="GitHub verbinden"
+    eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
+    returnFocus={() => opener}
+    onClose={closeModal}
+  >
+    {#if native}<NativeConnect
+        accounts={snapshot?.accounts ?? []}
+        activeAccountId={accountId}
+        onSelectAccount={changeAccount}
+        onConnected={connectedNative}
+        onClose={closeModal}
+      />{:else}<ConnectPanel
+        onConnected={connectedDemo}
+        onClose={closeModal}
+        onSettings={() => openSettings()}
+      />{/if}
+  </Modal>
+{:else if modal === 'dispatch'}
+  <Modal
+    title="Workflow starten"
+    eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
+    returnFocus={() => opener}
+    onClose={closeModal}
+  >
+    <form
+      onsubmit={(event) => {
+        event.preventDefault();
+        // Starts require an explicit activation of the start button.
+      }}
     >
-      {#if modal === 'settings'}
-        <div
-          class="settings-tabs"
-          role="tablist"
-          tabindex="-1"
-          aria-label="Einstellungsbereiche"
-          onkeydown={settingsTabKey}
-        >
-          {#each settingsTabs as item}
-            <button
-              id={`settings-tab-${item.id}`}
-              role="tab"
-              aria-selected={settingsTab === item.id}
-              aria-controls="settings-panel"
-              tabindex={settingsTab === item.id ? 0 : -1}
-              onclick={() => (settingsTab = item.id)}
-              >{item.label}{#if item.id === 'updates' && updater.info}<span
-                  class="tab-update-dot"
-                  aria-label="Update verfügbar"
-                ></span>{/if}</button
-            >
-          {/each}
+      <div class="modal-body dispatch-body">
+        <div class="simulation-note">
+          <Icon name="shield" size={15} /><span
+            >{demo
+              ? 'Lokale Simulation · kein echter Workflow-Start'
+              : 'Echter GitHub-Workflow-Start · Konto und Ziel prüfen'}</span
+          >
         </div>
-        <div
-          class="modal-body"
-          id="settings-panel"
-          role="tabpanel"
-          aria-labelledby={`settings-tab-${settingsTab}`}
-          tabindex="0"
+        <label class="field"
+          ><span>Repository</span><select
+            aria-label="Repository"
+            value={repoId}
+            onchange={(event) => selectRepo(event.currentTarget.value)}
+            disabled={dispatching}
+            >{#if !repos.length}<option value=""
+                >Keine Repositories ausgewählt</option
+              >{/if}{#each repos as repo}<option value={repo.id}
+                >{fullRepo(repo)} · {accountName(repo.accountId)}</option
+              >{/each}</select
+          ></label
+        ><label class="field"
+          ><span>Workflow</span><select
+            aria-label="Workflow"
+            value={workflowId}
+            onchange={(event) =>
+              selectWorkflow(Number(event.currentTarget.value))}
+            disabled={dispatching}
+            >{#if !workflows.length}<option value={0}
+                >Kein Workflow verfügbar</option
+              >{/if}{#each workflows as workflow}<option value={workflow.id}
+                >{workflow.name}{!workflow.dispatch
+                  ? ' · kein manueller Start'
+                  : ''}</option
+              >{/each}</select
+          ></label
+        >{#if chosenWorkflow}<div class="workflow-path">
+            {chosenWorkflow.path}
+          </div>{/if}<label class="field"
+          ><span>Branch oder Tag<span class="required">*</span></span><select
+            aria-label="Branch oder Tag"
+            value={ref}
+            onchange={(event) => changeRef(event.currentTarget.value)}
+            disabled={dispatching}
+            >{#each chosenWorkflow?.refs ?? [] as branch}<option value={branch}
+                >{branch}{branch === chosenRepo?.defaultBranch
+                  ? ' · Standardbranch'
+                  : ''}</option
+              >{/each}</select
+          ></label
         >
-          {#if settingsTab === 'accounts'}
-            {#if native}
-              <section
-                class="active-account-settings"
-                aria-labelledby="active-account-heading"
-              >
-                <h3 id="active-account-heading">Aktives Konto</h3>
-                <p>
-                  Für Ansicht und neue Starts. Deine Kontoauswahl gilt sofort
-                  und wird gemerkt.
-                </p>
-                <label class="field">
-                  <span>Login und Anmeldequelle</span>
-                  <select
-                    aria-label="Aktives Konto auswählen"
-                    value={accountId}
-                    disabled={mutationBusy || !snapshot?.accounts.length}
-                    onchange={(event) =>
-                      changeAccount(event.currentTarget.value)}
-                  >
-                    <option value="" disabled
-                      >{snapshot?.accounts.length
-                        ? 'Aktives Konto auswählen'
-                        : 'Noch kein Konto verbunden'}</option
-                    >
-                    {#each snapshot?.accounts ?? [] as account}<option
-                        value={account.id}>{accountTitle(account)}</option
-                      >{/each}
-                  </select>
-                </label>
-                {#if accountSelectionNotice}<p
-                    class="account-selection-notice"
-                    role="status"
-                  >
-                    {accountSelectionNotice}
-                  </p>{/if}
-                {#if !snapshot?.accounts.length}<button
-                    class="secondary-button"
-                    onclick={() => showModal('connect')}
-                    >GitHub-Konto verbinden<Icon
-                      name="plus"
-                      size={14}
-                    /></button
-                  >{/if}
-                <ConnectedAccounts
-                  accounts={snapshot?.accounts ?? []}
-                  activeAccountId={accountId}
-                  disabled={mutationBusy}
-                  onUse={changeAccount}
-                />
-              </section>
-            {/if}
-            <div class="settings-section">
-              <h3>Verbindung</h3>
-              <div class="connection-card">
-                <Icon name="github" size={22} />
-                <div>
-                  <strong
-                    >{demo
-                      ? 'Du bist im Demo-Modus'
-                      : `${snapshot?.accounts.length ?? 0} Konten verbunden`}</strong
-                  >
-                  <p>
-                    {demo
-                      ? 'Kein Account verbunden. Keine echten Starts.'
-                      : 'Tokens bleiben im Betriebssystem-Tresor.'}
-                  </p>
-                </div>
-                <button class="text-button" onclick={() => showModal('connect')}
-                  >Einrichten<Icon name="chevron" size={13} /></button
-                >
-              </div>
-            </div>
-            {#if demo}<div class="settings-section">
-                <label class="field"
-                  ><span>Demo-Szenario</span><select
-                    aria-label="Demo-Szenario"
-                    value={scenario}
-                    onchange={(event) =>
-                      changeScenario(event.currentTarget.value as DemoScenario)}
-                    ><option value="normal">Normal · lokale Simulation</option
-                    ><option value="offline">Offline · letzter Stand</option
-                    ><option value="forbidden">Keine Berechtigung · 403</option
-                    ><option value="uncertain"
-                      >Unklare Antwort · Start gesperrt</option
-                    ></select
-                  ></label
-                >
-                <p class="field-help">
-                  Szenarien verwenden ausschließlich lokale Demo-Daten.
-                </p>
-                <button
-                  class="reset-button"
-                  onclick={resetDemo}
-                  disabled={mutationBusy}
-                  ><Icon name="refresh" size={13} />Demo zurücksetzen<span
-                    >Setzt auch Vorlagen & Auswahl zurück</span
-                  ></button
-                >
-              </div>
-            {/if}
-            {#if !demo}
-              <p class="field-help account-semantics">
-                Das aktive Konto steuert Ansicht und neue Starts. Andere Konten
-                bleiben verbunden; ihre ausgewählten Repositories werden weiter
-                beobachtet. Ein fehlgeschlagener Zugriff wechselt nicht
-                automatisch das Konto.
-              </p>
-              {#each snapshot?.accounts ?? [] as account}<button
-                  class="text-button"
-                  disabled={mutationBusy}
-                  onclick={() => disconnectAccount(account.id)}
-                  >{accountName(account.id)} trennen</button
-                >{/each}
-            {/if}
-          {:else if settingsTab === 'repositories'}
-            <div class="settings-intro">
-              <Icon name="repo" size={19} />
-              <div>
-                <h3>Repositories im Überblick</h3>
-                <p>Wähle, was in deinem Tray erscheint.</p>
-              </div>
-            </div>
-            <label class="field settings-repo-search"
-              ><span>Repositories filtern</span><input
-                type="search"
-                placeholder="Name oder Organisation …"
-                bind:value={repoSettingsQuery}
+        {#if chosenWorkflow?.inputs.length}<div class="input-heading">
+            <span>EINGABEN</span><span
+              >{chosenWorkflow.inputs.length} Parameter</span
+            >
+          </div>{/if}
+        {#each chosenWorkflow?.inputs ?? [] as input}
+          {#if input.type === 'boolean'}<label class="boolean-field"
+              ><span
+                ><strong>{input.label}</strong><small
+                  >Workflow-Parameter · boolean</small
+                ></span
+              ><input
+                type="checkbox"
+                aria-label={input.label}
+                checked={inputs[input.name] === true}
+                onchange={(event) =>
+                  setInput(input.name, event.currentTarget.checked)}
+                disabled={dispatching}
+              /><span class="switch" aria-hidden="true"></span></label
+            >
+          {:else}<label class="field"
+              ><span
+                >{input.label}{#if input.required}<span class="required">*</span
+                  >{/if}<small>{input.type}</small></span
+              >{#if input.type === 'choice' || input.type === 'environment'}<select
+                  aria-label={input.label}
+                  value={String(inputs[input.name] ?? '')}
+                  onchange={(event) =>
+                    setInput(input.name, event.currentTarget.value)}
+                  disabled={dispatching}
+                  >{#if !input.required}<option value="">Nicht gesetzt</option
+                    >{/if}{#each input.options as option}<option value={option}
+                      >{option}</option
+                    >{/each}</select
+                >{:else if input.type === 'number'}<input
+                  type="number"
+                  aria-label={input.label}
+                  value={inputs[input.name] as number}
+                  oninput={(event) =>
+                    setInput(
+                      input.name,
+                      event.currentTarget.value === ''
+                        ? ''
+                        : Number(event.currentTarget.value),
+                    )}
+                  step="any"
+                  disabled={dispatching}
+                />{:else}<input
+                  type="text"
+                  aria-label={input.label}
+                  value={String(inputs[input.name] ?? '')}
+                  oninput={(event) =>
+                    setInput(input.name, event.currentTarget.value)}
+                  autocomplete="off"
+                  disabled={dispatching}
+                />{/if}</label
+            >{/if}
+        {/each}
+        {#if validation}<div class="alert warning">
+            <Icon name="shield" size={16} /><span>{validation}</span>
+          </div>{/if}
+        {#if blocked}<div class="alert warning">
+            <Icon name="warning" size={16} /><span
+              >{snapshot?.connectivity === 'offline'
+                ? 'Offline. Starts sind deaktiviert; der letzte Stand bleibt sichtbar.'
+                : 'Zugriff verweigert. Starts sind deaktiviert.'}</span
+            >
+          </div>{/if}
+        <details class="save-pin" open={favoriteIntent}>
+          <summary
+            ><Icon name="pin" size={14} />Als Vorlage speichern<Icon
+              name="down"
+              size={13}
+            /></summary
+          >
+          <div class="save-pin-body">
+            <label class="field"
+              ><span>Name der Vorlage</span><input
+                aria-label="Name der Vorlage"
+                bind:value={pinLabel}
+                onkeydown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (
+                      pinLabel.trim() &&
+                      !validation &&
+                      !dispatching &&
+                      !saving
+                    )
+                      void savePin();
+                  }
+                }}
+                disabled={dispatching || saving}
+                maxlength="80"
+                placeholder="z. B. Windows build"
               /></label
+            ><label class="quick-opt-in"
+              ><input
+                type="checkbox"
+                bind:checked={pinQuickStart}
+                disabled={dispatching || saving}
+              /><span
+                >Schnellstart ausdrücklich aktivieren<small
+                  >Startet diese Vorlage ohne erneute Bestätigung. Nur für diese
+                  Auswahl.</small
+                ></span
+              ></label
             >
             <p class="field-help">
-              {selectedRepos.length} Repositories ausgewählt
+              Speichert Account, Repository, Workflow, Ref und nicht geheime
+              Eingaben lokal.
             </p>
-            <div class="repo-selection">
-              {#each snapshot?.accounts ?? [] as account}<div
-                  class="selection-account"
-                >
-                  <span class="mini-avatar"
-                    >{avatarLetter(account.login, '?')}</span
-                  >{account.login}<span>{account.label}</span>
-                </div>
-                {#each snapshot?.repos.filter((repo) => repo.accountId === account.id && fullRepo(repo)
-                      .toLowerCase()
-                      .includes(repoSettingsQuery
-                          .trim()
-                          .toLowerCase())) ?? [] as repo}<label
-                    class="repo-checkbox"
-                    ><input
-                      type="checkbox"
-                      value={repo.id}
-                      checked={selectedRepos.includes(repo.id)}
-                      onchange={(event) => {
-                        selectedRepos = event.currentTarget.checked
-                          ? [...selectedRepos, repo.id]
-                          : selectedRepos.filter((id) => id !== repo.id);
-                      }}
-                    /><span
-                      ><strong>{fullRepo(repo)}</strong><small
-                        >{repo.permission === 'write'
-                          ? 'Actions · Schreibzugriff'
-                          : repo.permission === 'denied'
-                            ? 'Actions · Kein Zugriff'
-                            : 'Actions · Nur Lesen'}</small
-                      ></span
-                    ><Icon name="repo" size={15} /></label
-                  >{/each}{/each}
-            </div>
-            {#if !demo && snapshot?.accounts.some( (account) => account.id.startsWith('github-device-') )}
-              <div class="settings-section installation-access">
-                <button
-                  class="text-button"
-                  disabled={mutationBusy}
-                  onclick={manageBrowserRepositories}
-                  >Repository-Freigabe auf GitHub ändern<Icon
-                    name="external"
-                    size={14}
-                  /></button
-                >
-                <p class="field-help">
-                  Wähle bei der App-Installation einzelne oder alle
-                  Repositories. Organisationen können eine Freigabe oder aktive
-                  SSO-Sitzung verlangen. Autorisierung und Installation sind
-                  getrennte Schritte.
-                </p>
-                <button
-                  class="secondary-button"
-                  disabled={mutationBusy}
-                  onclick={refreshRepositoryAccess}
-                  >Repository-Liste aktualisieren<Icon
-                    name="refresh"
-                    size={14}
-                  /></button
-                >
-              </div>
-            {/if}
-          {:else if settingsTab === 'app'}
-            <StartupSettings {native} />
-          {:else}
-            <UpdatePanel
-              currentVersion={appVersion}
-              {native}
-              info={updater.info}
-              phase={updater.phase}
-              progress={updater.progress}
-              error={updater.message}
-              checkedAt={updater.checkedAt}
-              onCheck={() => updater.check()}
-              onDownload={updater.download}
-              onInstall={updater.install}
-            />
-          {/if}
-        </div>
-        {#if dialogError}<div class="dialog-alert danger" role="alert">
-            {dialogError}
-          </div>{/if}
-        <div class="modal-actions">
-          <button class="secondary-button" onclick={closeModal}
-            >{settingsTab === 'updates' || settingsTab === 'app'
-              ? 'Schließen'
-              : 'Abbrechen'}</button
-          >{#if settingsTab === 'repositories'}<button
-              class="primary-button"
-              onclick={saveSettings}
-              disabled={mutationBusy}
-              >{mutationBusy ? 'Speichert …' : 'Auswahl speichern'}<Icon
-                name="check"
-                size={15}
-              /></button
-            >{/if}
-        </div>
-      {:else if modal === 'connect'}
-        {#if native}<NativeConnect
-            accounts={snapshot?.accounts ?? []}
-            activeAccountId={accountId}
-            onSelectAccount={changeAccount}
-            onConnected={connectedNative}
-            onClose={closeModal}
-          />{:else}<ConnectPanel
-            onConnected={connectedDemo}
-            onClose={closeModal}
-            onSettings={openSettings}
-          />{/if}
-      {:else}
-        <form
-          onsubmit={(event) => {
-            event.preventDefault();
-            // Starts require an explicit activation of the start button.
-          }}
-        >
-          <div class="modal-body dispatch-body">
-            <div class="simulation-note">
-              <Icon name="shield" size={15} /><span
-                >{demo
-                  ? 'Lokale Simulation · kein echter Workflow-Start'
-                  : 'Echter GitHub-Workflow-Start · Konto und Ziel prüfen'}</span
-              >
-            </div>
-            <label class="field"
-              ><span>Repository</span><select
-                aria-label="Repository"
-                value={repoId}
-                onchange={(event) => selectRepo(event.currentTarget.value)}
-                disabled={dispatching}
-                >{#if !repos.length}<option value=""
-                    >Keine Repositories ausgewählt</option
-                  >{/if}{#each repos as repo}<option value={repo.id}
-                    >{fullRepo(repo)} · {accountName(repo.accountId)}</option
-                  >{/each}</select
-              ></label
-            ><label class="field"
-              ><span>Workflow</span><select
-                aria-label="Workflow"
-                value={workflowId}
-                onchange={(event) =>
-                  selectWorkflow(Number(event.currentTarget.value))}
-                disabled={dispatching}
-                >{#if !workflows.length}<option value={0}
-                    >Kein Workflow verfügbar</option
-                  >{/if}{#each workflows as workflow}<option value={workflow.id}
-                    >{workflow.name}{!workflow.dispatch
-                      ? ' · kein manueller Start'
-                      : ''}</option
-                  >{/each}</select
-              ></label
-            >{#if chosenWorkflow}<div class="workflow-path">
-                {chosenWorkflow.path}
-              </div>{/if}<label class="field"
-              ><span>Branch oder Tag<span class="required">*</span></span
-              ><select
-                aria-label="Branch oder Tag"
-                value={ref}
-                onchange={(event) => changeRef(event.currentTarget.value)}
-                disabled={dispatching}
-                >{#each chosenWorkflow?.refs ?? [] as branch}<option
-                    value={branch}
-                    >{branch}{branch === chosenRepo?.defaultBranch
-                      ? ' · Standardbranch'
-                      : ''}</option
-                  >{/each}</select
-              ></label
+            <button
+              type="button"
+              class="secondary-button compact"
+              onclick={() => void savePin()}
+              disabled={saving ||
+                dispatching ||
+                !!validation ||
+                !pinLabel.trim()}
+              ><Icon name="pin" size={13} />{saving
+                ? 'Speichert …'
+                : editingPinId
+                  ? 'Vorlage aktualisieren'
+                  : 'Vorlage speichern'}</button
             >
-            {#if chosenWorkflow?.inputs.length}<div class="input-heading">
-                <span>EINGABEN</span><span
-                  >{chosenWorkflow.inputs.length} Parameter</span
-                >
-              </div>{/if}
-            {#each chosenWorkflow?.inputs ?? [] as input}
-              {#if input.type === 'boolean'}<label class="boolean-field"
-                  ><span
-                    ><strong>{input.label}</strong><small
-                      >Workflow-Parameter · boolean</small
-                    ></span
-                  ><input
-                    type="checkbox"
-                    aria-label={input.label}
-                    checked={inputs[input.name] === true}
-                    onchange={(event) =>
-                      setInput(input.name, event.currentTarget.checked)}
-                    disabled={dispatching}
-                  /><span class="switch" aria-hidden="true"></span></label
-                >
-              {:else}<label class="field"
-                  ><span
-                    >{input.label}{#if input.required}<span class="required"
-                        >*</span
-                      >{/if}<small>{input.type}</small></span
-                  >{#if input.type === 'choice' || input.type === 'environment'}<select
-                      aria-label={input.label}
-                      value={String(inputs[input.name] ?? '')}
-                      onchange={(event) =>
-                        setInput(input.name, event.currentTarget.value)}
-                      disabled={dispatching}
-                      >{#if !input.required}<option value=""
-                          >Nicht gesetzt</option
-                        >{/if}{#each input.options as option}<option
-                          value={option}>{option}</option
-                        >{/each}</select
-                    >{:else if input.type === 'number'}<input
-                      type="number"
-                      aria-label={input.label}
-                      value={inputs[input.name] as number}
-                      oninput={(event) =>
-                        setInput(
-                          input.name,
-                          event.currentTarget.value === ''
-                            ? ''
-                            : Number(event.currentTarget.value),
-                        )}
-                      step="any"
-                      disabled={dispatching}
-                    />{:else}<input
-                      type="text"
-                      aria-label={input.label}
-                      value={String(inputs[input.name] ?? '')}
-                      oninput={(event) =>
-                        setInput(input.name, event.currentTarget.value)}
-                      autocomplete="off"
-                      disabled={dispatching}
-                    />{/if}</label
-                >{/if}
-            {/each}
-            {#if validation}<div class="alert warning">
-                <Icon name="shield" size={16} /><span>{validation}</span>
-              </div>{/if}
-            {#if blocked}<div class="alert warning">
-                <Icon name="warning" size={16} /><span
-                  >{snapshot?.connectivity === 'offline'
-                    ? 'Offline. Starts sind deaktiviert; der letzte Stand bleibt sichtbar.'
-                    : 'Zugriff verweigert. Starts sind deaktiviert.'}</span
-                >
-              </div>{/if}
-            <details class="save-pin" open={favoriteIntent}>
-              <summary
-                ><Icon name="pin" size={14} />Als Vorlage speichern<Icon
-                  name="down"
+            {#if editingPinId}<button
+                type="button"
+                class="text-button copy-template"
+                onclick={() => void savePin(true)}
+                disabled={saving ||
+                  dispatching ||
+                  !!validation ||
+                  !pinLabel.trim()}
+                >Als neue Vorlage speichern<Icon
+                  name="plus"
                   size={13}
-                /></summary
+                /></button
+              >{/if}
+          </div>
+        </details>
+        {#if dialogError}<div class="alert danger" role="alert">
+            <Icon name="warning" size={16} /><span>{dialogError}</span>
+          </div>{/if}
+        {#if dialogNotice}<div
+            class={`alert ${dialogNoticeTone}`}
+            role="status"
+          >
+            <Icon
+              name={dialogNoticeTone === 'warning' ? 'warning' : 'check'}
+              size={16}
+            /><span>{dialogNotice}</span>
+          </div>{/if}
+        {#if targetUncertain && !outcome}<div
+            class="outcome uncertain"
+            role="status"
+          >
+            <Icon name="warning" size={18} />
+            <div>
+              <strong>Startstatus ungeklärt</strong>
+              <p>
+                Für dieses Ziel fehlt die Startbestätigung. Ein erneuter Start
+                bleibt gesperrt. Prüfe zuerst den Status.
+              </p>
+              <button
+                type="button"
+                class="text-button"
+                onclick={checkStartStatus}
+                disabled={refreshing}
+                >Status prüfen<Icon name="refresh" size={12} /></button
               >
-              <div class="save-pin-body">
-                <label class="field"
-                  ><span>Name der Vorlage</span><input
-                    aria-label="Name der Vorlage"
-                    bind:value={pinLabel}
-                    onkeydown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        if (
-                          pinLabel.trim() &&
-                          !validation &&
-                          !dispatching &&
-                          !saving
-                        )
-                          void savePin();
-                      }
-                    }}
-                    disabled={dispatching || saving}
-                    maxlength="80"
-                    placeholder="z. B. Windows build"
-                  /></label
-                ><label class="quick-opt-in"
-                  ><input
-                    type="checkbox"
-                    bind:checked={pinQuickStart}
-                    disabled={dispatching || saving}
-                  /><span
-                    >Schnellstart ausdrücklich aktivieren<small
-                      >Startet diese Vorlage ohne erneute Bestätigung. Nur für
-                      diese Auswahl.</small
-                    ></span
-                  ></label
-                >
-                <p class="field-help">
-                  Speichert Account, Repository, Workflow, Ref und nicht geheime
-                  Eingaben lokal.
-                </p>
+            </div>
+          </div>{/if}
+        {#if outcome}<div
+            class="outcome"
+            class:accepted={outcome.state === 'accepted'}
+            class:uncertain={outcome.state === 'uncertain'}
+            class:rejected={outcome.state === 'rejected'}
+            role="status"
+          >
+            <Icon
+              name={outcome.state === 'accepted' ? 'check' : 'warning'}
+              size={18}
+            />
+            <div>
+              <strong
+                >{outcome.state === 'accepted'
+                  ? demo
+                    ? 'Simulierter Start angenommen'
+                    : 'GitHub hat den Start angenommen'
+                  : outcome.state === 'uncertain'
+                    ? 'Startstatus ungeklärt'
+                    : 'Start abgelehnt'}</strong
+              >
+              <p>{outcome.message}</p>
+              {#if outcome.state === 'accepted' && outcome.runId}
+                {@const runUrl = safeGitHubUrl(outcome.htmlUrl ?? '')}
+                {#if runUrl}<RunLink
+                    url={runUrl}
+                    label={`Run #${outcome.runId} auf GitHub`}
+                    {native}
+                    onError={warn}
+                  />{/if}
                 <button
                   type="button"
-                  class="secondary-button compact"
-                  onclick={() => void savePin()}
-                  disabled={saving ||
-                    dispatching ||
-                    !!validation ||
-                    !pinLabel.trim()}
-                  ><Icon name="pin" size={13} />{saving
-                    ? 'Speichert …'
-                    : editingPinId
-                      ? 'Vorlage aktualisieren'
-                      : 'Vorlage speichern'}</button
+                  class="text-button"
+                  onclick={() => {
+                    const id = outcome?.runId ?? null;
+                    closeModal();
+                    tab = 'activity';
+                    filter = 'all';
+                    query = '';
+                    expanded = id;
+                  }}
+                  >In Aktivität anzeigen<Icon name="arrow" size={13} /></button
                 >
-                {#if editingPinId}<button
-                    type="button"
-                    class="text-button copy-template"
-                    onclick={() => void savePin(true)}
-                    disabled={saving ||
-                      dispatching ||
-                      !!validation ||
-                      !pinLabel.trim()}
-                    >Als neue Vorlage speichern<Icon
-                      name="plus"
-                      size={13}
-                    /></button
-                  >{/if}
-              </div>
-            </details>
-            {#if dialogError}<div class="alert danger" role="alert">
-                <Icon name="warning" size={16} /><span>{dialogError}</span>
-              </div>{/if}
-            {#if dialogNotice}<div
-                class={`alert ${dialogNoticeTone}`}
-                role="status"
-              >
-                <Icon
-                  name={dialogNoticeTone === 'warning' ? 'warning' : 'check'}
-                  size={16}
-                /><span>{dialogNotice}</span>
-              </div>{/if}
-            {#if targetUncertain && !outcome}<div
-                class="outcome uncertain"
-                role="status"
-              >
-                <Icon name="warning" size={18} />
-                <div>
-                  <strong>Startstatus ungeklärt</strong>
-                  <p>
-                    Für dieses Ziel fehlt die Startbestätigung. Ein erneuter
-                    Start bleibt gesperrt. Prüfe zuerst den Status.
-                  </p>
-                  <button
-                    type="button"
-                    class="text-button"
-                    onclick={checkStartStatus}
-                    disabled={refreshing}
-                    >Status prüfen<Icon name="refresh" size={12} /></button
-                  >
-                </div>
-              </div>{/if}
-            {#if outcome}<div
-                class="outcome"
-                class:accepted={outcome.state === 'accepted'}
-                class:uncertain={outcome.state === 'uncertain'}
-                class:rejected={outcome.state === 'rejected'}
-                role="status"
-              >
-                <Icon
-                  name={outcome.state === 'accepted' ? 'check' : 'warning'}
-                  size={18}
-                />
-                <div>
-                  <strong
-                    >{outcome.state === 'accepted'
-                      ? demo
-                        ? 'Simulierter Start angenommen'
-                        : 'GitHub hat den Start angenommen'
-                      : outcome.state === 'uncertain'
-                        ? 'Startstatus ungeklärt'
-                        : 'Start abgelehnt'}</strong
-                  >
-                  <p>{outcome.message}</p>
-                  {#if outcome.state === 'accepted' && outcome.runId}
-                    {@const runUrl = safeGitHubUrl(outcome.htmlUrl ?? '')}
-                    {#if runUrl}<RunLink
-                        url={runUrl}
-                        label={`Run #${outcome.runId} auf GitHub`}
-                        {native}
-                        onError={warn}
-                      />{/if}
-                    <button
-                      type="button"
-                      class="text-button"
-                      onclick={() => {
-                        const id = outcome?.runId ?? null;
-                        closeModal();
-                        tab = 'activity';
-                        filter = 'all';
-                        query = '';
-                        expanded = id;
-                      }}
-                      >In Aktivität anzeigen<Icon
-                        name="arrow"
-                        size={13}
-                      /></button
-                    >
-                  {/if}
-                  {#if outcome.state === 'uncertain'}<button
-                      type="button"
-                      class="text-button"
-                      onclick={checkStartStatus}
-                      disabled={refreshing}
-                      >Status prüfen<Icon name="refresh" size={12} /></button
-                    >{/if}
-                </div>
-              </div>{/if}
-          </div>
-          <div class="modal-actions">
-            <button type="button" class="secondary-button" onclick={closeModal}
-              >{outcome ? 'Schließen' : 'Abbrechen'}</button
-            ><button
-              type="button"
-              class="primary-button"
-              onclick={() => void dispatch()}
-              disabled={dispatching ||
-                targetUncertain ||
-                saving ||
-                !!validation ||
-                blocked ||
-                outcome?.state === 'uncertain' ||
-                outcome?.state === 'accepted'}
-              >{dispatching
-                ? demo
-                  ? 'Simuliert …'
-                  : 'Startet …'
-                : demo
-                  ? 'Start simulieren'
-                  : 'Workflow starten'}<Icon name="play" size={14} /></button
-            >
-          </div>
-        </form>
-      {/if}
-    </Modal>{/key}
+              {/if}
+              {#if outcome.state === 'uncertain'}<button
+                  type="button"
+                  class="text-button"
+                  onclick={checkStartStatus}
+                  disabled={refreshing}
+                  >Status prüfen<Icon name="refresh" size={12} /></button
+                >{/if}
+            </div>
+          </div>{/if}
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-button" onclick={closeModal}
+          >{outcome ? 'Schließen' : 'Abbrechen'}</button
+        ><button
+          type="button"
+          class="primary-button"
+          onclick={() => void dispatch()}
+          disabled={dispatching ||
+            targetUncertain ||
+            saving ||
+            !!validation ||
+            blocked ||
+            outcome?.state === 'uncertain' ||
+            outcome?.state === 'accepted'}
+          >{dispatching
+            ? demo
+              ? 'Simuliert …'
+              : 'Startet …'
+            : demo
+              ? 'Start simulieren'
+              : 'Workflow starten'}<Icon name="play" size={14} /></button
+        >
+      </div>
+    </form>
+  </Modal>
 {/if}

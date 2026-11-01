@@ -32,7 +32,8 @@ function restoreFocus(target: HTMLElement | null | undefined, frames = 3) {
 
 /** A small modal focus loop, including focus restoration when the dialog closes. */
 export function trapFocus(node: HTMLElement, options: TrapFocusOptions = {}) {
-  const previous = document.activeElement as HTMLElement | null;
+  const active = document.activeElement;
+  const previous = active instanceof HTMLElement ? active : null;
   let returnFocus = options.returnFocus;
   const focusable = () =>
     [
