@@ -5,6 +5,7 @@
   import LocalAuth from './LocalAuth.svelte';
   import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
   import ConnectedAccounts from './ConnectedAccounts.svelte';
+  import TokenPermissions from './TokenPermissions.svelte';
   import type { Account, Snapshot } from './types';
   let {
     onConnected,
@@ -100,10 +101,8 @@
       >
       <p>
         Wird nur im Betriebssystem-Tresor gespeichert und hier nie angezeigt.
-        Benötigte Berechtigungen für die ausgewählten Repositories: „Actions:
-        Lesen und Schreiben“ und „Contents: Lesen“. Organisationen müssen den
-        Token eventuell freigeben.
       </p>
+      <TokenPermissions />
       {#if error}<div class="alert danger" role="alert">{error}</div>{/if}
       <button
         type="submit"

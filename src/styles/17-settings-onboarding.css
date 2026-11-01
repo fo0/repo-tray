@@ -146,3 +146,31 @@
   margin-top: 2px;
   color: #b7df89;
 }
+
+/* Token permissions in the connect dialogs. */
+.token-permissions {
+  text-align: left;
+}
+.token-permissions ul {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.token-permissions li {
+  padding: 7px 9px;
+  border: 1px solid #3f5131;
+  border-radius: 6px;
+  background: #26311f;
+  font-size: var(--font-size-meta);
+  line-height: 1.5;
+}
+.token-permissions li strong {
+  display: block;
+  color: #d8e8ca;
+  font-weight: 600;
+}
+.token-permissions li span {
+  color: var(--muted-text-raised);
+}

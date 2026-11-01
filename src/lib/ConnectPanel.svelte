@@ -2,6 +2,7 @@
   import { onDestroy, tick } from 'svelte';
   import Icon from './Icon.svelte';
   import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
+  import TokenPermissions from './TokenPermissions.svelte';
 
   let {
     onConnected,
@@ -76,6 +77,7 @@
           Im normalen Betrieb wird der Token nach der Prüfung sicher im
           Betriebssystem-Tresor gespeichert.
         </p>
+        <TokenPermissions />
         <label class="field"
           ><span>Beispiel-Token</span><input
             type="password"

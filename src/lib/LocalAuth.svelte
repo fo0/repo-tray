@@ -207,7 +207,8 @@
           </label>
         {:else}<p>
             Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“
-            an und prüfe erneut.
+            an und prüfe erneut. Alternativ verbindest du dich unten mit einem
+            Token.
           </p>{/if}
         {#if chosen}
           <p class="local-source-status" role="status">
@@ -256,6 +257,11 @@
                 : 'gh-Konto mit RepoTray verbinden'}</button
           >
         {/if}
+        {#if accounts.some((a) => !a.usable)}<p class="field-help">
+            Diese Anmeldungen kann RepoTray nicht übernehmen. Melde dich dafür
+            mit „gh auth login“ in der GitHub CLI an oder verbinde dich unten
+            mit einem Token.
+          </p>{/if}
         {#each accounts.filter((a) => !a.usable) as account}
           <p class="field-help">
             <strong
