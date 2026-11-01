@@ -4,7 +4,7 @@ use repotray_core::{
     cache::Cache,
     live::LiveStore,
     local_auth::{self, LocalDiscovery, ProcessRunner, Programs},
-    DispatchOutcome, DispatchRequest, Pin, RunStatus, Snapshot,
+    DispatchOutcome, DispatchRequest, Pin, RunStatus, Snapshot, UncertainStart,
 };
 use std::{
     collections::HashMap,
@@ -68,6 +68,14 @@ async fn dispatch_workflow(
     request: DispatchRequest,
 ) -> Result<DispatchOutcome, String> {
     work(app, |engine| Ok(engine.dispatch(request))).await
+}
+/// Called only after the user confirmed they checked the runs on GitHub; it never dispatches.
+#[tauri::command]
+async fn release_uncertain_start(
+    app: tauri::AppHandle,
+    start: UncertainStart,
+) -> Result<Snapshot, String> {
+    work(app, |engine| engine.release_uncertain_start(start)).await
 }
 #[tauri::command]
 async fn connect_token(app: tauri::AppHandle, token: String) -> Result<Snapshot, String> {
@@ -397,9 +405,10 @@ pub fn run() {
             let store =
                 LiveStore::new(cache, Arc::new(OsKeyring::new())).map_err(std::io::Error::other)?;
             let baseline = store.snapshot();
+            let notify = store.notifications_enabled();
             app.manage(NativeState {
                 engine: Mutex::new(store),
-                notifications: AtomicBool::new(false),
+                notifications: AtomicBool::new(notify),
                 auth_generation: AtomicU64::new(0),
                 browser_flow: Mutex::new((0, DeviceFlow::new())),
             });
@@ -415,7 +424,7 @@ pub fn run() {
                 "notifications",
                 "Run-Benachrichtigungen",
                 true,
-                false,
+                notify,
                 None::<&str>,
             )?;
             let quit = MenuItem::with_id(app, "quit", "RepoTray beenden", true, None::<&str>)?;
@@ -433,6 +442,20 @@ pub fn run() {
                             let enabled = !state.notifications.load(Ordering::Relaxed);
                             state.notifications.store(enabled, Ordering::Relaxed);
                             let _ = notifications.set_checked(enabled);
+                            // Persist off the UI thread; the engine lock may be held by a refresh.
+                            // The value is read under the lock, so the last write wins.
+                            let handle = app.clone();
+                            tauri::async_runtime::spawn_blocking(move || {
+                                let Some(state) = handle.try_state::<NativeState>() else {
+                                    return;
+                                };
+                                if let Ok(mut engine) = state.engine.lock() {
+                                    // Best effort: the toggle still applies to this session.
+                                    let _ = engine.set_notifications_enabled(
+                                        state.notifications.load(Ordering::Relaxed),
+                                    );
+                                };
+                            });
                         }
                     }
                     _ => {}
@@ -528,6 +551,7 @@ pub fn run() {
             save_pin,
             delete_pin,
             dispatch_workflow,
+            release_uncertain_start,
             connect_token,
             browser_auth_config,
             start_browser_auth,
