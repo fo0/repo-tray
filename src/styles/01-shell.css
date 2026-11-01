@@ -253,7 +253,11 @@
 }
 .search-field:focus-within {
   border-color: #7a9957;
-  box-shadow: 0 0 0 2px #a9ce7d0c;
+}
+/* The input itself draws no ring; the whole field shows the focus outline. */
+.search-field:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 .search-field input {
   border: 0;

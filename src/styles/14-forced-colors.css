@@ -1,0 +1,60 @@
+/*
+ * Windows High Contrast (forced colors). Backgrounds, box-shadows and most
+ * author colours are replaced by system colours here, so state that the
+ * panel shows with tints, glows or fills is redrawn with system colours.
+ */
+@media (forced-colors: active) {
+  /* Switch: the knob is a background fill and would disappear entirely. */
+  .switch,
+  .switch:after {
+    forced-color-adjust: none;
+  }
+  .switch {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .switch:after {
+    background: CanvasText;
+  }
+  .boolean-field input:checked + .switch {
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .boolean-field input:checked + .switch:after {
+    background: HighlightText;
+  }
+  .boolean-field input:focus-visible + .switch {
+    outline-color: Highlight;
+  }
+
+  /* Current view, selected settings tab and active filter. */
+  .tabs > button.active:after {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+  .settings-tabs button[aria-selected='true'],
+  .filters > button.chosen {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+  .filters > button.chosen span {
+    background: HighlightText;
+    color: Highlight;
+  }
+
+  /* Pinned favourites are a filled heart. */
+  .favorite-button[aria-pressed='true'] svg,
+  .pinned-remove svg {
+    fill: ButtonText;
+  }
+
+  /* Focus rings that rely on a tinted border get a system-colour outline. */
+  .search-field:has(input:focus-visible),
+  .field input:focus-visible,
+  .field select:focus-visible,
+  .field textarea:focus-visible {
+    outline-color: Highlight;
+  }
+}
