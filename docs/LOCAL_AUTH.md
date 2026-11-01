@@ -1,6 +1,6 @@
 # Existing local sign-in
 
-Under **Einstellungen → Konten → Einrichten** you can explicitly bring an existing **GitHub CLI (`gh`)** sign-in into RepoTray. Browser sign-in / GitHub App is temporarily disabled. A personal access token remains available as an alternative.
+In the connection dialog you can explicitly bring an existing **GitHub CLI (`gh`)** sign-in into RepoTray. Open it with **GitHub-Konto verbinden** on first launch (or in **Einstellungen → Konten** while no account exists), otherwise with **Einstellungen → Konten → Konto hinzufügen**. Browser sign-in / GitHub App is temporarily disabled. A personal access token remains available as an alternative.
 
 ## Discover, connect and activate
 
@@ -37,7 +37,7 @@ Windows discovery covers Program Files, LocalAppData/Programs, Scoop including c
 
 ## Credential ownership and process boundaries
 
-Local imports use the stable API user ID in their own namespace `github-gh-<id>`; PAT connections use `github-<id>`. A PAT therefore never overwrites a gh connection of the same GitHub user. Disconnecting removes only the RepoTray copy, neither gh/GCM sign-ins nor their permissions. A later gh rotation does not update an already stored copy automatically.
+Local imports use the stable API user ID in their own namespace `github-gh-<id>`; PAT connections use `github-<id>`. A PAT therefore never overwrites a gh connection of the same GitHub user. Disconnecting (**Trennen** in the account card, confirmed there) removes only the RepoTray copy and that connection's repository selection, favorites and uncertain-start locks, neither gh/GCM sign-ins nor their permissions; for an imported account the confirmation says that the gh CLI sign-in stays untouched. A later gh rotation does not update an already stored copy automatically.
 
 Child processes get a minimal environment without GitHub token variables, alternative hosts, debug/trace configuration or askpass. The explicit gh configuration and proxy and CA trust settings are kept. Stdin is closed; stdout and stderr are each capped at 64 KiB and the run time at 20 seconds. Raw process output and token values never appear in the UI, IPC, logs or snapshots. Cancelling ends the check and discards late results.
 
