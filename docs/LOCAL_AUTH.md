@@ -1,56 +1,56 @@
-# Bestehende lokale Anmeldung
+# Existing local sign-in
 
-Unter **Einstellungen → Konten → Einrichten** kannst du eine bestehende Anmeldung der **GitHub CLI (`gh`)** ausdrücklich in RepoTray übernehmen. Die Browser-Anmeldung / GitHub App ist vorübergehend deaktiviert. Ein persönlicher API-Token bleibt als Alternative verfügbar.
+Under **Einstellungen → Konten → Einrichten** you can explicitly bring an existing **GitHub CLI (`gh`)** sign-in into RepoTray. Browser sign-in / GitHub App is temporarily disabled. A personal access token remains available as an alternative.
 
-## Erkennen, verbinden und aktiv verwenden
+## Discover, connect and activate
 
-1. Öffne **Bestehende Anmeldung auf diesem PC verwenden** und klicke auf **Lokale Anmeldungen prüfen**. Öffnen allein greift nicht auf lokale Anmeldungen zu.
-2. Wähle das gewünschte gh-Konto. **In gh erkannt · noch nicht mit RepoTray verbunden** bedeutet, dass bisher nur die lokale Quelle geprüft wurde. Die Markierung **in gh aktiv** ist nicht das aktive RepoTray-Konto.
-3. Bestätige **Ich möchte dieses gh-Konto in RepoTray verwenden** und klicke auf **gh-Konto mit RepoTray verbinden**. Erst jetzt liest gh den ausgewählten Token; RepoTray verifiziert die GitHub-Identität und speichert eine eigene Kopie im Betriebssystem-Tresor.
+1. Open **Bestehende Anmeldung auf diesem PC verwenden** and click **Lokale Anmeldungen prüfen**. Opening the section alone does not access any local sign-in.
+2. Choose the gh account. **In gh erkannt · noch nicht mit RepoTray verbunden** means only the local source has been checked so far. The **in gh aktiv** marker is not the active RepoTray account.
+3. Confirm **Ich möchte dieses gh-Konto in RepoTray verwenden** and click **gh-Konto mit RepoTray verbinden**. Only then does gh read the selected token; RepoTray verifies the GitHub identity and stores its own copy in the operating system's credential vault.
 
-**Bereits in RepoTray verbunden** zeigt in den Einstellungen und im Anmeldedialog Login, Quelle und Status: **Token hinterlegt**, **gh-Anmeldung übernommen** oder ein bereits gespeichertes Browser-Konto. **Aktiv für RepoTray** und **Verbunden, nicht aktiv** sind getrennt sichtbar. **Verwenden** aktiviert eine bestehende Verbindung, ohne erneut Zugangsdaten zu importieren. Eine erneute gh-Übernahme nach Tokenrotation erfordert wieder die ausdrückliche Zustimmung.
+**Bereits in RepoTray verbunden** shows login, source and status in Settings and in the connection dialog: **Token hinterlegt**, **gh-Anmeldung übernommen** or a previously stored browser account. **Aktiv für RepoTray** and **Verbunden, nicht aktiv** are shown separately. **Verwenden** activates an existing connection without importing credentials again. Importing from gh again after a token rotation requires explicit consent again.
 
-Das Token-Eingabefeld bleibt aus Datenschutzgründen leer. **Weiteres Konto per Token verbinden** fügt eine Verbindung hinzu; ein leeres Feld bedeutet nicht, dass vorhandene Tokens fehlen. **Token prüfen und verbinden** ist ohne neue Eingabe deaktiviert.
+The token input field stays empty for privacy. **Weiteres Konto per Token verbinden** adds a connection; an empty field does not mean that stored tokens are missing. **Token prüfen und verbinden** stays disabled until something new is entered.
 
-## Wenn gh nicht gefunden wird
+## When gh is not found
 
-Prüfe im normalen Terminal:
+Check in a normal terminal:
 
 ```sh
 gh --version
 gh auth status --hostname github.com
 ```
 
-Falls du noch nicht in gh angemeldet bist, führe dort selbst `gh auth login --hostname github.com` aus. Starte RepoTray nach einer neuen gh-Installation neu, damit es den aktualisierten PATH sieht, und prüfe die lokale Anmeldung erneut.
+If you are not signed in to gh yet, run `gh auth login --hostname github.com` there yourself. Restart RepoTray after a new gh installation so it sees the updated PATH, then check local sign-ins again.
 
-Git, GitHub Desktop und GitHub CLI sind unterschiedliche Programme. Ein funktionierendes `git push`, ein SSH-Key oder eine GitHub-Desktop-Anmeldung ist keine automatisch nutzbare gh-API-Anmeldung. Git Credential Manager wird deshalb als zusätzliche Git-Quelle angezeigt, nicht als auswählbare API-Verbindung. RepoTray führt weder Git-Credential-Helper noch einen eigenen CLI-Login aus.
+Git, GitHub Desktop and GitHub CLI are different programs. A working `git push`, an SSH key or a GitHub Desktop sign-in is not an automatically usable gh API sign-in. Git Credential Manager is therefore shown as an additional Git source, not as a selectable API connection. RepoTray runs neither Git credential helpers nor a CLI login of its own.
 
-## Versions- und Installationsunterstützung
+## Version and installation support
 
-RepoTray prüft zunächst die Hilfe der installierten gh-Befehle. Neuere Versionen erhalten `--no-refresh`, wenn sie es unterstützen; ältere Versionen erhalten dieses Flag nicht. Der frühere pauschale Aufruf mit `--no-refresh` hat ältere, ansonsten funktionsfähige Installationen scheitern lassen.
+RepoTray first checks the help of the installed gh commands. Newer versions receive `--no-refresh` when they support it; older versions do not receive the flag. Passing `--no-refresh` unconditionally used to break older, otherwise working installations.
 
-- **gh mit JSON-Status:** `auth status --hostname github.com --json hosts` listet gespeicherte Konten. `--no-refresh` wird nur bei vorhandener Unterstützung ergänzt. Umgebungs-Tokenquellen werden nicht zur Übernahme angeboten.
-- **Älteres gh ohne JSON-Status:** `api --hostname github.com user --jq .login` bestätigt ausschließlich die dort aktive Identität. Es werden weder menschliche Statusausgaben geparst noch Credential-Dateien ausgelesen. Für die Auswahl weiterer gespeicherter gh-Konten empfiehlt sich ein gh-Update.
-- **Nach Bestätigung:** `auth token --hostname github.com --user <login>` liest exakt das gewählte Konto. Auch hier wird `--no-refresh` nur bei Unterstützung ergänzt. Fehlt `--user`, erfolgt kein Import. RepoTray ruft keinen Login, Kontowechsel oder Credential-Refresh auf. Vor dem Speichern wird `/user` erneut gegen den ausgewählten Login geprüft.
+- **gh with JSON status:** `auth status --hostname github.com --json hosts` lists stored accounts. `--no-refresh` is added only when supported. Environment token sources are not offered for import.
+- **Older gh without JSON status:** `api --hostname github.com user --jq .login` confirms only the identity active there. Human-readable status output is not parsed and credential files are not read. To choose among further stored gh accounts, update gh.
+- **After confirmation:** `auth token --hostname github.com --user <login>` reads exactly the chosen account. Here too, `--no-refresh` is added only when supported. Without `--user` support, nothing is imported. RepoTray never invokes a login, account switch or credential refresh. Before storing, `/user` is checked again against the selected login.
 
-Windows-Erkennung berücksichtigt Program Files, LocalAppData/Programs, Scoop einschließlich konfigurierter/globaler Wurzeln, WinGet-Links, Chocolatey und absolute PATH-Einträge. Die EXE wird vor dem Start kanonisiert; relative PATH-Einträge, das aktuelle Verzeichnis, Projekt-Binaries und `.cmd`-Wrapper werden ausgeschlossen. Eine explizite absolute `GH_CONFIG_DIR`-Konfiguration wird berücksichtigt. Nicht-Windows-Plattformen bieten derzeit keine lokale Quelle an.
+Windows discovery covers Program Files, LocalAppData/Programs, Scoop including configured/global roots, WinGet links, Chocolatey and absolute PATH entries. The executable is canonicalized before it starts; relative PATH entries, the current directory, project binaries and `.cmd` wrappers are excluded. An explicit absolute `GH_CONFIG_DIR` is honored. Non-Windows platforms currently offer no local source.
 
-## Credential-Eigentum und Prozessgrenzen
+## Credential ownership and process boundaries
 
-Lokale Übernahmen benutzen die stabile API-Benutzer-ID im eigenen Namespace `github-gh-<id>`; PAT-Verbindungen verwenden `github-<id>`. Ein PAT überschreibt deshalb keine gh-Verbindung desselben GitHub-Nutzers. Trennen entfernt nur die RepoTray-Kopie, weder gh/GCM-Anmeldungen noch deren Berechtigungen. Spätere gh-Rotation synchronisiert eine bereits gespeicherte Kopie nicht automatisch.
+Local imports use the stable API user ID in their own namespace `github-gh-<id>`; PAT connections use `github-<id>`. A PAT therefore never overwrites a gh connection of the same GitHub user. Disconnecting removes only the RepoTray copy, neither gh/GCM sign-ins nor their permissions. A later gh rotation does not update an already stored copy automatically.
 
-Kindprozesse erhalten ein minimales Environment ohne GitHub-Tokenvariablen, alternative Hosts, Debug-/Trace-Konfiguration oder Askpass. Die explizite gh-Konfiguration sowie Proxy- und CA-Vertrauen bleiben erhalten. Stdin ist geschlossen; stdout und stderr sind jeweils auf 64 KiB und die Laufzeit auf 20 Sekunden begrenzt. Rohe Prozessausgaben und Tokenwerte erscheinen nie in UI, IPC, Logs oder Snapshots. Abbruch beendet die Prüfung und verwirft verspätete Ergebnisse.
+Child processes get a minimal environment without GitHub token variables, alternative hosts, debug/trace configuration or askpass. The explicit gh configuration and proxy and CA trust settings are kept. Stdin is closed; stdout and stderr are each capped at 64 KiB and the run time at 20 seconds. Raw process output and token values never appear in the UI, IPC, logs or snapshots. Cancelling ends the check and discards late results.
 
-GCMs `github list --url https://github.com` wird ausschließlich für Account-Namen genutzt (v2: stdout, v3: stderr). Weder `git credential fill` noch andere konfigurierte Git-Helper werden aufgerufen. Git-/Push-Rechte belegen keine Actions-API-Berechtigung. Ein `repo`-Scope ist ein Hinweis auf klassische private API-Rechte, ersetzt aber keine Repository-/Org-/SSO-Freigabe. Kein Test startet einen Workflow zur Rechteprüfung.
+GCM's `github list --url https://github.com` is used for account names only (v2: stdout, v3: stderr). Neither `git credential fill` nor any other configured Git helper is invoked. Git/push rights do not prove Actions API permission. A `repo` scope hints at classic private API rights but does not replace repository, organization or SSO approval. No test starts a workflow to probe permissions.
 
-## Validierung und Grenzen
+## Validation and limits
 
-Rust-Tests modellieren aktuelle und ältere gh-Versionen, einschließlich echter Fehler für unbekannte Flags, JSON-Status, aktive Legacy-Identität, exakte Kontoauswahl und Tokenquellen. Pfadtests prüfen Scoop, WinGet, PATH und die Ablehnung lokaler Projekt-Binaries. Synthetische Prozesse prüfen Timeout, Abbruch, Ausgabegrenzen und Credential-Isolation. Browser-Tests prüfen sichtbare Verbindungszustände, Auswahl, Zustimmung, bereits gespeicherte Konten und den pausierten Browserweg.
+Rust tests model current and older gh versions, including real unknown-flag errors, JSON status, the active legacy identity, exact account selection and token sources. Path tests cover Scoop, WinGet, PATH and the rejection of local project binaries. Synthetic processes cover timeout, cancellation, output limits and credential isolation. Browser tests cover visible connection states, selection, consent, already stored accounts and the paused browser path.
 
-Diese Tests lesen keine realen lokalen Anmeldungen. Die konkrete gh-Installation und der Windows-Credential-Manager müssen weiterhin auf dem betroffenen Windows-PC geprüft werden. Kommandos und Grenzen stehen unter [Validierung](VALIDATION.md).
+These tests read no real local sign-ins. The concrete gh installation and Windows Credential Manager still have to be checked on the affected Windows PC. Commands and limits are listed under [Verification](VALIDATION.md).
 
-## Offizielle Quellen
+## Official sources
 
-- [gh auth status](https://cli.github.com/manual/gh_auth_status), [gh auth token](https://cli.github.com/manual/gh_auth_token), [gh api](https://cli.github.com/manual/gh_api), [gh Environment](https://cli.github.com/manual/gh_help_environment)
+- [gh auth status](https://cli.github.com/manual/gh_auth_status), [gh auth token](https://cli.github.com/manual/gh_auth_token), [gh api](https://cli.github.com/manual/gh_api), [gh environment](https://cli.github.com/manual/gh_help_environment)
 - [GCM CLI](https://github.com/git-ecosystem/git-credential-manager/blob/main/docs/usage.md)
-- [Aktive Kontoauswahl](ACCOUNT_SELECTION.md)
+- [Active account selection](ACCOUNT_SELECTION.md)
