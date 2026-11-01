@@ -1,7 +1,7 @@
 //! GitHub Actions run links the shell may open in the browser.
 //!
 //! Same rules and vectors (`fixtures/run-links.json`) as `safeGitHubUrl` in
-//! `src/lib/model.ts`, so the panel shows a link exactly when the shell opens it.
+//! `src/lib/safeGitHubUrl.ts`, so the panel shows a link exactly when the shell opens it.
 
 use reqwest::Url;
 
