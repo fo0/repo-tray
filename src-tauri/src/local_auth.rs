@@ -449,7 +449,10 @@ pub fn selected_token(
     current: &dyn Fn() -> bool,
 ) -> Result<SecretToken, String> {
     if !valid_login(login) {
-        return Err("Lokales Konto ungültig.".into());
+        return Err(
+            "Lokales Konto ungültig. Suche erneut nach gh-Konten und wähle eines aus der Liste."
+                .into(),
+        );
     }
     if !current() {
         return Err(CANCELLED.into());

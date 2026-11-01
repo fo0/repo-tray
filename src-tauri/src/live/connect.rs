@@ -44,7 +44,7 @@ impl LiveStore<HttpTransport> {
                 || v.bytes()
                     .any(|b| b.is_ascii_control() || b.is_ascii_whitespace())
             {
-                Err("Token ist ungültig.")
+                Err("Token ist ungültig. Füge den Token ohne Leerzeichen oder Zeilenumbrüche ein.")
             } else {
                 Ok(())
             }
@@ -55,7 +55,7 @@ impl LiveStore<HttpTransport> {
             ApiRequest::get("pending", url(&["user"], &[])?).map_err(|_| "Anfrage ungültig.")?;
         let response = client
             .execute(&request, now())
-            .map_err(|_| "GitHub nicht erreichbar. Token wurde nicht gespeichert.")?;
+            .map_err(|_| "GitHub nicht erreichbar. Token wurde nicht gespeichert – prüfe deine Verbindung und versuche es erneut.")?;
         if response.status != 200 {
             return Err("Token wurde von GitHub nicht bestätigt. Prüfe Gültigkeit und Organisationsfreigabe.".into());
         }

@@ -46,7 +46,9 @@ pub(crate) async fn discover_local_auth(app: tauri::AppHandle) -> Result<LocalDi
         })
     })
     .await
-    .map_err(|_| "Lokale Prüfung konnte nicht abgeschlossen werden.".to_string())?
+    .map_err(|_| {
+        "Lokale Prüfung konnte nicht abgeschlossen werden. Versuche es erneut.".to_string()
+    })?
 }
 #[tauri::command]
 pub(crate) async fn connect_local_auth(
