@@ -2,9 +2,10 @@ import { test as base, expect, type ConsoleMessage } from '@playwright/test';
 
 /**
  * Shared Playwright entry point: every spec imports `test` and `expect` from
- * here. An automatic fixture fails the test on any uncaught page error and on
- * any console error, so a crash that the UI happens to survive (e.g. a Svelte
- * `state_unsafe_mutation` thrown from an event handler) never passes silently.
+ * here. An automatic fixture fails the test on any uncaught page error, any
+ * console error and any Svelte dev warning, so a crash that the UI happens to
+ * survive (e.g. a Svelte `state_unsafe_mutation` thrown from an event
+ * handler) never passes silently.
  */
 
 /** The dev server serves no favicon; Chromium reports that 404 as an error. */
@@ -22,6 +23,9 @@ export const test = base.extend<{ cleanConsole: void }>({
       page.on('console', (message) => {
         if (message.type() === 'error' && !expected(message))
           problems.push(`console.error: ${message.text()}`);
+        // Svelte's dev warnings name real defects, e.g. a non-reactive binding.
+        if (message.type() === 'warning' && message.text().includes('[svelte]'))
+          problems.push(`svelte warning: ${message.text()}`);
       });
       await use();
       expect(problems, 'uncaught page errors or console errors').toEqual([]);

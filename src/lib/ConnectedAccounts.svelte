@@ -25,7 +25,8 @@
     onDisconnect?: (id: string) => Promise<unknown>;
   } = $props();
   let confirming = $state<string | null>(null);
-  const triggers: Record<string, HTMLButtonElement | undefined> = {};
+  /** „Trennen“ buttons by account; reactive, as `bind:this` requires. */
+  const triggers = $state<Record<string, HTMLButtonElement | undefined>>({});
   const imported = (account: Account) => account.id.startsWith('github-gh-');
   /** What a disconnect deletes, as the vault and cache delete it. */
   const consequence = (account: Account) =>
