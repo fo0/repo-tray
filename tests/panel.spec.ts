@@ -693,14 +693,16 @@ for (const width of [360, 480]) {
 
 test('touch can open and dismiss uncertain-start help without enabling quick start', async ({
   browser,
+  baseURL,
 }) => {
   const context = await browser.newContext({
+    baseURL,
     hasTouch: true,
     viewport: { width: 360, height: 760 },
   });
   const page = await context.newPage();
   try {
-    await page.goto('http://127.0.0.1:1420');
+    await page.goto('/');
     const card = await uncertainTemplate(page, true);
     const status = card.getByRole('button', {
       name: 'Start-Status ungeklärt',
