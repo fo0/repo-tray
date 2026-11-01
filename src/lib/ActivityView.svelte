@@ -66,6 +66,9 @@
     onClearQuery: () => void;
     onNotice: (text: string, tone: NoticeTone) => void;
   } = $props();
+
+  /** The refresh and history-limit note is on demand, not always visible. */
+  let showNote = $state(false);
 </script>
 
 <div class="filters" role="group" aria-label="Aktivitätsfilter">
@@ -84,9 +87,34 @@
 </div>
 <div class="section-heading">
   <h2>{HEADINGS[filter]}</h2>
-  <span>{plural(runs.length, 'Run', 'Runs')}</span>
+  <span class="history-count"
+    >{plural(runs.length, 'Run', 'Runs')}<button
+      class="info-button"
+      aria-expanded={showNote}
+      aria-controls="history-note"
+      aria-label="Hinweis zum Verlauf"
+      title="Hinweis zum Verlauf"
+      onclick={() => (showNote = !showNote)}
+      ><svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        aria-hidden="true"
+        ><circle cx="12" cy="12" r="8.5" /><line
+          x1="12"
+          y1="11"
+          x2="12"
+          y2="16"
+        /><line x1="12" y1="8" x2="12" y2="8.01" /></svg
+      ></button
+    ></span
+  >
 </div>
-<p class="history-note">
+<p class="history-note" id="history-note" hidden={!showNote}>
   <span class="group-live-dot"></span>Offene Runs werden automatisch
   aktualisiert.<br />Bis zu {HISTORY_LIMIT} abgeschlossene Runs bleiben im Verlauf.
 </p>

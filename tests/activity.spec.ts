@@ -213,6 +213,30 @@ test('demo runs offer both row actions disabled with the demo hint', async ({
   }
 });
 
+test('the history note opens on demand from the info button', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  const note = page.getByText('Offene Runs werden automatisch aktualisiert.');
+  const info = page.getByRole('button', {
+    name: 'Hinweis zum Verlauf',
+    exact: true,
+  });
+  await expect(page.locator('article.run').first()).toBeVisible();
+  await expect(note).toBeHidden();
+  await expect(info).toHaveAttribute('aria-expanded', 'false');
+  await info.focus();
+  await page.keyboard.press('Enter');
+  await expect(info).toHaveAttribute('aria-expanded', 'true');
+  await expect(note).toBeVisible();
+  await expect(
+    page.getByText('Bis zu 50 abgeschlossene Runs bleiben im Verlauf.'),
+  ).toBeVisible();
+  await info.click();
+  await expect(note).toBeHidden();
+});
+
 for (const width of [360, 480]) {
   test(`row actions fit beside the run text at ${width}px`, async ({
     page,

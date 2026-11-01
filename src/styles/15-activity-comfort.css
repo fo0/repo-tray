@@ -42,6 +42,28 @@
 .run-action:focus-visible {
   outline-offset: 0;
 }
+.history-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+/* A 24px target inside the 11px heading line without growing it. */
+.info-button {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -6px -5px -6px 0;
+  padding: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted-text);
+}
+.info-button:hover,
+.info-button[aria-expanded='true'] {
+  background: #293025;
+  color: #d8dfd3;
+}
 .run-state {
   display: flex;
   align-items: center;
@@ -67,5 +89,10 @@
 @media (max-width: 520px) {
   .run-state {
     gap: 2px;
+  }
+}
+@media (forced-colors: active) {
+  .info-button[aria-expanded='true'] {
+    outline: 1px solid ButtonText;
   }
 }
