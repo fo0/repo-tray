@@ -42,7 +42,6 @@
   let tab = $state<ViewTab>('repositories');
   let query = $state('');
   let filter = $state<ActivityFilter>('all');
-  let expanded = $state<number | null>(null);
   let searchField = $state<ReturnType<typeof SearchField>>();
   let toolbar = $state<ReturnType<typeof Toolbar>>();
   const modals = new Modals(panel, (id) => {
@@ -50,7 +49,7 @@
     tab = 'activity';
     filter = 'all';
     query = '';
-    expanded = id;
+    panel.expandedRun = id;
   });
   const { openSettings } = modals;
 
@@ -118,7 +117,6 @@
   function changeAccount(value: string) {
     panel.changeAccount(value);
     query = '';
-    expanded = null;
     if (modals.kind === 'dispatch') modals.close();
   }
   function connectedNative(value: Snapshot) {
@@ -248,7 +246,7 @@
         <ActivityView
           {runs}
           {filter}
-          {expanded}
+          expanded={panel.expandedRun}
           {activeRuns}
           {failedRuns}
           {demo}
@@ -261,7 +259,7 @@
           {repoName}
           {repoAccountName}
           onFilter={(next) => (filter = next)}
-          onToggle={(id) => (expanded = expanded === id ? null : id)}
+          onToggle={panel.toggleRun}
           onOpenSettings={openNextStep}
           onClearQuery={clearQuery}
           onNotice={(text, tone) => panel.showNotice(text, tone)}

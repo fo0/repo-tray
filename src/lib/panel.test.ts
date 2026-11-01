@@ -200,6 +200,23 @@ describe('Panel starts', () => {
   });
 });
 
+describe('Panel view state', () => {
+  it('owns the expanded run next to the open repositories and resets both per account', async () => {
+    const { panel } = await setup();
+    panel.toggleRun(8401);
+    panel.toggleRepo('demo-personal-kit');
+    expect(panel.expandedRun).toBe(8401);
+    panel.toggleRun(8402);
+    expect(panel.expandedRun).toBe(8402);
+    panel.changeAccount('demo-work');
+    expect(panel.expandedRun).toBe(null);
+    expect(panel.expandedRepos.size).toBe(0);
+    panel.toggleRun(8401);
+    panel.toggleRun(8401);
+    expect(panel.expandedRun).toBe(null);
+  });
+});
+
 describe('Panel mode', () => {
   it('labels only the browser demo as demo before the first snapshot arrives', () => {
     const pending = new Promise<Snapshot>(() => {});

@@ -104,6 +104,11 @@ export class Panel {
     if (!next.delete(repoId)) next.add(repoId);
     this.expandedRepos = next;
   };
+  /** The run whose details are open in the activity list, if any. */
+  expandedRun = $state<number | null>(null);
+  toggleRun = (runId: number) => {
+    this.expandedRun = this.expandedRun === runId ? null : runId;
+  };
   /** Whether this account's runs appear in the activity list right now. */
   showsAccount = (accountId: string) =>
     this.native
@@ -177,7 +182,8 @@ export class Panel {
   changeAccount(value: string) {
     this.viewEpoch.invalidate();
     this.refreshing = false;
-    // Like the expanded run, open repositories belong to the previous view.
+    // The expanded run and open repositories belong to the previous view.
+    this.expandedRun = null;
     this.expandedRepos = new Set();
     this.accountId =
       this.native &&
