@@ -1,19 +1,4 @@
-/**
- * `install`: a signed package is downloaded, verified and installed in the app.
- * `notify`: unsigned builds only open the release page; installation is manual.
- * Mirrors `UpdateMode` in src-tauri/src/updates.rs.
- */
-export type UpdateMode = 'install' | 'notify';
-
-/** Mirrors `UpdateInfo` in src-tauri/src/updates.rs (camelCase JSON). */
-export interface UpdateInfo {
-  mode: UpdateMode;
-  version: string;
-  notes: string;
-  /** RFC 3339 UTC publication time, when known. */
-  date: string | null;
-}
-
+/** Panel-side update flow; the IPC payloads live in types.ts. */
 export type UpdatePhase =
   | 'idle'
   | 'checking'
@@ -23,12 +8,6 @@ export type UpdatePhase =
   | 'verifying'
   | 'ready'
   | 'installing';
-
-export interface UpdateProgress {
-  downloaded: number;
-  total: number | null;
-  stage: 'downloading' | 'verifying';
-}
 
 /** German date of a release, or an empty string when unknown or malformed. */
 export function releaseDate(value: string | null): string {

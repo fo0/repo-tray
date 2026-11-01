@@ -1,14 +1,8 @@
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { createDemoBridge, type Bridge } from './demo';
-import type {
-  DemoScenario,
-  DispatchOutcome,
-  DispatchRequest,
-  Pin,
-  Snapshot,
-  UncertainStart,
-} from './types';
+import { createDemoBridge, type Bridge, type DemoControls } from './demo';
+import { call } from './ipc';
+import type { Snapshot } from './types';
 
 export const native = isTauri();
 let storage: Storage | undefined;
@@ -18,22 +12,19 @@ try {
   /* Private browser modes can deny storage. */
 }
 
-export const bridge: Bridge = native
-  ? {
-      snapshot: () => invoke<Snapshot>('snapshot'),
-      refreshSnapshot: () => invoke<Snapshot>('refresh_snapshot'),
-      selectRepos: (repoIds: string[]) =>
-        invoke<Snapshot>('select_repos', { repoIds }),
-      savePin: (pin: Pin) => invoke<Snapshot>('save_pin', { pin }),
-      deletePin: (pinId: string) => invoke<Snapshot>('delete_pin', { pinId }),
-      dispatchWorkflow: (request: DispatchRequest) =>
-        invoke<DispatchOutcome>('dispatch_workflow', { request }),
-      releaseUncertainStart: (start: UncertainStart) =>
-        invoke<Snapshot>('release_uncertain_start', { start }),
-      setDemoScenario: (scenario: DemoScenario) =>
-        invoke<Snapshot>('set_demo_scenario', { scenario }),
-      resetDemo: () => invoke<Snapshot>('reset_demo'),
-    }
+/** Native commands; the shell has no demo scenario or reset command. */
+const nativeBridge: Bridge = {
+  snapshot: () => call('snapshot'),
+  refreshSnapshot: () => call('refresh_snapshot'),
+  selectRepos: (repoIds) => call('select_repos', { repoIds }),
+  savePin: (pin) => call('save_pin', { pin }),
+  deletePin: (pinId) => call('delete_pin', { pinId }),
+  dispatchWorkflow: (request) => call('dispatch_workflow', { request }),
+  releaseUncertainStart: (start) => call('release_uncertain_start', { start }),
+};
+
+export const bridge: Bridge & Partial<DemoControls> = native
+  ? nativeBridge
   : createDemoBridge(storage);
 
 /** Native owns polling; browser polls its local simulation without network traffic. */

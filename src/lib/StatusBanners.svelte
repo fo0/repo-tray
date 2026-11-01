@@ -7,7 +7,7 @@
   import NoticeBanner from './NoticeBanner.svelte';
   import type { Notice } from './notices.svelte';
   import type { Snapshot } from './types';
-  import type { UpdateInfo } from './updates';
+  import type { UpdateInfo } from './types';
 
   let {
     update,

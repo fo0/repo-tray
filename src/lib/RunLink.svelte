@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
   import { errorMessage } from './format';
+  import { call } from './ipc';
 
   let {
     url,
@@ -24,7 +24,7 @@
     if (!native) return;
     // The webview never navigates; the shell opens the system browser.
     event.preventDefault();
-    void invoke('open_run', { url }).catch((cause) =>
+    void call('open_run', { url }).catch((cause) =>
       onError(errorMessage(cause)),
     );
   }

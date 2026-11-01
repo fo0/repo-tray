@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
+  import { call } from './ipc';
   import LocalAuth from './LocalAuth.svelte';
   import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
   import ConnectedAccounts from './ConnectedAccounts.svelte';
@@ -35,7 +35,7 @@
     if (input) input.value = '';
     hasToken = false;
     try {
-      const snapshot = await invoke<Snapshot>('connect_token', { token });
+      const snapshot = await call('connect_token', { token });
       if (active) onConnected(snapshot);
     } catch (cause) {
       if (active)
@@ -50,7 +50,7 @@
   onDestroy(() => {
     active = false;
     if (input) input.value = '';
-    void invoke('cancel_connect').catch(() => {});
+    void call('cancel_connect').catch(() => {});
   });
 </script>
 

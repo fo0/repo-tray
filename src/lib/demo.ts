@@ -10,6 +10,7 @@ import type {
   UncertainStart,
 } from './types';
 
+/** The snapshot and start commands both the native shell and the demo serve. */
 export interface Bridge {
   snapshot(): Promise<Snapshot>;
   refreshSnapshot(): Promise<Snapshot>;
@@ -19,6 +20,9 @@ export interface Bridge {
   dispatchWorkflow(request: DispatchRequest): Promise<DispatchOutcome>;
   /** Explicit user action after checking GitHub; releases exactly this claim, never dispatches. */
   releaseUncertainStart(start: UncertainStart): Promise<Snapshot>;
+}
+/** Demo-only controls; the native shell registers no matching command. */
+export interface DemoControls {
   setDemoScenario(scenario: DemoScenario): Promise<Snapshot>;
   resetDemo(): Promise<Snapshot>;
 }
@@ -45,7 +49,7 @@ const fingerprint = (request: DispatchRequest) =>
 export function createDemoBridge(
   storage?: PreferenceStorage,
   latency = 300,
-): Bridge {
+): Bridge & DemoControls {
   let data = copy(fixture) as Snapshot;
   let scenario: DemoScenario = 'normal';
   let nextRun = 9000;

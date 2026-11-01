@@ -1,19 +1,13 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
   import { plural } from './format';
-  import type { Account as ConnectedAccount, Snapshot } from './types';
-  type Account = {
-    source: 'gh' | 'gcm';
-    host: string;
-    login: string;
-    usable: boolean;
-    active: boolean;
-    detail: string;
-    actionsRead: string;
-    actionsWrite: string;
-  };
+  import { call } from './ipc';
+  import type {
+    Account as ConnectedAccount,
+    LocalAccount,
+    Snapshot,
+  } from './types';
   let {
     onConnected,
     onBusy,
@@ -29,7 +23,7 @@
     activeAccountId?: string;
     onUseAccount: (id: string) => void;
   } = $props();
-  let accounts = $state<Account[]>([]);
+  let accounts = $state<LocalAccount[]>([]);
   let notices = $state<string[]>([]);
   let selected = $state('');
   let consent = $state(false);
@@ -67,9 +61,7 @@
     accounts = [];
     notices = [];
     try {
-      const result = await invoke<{ accounts: Account[]; notices: string[] }>(
-        'discover_local_auth',
-      );
+      const result = await call('discover_local_auth');
       if (!active || ticket !== generation) return;
       accounts = result.accounts;
       notices = result.notices;
@@ -93,7 +85,7 @@
     importing = true;
     error = '';
     try {
-      const snapshot = await invoke<Snapshot>('connect_local_auth', {
+      const snapshot = await call('connect_local_auth', {
         login: chosen.login,
         confirmImport: true,
       });
@@ -116,13 +108,13 @@
     selected = '';
     accounts = [];
     notices = [];
-    void invoke('cancel_connect').catch(() => {});
+    void call('cancel_connect').catch(() => {});
   }
   onDestroy(() => {
     active = false;
     generation++;
     onBusy(false);
-    if (busy) void invoke('cancel_connect').catch(() => {});
+    if (busy) void call('cancel_connect').catch(() => {});
   });
 </script>
 

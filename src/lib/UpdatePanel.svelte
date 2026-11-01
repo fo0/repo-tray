@@ -1,12 +1,8 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
-  import {
-    releaseDate,
-    type UpdateInfo,
-    type UpdatePhase,
-    type UpdateProgress,
-  } from './updates';
+  import { call } from './ipc';
+  import type { DownloadProgress, UpdateInfo } from './types';
+  import { releaseDate, type UpdatePhase } from './updates';
 
   let {
     currentVersion,
@@ -24,7 +20,7 @@
     native: boolean;
     info: UpdateInfo | null;
     phase: UpdatePhase;
-    progress: UpdateProgress;
+    progress: DownloadProgress;
     error: string;
     checkedAt: string;
     onCheck: () => void;
@@ -53,7 +49,7 @@
     openError = '';
     try {
       // Rust validates the version and opens only its GitHub tag page.
-      await invoke('open_release_page', { version: info.version });
+      await call('open_release_page', { version: info.version });
     } catch (cause) {
       openError =
         typeof cause === 'string'

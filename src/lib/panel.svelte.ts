@@ -1,13 +1,13 @@
-import { invoke } from '@tauri-apps/api/core';
 import type { NoticeTone } from './StatusBanners.svelte';
 import {
   readActiveAccount,
   rememberActiveAccount,
   restoreActiveAccount,
 } from './accountSelection';
-import type { Bridge } from './demo';
+import type { Bridge, DemoControls } from './demo';
 import { Favorites } from './favorites.svelte';
 import { errorMessage } from './format';
+import { call } from './ipc';
 import { RequestEpoch } from './model';
 import { Notices, PANEL_NOTICE } from './notices.svelte';
 import { Starts } from './starts.svelte';
@@ -24,7 +24,8 @@ type BusyFlag =
 const nextAccountStep = (value: Snapshot, pick: string) =>
   value.accounts.length ? pick : 'Verbinde ein GitHub-Konto, um fortzufahren.';
 export interface PanelDeps {
-  bridge: Bridge;
+  /** Demo controls exist only in the browser demo. */
+  bridge: Bridge & Partial<DemoControls>;
   native: boolean;
   observe: (callback: (snapshot: Snapshot) => void) => Promise<() => void>;
 }
@@ -55,7 +56,7 @@ export class Panel {
   readonly favorites: Favorites;
   readonly notices = new Notices();
   readonly viewEpoch = new RequestEpoch();
-  #bridge: Bridge;
+  #bridge: PanelDeps['bridge'];
   #observe: PanelDeps['observe'];
   #accountReady = false;
 
@@ -238,20 +239,22 @@ export class Panel {
 
   disconnectAccount = (accountId: string) =>
     this.#mutation('accountBusy', async () => {
-      this.accept(await invoke<Snapshot>('disconnect_account', { accountId }));
+      this.accept(await call('disconnect_account', { accountId }));
     });
 
   refreshAccess = () =>
     this.#mutation('accessBusy', async (ticket) => {
-      const value = await invoke<Snapshot>('refresh_repositories');
+      const value = await call('refresh_repositories');
       if (!this.viewEpoch.current(ticket)) return null;
       this.accept(value);
       return value;
     });
 
-  manageInstallation = () => invoke<void>('open_browser_installation');
+  manageInstallation = () => call('open_browser_installation');
 
+  // The native settings offer no scenario or reset; both stay no-ops there.
   changeScenario = async (value: DemoScenario) => {
+    if (!this.#bridge.setDemoScenario) return;
     const ticket = this.viewEpoch.next();
     this.refreshing = false;
     this.scenario = value;
@@ -261,6 +264,7 @@ export class Panel {
 
   resetDemo = () =>
     this.#mutation('resetBusy', async (ticket) => {
+      if (!this.#bridge.resetDemo) return;
       const value = await this.#bridge.resetDemo();
       if (this.viewEpoch.current(ticket)) this.accept(value);
       this.accountId = '';

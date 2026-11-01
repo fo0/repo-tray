@@ -93,3 +93,72 @@ export interface DispatchOutcome {
   message: string;
 }
 export type DemoScenario = 'normal' | 'offline' | 'forbidden' | 'uncertain';
+/** Mirrors `LocalAccount` in src-tauri/src/local_auth.rs; secrets never cross IPC. */
+export interface LocalAccount {
+  /** `gh` accounts can be imported; `gcm` entries are metadata only. */
+  source: 'gh' | 'gcm';
+  host: string;
+  login: string;
+  usable: boolean;
+  active: boolean;
+  detail: string;
+  actionsRead: string;
+  actionsWrite: string;
+}
+/** Mirrors `LocalDiscovery` in src-tauri/src/local_auth.rs. */
+export interface LocalDiscovery {
+  accounts: LocalAccount[];
+  notices: string[];
+}
+/** Mirrors `BrowserConfig` in src-tauri/src/browser_auth.rs. */
+export interface BrowserConfig {
+  configured: boolean;
+}
+/** Mirrors `DeviceFlowStatus` in src-tauri/src/auth.rs; times are Unix seconds. */
+export type DeviceFlowStatus =
+  | { state: 'idle' | 'completed' | 'cancelled' | 'expired' | 'denied' }
+  | {
+      state: 'awaitingAuthorization';
+      userCode: string;
+      verificationUri: string;
+      expiresAt: number;
+      nextPollAt: number;
+    };
+/** Mirrors `BrowserReply` in src-tauri/src/desktop_auth.rs; absent values arrive as `null`. */
+export interface BrowserReply {
+  flowId: number;
+  status: DeviceFlowStatus;
+  message: string | null;
+  snapshot: Snapshot | null;
+}
+/** Mirrors `StartupStatus` and its `Status` in src-tauri/src/startup.rs. */
+export interface StartupStatus {
+  status:
+    | 'unsupported'
+    | 'disabled'
+    | 'enabled'
+    | 'disabledByWindows'
+    | 'unknownApproval'
+    | 'conflict';
+  registered: boolean;
+}
+/**
+ * `install`: a signed package is downloaded, verified and installed in the app.
+ * `notify`: unsigned builds only open the release page; installation is manual.
+ * Mirrors `UpdateMode` in src-tauri/src/updates.rs.
+ */
+export type UpdateMode = 'install' | 'notify';
+/** Mirrors `UpdateInfo` in src-tauri/src/updates.rs. */
+export interface UpdateInfo {
+  mode: UpdateMode;
+  version: string;
+  notes: string;
+  /** RFC 3339 UTC publication time, when known. */
+  date: string | null;
+}
+/** Mirrors `DownloadProgress` in src-tauri/src/desktop_updates.rs. */
+export interface DownloadProgress {
+  downloaded: number;
+  total: number | null;
+  stage: 'downloading' | 'verifying';
+}

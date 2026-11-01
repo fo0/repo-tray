@@ -1,6 +1,7 @@
-import { Channel, invoke } from '@tauri-apps/api/core';
 import { clockTime, errorMessage } from './format';
-import type { UpdateInfo, UpdatePhase, UpdateProgress } from './updates';
+import { call, channel } from './ipc';
+import type { DownloadProgress, UpdateInfo } from './types';
+import type { UpdatePhase } from './updates';
 
 const BUSY_PHASES: UpdatePhase[] = [
   'checking',
@@ -13,7 +14,7 @@ const BUSY_PHASES: UpdatePhase[] = [
 export class Updater {
   info = $state<UpdateInfo | null>(null);
   phase = $state<UpdatePhase>('idle');
-  progress = $state<UpdateProgress>({
+  progress = $state<DownloadProgress>({
     downloaded: 0,
     total: null,
     stage: 'downloading',
@@ -32,7 +33,7 @@ export class Updater {
     this.phase = 'checking';
     this.message = '';
     try {
-      this.info = await invoke<UpdateInfo | null>('check_update');
+      this.info = await call('check_update');
       this.checkedAt = clockTime();
       this.phase = this.info ? 'available' : 'current';
     } catch (cause) {
@@ -47,14 +48,13 @@ export class Updater {
     this.phase = 'downloading';
     this.message = '';
     this.progress = { downloaded: 0, total: null, stage: 'downloading' };
-    const onProgress = new Channel<UpdateProgress>();
-    onProgress.onmessage = (progress) => {
+    const onProgress = channel<DownloadProgress>((progress) => {
       if (this.phase !== 'downloading' && this.phase !== 'verifying') return;
       this.phase = progress.stage;
       if (progress.stage === 'downloading') this.progress = progress;
-    };
+    });
     try {
-      await invoke('download_update', { onProgress });
+      await call('download_update', { onProgress });
       this.phase = 'ready';
     } catch (cause) {
       this.phase = 'available';
@@ -67,7 +67,7 @@ export class Updater {
     this.phase = 'installing';
     this.message = '';
     try {
-      await invoke('install_update');
+      await call('install_update');
     } catch (cause) {
       this.phase = 'ready';
       this.message = errorMessage(cause);
