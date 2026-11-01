@@ -4,6 +4,7 @@
   import AppFooter from './lib/AppFooter.svelte';
   import AppHeader from './lib/AppHeader.svelte';
   import EmptyState from './lib/EmptyState.svelte';
+  import LaunchView from './lib/LaunchView.svelte';
   import Icon from './lib/Icon.svelte';
   import PinnedFavorites from './lib/PinnedFavorites.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
@@ -890,141 +891,28 @@
           onLinkError={warn}
         />
       {:else}
-        <div class="section-heading launch-heading">
-          <h2><Icon name="heart" size={14} />Deine Favoriten</h2>
-          <span>{pins.length} gespeichert</span>
-        </div>
-        <div class="pin-list" class:has-pins={pins.length > 0}>
-          {#each pins as pin (pin.id)}
-            <article class="pin-card">
-              <div class="pin-content">
-                <div class="pin-title-line">
-                  <h3>{pin.label}</h3>
-                  {#if quarantinedTargets.has(targetKey(pin))}<span
-                      class="pin-ref"
-                      ><Icon name="branch" size={11} />{pin.ref}</span
-                    >{/if}
-                </div>
-                <p class="pin-repo">
-                  {repoName(pin.repoId)}<span
-                    class="pin-account"
-                    title={`Konto ${accountName(pin.accountId)}`}
-                  >
-                    · {accountName(pin.accountId)}</span
-                  >
-                </p>
-                <div class="pin-meta">
-                  {#if quarantinedTargets.has(targetKey(pin))}<UncertainStartHelp
-                      id={`uncertain-help-${pin.id}`}
-                      quickStart={pin.quickStart}
-                      {demo}
-                    />
-                  {:else}<span class="pin-ref"
-                      ><Icon name="branch" size={11} />{pin.ref}</span
-                    ><span class="pin-mode" class:quick={pin.quickStart}
-                      >{pin.quickStart
-                        ? 'Schnellstart aktiv'
-                        : 'Mit Bestätigung'}</span
-                    >{/if}
-                </div>
-              </div>
-              <div class="pin-actions">
-                <button
-                  class="pin-start"
-                  onclick={() => launchPin(pin)}
-                  disabled={dispatching ||
-                    (pin.quickStart &&
-                      (blocked || quarantinedTargets.has(targetKey(pin))))}
-                  ><Icon
-                    name={pin.quickStart ? 'bolt' : 'play'}
-                    size={13}
-                  />{pin.quickStart ? 'Schnellstart' : 'Öffnen'}</button
-                >
-                {#if pin.quickStart}<button
-                    class="icon-button pin-configure"
-                    aria-label={`Vorlage ${pin.label} konfigurieren`}
-                    title="Konfigurieren"
-                    onclick={() => openDispatch(pin)}
-                    disabled={dispatching}
-                    ><Icon name="settings" size={14} /></button
-                  >{/if}
-                <button
-                  class="icon-button small delete-pin"
-                  aria-label={`Vorlage ${pin.label} entfernen`}
-                  title="Vorlage entfernen"
-                  onclick={() => deletePin(pin.id)}
-                  disabled={mutationBusy}
-                  ><Icon name="trash" size={14} /></button
-                >
-              </div>
-            </article>
-          {:else}{#if !query.trim()}<div class="empty-pins">
-                <Icon name="pin" size={18} /><span
-                  >Deine häufigen Starts, einen Klick näher.<small
-                    >Speichere einen Workflow als Vorlage.</small
-                  ></span
-                >
-              </div>{/if}{/each}
-        </div>
-        <div class="section-heading workflow-heading">
-          <h2>Workflow auswählen</h2>
-          <button
-            class="text-button"
-            onclick={() => openDispatch()}
-            disabled={!repos.length}
-            >Neu konfigurieren<Icon name="plus" size={13} /></button
-          >
-        </div>
-        <div class="workflow-list">
-          {#each launchRepos as repo}<div class="repo-group">
-              <div class="repo-heading">
-                <Icon name="repo" size={13} /><span>{fullRepo(repo)}</span
-                >{#if repo.permission !== 'write'}<span class="read-badge"
-                    >Nur Lesen</span
-                  >{/if}
-              </div>
-              {#each matchedWorkflows(repo.id) as workflow}<button
-                  class="workflow-item"
-                  onclick={() => openDispatch(undefined, workflow)}
-                  ><span class="workflow-copy"
-                    ><strong>{workflow.name}</strong><small
-                      >{workflow.dispatch
-                        ? `Manueller Start · ${repo.defaultBranch}`
-                        : 'Kein workflow_dispatch'}</small
-                    ></span
-                  ><Icon
-                    name={workflow.dispatch && repo.permission === 'write'
-                      ? 'chevron'
-                      : 'shield'}
-                    size={15}
-                  /></button
-                >{/each}
-            </div>{/each}
-        </div>
-        {#if query.trim() && !pins.length && !launchRepos.length}<EmptyState
-            icon="search"
-            iconSize={26}
-            framed={false}
-            title="Keine passenden Vorlagen oder Workflows"
-            text="Versuche einen anderen Namen, Owner oder Repository."
-            action={{ label: 'Suche leeren', icon: 'close', run: clearQuery }}
-          />{/if}
-        {#if !repos.length}<EmptyState
-            icon="repo"
-            iconSize={26}
-            framed={false}
-            title={needsAccount
-              ? 'Wähle ein aktives Konto'
-              : 'Wähle deine Repositories'}
-            text={needsAccount
-              ? 'Konto und Anmeldequelle findest du in den Einstellungen.'
-              : 'Deine Auswahl erscheint hier.'}
-            action={{
-              label: 'Einstellungen öffnen',
-              icon: 'arrow',
-              run: openSettings,
-            }}
-          />{/if}
+        <LaunchView
+          {pins}
+          {launchRepos}
+          workflowsFor={matchedWorkflows}
+          isUncertain={isQuarantined}
+          {repoName}
+          {accountName}
+          {demo}
+          {dispatching}
+          busy={mutationBusy}
+          {blocked}
+          searching={!!query.trim()}
+          hasRepos={repos.length > 0}
+          {needsAccount}
+          onLaunch={launchPin}
+          onConfigure={(pin) => openDispatch(pin)}
+          onRemove={deletePin}
+          onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
+          onNew={() => openDispatch()}
+          onClearQuery={clearQuery}
+          onOpenSettings={openSettings}
+        />
       {/if}
     </div>
 
