@@ -65,7 +65,10 @@ test('a reopened start dialog keeps the running target locked until the start se
   let dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
-  await page.getByRole('button', { name: 'Neu konfigurieren' }).click();
+  await page
+    .locator('.workflow-heading')
+    .getByRole('button', { name: 'Starten…', exact: true })
+    .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const start = dialog.getByRole('button', {
     name: /Simuliert|Start simulieren/,
@@ -93,16 +96,16 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   page,
 }) => {
   let dialog = await openLaunch(page);
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('Quick build');
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Quick build');
+  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
-    .getByLabel('Schnellstart ausdrücklich aktivieren', { exact: false })
-    .check();
-  await dialog
-    .getByRole('button', { name: 'Vorlage speichern', exact: true })
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText('„Quick build“ als Favorit gespeichert.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await holdStarts(page);
@@ -114,8 +117,8 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  dialog = page.getByRole('dialog', { name: 'Dein Workspace' });
-  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
   // Still running after the settings dialog closed: no second start possible.
   await expect(
     card.getByRole('button', { name: 'Schnellstart', exact: true }),

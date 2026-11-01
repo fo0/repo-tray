@@ -18,6 +18,7 @@
 <script lang="ts">
   import EmptyState from './EmptyState.svelte';
   import RunRow from './RunRow.svelte';
+  import { plural } from './format';
   import { HISTORY_LIMIT, isActive } from './model';
   import type { Run } from './types';
 
@@ -39,6 +40,7 @@
     onFilter,
     onToggle,
     onOpenSettings,
+    onClearQuery,
     onLinkError,
   }: {
     runs: Run[];
@@ -59,6 +61,7 @@
     onFilter: (filter: ActivityFilter) => void;
     onToggle: (runId: number) => void;
     onOpenSettings: () => void;
+    onClearQuery: () => void;
     onLinkError: (message: string) => void;
   } = $props();
 </script>
@@ -67,6 +70,11 @@
   {#each FILTERS as item (item.id)}<button
       class:chosen={filter === item.id}
       aria-pressed={filter === item.id}
+      aria-label={item.id === 'active'
+        ? `${item.label}, ${plural(activeRuns, 'Run', 'Runs')}`
+        : item.id === 'failed'
+          ? `${item.label}, ${plural(failedRuns, 'Run', 'Runs')}`
+          : undefined}
       onclick={() => onFilter(item.id)}
       >{item.label}{#if item.id === 'active'}<span>{activeRuns}</span
         >{:else if item.id === 'failed'}<span>{failedRuns}</span>{/if}</button
@@ -74,7 +82,7 @@
 </div>
 <div class="section-heading">
   <h2>{HEADINGS[filter]}</h2>
-  <span>{runs.length} {runs.length === 1 ? 'Run' : 'Runs'}</span>
+  <span>{plural(runs.length, 'Run', 'Runs')}</span>
 </div>
 <p class="history-note">
   <span class="group-live-dot"></span>Offene Runs werden automatisch
@@ -104,17 +112,19 @@
         ? hasAccounts
           ? 'Wähle ein aktives Konto'
           : 'Verbinde dein GitHub-Konto'
-        : hasRepos
-          ? 'Hier ist gerade Ruhe'
-          : 'Noch keine Repositories ausgewählt'}
+        : !hasRepos
+          ? 'Noch keine Repositories ausgewählt'
+          : searching
+            ? 'Keine passenden Runs'
+            : 'Hier ist gerade Ruhe'}
       text={needsAccount
         ? accountNotice ||
           'Öffne die Einstellungen und wähle dort Konto und Anmeldequelle. Repository-Starts bleiben an ihr Konto gebunden.'
-        : searching
-          ? 'Für diese Suche gibt es keine Runs.'
-          : hasRepos
-            ? 'Für diesen Filter gibt es keine Runs.'
-            : 'Wähle Repositories in den Einstellungen aus.'}
+        : !hasRepos
+          ? 'Wähle Repositories in den Einstellungen aus.'
+          : searching
+            ? 'Versuche einen anderen Suchbegriff.'
+            : 'Für diesen Filter gibt es keine Runs.'}
       action={needsAccount
         ? {
             label: 'Konto in Einstellungen wählen',
@@ -127,6 +137,8 @@
               icon: 'arrow',
               run: onOpenSettings,
             }
-          : undefined}
+          : searching
+            ? { label: 'Suche leeren', icon: 'close', run: onClearQuery }
+            : undefined}
     />{/each}
 </div>

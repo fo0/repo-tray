@@ -30,7 +30,7 @@
             ><strong>{workflow.name}</strong><small
               >{workflow.dispatch
                 ? `Manueller Start · ${repo.defaultBranch}`
-                : 'Kein workflow_dispatch'}</small
+                : 'Kein manueller Start'}</small
             ></span
           ><Icon
             name={workflow.dispatch && repo.permission === 'write'

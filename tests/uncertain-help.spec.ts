@@ -6,21 +6,25 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function uncertainTemplate(page: Page, quickStart = false) {
-  await page.getByLabel('Account auswählen').selectOption('demo-personal');
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-personal');
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   const card = templateCard(page, 'Windows build');
   if (quickStart) {
-    await card.getByRole('button', { name: 'Öffnen', exact: true }).click();
+    await card.getByRole('button', { name: 'Starten…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
-    await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
+    await dialog.getByText('Als Favorit speichern', { exact: true }).click();
     await dialog
-      .getByLabel('Schnellstart ausdrücklich aktivieren', { exact: false })
+      .getByLabel('Schnellstart aktivieren', { exact: false })
       .check();
     await dialog
-      .getByRole('button', { name: 'Vorlage aktualisieren', exact: true })
+      .getByRole('button', { name: 'Favorit aktualisieren', exact: true })
       .click();
     await expect(
-      dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+      dialog.getByText('„Windows build“ als Favorit gespeichert.', {
+        exact: true,
+      }),
     ).toBeVisible();
     await dialog
       .getByRole('button', { name: 'Abbrechen', exact: true })
@@ -29,7 +33,7 @@ async function uncertainTemplate(page: Page, quickStart = false) {
   await scenario(page, 'uncertain');
   await card
     .getByRole('button', {
-      name: quickStart ? 'Vorlage Windows build konfigurieren' : 'Öffnen',
+      name: quickStart ? 'Favorit Windows build starten…' : 'Starten…',
       exact: true,
     })
     .click();
@@ -51,7 +55,7 @@ for (const width of [360, 480]) {
     await page.setViewportSize({ width, height: 760 });
     const card = await uncertainTemplate(page);
     const status = card.getByRole('button', {
-      name: 'Start-Status ungeklärt',
+      name: 'Startstatus ungeklärt',
       exact: true,
     });
     const tooltip = page.getByRole('tooltip');
@@ -63,7 +67,7 @@ for (const width of [360, 480]) {
     await status.hover();
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText(
-      'Ein erneuter Start für dieses Ziel bleibt gesperrt.',
+      'Ein erneuter Start für diesen Workflow und Branch bleibt gesperrt.',
     );
     const bounds = (await tooltip.boundingBox())!;
     expect(bounds.x).toBeGreaterThanOrEqual(12);
@@ -85,7 +89,7 @@ for (const width of [360, 480]) {
     await expect(status).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(
-      card.getByRole('button', { name: 'Öffnen', exact: true }),
+      card.getByRole('button', { name: 'Starten…', exact: true }),
     ).toBeFocused();
     await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
@@ -117,7 +121,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     await page.goto('/');
     const card = await uncertainTemplate(page, true);
     const status = card.getByRole('button', {
-      name: 'Start-Status ungeklärt',
+      name: 'Startstatus ungeklärt',
       exact: true,
     });
     const tooltip = page.getByRole('tooltip');
@@ -127,7 +131,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     await status.tap();
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText('Schnellstart aktiviert');
-    await expect(tooltip).toContainText('Konfigurieren');
+    await expect(tooltip).toContainText('Zahnrad „Starten…“');
     await status.tap();
     await expect(tooltip).toHaveCount(0);
     await status.tap();
@@ -135,7 +139,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     await page.getByRole('heading', { name: /^RepoTray/ }).tap();
     await expect(tooltip).toHaveCount(0);
     await card
-      .getByRole('button', { name: 'Vorlage Windows build konfigurieren' })
+      .getByRole('button', { name: 'Favorit Windows build starten…' })
       .tap();
     await expect(
       page

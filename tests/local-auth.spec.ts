@@ -105,7 +105,9 @@ test.beforeEach(async ({ page }) => {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
 });
 
 test('local account access requires a click, explicit choice and consent before secret import', async ({
@@ -140,7 +142,7 @@ test('local account access requires a click, explicit choice and consent before 
     .check();
   await connect.click();
   await expect(
-    page.getByRole('heading', { name: 'Dein Workspace', exact: true }),
+    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
   ).toBeVisible();
   expect(
     (await calls()).find((c) => c.cmd === 'connect_local_auth')?.args,
@@ -174,7 +176,9 @@ test('unavailable sources stay unavailable and cancellation discards late proces
   await configureMock<LocalMock>(page, { scanDelay: 0, empty: true });
   await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
   await expect(
-    page.getByText('Keine geeignete lokale API-Anmeldung verfügbar.'),
+    page.getByText(
+      'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut.',
+    ),
   ).toBeVisible();
   await expect(
     page.getByRole('button', {
@@ -219,7 +223,9 @@ test('discovery shows recognized rather than connected until consent, then retai
   await expect(
     page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
   ).toContainText('gh-Anmeldung übernommen · Aktiv für RepoTray');
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   await expect(
     dialog.getByRole('region', { name: 'Verbundene Anmeldungen' }),

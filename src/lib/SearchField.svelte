@@ -25,11 +25,11 @@
       ? 'Aktivität durchsuchen'
       : tab === 'repositories'
         ? 'Repositories durchsuchen'
-        : 'Workflows durchsuchen'}
+        : 'Favoriten und Workflows durchsuchen'}
     placeholder={tab === 'activity'
       ? 'Repository, Workflow oder Branch suchen …'
       : tab === 'repositories'
-        ? 'Repository oder Action suchen …'
+        ? 'Repository oder Workflow suchen …'
         : 'Favoriten und Workflows suchen …'}
     bind:value={query}
   />{#if query}<button

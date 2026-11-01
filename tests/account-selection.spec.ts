@@ -103,7 +103,7 @@ async function setup(page: Page, saved: string | null = null) {
   await page.goto('/');
 }
 const workspace = (page: Page) =>
-  page.getByRole('dialog', { name: 'Dein Workspace', exact: true });
+  page.getByRole('dialog', { name: 'Einstellungen', exact: true });
 /** Opens settings from the panel; waits for any earlier dialog to be gone. */
 async function openSettings(page: Page) {
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -114,7 +114,7 @@ async function openSettings(page: Page) {
 }
 async function closeSettings(page: Page) {
   await workspace(page)
-    .getByRole('button', { name: 'Abbrechen', exact: true })
+    .getByRole('button', { name: 'Schließen', exact: true })
     .click();
   await expect(workspace(page)).toHaveCount(0);
 }
@@ -336,7 +336,9 @@ test('stored token and active method are visible in settings and connection dial
   await expect(stored).toContainText(
     'Browser-Anmeldung gespeichert · Verbunden, nicht aktiv',
   );
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   await expect(
     page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
   ).toContainText('Token hinterlegt · Aktiv für RepoTray');
@@ -362,7 +364,9 @@ test('using an already connected source makes it active without reconnecting or 
 }) => {
   await setup(page, 'github-42');
   await openSettings(page);
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   await page
     .getByRole('button', {
       name: 'fixture-user · Browser für RepoTray verwenden',
@@ -408,11 +412,11 @@ test('active account and local method button review screenshots', async ({
     page.getByRole('heading', { name: 'Aktives Konto', exact: true }),
   ).toBeVisible();
   await page
-    .getByRole('dialog', { name: 'Dein Workspace', exact: true })
+    .getByRole('dialog', { name: 'Einstellungen', exact: true })
     .screenshot({ path: testInfo.outputPath('active-account-settings.png') });
   await page.setViewportSize({ width: 360, height: 840 });
   await page
-    .getByRole('dialog', { name: 'Dein Workspace', exact: true })
+    .getByRole('dialog', { name: 'Einstellungen', exact: true })
     .screenshot({
       path: testInfo.outputPath('active-account-settings-360.png'),
     });
@@ -422,7 +426,9 @@ test('active account and local method button review screenshots', async ({
       .evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
   ).toBe(true);
   await page.setViewportSize({ width: 500, height: 840 });
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   const option = page.getByRole('button', {
     name: 'Bestehende Anmeldung auf diesem PC verwenden',
     exact: true,
@@ -459,6 +465,8 @@ test('active account and local method button review screenshots', async ({
     .screenshot({ path: testInfo.outputPath('local-login-expanded.png') });
   await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
   await expect(
-    page.getByText('Keine geeignete lokale API-Anmeldung verfügbar.'),
+    page.getByText(
+      'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut.',
+    ),
   ).toBeVisible();
 });

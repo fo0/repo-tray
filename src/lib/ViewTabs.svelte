@@ -26,6 +26,7 @@
   <button
     class:active={tab === 'activity'}
     aria-current={tab === 'activity' ? 'page' : undefined}
+    aria-label={activeRuns ? `Aktivität, ${activeRuns} aktiv` : undefined}
     onclick={() => onSelect('activity')}
     ><Icon name="activity" size={17} />Aktivität{#if activeRuns}<span
         class="tab-count">{activeRuns}</span

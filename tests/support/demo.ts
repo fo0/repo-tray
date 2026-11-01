@@ -13,7 +13,10 @@ export async function openDemoActivity(page: Page) {
 /** Opens a fresh launch dialog from the favorites tab. */
 export async function openLaunch(page: Page) {
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
-  await page.getByRole('button', { name: 'Neu konfigurieren' }).click();
+  await page
+    .locator('.workflow-heading')
+    .getByRole('button', { name: 'Starten…', exact: true })
+    .click();
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }
 
@@ -31,7 +34,9 @@ export async function openConnection(page: Page) {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   return page.getByRole('dialog', { name: 'GitHub verbinden' });
 }
 

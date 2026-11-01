@@ -14,13 +14,15 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   page,
 }) => {
   let dialog = await openLaunch(page);
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('My saved build');
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('My saved build');
   await dialog
-    .getByRole('button', { name: 'Vorlage speichern', exact: true })
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText('„My saved build“ als Favorit gespeichert.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page.reload();
@@ -31,7 +33,7 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   await expect(
     card.getByText('Mit Bestätigung', { exact: false }),
   ).toBeVisible();
-  await card.getByRole('button', { name: 'Öffnen' }).click();
+  await card.getByRole('button', { name: 'Starten…', exact: true }).click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Branch oder Tag')).toHaveValue('main');
   await expect(dialog.getByLabel('Version')).toHaveValue('0.1.0');
@@ -41,16 +43,16 @@ test('explicitly enabled quick launch dispatches from a saved template', async (
   page,
 }) => {
   const dialog = await openLaunch(page);
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('Quick build');
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Quick build');
+  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
-    .getByLabel('Schnellstart ausdrücklich aktivieren', { exact: false })
-    .check();
-  await dialog
-    .getByRole('button', { name: 'Vorlage speichern', exact: true })
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText('„Quick build“ als Favorit gespeichert.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   const card = page
@@ -65,11 +67,13 @@ test('Enter in a template name saves it without starting a run', async ({
   page,
 }) => {
   const dialog = await openLaunch(page);
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('Saved with Enter');
-  await dialog.getByLabel('Name der Vorlage').press('Enter');
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Saved with Enter');
+  await dialog.getByLabel('Name des Favoriten').press('Enter');
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText('„Saved with Enter“ als Favorit gespeichert.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     dialog.getByText('Simulierter Start angenommen', { exact: true }),
@@ -86,9 +90,9 @@ test('saving is blocked during dispatch and the result still appears', async ({
   page,
 }) => {
   const dialog = await openLaunch(page);
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
   await dialog
-    .getByLabel('Name der Vorlage')
+    .getByLabel('Name des Favoriten')
     .fill('Do not save during dispatch');
   const blocked = await dialog.evaluate(async (node) => {
     const buttons = [...node.querySelectorAll('button')];
@@ -96,7 +100,7 @@ test('saving is blocked during dispatch and the result still appears', async ({
       button.textContent?.includes('Start simulieren'),
     )!;
     const save = buttons.find((button) =>
-      button.textContent?.includes('Vorlage speichern'),
+      button.textContent?.includes('Favorit speichern'),
     )!;
     start.click();
     await new Promise<void>((resolve) => queueMicrotask(resolve));
@@ -108,9 +112,7 @@ test('saving is blocked during dispatch and the result still appears', async ({
   await expect(
     dialog.getByText('Simulierter Start angenommen', { exact: true }),
   ).toBeVisible();
-  await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
-  ).toHaveCount(0);
+  await expect(dialog.getByText(/als Favorit gespeichert\./)).toHaveCount(0);
 });
 
 test('offline still allows opening and editing a saved template', async ({
@@ -121,8 +123,10 @@ test('offline still allows opening and editing a saved template', async ({
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
-  await expect(card.getByRole('button', { name: 'Öffnen' })).toBeEnabled();
-  await card.getByRole('button', { name: 'Öffnen' }).click();
+  await expect(
+    card.getByRole('button', { name: 'Starten…', exact: true }),
+  ).toBeEnabled();
+  await card.getByRole('button', { name: 'Starten…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Version')).toBeEnabled();
   await expect(
@@ -134,10 +138,12 @@ test('an empty launch search hides empty groups and offers a clear action', asyn
   page,
 }) => {
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
-  await page.getByLabel('Workflows durchsuchen').fill('unmatched-query');
+  await page
+    .getByLabel('Favoriten und Workflows durchsuchen')
+    .fill('unmatched-query');
   const state = page.locator('.empty-state').filter({
     has: page.getByRole('heading', {
-      name: 'Keine passenden Vorlagen oder Workflows',
+      name: 'Keine passenden Favoriten oder Workflows',
     }),
   });
   await expect(state).toBeVisible();
@@ -155,25 +161,27 @@ test('copying an existing template keeps the original and its values', async ({
   const original = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
-  await original.getByRole('button', { name: 'Öffnen' }).click();
+  await original.getByRole('button', { name: 'Starten…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog.getByLabel('Branch oder Tag').selectOption('develop');
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('Develop copy');
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Develop copy');
   await expect(
-    dialog.getByRole('button', { name: 'Vorlage aktualisieren', exact: true }),
+    dialog.getByRole('button', { name: 'Favorit aktualisieren', exact: true }),
   ).toBeVisible();
   await dialog
-    .getByRole('button', { name: 'Als neue Vorlage speichern', exact: true })
+    .getByRole('button', { name: 'Als neuen Favoriten speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText('„Develop copy“ als Favorit gespeichert.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Develop copy', exact: true }),
   ).toBeVisible();
-  await original.getByRole('button', { name: 'Öffnen' }).click();
+  await original.getByRole('button', { name: 'Starten…', exact: true }).click();
   await expect(
     page.getByRole('dialog').getByLabel('Branch oder Tag'),
   ).toHaveValue('main');
@@ -183,16 +191,16 @@ test('compact saved templates keep quick-start configuration and removal reachab
   page,
 }) => {
   const dialog = await openLaunch(page);
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('Compact quick build');
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Compact quick build');
+  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
-    .getByLabel('Schnellstart ausdrücklich aktivieren', { exact: false })
-    .check();
-  await dialog
-    .getByRole('button', { name: 'Vorlage speichern', exact: true })
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText('„Compact quick build“ als Favorit gespeichert.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   const card = templateCard(page, 'Compact quick build');
@@ -204,7 +212,7 @@ test('compact saved templates keep quick-start configuration and removal reachab
   ).toBeVisible();
   await card
     .getByRole('button', {
-      name: 'Vorlage Compact quick build konfigurieren',
+      name: 'Favorit Compact quick build starten…',
       exact: true,
     })
     .click();
@@ -215,7 +223,7 @@ test('compact saved templates keep quick-start configuration and removal reachab
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await card
     .getByRole('button', {
-      name: 'Vorlage Compact quick build entfernen',
+      name: 'Favorit Compact quick build entfernen',
       exact: true,
     })
     .click();
@@ -229,20 +237,22 @@ test('compact cards preserve long labels, account context and click targets at 3
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 760 });
-  await page.getByLabel('Account auswählen').selectOption('demo-work');
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-work');
   const dialog = await openLaunch(page);
   const label =
     'Nightly runner health checks for the shared maintenance environment';
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill(label);
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill(label);
+  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
-    .getByLabel('Schnellstart ausdrücklich aktivieren', { exact: false })
-    .check();
-  await dialog
-    .getByRole('button', { name: 'Vorlage speichern', exact: true })
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText(`„${label}“ als Favorit gespeichert.`, {
+      exact: true,
+    }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   const card = templateCard(page, label);

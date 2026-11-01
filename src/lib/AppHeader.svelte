@@ -48,7 +48,7 @@
               ? 'Verbunden'
               : demoAccountConnected
                 ? 'demo-dev · simuliert'
-                : 'keine GitHub-Verbindung'}</span
+                : 'Nicht verbunden'}</span
       ></span
     >
   </div>

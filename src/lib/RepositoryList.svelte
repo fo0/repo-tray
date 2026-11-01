@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { plural } from './format';
   import { fullRepo, statusLabel, type repositoryActivity } from './model';
   import type { Pin, Workflow } from './types';
 
@@ -47,8 +48,7 @@
         <span class="repository-copy">
           <strong>{fullRepo(group.repo)}</strong>
           <small
-            >{group.workflows.length}
-            {group.workflows.length === 1 ? 'Action' : 'Actions'}
+            >{plural(group.workflows.length, 'Workflow', 'Workflows')}
             <span class="meta-dot">·</span>
             {#if group.activeCount}<span class="repository-live"
                 >{group.activeCount} aktiv</span
@@ -68,22 +68,21 @@
           {@const pin = favorite(workflow)}
           {@const unavailable =
             !workflow.dispatch || group.repo.permission !== 'write'}
+          {@const detail = !workflow.dispatch
+            ? 'Kein manueller Start'
+            : group.repo.permission !== 'write'
+              ? 'Nur Lesen'
+              : group.repo.defaultBranch}
           <div class="repository-action">
             <button
               class="action-copy"
               onclick={() => onopen(workflow)}
-              aria-label={`${workflow.name} konfigurieren`}
+              aria-label={`${workflow.name} · ${detail}`}
               disabled={dispatching}
             >
               <span class="action-dot"></span>
               <span
-                ><strong>{workflow.name}</strong><small
-                  >{!workflow.dispatch
-                    ? 'Kein manueller Start'
-                    : group.repo.permission !== 'write'
-                      ? 'Nur Lesen'
-                      : group.repo.defaultBranch}</small
-                ></span
+                ><strong>{workflow.name}</strong><small>{detail}</small></span
               >
             </button>
             <button
@@ -91,7 +90,7 @@
               aria-pressed={!!pin}
               aria-label={`${workflow.name} ${pin ? 'aus Favoriten entfernen' : 'als Favorit speichern'}`}
               title={unavailable
-                ? 'Favoriten benötigen einen manuell startbaren Workflow mit Schreibrecht'
+                ? 'Favoriten brauchen einen manuell startbaren Workflow mit Schreibzugriff'
                 : pin
                   ? 'Favorit entfernen'
                   : 'Mit Standardwerten als Favorit speichern'}
@@ -103,17 +102,17 @@
             <button
               class="action-start"
               onclick={() => onopen(workflow)}
-              aria-label={`${workflow.name} starten`}
+              aria-label={`${workflow.name} starten…`}
               title={unavailable
                 ? 'Dieser Workflow kann nicht manuell gestartet werden'
-                : 'Branch und Parameter wählen'}
+                : 'Branch oder Tag und Eingaben wählen'}
               disabled={unavailable || blocked || dispatching}
             >
-              <Icon name="play" size={12} />Starten
+              <Icon name="play" size={12} />Starten…
             </button>
           </div>
         {:else}<p class="repository-no-actions">
-            Keine passenden Actions vorhanden.
+            Keine passenden Workflows.
           </p>{/each}
       </div>
     </section>

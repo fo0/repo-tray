@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { avatarLetter } from './format';
+  import { avatarLetter, plural } from './format';
   import { fullRepo } from './model';
   import type { Repo, Snapshot } from './types';
 
@@ -43,10 +43,10 @@
   }
   function permissionLabel(repo: Repo) {
     return repo.permission === 'write'
-      ? 'Actions · Schreibzugriff'
+      ? 'Schreibzugriff'
       : repo.permission === 'denied'
-        ? 'Actions · Kein Zugriff'
-        : 'Actions · Nur Lesen';
+        ? 'Kein Zugriff'
+        : 'Nur Lesen';
   }
   function toggle(id: string, checked: boolean) {
     selected = checked
@@ -70,7 +70,7 @@
   /></label
 >
 <p class="field-help">
-  {selected.length} Repositories ausgewählt
+  {plural(selected.length, 'Repository', 'Repositories')} ausgewählt
 </p>
 <div class="repo-selection">
   {#each snapshot?.accounts ?? [] as account}<div class="selection-account">

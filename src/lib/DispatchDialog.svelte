@@ -153,7 +153,7 @@
     }
     if (seed.favoriteIntent)
       notice =
-        'Ergänze die benötigten Angaben und speichere die Action als Vorlage.';
+        'Ergänze die benötigten Angaben und speichere den Workflow als Favorit.';
   });
 
   async function start() {
@@ -176,12 +176,13 @@
     if (!alive || targetKey(target) !== key) return;
     if (!latest || latest.stale || latest.connectivity !== 'online') {
       notice = '';
-      error = 'Status konnte nicht geprüft werden. Starts bleiben gesperrt.';
+      error =
+        'Status konnte nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut. Starts bleiben gesperrt.';
     } else {
       error = '';
       noticeTone = 'warning';
       notice =
-        'Status geprüft. Die Startannahme bleibt ungeklärt; ein erneuter Start ist weiterhin gesperrt.';
+        'Status geprüft. GitHub hat den Start weiterhin nicht bestätigt. Ein erneuter Start bleibt gesperrt.';
     }
   }
   async function saveTemplate(asNew: boolean) {
@@ -201,7 +202,7 @@
         return;
       editingPinId = pin.id;
       noticeTone = 'subtle';
-      notice = 'Vorlage lokal gespeichert.';
+      notice = `„${pin.label.trim()}“ als Favorit gespeichert.`;
     } catch (cause) {
       if (alive && epoch.current(ticket)) error = errorMessage(cause);
     }
@@ -254,7 +255,7 @@
           <Icon name="warning" size={16} /><span
             >{snapshot?.connectivity === 'offline'
               ? 'Offline. Starts sind deaktiviert; der letzte Stand bleibt sichtbar.'
-              : 'Zugriff verweigert. Starts sind deaktiviert.'}</span
+              : 'Zugriff verweigert. Prüfe die Token-Berechtigung „Actions: Lesen und Schreiben“. Starts sind deaktiviert.'}</span
           >
         </div>{/if}
       <SavePinPanel

@@ -11,18 +11,31 @@ test('account and owner context, filters and search stay isolated', async ({
   await expect(
     page.getByText('demo-dev/launch-kit-demo', { exact: true }).first(),
   ).toBeVisible();
-  await page.getByLabel('Account auswählen').selectOption('demo-work');
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-work');
   await expect(
     page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
   ).toBeVisible();
   await expect(
     page.getByText('demo-dev/launch-kit-demo', { exact: true }),
   ).toHaveCount(0);
-  await page.getByLabel('Aktivität durchsuchen').fill('unmatched-query');
+  const search = page.getByLabel('Aktivität durchsuchen');
+  await search.fill('unmatched-query');
   await expect(
-    page.getByRole('heading', { name: 'Hier ist gerade Ruhe' }),
+    page.getByRole('heading', { name: 'Keine passenden Runs' }),
   ).toBeVisible();
-  await page.getByLabel('Account auswählen').selectOption('demo-personal');
+  await page
+    .locator('.empty-state')
+    .getByRole('button', { name: 'Suche leeren', exact: true })
+    .click();
+  await expect(search).toHaveValue('');
+  await expect(
+    page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
+  ).toBeVisible();
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-personal');
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
   await expect(
     page.getByText('demo-dev/website-demo', { exact: true }).first(),

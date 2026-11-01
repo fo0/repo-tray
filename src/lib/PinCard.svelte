@@ -42,8 +42,8 @@
         >{/if}
     </div>
     <p class="pin-repo">
-      {repo}<span class="pin-account" title={`Konto ${account}`}>
-        · {account}</span
+      {repo}<span class="pin-account" title={`Konto ${account}`}
+        >{' · '}{account}</span
       >
     </p>
     <div class="pin-meta">
@@ -66,19 +66,19 @@
       disabled={dispatching || (pin.quickStart && (blocked || uncertain))}
       ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={13} />{pin.quickStart
         ? 'Schnellstart'
-        : 'Öffnen'}</button
+        : 'Starten…'}</button
     >
     {#if pin.quickStart}<button
         class="icon-button pin-configure"
-        aria-label={`Vorlage ${pin.label} konfigurieren`}
-        title="Konfigurieren"
+        aria-label={`Favorit ${pin.label} starten…`}
+        title="Starten…"
         onclick={() => onConfigure()}
         disabled={dispatching}><Icon name="settings" size={14} /></button
       >{/if}
     <button
       class="icon-button small delete-pin"
-      aria-label={`Vorlage ${pin.label} entfernen`}
-      title="Vorlage entfernen"
+      aria-label={`Favorit ${pin.label} entfernen`}
+      title="Favorit entfernen"
       onclick={() => onRemove()}
       disabled={busy}><Icon name="trash" size={14} /></button
     >

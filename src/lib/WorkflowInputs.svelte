@@ -1,5 +1,19 @@
+<script module lang="ts">
+  import type { InputSpec } from './types';
+
+  /** German hint for each GitHub input type; raw type names never reach the UI. */
+  const TYPE_LABELS: Record<InputSpec['type'], string> = {
+    string: 'Text',
+    number: 'Zahl',
+    choice: 'Auswahl',
+    environment: 'Umgebung',
+    boolean: 'Ja/Nein',
+  };
+</script>
+
 <script lang="ts">
-  import type { InputSpec, InputValue, Workflow } from './types';
+  import { plural } from './format';
+  import type { InputValue, Workflow } from './types';
 
   let {
     workflow,
@@ -22,13 +36,14 @@
 </script>
 
 {#if inputs.length}<div class="input-heading">
-    <span>EINGABEN</span><span>{inputs.length} Parameter</span>
+    <span>EINGABEN</span><span
+      >{plural(inputs.length, 'Eingabe', 'Eingaben')}</span
+    >
   </div>{/if}
 {#each inputs as input}
   {#if input.type === 'boolean'}<label class="boolean-field"
       ><span
-        ><strong>{input.label}</strong><small
-          >Workflow-Parameter · boolean</small
+        ><strong>{input.label}</strong><small>{TYPE_LABELS.boolean}</small
         ></span
       ><input
         type="checkbox"
@@ -41,7 +56,7 @@
   {:else}<label class="field"
       ><span
         >{input.label}{#if input.required}<span class="required">*</span
-          >{/if}<small>{input.type}</small></span
+          >{/if}<small>{TYPE_LABELS[input.type]}</small></span
       >{#if input.type === 'choice' || input.type === 'environment'}<select
           aria-label={input.label}
           value={text(input)}

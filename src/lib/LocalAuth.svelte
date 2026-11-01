@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
+  import { plural } from './format';
   import type { Account as ConnectedAccount, Snapshot } from './types';
   type Account = {
     source: 'gh' | 'gcm';
@@ -80,7 +81,7 @@
         error =
           typeof cause === 'string'
             ? cause
-            : 'Lokale Anmeldung konnte nicht geprüft werden. Erneut versuchen.';
+            : 'Lokale Anmeldung konnte nicht geprüft werden. Versuche es erneut.';
     } finally {
       if (active && ticket === generation) setBusy(false);
     }
@@ -102,7 +103,7 @@
         error =
           typeof cause === 'string'
             ? cause
-            : 'Lokale Anmeldung nicht übernommen. Konto, Netzwerk oder Betriebssystem-Tresor prüfen und erneut suchen.';
+            : 'Lokale Anmeldung wurde nicht übernommen. Prüfe Konto, Netzwerk und Betriebssystem-Tresor und suche erneut.';
     } finally {
       if (active && ticket === generation) setBusy(false);
     }
@@ -144,7 +145,7 @@
       <strong>Bestehende Anmeldung auf diesem PC verwenden</strong>
       <small id="local-auth-method-hint"
         >{connectedGh.length
-          ? `${connectedGh.length} ${connectedGh.length === 1 ? 'gh-Konto' : 'gh-Konten'} in RepoTray verbunden`
+          ? `${plural(connectedGh.length, 'gh-Konto', 'gh-Konten')} in RepoTray verbunden`
           : 'Noch kein gh-Konto in RepoTray verbunden'}</small
       >
     </span>
@@ -204,7 +205,10 @@
               {/each}
             </select>
           </label>
-        {:else}<p>Keine geeignete lokale API-Anmeldung verfügbar.</p>{/if}
+        {:else}<p>
+            Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“
+            an und prüfe erneut.
+          </p>{/if}
         {#if chosen}
           <p class="local-source-status" role="status">
             <Icon name="check" size={15} />{chosenImported

@@ -16,7 +16,7 @@ test('closing the launch dialog and cancelling connection create no runs', async
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten' }).click();
+  await page.getByRole('button', { name: 'Konto hinzufügen' }).click();
   await expect(
     page.getByRole('button', {
       name: 'Mit GitHub anmelden',
@@ -73,7 +73,10 @@ test('unknown response remains quarantined when the form is reopened', async ({
     dialog.getByRole('button', { name: 'Start simulieren' }),
   ).toBeDisabled();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
-  await page.getByRole('button', { name: 'Neu konfigurieren' }).click();
+  await page
+    .locator('.workflow-heading')
+    .getByRole('button', { name: 'Starten…', exact: true })
+    .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(
     dialog.getByRole('button', { name: 'Start simulieren' }),
@@ -85,7 +88,9 @@ test('unknown response remains quarantined when the form is reopened', async ({
     .getByRole('button', { name: 'Status prüfen', exact: true })
     .click();
   await expect(
-    dialog.getByText(/Status geprüft. Die Startannahme bleibt ungeklärt/),
+    dialog.getByText(
+      /Status geprüft\. GitHub hat den Start weiterhin nicht bestätigt/,
+    ),
   ).toBeVisible();
 });
 
@@ -95,8 +100,13 @@ test('a late start response cannot overwrite a newly chosen repository form', as
   let dialog = await openLaunch(page);
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
   await dialog.getByRole('button', { name: 'Dialog schließen' }).click();
-  await page.getByLabel('Account auswählen').selectOption('demo-work');
-  await page.getByRole('button', { name: 'Neu konfigurieren' }).click();
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-work');
+  await page
+    .locator('.workflow-heading')
+    .getByRole('button', { name: 'Starten…', exact: true })
+    .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Repository')).toHaveValue('demo-team-tools');
   await expect(dialog.getByLabel('Attempts')).toHaveValue('3');
@@ -120,19 +130,21 @@ test('an offline status check never claims a successful refresh of an uncertain 
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
-  await card.getByRole('button', { name: 'Öffnen' }).click();
+  await card.getByRole('button', { name: 'Starten…', exact: true }).click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog
     .getByRole('button', { name: 'Status prüfen', exact: true })
     .click();
   await expect(
     dialog.getByText(
-      'Status konnte nicht geprüft werden. Starts bleiben gesperrt.',
+      'Status konnte nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut. Starts bleiben gesperrt.',
       { exact: true },
     ),
   ).toBeVisible();
   await expect(
-    dialog.getByText(/Status geprüft\. Die Startannahme/),
+    dialog.getByText(
+      /Status geprüft\. GitHub hat den Start weiterhin nicht bestätigt/,
+    ),
   ).toHaveCount(0);
   await expect(
     dialog.getByRole('button', { name: 'Start simulieren' }),

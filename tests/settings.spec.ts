@@ -24,7 +24,9 @@ test('settings tabs support keyboard navigation and keep updates reachable at na
   ).toBe(true);
   await updates.press('Home');
   await expect(accounts).toBeFocused();
-  await expect(page.getByRole('button', { name: 'Einrichten' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Konto hinzufügen' }),
+  ).toBeVisible();
 });
 
 test('the settings dialog traps Tab and Shift+Tab and closes with Escape', async ({
@@ -35,14 +37,14 @@ test('the settings dialog traps Tab and Shift+Tab and closes with Escape', async
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   const dialog = page.getByRole('dialog', {
-    name: 'Dein Workspace',
+    name: 'Einstellungen',
     exact: true,
   });
   const first = dialog.getByRole('button', { name: 'Dialog schließen' });
   await expect(first).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(
-    dialog.getByRole('button', { name: 'Abbrechen', exact: true }),
+    dialog.getByRole('button', { name: 'Schließen', exact: true }),
   ).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(first).toBeFocused();
@@ -69,7 +71,7 @@ test('closing settings with Escape returns focus to the settings button', async 
   await opener.focus();
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog', {
-    name: 'Dein Workspace',
+    name: 'Einstellungen',
     exact: true,
   });
   await expect(dialog).toBeVisible();
@@ -88,7 +90,9 @@ test('a chained dialog returns focus to the opener of the first dialog', async (
   });
   await opener.focus();
   await page.keyboard.press('Enter');
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   const connect = page.getByRole('dialog', {
     name: 'GitHub verbinden',
     exact: true,

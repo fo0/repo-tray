@@ -58,7 +58,7 @@
       openError =
         typeof cause === 'string'
           ? cause
-          : 'Die Release-Seite konnte nicht geöffnet werden.';
+          : 'Die Release-Seite konnte nicht geöffnet werden. Versuche es erneut.';
     } finally {
       opening = false;
     }
@@ -94,7 +94,7 @@
       <span class="field-help"
         >{checkedAt
           ? `Zuletzt geprüft · ${checkedAt}`
-          : 'Kein GitHub-Login nötig'}</span
+          : 'Keine GitHub-Anmeldung nötig'}</span
       >
     </div>
     {#if phase === 'current'}

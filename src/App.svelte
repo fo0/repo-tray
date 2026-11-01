@@ -254,12 +254,16 @@
         <EmptyState
           icon="tray"
           iconSize={26}
-          title={panel.error
-            ? 'Demo nicht geladen'
-            : 'Workflows werden sortiert …'}
-          text={panel.error
-            ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
-            : 'Dein Überblick ist gleich bereit.'}
+          title={!panel.error
+            ? 'Workflows werden geladen …'
+            : demo
+              ? 'Demo nicht geladen'
+              : 'Daten konnten nicht geladen werden'}
+          text={!panel.error
+            ? 'Dein Überblick ist gleich bereit.'
+            : demo
+              ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
+              : 'Prüfe deine Verbindung und klicke auf Aktualisieren.'}
         />
       {:else if tab === 'repositories'}
         <RepositoriesView
@@ -303,6 +307,7 @@
           onFilter={(next) => (filter = next)}
           onToggle={(id) => (expanded = expanded === id ? null : id)}
           onOpenSettings={() => openSettings()}
+          onClearQuery={clearQuery}
           onLinkError={warn}
         />
       {:else}

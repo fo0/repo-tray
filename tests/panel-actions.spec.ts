@@ -46,17 +46,21 @@ test('demo reset restores templates, scenario and account selection', async ({
 }) => {
   await page.goto('/');
   const dialog = await openLaunch(page);
-  await dialog.getByText('Als Vorlage speichern', { exact: true }).click();
-  await dialog.getByLabel('Name der Vorlage').fill('Reset me');
+  await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+  await dialog.getByLabel('Name des Favoriten').fill('Reset me');
   await dialog
-    .getByRole('button', { name: 'Vorlage speichern', exact: true })
+    .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('Vorlage lokal gespeichert.', { exact: true }),
+    dialog.getByText('„Reset me“ als Favorit gespeichert.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await scenario(page, 'offline');
-  await page.getByLabel('Account auswählen').selectOption('demo-work');
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-work');
   const connection = page.getByRole('status', { name: 'Verbindungsstatus' });
   await expect(connection).toContainText('Offline');
 
@@ -68,11 +72,13 @@ test('demo reset restores templates, scenario and account selection', async ({
   await expect(
     notice(
       page,
-      'Demo zurückgesetzt. Lokale Vorlagen und Auswahl wurden zurückgesetzt.',
+      'Demo zurückgesetzt. Favoriten und Auswahl sind wieder im Ausgangszustand.',
     ),
   ).toBeVisible();
   await expect(connection).not.toContainText('Offline');
-  await expect(page.getByLabel('Account auswählen')).toHaveValue('');
+  await expect(page.getByLabel('Konto auswählen', { exact: true })).toHaveValue(
+    '',
+  );
   await expect(templateCard(page, 'Reset me')).toHaveCount(0);
   await expect(templateCard(page, 'Windows build')).toBeVisible();
 

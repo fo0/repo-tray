@@ -76,7 +76,7 @@
   </button>
   {#if expanded}<div class="run-details">
       <div>
-        <span>Account</span><strong>{account}</strong>
+        <span>Konto</span><strong>{account}</strong>
       </div>
       <div>
         <span>Aktualisiert</span><strong
@@ -84,7 +84,7 @@
         >
       </div>
       <div>
-        <span>Ergebnis</span><strong>{statusLabel(run)}</strong>
+        <span>Status</span><strong>{statusLabel(run)}</strong>
       </div>
       {#if runUrl}<RunLink
           url={runUrl}

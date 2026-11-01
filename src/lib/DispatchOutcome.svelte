@@ -91,7 +91,7 @@
         {@const runId = outcome.runId}
         {#if runUrl}<RunLink
             url={runUrl}
-            label={`Run #${runId} auf GitHub`}
+            label={`Run #${runId} auf GitHub ansehen`}
             {native}
             onError={onLinkError}
           />{/if}
@@ -110,8 +110,9 @@
     <div>
       <strong>Startstatus ungeklärt</strong>
       <p>
-        Für dieses Ziel fehlt die Startbestätigung. Ein erneuter Start bleibt
-        gesperrt. Prüfe zuerst den Status.
+        GitHub hat den letzten Start für diesen Workflow und Branch nicht
+        bestätigt. Er läuft eventuell bereits. Prüfe die Runs auf GitHub. Ein
+        erneuter Start bleibt gesperrt.
       </p>
       {@render checkStatus()}
     </div>

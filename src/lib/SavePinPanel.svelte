@@ -30,19 +30,19 @@
 
 <details class="save-pin" {open}>
   <summary
-    ><Icon name="pin" size={14} />Als Vorlage speichern<Icon
+    ><Icon name="pin" size={14} />Als Favorit speichern<Icon
       name="down"
       size={13}
     /></summary
   >
   <div class="save-pin-body">
     <label class="field"
-      ><span>Name der Vorlage</span><input
-        aria-label="Name der Vorlage"
+      ><span>Name des Favoriten</span><input
+        aria-label="Name des Favoriten"
         bind:value={label}
         onkeydown={(event) => {
           if (event.key !== 'Enter') return;
-          // Enter saves the template; it never submits a start.
+          // Enter saves the favorite; it never submits a start.
           event.preventDefault();
           event.stopPropagation();
           if (canSave) onSave(false);
@@ -57,15 +57,14 @@
         bind:checked={quickStart}
         disabled={locked || saving}
       /><span
-        >Schnellstart ausdrücklich aktivieren<small
-          >Startet diese Vorlage ohne erneute Bestätigung. Nur für diese
-          Auswahl.</small
+        >Schnellstart aktivieren<small
+          >Startet diesen Favoriten per Klick ohne Bestätigung.</small
         ></span
       ></label
     >
     <p class="field-help">
-      Speichert Account, Repository, Workflow, Ref und nicht geheime Eingaben
-      lokal.
+      Speichert Konto, Repository, Workflow, Branch oder Tag und nicht geheime
+      Eingaben lokal.
     </p>
     <button
       type="button"
@@ -75,15 +74,15 @@
       ><Icon name="pin" size={13} />{saving
         ? 'Speichert …'
         : editing
-          ? 'Vorlage aktualisieren'
-          : 'Vorlage speichern'}</button
+          ? 'Favorit aktualisieren'
+          : 'Favorit speichern'}</button
     >
     {#if editing}<button
         type="button"
         class="text-button copy-template"
         onclick={() => onSave(true)}
         disabled={!canSave}
-        >Als neue Vorlage speichern<Icon name="plus" size={13} /></button
+        >Als neuen Favoriten speichern<Icon name="plus" size={13} /></button
       >{/if}
   </div>
 </details>

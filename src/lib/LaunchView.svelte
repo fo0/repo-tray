@@ -3,6 +3,7 @@
   import Icon from './Icon.svelte';
   import PinCard from './PinCard.svelte';
   import WorkflowList from './WorkflowList.svelte';
+  import { plural } from './format';
   import type { Pin, Repo, Workflow } from './types';
 
   let {
@@ -54,7 +55,7 @@
 
 <div class="section-heading launch-heading">
   <h2><Icon name="heart" size={14} />Deine Favoriten</h2>
-  <span>{pins.length} gespeichert</span>
+  <span>{plural(pins.length, 'Favorit', 'Favoriten')}</span>
 </div>
 <div class="pin-list" class:has-pins={pins.length > 0}>
   {#each pins as pin (pin.id)}
@@ -74,7 +75,8 @@
   {:else}{#if !searching}<div class="empty-pins">
         <Icon name="pin" size={18} /><span
           >Deine häufigen Starts, einen Klick näher.<small
-            >Speichere einen Workflow als Vorlage.</small
+            >Klicke unter „Repositories“ beim Workflow auf das Herz, um ihn hier
+            zu speichern.</small
           ></span
         >
       </div>{/if}{/each}
@@ -82,7 +84,7 @@
 <div class="section-heading workflow-heading">
   <h2>Workflow auswählen</h2>
   <button class="text-button" onclick={() => onNew()} disabled={!hasRepos}
-    >Neu konfigurieren<Icon name="plus" size={13} /></button
+    >Starten…<Icon name="plus" size={13} /></button
   >
 </div>
 <WorkflowList repos={launchRepos} {workflowsFor} onOpen={onOpenWorkflow} />
@@ -90,8 +92,8 @@
     icon="search"
     iconSize={26}
     framed={false}
-    title="Keine passenden Vorlagen oder Workflows"
-    text="Versuche einen anderen Namen, Owner oder Repository."
+    title="Keine passenden Favoriten oder Workflows"
+    text="Versuche einen anderen Suchbegriff."
     action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
   />{/if}
 {#if !hasRepos}<EmptyState

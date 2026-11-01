@@ -115,7 +115,7 @@
       if (value.stale)
         error =
           value.message ??
-          'Repository-Zugriff konnte nicht aktualisiert werden.';
+          'Repository-Zugriff konnte nicht aktualisiert werden. Versuche es erneut.';
     });
 
   function tabKey(event: KeyboardEvent & { currentTarget: HTMLElement }) {
@@ -139,7 +139,7 @@
 </script>
 
 <Modal
-  title="Dein Workspace"
+  title="Einstellungen"
   eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
   wide
   {returnFocus}
@@ -222,7 +222,7 @@
     </div>{/if}
   <div class="modal-actions">
     <button class="secondary-button" onclick={() => onClose()}
-      >{tab === 'updates' || tab === 'app' ? 'Schließen' : 'Abbrechen'}</button
+      >{tab === 'repositories' ? 'Abbrechen' : 'Schließen'}</button
     >{#if tab === 'repositories'}<button
         class="primary-button"
         onclick={save}

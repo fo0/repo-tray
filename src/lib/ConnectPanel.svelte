@@ -37,7 +37,7 @@
     hasToken = false;
     if (!isExample) {
       tokenError =
-        'Hier ist nur der Beispielwert demo-token erlaubt. Es wurde nichts gespeichert.';
+        'Hier funktioniert nur der Beispielwert „demo-token“. Es wurde nichts gespeichert.';
       return;
     }
     tokenError = '';

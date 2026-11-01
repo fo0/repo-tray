@@ -39,7 +39,9 @@
     } catch (cause) {
       if (active)
         error =
-          typeof cause === 'string' ? cause : 'Verbindung fehlgeschlagen.';
+          typeof cause === 'string'
+            ? cause
+            : 'Verbindung fehlgeschlagen. Prüfe Token und Netzwerk und versuche es erneut.';
     } finally {
       if (active) busy = false;
     }
@@ -97,9 +99,10 @@
         /></label
       >
       <p>
-        Nur im Betriebssystem-Tresor gespeichert. Für ausgewählte Repositories:
-        Actions lesen/schreiben und Contents lesen. Org-Freigaben können
-        erforderlich sein. Gespeicherte Tokens werden hier nicht angezeigt.
+        Wird nur im Betriebssystem-Tresor gespeichert und hier nie angezeigt.
+        Benötigte Berechtigungen für die ausgewählten Repositories: „Actions:
+        Lesen und Schreiben“ und „Contents: Lesen“. Organisationen müssen den
+        Token eventuell freigeben.
       </p>
       {#if error}<div class="alert danger" role="alert">{error}</div>{/if}
       <button

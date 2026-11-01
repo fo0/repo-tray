@@ -2,7 +2,7 @@
   import ConnectedAccounts from './ConnectedAccounts.svelte';
   import Icon from './Icon.svelte';
   import { accountTitle } from './accountSelection';
-  import { accountLabel } from './format';
+  import { accountLabel, plural } from './format';
   import type { DemoScenario, Snapshot } from './types';
 
   const scenarios: { value: DemoScenario; label: string }[] = [
@@ -101,16 +101,16 @@
       <strong
         >{demo
           ? 'Du bist im Demo-Modus'
-          : `${accounts.length} Konten verbunden`}</strong
+          : `${plural(accounts.length, 'Konto', 'Konten')} verbunden`}</strong
       >
       <p>
         {demo
-          ? 'Kein Account verbunden. Keine echten Starts.'
+          ? 'Kein Konto verbunden. Starts sind nur simuliert.'
           : 'Tokens bleiben im Betriebssystem-Tresor.'}
       </p>
     </div>
     <button class="text-button" onclick={() => onConnect()}
-      >Einrichten<Icon name="chevron" size={13} /></button
+      >Konto hinzufügen<Icon name="chevron" size={13} /></button
     >
   </div>
 </div>
@@ -130,7 +130,7 @@
     </p>
     <button class="reset-button" onclick={() => onReset()} disabled={busy}
       ><Icon name="refresh" size={13} />Demo zurücksetzen<span
-        >Setzt auch Vorlagen & Auswahl zurück</span
+        >Setzt auch Favoriten und Auswahl zurück</span
       ></button
     >
   </div>

@@ -90,7 +90,7 @@ test('refreshing repository access shows granted repositories and drops revoked 
   await expect(repoBox(page, 'granted-repo')).not.toBeChecked();
   await expect(repoBox(page, 'revoked-repo')).toHaveCount(0);
   await expect(repoBox(page, 'kept-repo')).toBeChecked();
-  await expect(page.getByText('1 Repositories ausgewählt')).toBeVisible();
+  await expect(page.getByText('1 Repository ausgewählt')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await page.getByRole('button', { name: 'Auswahl speichern' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);

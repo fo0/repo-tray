@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { avatarLetter } from './format';
+  import { avatarLetter, plural } from './format';
   import type { Account } from './types';
 
   let {
@@ -61,11 +61,11 @@
   {:else}
     <label class="account-picker"
       ><span class="avatar">{avatar}</span><select
-        aria-label="Account auswählen"
+        aria-label="Konto auswählen"
         bind:this={picker}
         value={accountId}
         onchange={(event) => onAccountChange(event.currentTarget.value)}
-        ><option value="">Alle Accounts</option
+        ><option value="">Alle Konten</option
         >{#each accounts as account (account.id)}<option value={account.id}
             >{account.login}</option
           >{/each}</select
@@ -73,7 +73,9 @@
     >
   {/if}
   <div class="toolbar-actions">
-    <span class="repo-count">{repoCount} Repos</span><button
+    <span class="repo-count"
+      >{plural(repoCount, 'Repository', 'Repositories')}</span
+    ><button
       class:spinning={refreshing}
       class="icon-button"
       aria-label="Aktualisieren"

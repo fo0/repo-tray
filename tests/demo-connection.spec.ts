@@ -62,7 +62,7 @@ test('token preview clears its masked input and never persists user input', asyn
     .click();
   await expect(input).toHaveValue('');
   await expect(dialog.getByRole('alert')).toContainText(
-    'nur der Beispielwert demo-token',
+    'nur der Beispielwert „demo-token“',
   );
   const storage = await page.evaluate(() =>
     JSON.stringify({ ...localStorage }),
@@ -87,7 +87,9 @@ test('confirmation notice centers text, icon and close target at narrow and stan
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   await dialog
     .getByText('Alternativ: Token hinterlegen', { exact: true })

@@ -126,7 +126,9 @@ async function login(page: import('@playwright/test').Page) {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   await expect(
     dialog.getByRole('button', { name: /Mit GitHub anmelden/ }),
@@ -137,7 +139,7 @@ async function login(page: import('@playwright/test').Page) {
     .click();
   await expect(dialog.getByLabel('GitHub-Token')).toHaveValue('');
   await expect(
-    page.getByRole('heading', { name: 'Dein Workspace', exact: true }),
+    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
   ).toBeVisible();
 }
 test('native token flow clears input, labels live mode and returns to repository setup', async ({
@@ -145,12 +147,12 @@ test('native token flow clears input, labels live mode and returns to repository
 }) => {
   await login(page);
   await expect(
-    page.getByText('1 Konten verbunden', { exact: true }),
+    page.getByText('1 Konto verbunden', { exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(() => JSON.stringify({ ...localStorage })),
   ).not.toContain('synthetic-test-token');
-  await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
   await expect(
     page.getByRole('status', { name: 'Verbindungsstatus' }),
   ).toContainText('GitHub');
@@ -158,7 +160,10 @@ test('native token flow clears input, labels live mode and returns to repository
     page.getByRole('status', { name: 'Verbindungsstatus' }),
   ).not.toContainText('Demo');
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
-  await page.getByRole('button', { name: 'Neu konfigurieren' }).click();
+  await page
+    .locator('.workflow-heading')
+    .getByRole('button', { name: 'Starten…', exact: true })
+    .click();
   await expect(
     page.getByRole('button', { name: 'Workflow starten', exact: true }),
   ).toBeEnabled();
@@ -173,7 +178,9 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   await page
     .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
     .click();
@@ -189,7 +196,7 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
   expect(calls).not.toContain('cancel_connect');
   expect(calls).not.toContain('discover_local_auth');
   await expect(
-    page.getByRole('heading', { name: 'Dein Workspace', exact: true }),
+    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
   ).toBeVisible();
 });
 test('public update downloads inside the app and installs only after a separate confirmation', async ({
@@ -326,7 +333,9 @@ test('native invalid token is rejected and disconnect removes the account view',
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   await page.getByLabel('GitHub-Token').fill('invalid-synthetic-token');
   await page
     .getByRole('button', { name: 'Token prüfen und verbinden' })

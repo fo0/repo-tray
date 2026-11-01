@@ -89,9 +89,10 @@
         ? 'Keine passenden Repositories'
         : 'Noch keine Repositories ausgewählt'}
     text={needsAccount
-      ? accountNotice || 'Wähle Konto und Repositories in den Einstellungen.'
+      ? accountNotice ||
+        'Wähle Konto und Repositories in den Einstellungen aus.'
       : searching
-        ? 'Suche nach einem Repository oder einer Action.'
+        ? 'Versuche einen anderen Suchbegriff.'
         : 'Wähle Repositories in den Einstellungen aus.'}
     action={searching
       ? { label: 'Suche leeren', icon: 'close', run: onClearQuery }
