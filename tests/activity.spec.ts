@@ -17,7 +17,7 @@ test('live runs show relative times that tick with one shared minute clock', asy
     new Date(NOW - 3 * 60_000).toISOString(),
   );
   await expect(time).toHaveAttribute('title', 'Gestartet: 01.11.2026, 08:57');
-  await expect(running.locator('.run-duration')).toHaveText('3:00 min');
+  await expect(running.locator('.run-duration')).toHaveText('3 min');
   await expect(finished.locator('time')).toHaveText('vor 2 Std.');
   await expect(finished.locator('time')).toHaveAttribute(
     'title',
@@ -27,7 +27,7 @@ test('live runs show relative times that tick with one shared minute clock', asy
 
   await page.clock.runFor(60_000);
   await expect(time).toHaveText('vor 4 Min.');
-  await expect(running.locator('.run-duration')).toHaveText('4:00 min');
+  await expect(running.locator('.run-duration')).toHaveText('4 min');
   await expect(
     running.getByRole('button', { name: /· Läuft · gestartet vor 4 Min\.$/ }),
   ).toBeVisible();
@@ -49,10 +49,10 @@ test('demo runs keep their fixture durations and mark the demo time', async ({
     'title',
     'Gestartet: 31.10.2026, 09:42 · Demo-Zeit',
   );
-  await expect(running.locator('.run-duration')).toHaveText('1:00 min');
+  await expect(running.locator('.run-duration')).toHaveText('1 min');
   await page.clock.runFor(60_000);
   await expect(running.locator('time')).toHaveText('vor 19 Min.');
-  await expect(running.locator('.run-duration')).toHaveText('1:00 min');
+  await expect(running.locator('.run-duration')).toHaveText('1 min');
   await expect(row(page, 8404).locator('time')).toHaveText('vor 25 Min.');
 });
 

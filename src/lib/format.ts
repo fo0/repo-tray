@@ -45,8 +45,9 @@ const dayStart = (time: number) => new Date(time).setHours(0, 0, 0, 0);
 
 /**
  * German relative time: „gerade eben“, „vor 3 Min.“, „vor 2 Std.“ (under a
- * day), „gestern“ (the previous calendar day), then the date. A time ahead of
- * `now` (clock skew, a stale tick) reads „gerade eben“.
+ * day, or earlier the same calendar day: a 25-hour DST day reaches „vor 24
+ * Std.“), „gestern“ (the previous calendar day), then the date. A time ahead
+ * of `now` (clock skew, a stale tick) reads „gerade eben“.
  */
 export function relativeTime(
   value: string | number | Date,
@@ -57,7 +58,8 @@ export function relativeTime(
   const elapsed = now - time;
   if (elapsed < MINUTE) return 'gerade eben';
   if (elapsed < HOUR) return `vor ${Math.floor(elapsed / MINUTE)} Min.`;
-  if (elapsed < DAY) return `vor ${Math.floor(elapsed / HOUR)} Std.`;
+  if (elapsed < DAY || dayStart(time) === dayStart(now))
+    return `vor ${Math.floor(elapsed / HOUR)} Std.`;
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   if (dayStart(time) === dayStart(yesterday.getTime())) return 'gestern';
@@ -83,12 +85,18 @@ export function runMoment(run: Run, now: number, demo = false) {
   };
 }
 
-/** Run time as `m:ss min`; a live open run keeps counting up to `now`. */
+/**
+ * Run time. A completed run reads `m:ss min`; an open run reads whole minutes
+ * („< 1 min“, „3 min“), since the shared clock ticks once a minute and seconds
+ * would stand still. A live open run keeps counting up to `now`.
+ */
 export function runDuration(run: Run, now: number, live: boolean) {
-  if (!live || !isActive(run)) return duration(run);
+  if (!isActive(run)) return duration(run);
   const updated = Date.parse(run.updatedAt);
-  const end = updated > now ? updated : now;
-  return duration({ ...run, updatedAt: new Date(end).toISOString() });
+  const end = live && now > updated ? now : updated;
+  const elapsed = end - Date.parse(run.createdAt);
+  const minutes = elapsed > 0 ? Math.floor(elapsed / MINUTE) : 0;
+  return minutes < 1 ? '< 1 min' : `${minutes} min`;
 }
 
 export function repoLabel(

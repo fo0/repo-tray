@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { get } from 'svelte/store';
 import { minuteClock } from './clock';
 import {
@@ -194,15 +203,30 @@ describe('relative run times', () => {
       spoken: 'beendet am 15.06.2026',
     });
   });
-  it('lets only live open runs count up to now', () => {
+  it('counts open runs in whole minutes and lets only live ones run on', () => {
     const open = run({});
-    expect(runDuration(open, Date.now(), true)).toBe('3:00 min');
-    expect(runDuration(open, Date.now(), false)).toBe('1:00 min');
-    const done = run({ status: 'completed', conclusion: 'failure' });
-    expect(runDuration(done, Date.now(), true)).toBe('1:00 min');
+    expect(runDuration(open, Date.now(), true)).toBe('3 min');
+    expect(runDuration(open, Date.now(), false)).toBe('1 min');
+    // Seconds would freeze between minute ticks, so they are cut, not shown.
+    expect(runDuration(open, Date.now() + 59_000, true)).toBe('3 min');
+    const fresh = run({ createdAt: at(17, 12), updatedAt: at(17, 12) });
+    expect(runDuration(fresh, Date.now() + 59_000, true)).toBe('< 1 min');
+    // Clock skew (created after now) clamps to under a minute.
+    expect(
+      runDuration(run({ createdAt: at(17, 12, 1) }), Date.now(), true),
+    ).toBe('< 1 min');
     // A snapshot newer than the last tick never makes the duration shrink.
     const ahead = run({ updatedAt: at(17, 12, 2) });
-    expect(runDuration(ahead, Date.now(), true)).toBe('5:00 min');
+    expect(runDuration(ahead, Date.now(), true)).toBe('5 min');
+  });
+  it('keeps m:ss for completed runs', () => {
+    const done = run({
+      status: 'completed',
+      conclusion: 'failure',
+      updatedAt: new Date(Date.parse(at(17, 11, 58)) + 5_000).toISOString(),
+    });
+    expect(runDuration(done, Date.now(), true)).toBe('1:05 min');
+    expect(runDuration(done, Date.now(), false)).toBe('1:05 min');
   });
 
   it('ticks one shared minute clock that stops with its last subscriber', () => {
@@ -224,7 +248,36 @@ describe('relative run times', () => {
     expect(relativeTime(open.createdAt, get(minuteClock))).toBe('gerade eben');
     vi.advanceTimersByTime(3 * 60_000);
     expect(relativeTime(open.createdAt, get(minuteClock))).toBe('vor 3 Min.');
-    expect(runDuration(open, get(minuteClock), true)).toBe('3:00 min');
+    expect(runDuration(open, get(minuteClock), true)).toBe('3 min');
     stop();
+  });
+});
+
+describe('relative run times across a daylight-saving switch', () => {
+  // Node re-reads TZ on assignment; restore it for the rest of the file.
+  const zone = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'Europe/Berlin';
+  });
+  afterAll(() => {
+    if (zone === undefined) delete process.env.TZ;
+    else process.env.TZ = zone;
+  });
+
+  it('keeps hours for earlier the same day on the 25-hour day', () => {
+    // 25.10.2026 23:30 CET; 00:10 that day was still CEST (24 h 20 min ago).
+    const now = Date.parse('2026-10-25T22:30:00Z');
+    expect(new Date(now).getHours()).toBe(23);
+    expect(relativeTime('2026-10-24T22:10:00Z', now)).toBe('vor 24 Std.');
+    // 24.10. 23:50 CEST is the previous calendar day.
+    expect(relativeTime('2026-10-24T21:50:00Z', now)).toBe('gestern');
+  });
+  it('keeps „gestern“ and hours right on the 23-hour day', () => {
+    // 29.03.2026 23:30 CEST; 00:10 that day was CET (22 h 20 min ago).
+    const now = Date.parse('2026-03-29T21:30:00Z');
+    expect(relativeTime('2026-03-28T23:10:00Z', now)).toBe('vor 22 Std.');
+    // 28.03. 00:10 CET: 46 h 20 min ago, still the previous calendar day.
+    expect(relativeTime('2026-03-27T23:10:00Z', now)).toBe('gestern');
+    expect(relativeTime('2026-03-27T22:50:00Z', now)).toBe('27.03.2026');
   });
 });
