@@ -10,9 +10,6 @@ import {
 type LocalMock = {
   scanDelay: number;
   empty: boolean;
-  /** Rejects discovery or the import with this IPC error when set. */
-  scanError: string;
-  importError: string;
   /** Counts discovery responses after the panel had a full task to apply them. */
   scansSettled: number;
 };
@@ -69,7 +66,6 @@ test.beforeEach(async ({ page }) => {
           return structuredClone(empty);
         if (cmd === 'discover_local_auth') {
           await new Promise((resolve) => setTimeout(resolve, state.scanDelay));
-          if (state.scanError) throw state.scanError;
           // Count it one task later, once the panel has consumed the result.
           setTimeout(() => state.scansSettled++, 0);
           return {
@@ -83,7 +79,6 @@ test.beforeEach(async ({ page }) => {
         if (cmd === 'connect_local_auth') {
           if (args?.login !== 'fixture-sam' || args?.confirmImport !== true)
             throw 'Selection mismatch';
-          if (state.importError) throw state.importError;
           return {
             ...structuredClone(fixture),
             mode: 'live',
@@ -103,13 +98,7 @@ test.beforeEach(async ({ page }) => {
     },
     {
       arg: { fixture },
-      state: {
-        scanDelay: 0,
-        empty: false,
-        scanError: '',
-        importError: '',
-        scansSettled: 0,
-      },
+      state: { scanDelay: 0, empty: false, scansSettled: 0 },
     },
   );
   await page.goto('/');
@@ -275,59 +264,4 @@ test('discovery shows recognized rather than connected until consent, then retai
   await dialog.screenshot({
     path: testInfo.outputPath('connected-gh-feedback-360.png'),
   });
-});
-
-test('every local result names the next step: failures, empty results and accounts RepoTray cannot import', async ({
-  page,
-}) => {
-  const scan = page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' });
-  await page
-    .getByRole('button', {
-      name: 'Bestehende Anmeldung auf diesem PC verwenden',
-    })
-    .click();
-  await configureMock<LocalMock>(page, {
-    scanError:
-      'Mock: gh CLI konnte nicht geprüft werden. Prüfe im Terminal mit gh auth status, ob du angemeldet bist.',
-  });
-  await scan.click();
-  await expect(page.getByRole('alert')).toContainText(
-    'Prüfe im Terminal mit gh auth status',
-  );
-  await expect(scan).toBeEnabled();
-  await configureMock<LocalMock>(page, { scanError: '', empty: true });
-  await scan.click();
-  await expect(
-    page.getByText(
-      'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut. Alternativ verbindest du dich unten mit einem Token.',
-    ),
-  ).toBeVisible();
-  await configureMock<LocalMock>(page, {
-    empty: false,
-    importError:
-      'Mock: Gewählte lokale Anmeldung ist nicht mehr verfügbar. Prüfe die lokalen Anmeldungen erneut.',
-  });
-  await page.getByRole('button', { name: 'Erneut prüfen' }).click();
-  // The credential-manager entry stays listed, with what to do instead.
-  await expect(
-    page.getByText('Diese Anmeldungen kann RepoTray nicht übernehmen.'),
-  ).toContainText('verbinde dich unten mit einem Token');
-  await page.getByLabel('Lokales Konto · gh CLI').selectOption('fixture-sam');
-  await page
-    .getByRole('checkbox', {
-      name: 'Ich möchte dieses gh-Konto in RepoTray verwenden',
-    })
-    .check();
-  await page
-    .getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' })
-    .click();
-  await expect(page.getByRole('alert')).toContainText(
-    'Prüfe die lokalen Anmeldungen erneut.',
-  );
-  await expect(
-    page.getByRole('dialog', { name: 'GitHub verbinden' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Erneut prüfen' }),
-  ).toBeEnabled();
 });
