@@ -213,6 +213,31 @@ test('demo runs offer both row actions disabled with the demo hint', async ({
   }
 });
 
+test('the native account chip opens the accounts settings', async ({
+  page,
+}) => {
+  await openNativeActivity(page);
+  const chip = page.getByRole('button', {
+    name: 'Konto: demo-dev · Personal · demo – Einstellungen öffnen',
+    exact: true,
+  });
+  // The chip stays inside the labelled status the account specs read.
+  await expect(
+    page.getByRole('status', { name: 'Aktives Konto', exact: true }),
+  ).toContainText('demo-dev · Personal · demo');
+  await chip.click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Einstellungen',
+    exact: true,
+  });
+  await expect(
+    dialog.getByRole('tab', { name: 'Konten', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(chip).toBeFocused();
+});
+
 test('the history note opens on demand from the info button', async ({
   page,
 }) => {

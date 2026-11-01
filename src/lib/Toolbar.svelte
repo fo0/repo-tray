@@ -47,16 +47,19 @@
 
 <div class="toolbar">
   {#if native}
-    <div
-      class="active-account-status"
-      role="status"
-      aria-label="Aktives Konto"
-      title={accountId
-        ? `Aktives Konto: ${accountLabel}`
-        : 'Kein aktives Konto · Auswahl in den Einstellungen'}
-    >
-      <Icon name="github" size={14} />
-      <span>{accountId ? accountLabel : 'Kein aktives Konto'}</span>
+    <div class="active-account-status" role="status" aria-label="Aktives Konto">
+      <button
+        class="account-chip"
+        aria-label={`${accountId ? `Konto: ${accountLabel}` : 'Kein aktives Konto'} – Einstellungen öffnen`}
+        title={accountId
+          ? `Aktives Konto: ${accountLabel} · Konten in den Einstellungen`
+          : 'Kein aktives Konto · Auswahl in den Einstellungen'}
+        onclick={() => onSettings()}
+        disabled={!ready}
+        ><Icon name="github" size={14} /><span
+          >{accountId ? accountLabel : 'Kein aktives Konto'}</span
+        ></button
+      >
     </div>
   {:else}
     <label class="account-picker"
