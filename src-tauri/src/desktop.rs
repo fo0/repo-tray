@@ -268,7 +268,7 @@ pub fn run() {
                                 .notification()
                                 .builder()
                                 .title("RepoTray")
-                                .body(format!("{}: Lauf beendet.", run.name))
+                                .body(format!("{}: Run beendet.", run.name))
                                 .show();
                         }
                     }
