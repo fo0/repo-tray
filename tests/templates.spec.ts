@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import {
   openDemoActivity,
   openLaunch,
@@ -9,6 +9,10 @@ import {
 test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
 });
+
+/** The favorite card's button that opens it in the start dialog. */
+const opener = (card: Locator, label: string) =>
+  card.getByRole('button', { name: `Favorit ${label} starten…`, exact: true });
 
 test('pins persist and keep quick launch disabled until explicitly enabled', async ({
   page,
@@ -33,12 +37,7 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   await expect(
     card.getByText('Mit Bestätigung', { exact: false }),
   ).toBeVisible();
-  await card
-    .getByRole('button', {
-      name: 'Favorit My saved build starten…',
-      exact: true,
-    })
-    .click();
+  await opener(card, 'My saved build').click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Branch oder Tag')).toHaveValue('main');
   await expect(dialog.getByLabel('Version')).toHaveValue('0.1.0');
@@ -128,18 +127,8 @@ test('offline still allows opening and editing a saved template', async ({
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
-  await expect(
-    card.getByRole('button', {
-      name: 'Favorit Windows build starten…',
-      exact: true,
-    }),
-  ).toBeEnabled();
-  await card
-    .getByRole('button', {
-      name: 'Favorit Windows build starten…',
-      exact: true,
-    })
-    .click();
+  await expect(opener(card, 'Windows build')).toBeEnabled();
+  await opener(card, 'Windows build').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Version')).toBeEnabled();
   await expect(
@@ -174,12 +163,7 @@ test('copying an existing template keeps the original and its values', async ({
   const original = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
-  await original
-    .getByRole('button', {
-      name: 'Favorit Windows build starten…',
-      exact: true,
-    })
-    .click();
+  await opener(original, 'Windows build').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog.getByLabel('Branch oder Tag').selectOption('develop');
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
@@ -199,12 +183,7 @@ test('copying an existing template keeps the original and its values', async ({
   await expect(
     page.getByRole('heading', { name: 'Develop copy', exact: true }),
   ).toBeVisible();
-  await original
-    .getByRole('button', {
-      name: 'Favorit Windows build starten…',
-      exact: true,
-    })
-    .click();
+  await opener(original, 'Windows build').click();
   await expect(
     page.getByRole('dialog').getByLabel('Branch oder Tag'),
   ).toHaveValue('main');
@@ -233,12 +212,7 @@ test('compact saved templates keep quick-start configuration and removal reachab
   await expect(
     card.getByRole('button', { name: 'Schnellstart', exact: true }),
   ).toBeVisible();
-  await card
-    .getByRole('button', {
-      name: 'Favorit Compact quick build starten…',
-      exact: true,
-    })
-    .click();
+  await opener(card, 'Compact quick build').click();
   await expect(page.getByRole('dialog').getByLabel('Version')).toHaveValue(
     '0.1.0',
   );
