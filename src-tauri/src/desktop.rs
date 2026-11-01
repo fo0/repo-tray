@@ -82,25 +82,9 @@ fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn open_run(app: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
-    let parsed = reqwest::Url::parse(&url).map_err(|_| "GitHub-Link ungültig.")?;
-    let segments: Vec<_> = parsed
-        .path_segments()
-        .ok_or("GitHub-Link ungültig.")?
-        .collect();
-    if parsed.scheme() != "https"
-        || parsed.host_str() != Some("github.com")
-        || parsed.port().is_some()
-        || !parsed.username().is_empty()
-        || parsed.password().is_some()
-        || parsed.query().is_some()
-        || parsed.fragment().is_some()
-        || segments.len() != 5
-        || segments[2] != "actions"
-        || segments[3] != "runs"
-        || segments[4].parse::<u64>().is_err()
-    {
-        return Err("Nur GitHub-Run-Links sind erlaubt.".into());
-    }
+    // Open only the parser's canonical form, never the raw IPC string.
+    let url = repotray_core::run_link::canonical_run_url(&url)
+        .ok_or("Nur GitHub-Run-Links sind erlaubt.")?;
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
