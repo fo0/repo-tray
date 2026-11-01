@@ -1,8 +1,9 @@
 use super::*;
+use crate::models::{Conclusion, DispatchState, RunStatus};
 use std::collections::VecDeque;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc,
+    Arc, Mutex,
 };
 
 struct FakeTransport {
