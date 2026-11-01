@@ -4,9 +4,7 @@
   import AppFooter from './lib/AppFooter.svelte';
   import AppHeader from './lib/AppHeader.svelte';
   import ConnectPanel from './lib/ConnectPanel.svelte';
-  import DispatchDialog, {
-    type DispatchSeed,
-  } from './lib/DispatchDialog.svelte';
+  import DispatchDialog from './lib/DispatchDialog.svelte';
   import EmptyState from './lib/EmptyState.svelte';
   import LaunchView from './lib/LaunchView.svelte';
   import Modal from './lib/Modal.svelte';
@@ -14,9 +12,7 @@
   import NoticeBanner from './lib/NoticeBanner.svelte';
   import RepositoriesView from './lib/RepositoriesView.svelte';
   import SearchField from './lib/SearchField.svelte';
-  import SettingsDialog, {
-    type SettingsTab,
-  } from './lib/SettingsDialog.svelte';
+  import SettingsDialog from './lib/SettingsDialog.svelte';
   import StatusBanners from './lib/StatusBanners.svelte';
   import Toolbar from './lib/Toolbar.svelte';
   import ViewTabs, { type ViewTab } from './lib/ViewTabs.svelte';
@@ -29,6 +25,7 @@
     visibleRuns,
     type ActivityFilter,
   } from './lib/model';
+  import { Modals } from './lib/modals.svelte';
   import { Panel } from './lib/panel.svelte';
   import { pinRequest } from './lib/pins';
   import { createShortcuts } from './lib/shortcuts';
@@ -43,14 +40,6 @@
   const accountId = $derived(panel.accountId);
   const repos = $derived(panel.repos);
 
-  type ModalKind = 'settings' | 'dispatch' | 'connect';
-  let modal = $state<ModalKind | null>(null);
-  /** Element that opened the first of possibly chained dialogs. */
-  let opener: HTMLElement | null = null;
-  let settingsTab = $state<SettingsTab>('accounts');
-  /** Login of a just-connected account whose repositories come next. */
-  let settingsConnected = $state('');
-  let dispatchSeed = $state.raw<DispatchSeed>({});
   let demoAccountConnected = $state(false);
   let tab = $state<ViewTab>('repositories');
   let query = $state('');
@@ -58,6 +47,14 @@
   let expanded = $state<number | null>(null);
   let searchField = $state<ReturnType<typeof SearchField>>();
   let toolbar = $state<ReturnType<typeof Toolbar>>();
+  const modals = new Modals((id) => {
+    if (panel.notice?.runId) panel.notice = null;
+    tab = 'activity';
+    filter = 'all';
+    query = '';
+    expanded = id;
+  });
+  const { openSettings, openDispatch } = modals;
 
   const needle = $derived(query.trim().toLowerCase());
   /** Whitespace alone filters nothing, so it is no search in any view. */
@@ -118,7 +115,7 @@
     panel.changeAccount(value);
     query = '';
     expanded = null;
-    if (modal === 'dispatch') closeModal();
+    if (modals.kind === 'dispatch') modals.close();
   }
   function connectedNative(value: Snapshot) {
     panel.viewEpoch.invalidate();
@@ -134,7 +131,7 @@
   }
   function connectedDemo(method: 'browser' | 'token') {
     demoAccountConnected = true;
-    closeModal();
+    modals.close();
     panel.showNotice(
       method === 'token'
         ? 'Demo-Token geprüft und verworfen · demo-dev ist nur simuliert verbunden.'
@@ -143,45 +140,10 @@
     void tick().then(() => toolbar?.focusPicker());
   }
 
-  /** Dialogs own only their form state; running operations outlive them. */
-  function closeModal() {
-    modal = null;
-  }
-  /** Opens or replaces the dialog; a replacement keeps the first opener. */
-  function showModal(kind: ModalKind) {
-    if (!modal)
-      opener =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-    modal = kind;
-  }
-  function openSettings(initial: SettingsTab = 'accounts', connected = '') {
-    settingsTab = initial;
-    settingsConnected = connected;
-    showModal('settings');
-  }
   /** Empty-state actions open the missing step: connect, account or repositories. */
   function openNextStep() {
-    if (native && !snapshot?.accounts.length) showModal('connect');
+    if (native && !snapshot?.accounts.length) modals.show('connect');
     else openSettings(panel.needsAccount ? 'accounts' : 'repositories');
-  }
-  function openDispatch(
-    pin?: Pin,
-    workflow?: Workflow,
-    favoriteIntent = false,
-  ) {
-    dispatchSeed = { pin, workflow, favoriteIntent };
-    showModal('dispatch');
-  }
-  /** Shows an accepted start in the full activity list. */
-  function showRun(id: number | null) {
-    closeModal();
-    if (panel.notice?.runId) panel.notice = null;
-    tab = 'activity';
-    filter = 'all';
-    query = '';
-    expanded = id;
   }
   function launchPin(pin: Pin) {
     if (pin.quickStart)
@@ -193,7 +155,7 @@
     query = '';
   }
   const shortcuts = createShortcuts({
-    blocked: () => modal !== null,
+    blocked: () => modals.kind !== null,
     refresh: () => void (canRefresh && panel.refresh()),
     selectTab,
     focusSearch: () => searchField?.focus(),
@@ -207,7 +169,7 @@
 
 <svelte:window onkeydown={shortcuts} />
 
-<main class="desktop" inert={modal !== null}>
+<main class="desktop" inert={modals.kind !== null}>
   <div class="desktop-caption" aria-hidden="true">
     <span class="caption-dot"></span> YOUR REPOS. WITHIN REACH.
   </div>
@@ -256,7 +218,7 @@
           text={panel.notice.text}
           tone={panel.notice.tone}
           actionLabel="In Aktivität anzeigen"
-          onAction={() => showRun(panel.notice?.runId ?? null)}
+          onAction={() => modals.showRun(panel.notice?.runId ?? null)}
           onDismiss={() => (panel.notice = null)}
         />
       {/if}
@@ -363,7 +325,7 @@
   </div>
 </main>
 
-{#if modal === 'settings'}
+{#if modals.kind === 'settings'}
   <SettingsDialog
     {snapshot}
     {native}
@@ -373,13 +335,13 @@
     scenario={panel.scenario}
     {updater}
     {appVersion}
-    initialTab={settingsTab}
-    connected={settingsConnected}
+    initialTab={modals.settingsTab}
+    connected={modals.settingsConnected}
     busy={panel.settingsBusy}
     saving={panel.selectionBusy}
-    returnFocus={() => opener}
-    onClose={closeModal}
-    onConnect={() => showModal('connect')}
+    returnFocus={modals.returnFocus}
+    onClose={modals.close}
+    onConnect={() => modals.show('connect')}
     onChangeAccount={changeAccount}
     onScenario={panel.changeScenario}
     onReset={panel.resetDemo}
@@ -388,32 +350,32 @@
     onRefreshAccess={panel.refreshAccess}
     onManageInstallation={panel.manageInstallation}
   />
-{:else if modal === 'connect'}
+{:else if modals.kind === 'connect'}
   <Modal
     title="GitHub verbinden"
     eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
-    returnFocus={() => opener}
-    onClose={closeModal}
+    returnFocus={modals.returnFocus}
+    onClose={modals.close}
   >
     {#if native}<NativeConnect
         accounts={snapshot?.accounts ?? []}
         activeAccountId={accountId}
         onSelectAccount={changeAccount}
         onConnected={connectedNative}
-        onClose={closeModal}
+        onClose={modals.close}
       />{:else}<ConnectPanel
         onConnected={connectedDemo}
-        onClose={closeModal}
+        onClose={modals.close}
         onSettings={() => openSettings()}
       />{/if}
   </Modal>
-{:else if modal === 'dispatch'}
+{:else if modals.kind === 'dispatch'}
   <DispatchDialog
     {panel}
-    seed={dispatchSeed}
-    returnFocus={() => opener}
-    onClose={closeModal}
-    onShowRun={showRun}
+    seed={modals.dispatchSeed}
+    returnFocus={modals.returnFocus}
+    onClose={modals.close}
+    onShowRun={modals.showRun}
     onLinkError={warn}
   />
 {/if}
