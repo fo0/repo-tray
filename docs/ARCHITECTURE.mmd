@@ -1,0 +1,130 @@
+flowchart TD
+    subgraph "Svelte Frontend"
+        AppSvelte["App.svelte panel"]
+        Components["lib Svelte components"]
+        Bridge["bridge.ts IPC bridge"]
+        DemoTs["demo.ts browser demo"]
+        ModelTs["model.ts and types.ts contract"]
+        AccountSel["accountSelection.ts"]
+        UpdatesTs["updates.ts"]
+        DemoFixture[("fixtures/demo.json")]
+    end
+
+    subgraph "Tauri Desktop Shell"
+        MainRs("main.rs desktop bin")
+        DesktopRs("desktop.rs workers, snapshots, tray")
+        TrayPopup["tray_popup.rs and windows.rs Win32"]
+        DesktopUpdates["desktop_updates.rs Tauri updater"]
+    end
+
+    subgraph "Rust Core"
+        LibRs["lib.rs repotray_core"]
+        LiveRs("live.rs live service")
+        GithubRs["github.rs REST transport"]
+        RunHistory["run_history.rs"]
+        WorkflowRs["workflow.rs dispatch YAML parsing"]
+        ModelsRs["models.rs"]
+        AuthRs["auth.rs keyring and device flow"]
+        BrowserAuth["browser_auth.rs GitHub App flow paused"]
+        LocalAuth["local_auth.rs gh CLI and GCM"]
+        CacheRs["cache.rs"]
+        PopupRs["popup.rs geometry"]
+        UpdatesRs["updates.rs release discovery"]
+        DemoRs["demo.rs"]
+    end
+
+    subgraph "External Systems"
+        GitHubApi{{"GitHub REST API"}}
+        Keyring{{"OS credential store"}}
+        SQLite[("SQLite metadata cache")]
+        Releases{{"GitHub Releases"}}
+    end
+
+    subgraph "CI and Release"
+        Checks("checks.yml")
+        ReleaseYml("release.yml")
+        ReleaseScripts["release.mjs and updater.mjs"]
+    end
+
+    AppSvelte --> Components
+    AppSvelte --> Bridge
+    AppSvelte --> AccountSel
+    AppSvelte --> ModelTs
+    AppSvelte --> UpdatesTs
+    Bridge -->|"browser mode"| DemoTs
+    DemoTs --> DemoFixture
+    DemoTs --> ModelTs
+    Bridge -->|"invoke commands and snapshot events"| DesktopRs
+
+    MainRs --> DesktopRs
+    DesktopRs --> TrayPopup
+    TrayPopup --> PopupRs
+    DesktopRs -->|"opens SQLite cache"| CacheRs
+    DesktopRs --> DesktopUpdates
+    DesktopRs -->|"worker threads"| LiveRs
+    DesktopRs --> LocalAuth
+    DesktopRs --> BrowserAuth
+    DesktopUpdates --> UpdatesRs
+    UpdatesRs -->|"stable feed and EXE URL"| Releases
+
+    LibRs --> LiveRs
+    LiveRs --> GithubRs
+    LiveRs --> RunHistory
+    LiveRs --> WorkflowRs
+    LiveRs --> CacheRs
+    LiveRs --> AuthRs
+    LiveRs --> BrowserAuth
+    RunHistory --> GithubRs
+    BrowserAuth --> AuthRs
+    BrowserAuth --> GithubRs
+    WorkflowRs --> ModelsRs
+    GithubRs --> ModelsRs
+    GithubRs -->|"ETag, rate limits, pagination"| GitHubApi
+    AuthRs -->|"tokens"| Keyring
+    LocalAuth -->|"explicit gh import"| Keyring
+    CacheRs -->|"nonsecret data"| SQLite
+
+    Checks -->|"validates"| LibRs
+    ReleaseYml --> ReleaseScripts
+    ReleaseYml -->|"publish unsigned NSIS EXE"| Releases
+
+    click AppSvelte "src/App.svelte"
+    click Components "src/lib"
+    click Bridge "src/lib/bridge.ts"
+    click DemoTs "src/lib/demo.ts"
+    click ModelTs "src/lib/model.ts"
+    click AccountSel "src/lib/accountSelection.ts"
+    click UpdatesTs "src/lib/updates.ts"
+    click DemoFixture "fixtures/demo.json"
+    click MainRs "src-tauri/src/main.rs"
+    click DesktopRs "src-tauri/src/desktop.rs"
+    click TrayPopup "src-tauri/src/tray_popup.rs"
+    click DesktopUpdates "src-tauri/src/desktop_updates.rs"
+    click LibRs "src-tauri/src/lib.rs"
+    click LiveRs "src-tauri/src/live.rs"
+    click GithubRs "src-tauri/src/github.rs"
+    click RunHistory "src-tauri/src/run_history.rs"
+    click WorkflowRs "src-tauri/src/workflow.rs"
+    click ModelsRs "src-tauri/src/models.rs"
+    click AuthRs "src-tauri/src/auth.rs"
+    click BrowserAuth "src-tauri/src/browser_auth.rs"
+    click LocalAuth "src-tauri/src/local_auth.rs"
+    click CacheRs "src-tauri/src/cache.rs"
+    click PopupRs "src-tauri/src/popup.rs"
+    click UpdatesRs "src-tauri/src/updates.rs"
+    click DemoRs "src-tauri/src/demo.rs"
+    click Checks ".github/workflows/checks.yml"
+    click ReleaseYml ".github/workflows/release.yml"
+    click ReleaseScripts "scripts/release.mjs"
+
+    classDef frontend fill:#42b883,stroke:#35495e,color:#fff
+    classDef backend fill:#3178c6,stroke:#265a8f,color:#fff
+    classDef database fill:#336791,stroke:#264d73,color:#fff
+    classDef external fill:#ff6347,stroke:#cc4f39,color:#fff
+    classDef infra fill:#7b42bc,stroke:#5e338f,color:#fff
+
+    class AppSvelte,Components,Bridge,DemoTs,ModelTs,AccountSel,UpdatesTs frontend
+    class MainRs,DesktopRs,TrayPopup,DesktopUpdates,LibRs,LiveRs,GithubRs,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,PopupRs,UpdatesRs,DemoRs backend
+    class DemoFixture,SQLite database
+    class GitHubApi,Keyring,Releases external
+    class Checks,ReleaseYml,ReleaseScripts infra
