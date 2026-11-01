@@ -69,7 +69,7 @@ Contract: `.claude/skills/orca/SKILL.md`; type table: `agent_docs/review_process
 
 ## Tech Stack
 
-TypeScript 5.9 · Svelte 5 · Vite 7 · pnpm 11.19 · Vitest 3 + Playwright · Prettier 3
+TypeScript 5.9 · Svelte 5 · Vite 7 · pnpm 11.19 · Vitest 3 + Playwright · Prettier 3 · ESLint 10
 Rust 2021 · Tauri 2 · Cargo (`src-tauri/`) · rusqlite · keyring · rustfmt + clippy
 
 ## Project Overview
@@ -79,7 +79,7 @@ Windows tray companion for GitHub Actions: watch runs, launch `workflow_dispatch
 ## Project Structure
 
 ```
-src/        Svelte panel, lib/ = components, model, IPC bridge, demo
+src/        Svelte panel, lib/ = components, controllers, IPC map, demo; styles/ = ordered CSS
 src-tauri/  Rust core crate + desktop bin, Tauri config, icons
 tests/      Playwright specs (demo + IPC mock)
 scripts/    icon generator, release/updater helpers + node:test
@@ -91,14 +91,15 @@ ci/         inactive old checks.yml — not run
 
 ## Commands
 
-From this project's own configuration, in the one order `install → format-check → lint → typecheck → build → test`; missing stages drop out. `pnpm verify` = icons:check · check · test · release:test · lint · build.
+From this project's own configuration, in the one order `install → format-check → lint → typecheck → build → test`; missing stages drop out. `pnpm verify` = lint · icons:check · check · test · release:test · build.
 
 ```bash
 pnpm install --frozen-lockfile   # install
 pnpm dev                         # dev (browser demo, :1420)
 pnpm format                      # format
-pnpm lint                        # format-check (prettier, *.md too)
-pnpm check                       # typecheck
+pnpm lint                        # format-check (prettier, *.md too) + eslint
+pnpm lint:fix                    # eslint --fix + prettier --write
+pnpm check                       # typecheck (tsconfig.app + tsconfig.node)
 pnpm build                       # build
 pnpm verify                      # + test, release:test, icons:check
 pnpm test:e2e                    # Playwright
@@ -113,9 +114,9 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features -
 
 ## Key Patterns
 
-- **IPC contract** — camelCase JSON; change both sides + demo — `src/lib/types.ts` ↔ `src-tauri/src/models.rs`, `src/lib/demo.ts`
-- **Dispatch quarantine** — claim persisted before POST, ambiguous never re-sent — `src-tauri/src/live.rs`, `cache.rs`
-- **Rust transport** — serialized queue, ETag, backoff, `api.github.com` only — `src-tauri/src/github.rs`
+- **IPC contract** — camelCase JSON; change both sides + demo; only `src/lib/ipc.ts` calls the shell — `src/lib/types.ts` ↔ `src-tauri/src/models.rs`, `src/lib/demo.ts`
+- **Dispatch quarantine** — claim persisted before POST, ambiguous never re-sent, released only by explicit user confirmation — `src-tauri/src/live/dispatch.rs`, `cache.rs`
+- **Rust transport** — serialized queue, ETag, backoff, `api.github.com` only — `src-tauri/src/github/client.rs`, `github.rs`
 
 ## Coding Conventions
 
@@ -148,7 +149,7 @@ Never committed — local `.env` (gitignored), CI secret store, runtime tokens i
 
 ## API / Interfaces
 
-Internal Tauri IPC only; consumes GitHub REST `2026-03-10`. Reference: `src/lib/bridge.ts`, `src/lib/types.ts`.
+Internal Tauri IPC only; consumes GitHub REST `2026-03-10`. Reference: `src/lib/ipc.ts`, `src/lib/bridge.ts`, `src/lib/types.ts`.
 
 ## Testing
 

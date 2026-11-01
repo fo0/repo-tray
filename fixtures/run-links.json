@@ -1,0 +1,246 @@
+[
+  {
+    "input": "https://github.com/demo-dev/example/actions/runs/123",
+    "expected": "https://github.com/demo-dev/example/actions/runs/123"
+  },
+  {
+    "input": "https://github.com/Owner-1/repo_name.js/actions/runs/42",
+    "expected": "https://github.com/Owner-1/repo_name.js/actions/runs/42"
+  },
+  {
+    "input": "https://github.com/a/.github/actions/runs/1",
+    "expected": "https://github.com/a/.github/actions/runs/1"
+  },
+  {
+    "input": "https://github.com/a/b..c/actions/runs/1",
+    "expected": "https://github.com/a/b..c/actions/runs/1"
+  },
+  {
+    "input": "https://github.com/oooooooooooooooooooooooooooooooooooooo9/rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr./actions/runs/1",
+    "expected": "https://github.com/oooooooooooooooooooooooooooooooooooooo9/rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr./actions/runs/1"
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/007",
+    "expected": "https://github.com/a/b/actions/runs/007"
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/18446744073709551615",
+    "expected": "https://github.com/a/b/actions/runs/18446744073709551615"
+  },
+  {
+    "input": "https://GitHub.com:443/a/b/actions/runs/1",
+    "expected": "https://github.com/a/b/actions/runs/1"
+  },
+  {
+    "input": "https://github.com/x/../a/b/actions/runs/1",
+    "expected": "https://github.com/a/b/actions/runs/1"
+  },
+  {
+    "input": "https://github.com/a/./b/actions/runs/1",
+    "expected": "https://github.com/a/b/actions/runs/1"
+  },
+  {
+    "input": "  https://github.com/a/b/actions/runs/1  ",
+    "expected": "https://github.com/a/b/actions/runs/1"
+  },
+  {
+    "input": "\thttps://github.com/a/b/act\tions/ru\nns/1\r\n",
+    "expected": "https://github.com/a/b/actions/runs/1"
+  },
+  {
+    "input": "\u0000https://github.com/a/b/actions/runs/1\u001f",
+    "expected": "https://github.com/a/b/actions/runs/1"
+  },
+  {
+    "input": "https://github.com\\a\\b\\actions\\runs\\1",
+    "expected": "https://github.com/a/b/actions/runs/1"
+  },
+  {
+    "input": "",
+    "expected": null
+  },
+  {
+    "input": "javascript:alert(1)",
+    "expected": null
+  },
+  {
+    "input": "https://github.com.evil.test/a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com./a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://api.github.com/a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://user:password@github.com/a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://user@github.com/a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://:password@github.com/a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "http://github.com/a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com:444/a/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/settings",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1?check_suite_focus=true",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1?",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1#summary",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1#",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1/",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1/attempts/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1/..x",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/c/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/Actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/run/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/+7",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/+",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/-1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1e3",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/12a",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1;x",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/%31",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/ 1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/1%00",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/18446744073709551616",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b/actions/runs/000000000000000000001",
+    "expected": null
+  },
+  {
+    "input": "https://github.com//b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a//actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a%2Fb/c/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b%20c/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b%C3%A4/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/ä/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a_b/c/actions/runs/1",
+    "expected": "https://github.com/a_b/c/actions/runs/1"
+  },
+  {
+    "input": "https://github.com/jdoe_fixture/tools/actions/runs/42",
+    "expected": "https://github.com/jdoe_fixture/tools/actions/runs/42"
+  },
+  {
+    "input": "https://github.com/a.b/c/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/b c/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/%2e%2e/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/oooooooooooooooooooooooooooooooooooooo9x/b/actions/runs/1",
+    "expected": null
+  },
+  {
+    "input": "https://github.com/a/rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr.x/actions/runs/1",
+    "expected": null
+  }
+]

@@ -1,0 +1,74 @@
+.pin-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.pin-title-line h3 {
+  flex: 1;
+  min-width: 0;
+}
+.pin-title-line > .pin-ref {
+  flex-shrink: 0;
+  max-width: 45%;
+  line-height: 12px;
+}
+.notice-banner {
+  align-items: center;
+}
+.notice-banner > svg {
+  margin-top: 0;
+}
+.notice-banner > .icon-button {
+  align-self: center;
+}
+
+.active-account-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-right: 12px;
+  color: #bccfaa;
+  font-size: var(--font-size-meta);
+  line-height: 1.5;
+}
+.active-account-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.active-account-status > svg {
+  flex-shrink: 0;
+}
+.active-account-settings {
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #34432b;
+}
+.active-account-settings h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.active-account-settings p {
+  margin: 8px 0 12px;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+  color: #a2b493;
+}
+.active-account-settings select {
+  width: 100%;
+  min-height: 36px;
+}
+.active-account-settings .account-selection-notice {
+  color: #d5c996;
+}
+
+.account-semantics {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+
+.installation-access > .field-help {
+  margin: 8px 0 12px;
+}

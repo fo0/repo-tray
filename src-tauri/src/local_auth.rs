@@ -1,7 +1,7 @@
 //! Explicit, read-only local account discovery. No startup credential reads, shell, or login.
 //! Only gh has a supported API token adapter. GCM's Git helper is deliberately not invoked.
-use crate::{auth::SecretToken, workflow::looks_like_credential};
-use serde::{Deserialize, Serialize};
+use crate::auth::SecretToken;
+use serde::Serialize;
 use std::{
     io::Read,
     path::{Path, PathBuf},
@@ -9,6 +9,10 @@ use std::{
     sync::mpsc,
     time::{Duration, Instant},
 };
+
+mod gh;
+
+use gh::{gh_help, gh_status, valid_login};
 
 const LIMIT: u64 = 64 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(20);
@@ -358,138 +362,6 @@ fn safe_executable(path: PathBuf, cwd: &Path) -> Option<PathBuf> {
     Some(real)
 }
 
-// New gh versions can rotate expiring credentials; suppress that whenever supported.
-// Older versions lack the flag and read stored tokens without automatic refresh.
-fn gh_help(
-    program: &Path,
-    command: &str,
-    runner: &dyn Runner,
-    current: &dyn Fn() -> bool,
-) -> Result<String, String> {
-    let output = runner.run(program, &["auth", command, "--help"], current)?;
-    if !output.success {
-        return Err(FAILED.into());
-    }
-    std::str::from_utf8(&output.bytes)
-        .map(str::to_owned)
-        .map_err(|_| FAILED.into())
-}
-
-fn gh_status(
-    program: &Path,
-    runner: &dyn Runner,
-    current: &dyn Fn() -> bool,
-) -> Result<(Vec<LocalAccount>, bool), String> {
-    let help = gh_help(program, "status", runner, current)?;
-    if help.contains("--json") {
-        let mut args = vec![
-            "auth",
-            "status",
-            "--hostname",
-            "github.com",
-            "--json",
-            "hosts",
-        ];
-        if help.contains("--no-refresh") {
-            args.push("--no-refresh");
-        }
-        let output = runner.run(program, &args, current)?;
-        if !output.success {
-            return Err(FAILED.into());
-        }
-        Ok((gh_accounts(&output.bytes)?, false))
-    } else {
-        if help.contains("--no-refresh") {
-            return Err("Diese gh-Version stellt keinen kompatiblen Kontostatus bereit. Aktualisiere die GitHub CLI.".into());
-        }
-        // Legacy gh lacks structured auth status. Ask its read-only /user endpoint for
-        // the active identity instead of parsing human output or reading credential files.
-        let output = runner.run(
-            program,
-            &["api", "--hostname", "github.com", "user", "--jq", ".login"],
-            current,
-        )?;
-        if !output.success {
-            return Err(FAILED.into());
-        }
-        let login = std::str::from_utf8(&output.bytes)
-            .map_err(|_| FAILED)?
-            .trim();
-        if !valid_login(login) {
-            return Err(FAILED.into());
-        }
-        Ok((vec![LocalAccount {
-            source: "gh".into(), host: "github.com".into(), login: login.into(), usable: true, active: true,
-            detail: "Aktives gh-Konto über GitHub bestätigt. Noch nicht mit RepoTray verbunden.".into(),
-            actions_read: "Scopes nicht auslesbar; Actions lesen pro Repository ungeprüft.".into(),
-            actions_write: "Actions starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
-        }], true))
-    }
-}
-
-fn valid_login(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 39
-        && !value.starts_with('-')
-        && !value.ends_with('-')
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
-        && !looks_like_credential(value)
-}
-#[derive(Deserialize)]
-struct GhStatus {
-    hosts: std::collections::BTreeMap<String, Vec<GhAccount>>,
-}
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GhAccount {
-    host: String,
-    login: String,
-    state: String,
-    #[serde(default)]
-    active: bool,
-    #[serde(default)]
-    scopes: String,
-    #[serde(default)]
-    token_source: String,
-}
-fn gh_accounts(bytes: &[u8]) -> Result<Vec<LocalAccount>, String> {
-    let status: GhStatus = serde_json::from_slice(bytes).map_err(|_| FAILED)?;
-    let mut accounts = Vec::new();
-    for account in status
-        .hosts
-        .get("github.com")
-        .into_iter()
-        .flatten()
-        .take(50)
-    {
-        if account.host != "github.com" || !valid_login(&account.login) {
-            continue;
-        }
-        let usable = account.state == "success"
-            && !account
-                .token_source
-                .to_ascii_uppercase()
-                .ends_with("_TOKEN");
-        let scopes: Vec<_> = account
-            .scopes
-            .split([',', ' ', '\''])
-            .filter(|s| !s.is_empty())
-            .collect();
-        let repo = scopes.contains(&"repo");
-        accounts.push(LocalAccount {
-            source: "gh".into(), host: account.host.clone(), login: account.login.clone(), active: account.active, usable,
-            detail: if usable { "GitHub-API-Anmeldung bestätigt · bevorzugte Quelle" } else { "Anmeldung ungültig, abgelaufen oder keine gespeicherte lokale Anmeldung" }.into(),
-            actions_read: if repo { "Scope repo vorhanden; private Actions grundsätzlich abgedeckt. Repository-/Org-Zugriff noch ungeprüft." } else if account.scopes.is_empty() { "Scopes nicht auslesbar; Actions lesen pro Repository ungeprüft." } else { "Scope repo fehlt; Zugriff auf private Actions nicht belegt. Feinere Rechte pro Repository ungeprüft." }.into(),
-            actions_write: "Actions starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
-        });
-    }
-    accounts.sort_by(|a, b| a.login.cmp(&b.login));
-    accounts.dedup_by(|a, b| a.login == b.login);
-    Ok(accounts)
-}
-
 pub fn discover(
     programs: &Programs,
     runner: &dyn Runner,
@@ -547,15 +419,14 @@ pub fn discover(
                 {
                     result.accounts.push(LocalAccount { source: "gcm".into(), host: "github.com".into(), login: login.into(), usable: false, active: false,
                         detail: "Git Credential Manager: gespeichertes Git-Konto; API-Übernahme hier nicht unterstützt.".into(),
-                        actions_read: "Git-Anmeldung belegt keine Actions-API-Rechte.".into(), actions_write: "Actions starten: nicht nachgewiesen.".into() });
+                        actions_read: "Git-Anmeldung belegt keine API-Rechte für Workflows.".into(), actions_write: "Workflows starten: nicht nachgewiesen.".into() });
                 }
                 result.notices.push(if result.accounts.len() == before {
-                    "GCM erkannt; keine lesbaren Account-Namen verfügbar. Keine API-Anmeldung nachgewiesen. Nutze gh CLI oder einen API-Token."
-                } else { "GCM erkannt. Nur Account-Namen geprüft; Git-Credentials werden nicht exportiert. Nutze gh CLI oder einen API-Token." }.into());
+                    "GCM erkannt; keine lesbaren Kontonamen verfügbar. Keine API-Anmeldung nachgewiesen. Nutze gh CLI oder einen API-Token."
+                } else { "GCM erkannt. Nur Kontonamen geprüft; Git-Credentials werden nicht exportiert. Nutze gh CLI oder einen API-Token." }.into());
             }
             _ => result.notices.push(
-                "GCM erkannt; Account-Liste nicht verfügbar. Keine API-Anmeldung nachgewiesen."
-                    .into(),
+                "GCM erkannt; Kontoliste nicht verfügbar. Keine API-Anmeldung nachgewiesen.".into(),
             ),
         }
     } else {
@@ -578,7 +449,10 @@ pub fn selected_token(
     current: &dyn Fn() -> bool,
 ) -> Result<SecretToken, String> {
     if !valid_login(login) {
-        return Err("Lokales Konto ungültig.".into());
+        return Err(
+            "Lokales Konto ungültig. Suche erneut nach gh-Konten und wähle eines aus der Liste."
+                .into(),
+        );
     }
     if !current() {
         return Err(CANCELLED.into());
@@ -589,7 +463,7 @@ pub fn selected_token(
         .iter()
         .any(|a| a.login == login && a.usable)
     {
-        return Err("Gewählte lokale Anmeldung ist nicht mehr verfügbar. Erneut prüfen.".into());
+        return Err("Gewählte lokale Anmeldung ist nicht mehr verfügbar. Prüfe die lokalen Anmeldungen erneut.".into());
     }
     if !current() {
         return Err(CANCELLED.into());
@@ -624,421 +498,4 @@ pub fn selected_token(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Mutex;
-    const FIXTURE: &[u8] = include_bytes!("../../fixtures/local-auth.json");
-    struct Mock {
-        calls: Mutex<Vec<Vec<String>>>,
-        success: bool,
-    }
-    impl Runner for Mock {
-        fn run(&self, _: &Path, args: &[&str], _: &dyn Fn() -> bool) -> Result<Output, String> {
-            self.calls
-                .lock()
-                .unwrap()
-                .push(args.iter().map(|s| s.to_string()).collect());
-            Ok(Output {
-                success: self.success,
-                stderr: Vec::new(),
-                bytes: match (args.get(1), args.last()) {
-                    (Some(&"status"), Some(&"--help")) => b"--json --no-refresh".to_vec(),
-                    (Some(&"token"), Some(&"--help")) => b"--user --no-refresh".to_vec(),
-                    (Some(&"status"), _) => FIXTURE.to_vec(),
-                    (Some(&"token"), _) => b"fixture-value\r\n".to_vec(),
-                    _ => b"fixture-gcm\ninvalid diagnostic with spaces\n--bad\n".to_vec(),
-                },
-            })
-        }
-    }
-    fn mock(success: bool) -> Mock {
-        Mock {
-            calls: Mutex::new(Vec::new()),
-            success,
-        }
-    }
-    fn programs() -> Programs {
-        Programs {
-            gh: Some("/fixtures/gh.exe".into()),
-            gcm: Some("/fixtures/gcm.exe".into()),
-            git: Some("/fixtures/git.exe".into()),
-        }
-    }
-
-    struct CompatibleGh {
-        json: bool,
-        calls: Mutex<Vec<Vec<String>>>,
-    }
-    impl Runner for CompatibleGh {
-        fn run(&self, _: &Path, args: &[&str], _: &dyn Fn() -> bool) -> Result<Output, String> {
-            self.calls
-                .lock()
-                .unwrap()
-                .push(args.iter().map(|arg| (*arg).into()).collect());
-            // Model older official gh: unsupported flags are errors, not silently accepted.
-            assert!(!args.contains(&"--no-refresh"));
-            let bytes = if args == ["auth", "status", "--help"] {
-                if self.json {
-                    b"--hostname --json".to_vec()
-                } else {
-                    b"--hostname --show-token".to_vec()
-                }
-            } else if args == ["auth", "token", "--help"] {
-                b"--hostname --user".to_vec()
-            } else if args.first() == Some(&"api") {
-                assert_eq!(
-                    args,
-                    ["api", "--hostname", "github.com", "user", "--jq", ".login"]
-                );
-                b"fixture-sam\n".to_vec()
-            } else if args.get(1) == Some(&"status") {
-                assert!(self.json);
-                FIXTURE.to_vec()
-            } else {
-                assert_eq!(
-                    args,
-                    [
-                        "auth",
-                        "token",
-                        "--hostname",
-                        "github.com",
-                        "--user",
-                        "fixture-sam"
-                    ]
-                );
-                b"fixture-legacy-token\n".to_vec()
-            };
-            Ok(Output {
-                success: true,
-                bytes,
-                stderr: Vec::new(),
-            })
-        }
-    }
-
-    #[test]
-    fn json_capable_older_gh_does_not_receive_unsupported_refresh_flags() {
-        let runner = CompatibleGh {
-            json: true,
-            calls: Mutex::new(Vec::new()),
-        };
-        let programs = Programs {
-            gh: programs().gh,
-            ..Programs::default()
-        };
-        let result = discover(&programs, &runner, &|| true).unwrap();
-        assert_eq!(
-            result
-                .accounts
-                .iter()
-                .filter(|account| account.usable)
-                .count(),
-            3
-        );
-        assert!(!runner
-            .calls
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|args| args.get(1).is_some_and(|arg| arg == "token")));
-        let token = selected_token(&programs, &runner, "fixture-sam", &|| true).unwrap();
-        token.with_secret(|token| assert_eq!(token, "fixture-legacy-token"));
-    }
-
-    #[test]
-    fn legacy_gh_without_json_exposes_only_its_verified_active_account() {
-        let runner = CompatibleGh {
-            json: false,
-            calls: Mutex::new(Vec::new()),
-        };
-        let programs = Programs {
-            gh: programs().gh,
-            ..Programs::default()
-        };
-        let result = discover(&programs, &runner, &|| true).unwrap();
-        assert_eq!(result.accounts.len(), 1);
-        assert_eq!(result.accounts[0].login, "fixture-sam");
-        assert!(result.accounts[0].usable && result.accounts[0].active);
-        assert!(result
-            .notices
-            .iter()
-            .any(|notice| notice.contains("nur das dort aktive Konto")));
-        assert!(!runner
-            .calls
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|args| args.get(1).is_some_and(|arg| arg == "token")));
-        selected_token(&programs, &runner, "fixture-sam", &|| true).unwrap();
-        assert!(selected_token(&programs, &runner, "fixture-alex", &|| true).is_err());
-    }
-
-    #[test]
-    fn a_configuration_path_containing_token_is_still_a_stored_credential() {
-        let fixture = String::from_utf8(FIXTURE.to_vec()).unwrap().replace(
-            "keyring",
-            "C:/Users/token-user/AppData/Roaming/GitHub CLI/hosts.yml",
-        );
-        let accounts = gh_accounts(fixture.as_bytes()).unwrap();
-        assert!(
-            accounts
-                .iter()
-                .find(|account| account.login == "fixture-alex")
-                .unwrap()
-                .usable
-        );
-        assert!(
-            !accounts
-                .iter()
-                .find(|account| account.login == "fixture-ci")
-                .unwrap()
-                .usable
-        );
-    }
-
-    #[test]
-    fn windows_discovery_finds_scoop_winget_and_absolute_path_but_rejects_project_binaries() {
-        use std::{collections::BTreeMap, ffi::OsString};
-        let root = std::env::temp_dir().join(format!("repotray-cli-paths-{}", std::process::id()));
-        std::fs::create_dir_all(&root).unwrap();
-        struct Cleanup(PathBuf);
-        impl Drop for Cleanup {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-        let _cleanup = Cleanup(root.clone());
-        let cwd = root.join("cwd");
-        std::fs::create_dir_all(&cwd).unwrap();
-        let installed = |suffix: &str| {
-            let path = root.join(suffix);
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(&path, b"synthetic executable; never run").unwrap();
-            path.canonicalize().unwrap()
-        };
-        let mut env = BTreeMap::<String, OsString>::new();
-        env.insert("USERPROFILE".into(), root.join("user").into());
-        let scoop = installed("user/scoop/apps/gh/current/bin/gh.exe");
-        assert_eq!(
-            windows_programs(|name| env.get(name).cloned(), &cwd).gh,
-            Some(scoop)
-        );
-        env.clear();
-        env.insert("LOCALAPPDATA".into(), root.join("local").into());
-        let winget = installed("local/Microsoft/WinGet/Links/gh.exe");
-        assert_eq!(
-            windows_programs(|name| env.get(name).cloned(), &cwd).gh,
-            Some(winget)
-        );
-        env.clear();
-        let project = installed("project/bin/gh.exe");
-        std::fs::create_dir_all(root.join("project/.git")).unwrap();
-        std::fs::write(root.join("project/.git/HEAD"), "ref: refs/heads/main").unwrap();
-        let custom = installed("custom/bin/gh.exe");
-        installed("cwd/gh.exe");
-        env.insert(
-            "PATH".into(),
-            std::env::join_paths([
-                PathBuf::from("relative"),
-                cwd.clone(),
-                project.parent().unwrap().into(),
-                custom.parent().unwrap().into(),
-            ])
-            .unwrap(),
-        );
-        assert_eq!(
-            windows_programs(|name| env.get(name).cloned(), &cwd).gh,
-            Some(custom)
-        );
-        assert!(safe_executable(project, &cwd).is_none());
-        assert!(safe_executable(root.join("cwd/gh.exe"), &cwd).is_none());
-    }
-
-    #[test]
-    fn discovers_accounts_without_claiming_git_or_push_is_api_authorization() {
-        let runner = mock(true);
-        let result = discover(&programs(), &runner, &|| true).unwrap();
-        assert_eq!(result.accounts.iter().filter(|a| a.usable).count(), 3);
-        let alex = result
-            .accounts
-            .iter()
-            .find(|a| a.login == "fixture-alex")
-            .unwrap();
-        assert!(alex.actions_read.contains("repo vorhanden"));
-        assert!(alex.actions_write.contains("ungeprüft"));
-        assert!(result
-            .accounts
-            .iter()
-            .find(|a| a.login == "fixture-sam")
-            .unwrap()
-            .actions_read
-            .contains("nicht auslesbar"));
-        assert!(result
-            .accounts
-            .iter()
-            .find(|a| a.login == "fixture-public")
-            .unwrap()
-            .actions_read
-            .contains("repo fehlt"));
-        assert!(
-            !result
-                .accounts
-                .iter()
-                .find(|a| a.login == "fixture-expired")
-                .unwrap()
-                .usable
-        );
-        assert!(
-            !result
-                .accounts
-                .iter()
-                .find(|a| a.login == "fixture-ci")
-                .unwrap()
-                .usable
-        );
-        assert!(
-            !result
-                .accounts
-                .iter()
-                .find(|a| a.source == "gcm")
-                .unwrap()
-                .usable
-        );
-        let json = serde_json::to_string(&result).unwrap();
-        assert!(!json.contains("untrusted diagnostic"));
-        assert!(!json.contains("GH_TOKEN"));
-        assert!(!json.contains("--malicious"));
-        assert!(!json.contains("enterprise.example"));
-        let calls = runner.calls.lock().unwrap();
-        assert_eq!(calls.len(), 3);
-        assert!(calls[1].iter().any(|a| a == "--no-refresh"));
-        assert!(!calls
-            .iter()
-            .flatten()
-            .any(|a| ["token", "get", "fill", "login", "switch", "refresh"].contains(&a.as_str())));
-    }
-    #[test]
-    fn missing_and_unsupported_sources_fail_honestly_without_fallback() {
-        let runner = mock(false);
-        let empty = discover(&Programs::default(), &runner, &|| true).unwrap();
-        assert!(empty.accounts.is_empty());
-        assert!(runner.calls.lock().unwrap().is_empty());
-        let failed = discover(&programs(), &runner, &|| true).unwrap();
-        assert!(failed.accounts.is_empty());
-        assert!(failed.notices.iter().any(|n| n.contains("gh auth status")));
-    }
-    #[test]
-    fn only_explicit_valid_account_gets_an_exact_non_refreshing_token_request() {
-        let runner = mock(true);
-        let token = selected_token(&programs(), &runner, "fixture-sam", &|| true).unwrap();
-        token.with_secret(|value| assert_eq!(value, "fixture-value"));
-        let calls = runner.calls.lock().unwrap();
-        assert_eq!(
-            calls.last().unwrap(),
-            &[
-                "auth",
-                "token",
-                "--hostname",
-                "github.com",
-                "--user",
-                "fixture-sam",
-                "--no-refresh"
-            ]
-        );
-        assert!(!format!("{token:?}").contains("fixture-value"));
-    }
-    #[test]
-    fn selection_tampering_and_cancel_never_read_credentials() {
-        let runner = mock(true);
-        for login in [
-            "--help",
-            "a;whoami",
-            "a\nb",
-            "fixture-gcm",
-            "fixture-expired",
-            "fixture-ci",
-            "unknown",
-        ] {
-            assert!(selected_token(&programs(), &runner, login, &|| true).is_err());
-        }
-        assert!(!runner
-            .calls
-            .lock()
-            .unwrap()
-            .iter()
-            .flatten()
-            .any(|arg| arg == "token"));
-        let before = runner.calls.lock().unwrap().len();
-        assert!(selected_token(&programs(), &runner, "fixture-sam", &|| false).is_err());
-        assert_eq!(runner.calls.lock().unwrap().len(), before);
-    }
-    #[test]
-    fn gcm_v3_metadata_on_stderr_is_filtered_and_never_returned_as_a_diagnostic() {
-        struct V3;
-        impl Runner for V3 {
-            fn run(&self, _: &Path, _: &[&str], _: &dyn Fn() -> bool) -> Result<Output, String> {
-                Ok(Output {
-                    success: true,
-                    bytes: Vec::new(),
-                    stderr: b"fixture-gcm-v3\nwarning: private diagnostic\nnot-an-account!\n"
-                        .to_vec(),
-                })
-            }
-        }
-        let result = discover(
-            &Programs {
-                gcm: Some("/fixtures/gcm.exe".into()),
-                ..Programs::default()
-            },
-            &V3,
-            &|| true,
-        )
-        .unwrap();
-        assert_eq!(result.accounts.len(), 1);
-        assert_eq!(result.accounts[0].login, "fixture-gcm-v3");
-        assert!(!result.accounts[0].usable);
-        let json = serde_json::to_string(&result).unwrap();
-        assert!(!json.contains("private diagnostic"));
-        assert!(!json.contains("not-an-account!"));
-    }
-    #[cfg(unix)]
-    #[test]
-    fn mock_processes_bound_time_output_and_stderr_without_inheriting_auth() {
-        // Executes only synthetic programs. Never invokes the developer machine's gh/Git/GCM.
-        let python = Path::new("/usr/bin/python3");
-        let out = run_process(python, &["-c", "import os,sys; assert 'GH_TOKEN' not in os.environ and 'GITHUB_TOKEN' not in os.environ and 'GH_DEBUG' not in os.environ; print('fixture-output'); print('private-diagnostic',file=sys.stderr)"], &|| true, Duration::from_secs(2)).unwrap();
-        assert_eq!(out.bytes, b"fixture-output\n");
-        assert!(!out.bytes.windows(7).any(|v| v == b"private"));
-        assert!(run_process(
-            python,
-            &["-c", "print('x'*70000)"],
-            &|| true,
-            Duration::from_secs(2)
-        )
-        .is_err());
-        assert!(run_process(
-            python,
-            &["-c", "import sys; sys.stderr.write('x'*70000)"],
-            &|| true,
-            Duration::from_secs(2)
-        )
-        .is_err());
-        let start = Instant::now();
-        assert!(run_process(
-            python,
-            &["-c", "import time; time.sleep(10)"],
-            &|| true,
-            Duration::from_millis(80)
-        )
-        .is_err());
-        assert!(start.elapsed() < Duration::from_secs(2));
-        assert!(run_process(
-            python,
-            &["-c", "import time; time.sleep(10)"],
-            &|| start.elapsed() < Duration::from_millis(180),
-            Duration::from_secs(2)
-        )
-        .is_err());
-        assert!(run_process(Path::new("gh.exe"), &[], &|| true, TIMEOUT).is_err());
-    }
-}
+mod tests;

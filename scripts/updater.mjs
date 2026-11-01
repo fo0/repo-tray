@@ -2,6 +2,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { versionFromTag } from './release.mjs';
 
+/**
+ * @template {{ plugins?: { updater?: object }; [key: string]: unknown }} T
+ * @param {string | undefined} publicKey
+ * @param {T} releaseConfig
+ */
 export function updaterConfig(publicKey, releaseConfig) {
   if (!publicKey?.trim())
     throw new Error(
@@ -11,8 +16,8 @@ export function updaterConfig(publicKey, releaseConfig) {
   const lines = decoded.trim().split(/\r?\n/);
   if (
     lines.length !== 2 ||
-    !lines[0].startsWith('untrusted comment:') ||
-    Buffer.from(lines[1], 'base64').length !== 42
+    !lines[0]?.startsWith('untrusted comment:') ||
+    Buffer.from(lines[1] ?? '', 'base64').length !== 42
   )
     throw new Error(
       'Expected the contents of the Tauri .pub file, not its path',
@@ -26,6 +31,12 @@ export function updaterConfig(publicKey, releaseConfig) {
   };
 }
 
+/**
+ * @param {string} version
+ * @param {string} signature
+ * @param {string} notes
+ * @param {string} date
+ */
 export function updaterManifest(version, signature, notes, date) {
   versionFromTag(`v${version}`);
   const published = new Date(date);
@@ -58,22 +69,28 @@ export function updaterManifest(version, signature, notes, date) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, ...args] = process.argv.slice(2);
+  /** @param {number} index */
+  const arg = (index) => {
+    const value = args[index];
+    if (value === undefined)
+      throw new Error('Missing updater command argument');
+    return value;
+  };
   if (command === 'config') {
     const config = updaterConfig(
       process.env.REPOTRAY_UPDATER_PUBLIC_KEY,
       JSON.parse(readFileSync('src-tauri/tauri.release.conf.json', 'utf8')),
     );
-    writeFileSync(args[0], JSON.stringify(config, null, 2) + '\n');
+    writeFileSync(arg(0), JSON.stringify(config, null, 2) + '\n');
   } else if (command === 'manifest') {
-    const [version, signaturePath, notesPath, date, output] = args;
     writeFileSync(
-      output,
+      arg(4),
       JSON.stringify(
         updaterManifest(
-          version,
-          readFileSync(signaturePath, 'utf8'),
-          readFileSync(notesPath, 'utf8'),
-          date,
+          arg(0),
+          readFileSync(arg(1), 'utf8'),
+          readFileSync(arg(2), 'utf8'),
+          arg(3),
         ),
         null,
         2,

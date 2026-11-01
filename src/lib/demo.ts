@@ -1,13 +1,15 @@
 import fixture from '../../fixtures/demo.json';
-import { safePin, validateDispatch } from './model';
+import { safePin, targetKey, validateDispatch } from './model';
 import type {
   DemoScenario,
   DispatchOutcome,
   DispatchRequest,
   Pin,
   Snapshot,
+  UncertainStart,
 } from './types';
 
+/** The snapshot and start commands both the native shell and the demo serve. */
 export interface Bridge {
   snapshot(): Promise<Snapshot>;
   refreshSnapshot(): Promise<Snapshot>;
@@ -15,6 +17,11 @@ export interface Bridge {
   savePin(pin: Pin): Promise<Snapshot>;
   deletePin(pinId: string): Promise<Snapshot>;
   dispatchWorkflow(request: DispatchRequest): Promise<DispatchOutcome>;
+  /** Explicit user action after checking GitHub; releases exactly this claim, never dispatches. */
+  releaseUncertainStart(start: UncertainStart): Promise<Snapshot>;
+}
+/** Demo-only controls; the native shell registers no matching command. */
+export interface DemoControls {
   setDemoScenario(scenario: DemoScenario): Promise<Snapshot>;
   resetDemo(): Promise<Snapshot>;
 }
@@ -25,13 +32,6 @@ export interface PreferenceStorage {
 }
 export const PREFERENCE_KEY = 'repotray.demo.preferences.v1';
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-const targetKey = (request: DispatchRequest) =>
-  JSON.stringify([
-    request.accountId,
-    request.repoId,
-    request.workflowId,
-    request.ref,
-  ]);
 const fingerprint = (request: DispatchRequest) =>
   JSON.stringify([
     targetKey(request),
@@ -41,13 +41,13 @@ const fingerprint = (request: DispatchRequest) =>
 export function createDemoBridge(
   storage?: PreferenceStorage,
   latency = 300,
-): Bridge {
+): Bridge & DemoControls {
   let data = copy(fixture) as Snapshot;
   let scenario: DemoScenario = 'normal';
   let nextRun = 9000;
   let generation = 0;
   const pending = new Set<string>();
-  const uncertain = new Set<string>();
+  const uncertain = new Map<string, UncertainStart>();
   const claims = new Map<string, string>();
   const outcomes = new Map<string, DispatchOutcome>();
   const simulated = new Map<number, number>();
@@ -119,6 +119,7 @@ export function createDemoBridge(
             ? 'forbidden'
             : 'online',
       stale: scenario === 'offline',
+      uncertainStarts: [...uncertain.values()],
       message:
         scenario === 'offline'
           ? 'Offline: Letzter Demo-Stand bleibt sichtbar. Es wurde nichts gestartet.'
@@ -167,7 +168,7 @@ export function createDemoBridge(
       const claim = claims.get(request.requestId);
       if (claim && claim !== signature)
         return reject(
-          'Diese Anfrage-ID wurde bereits mit anderen Parametern verwendet.',
+          'Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet.',
         );
       const previous = outcomes.get(request.requestId);
       if (previous) return copy(previous);
@@ -177,10 +178,12 @@ export function createDemoBridge(
         return {
           state: 'uncertain',
           message:
-            'Der letzte Start dieses Ziels ist ungeklärt. Kein erneuter Start. Prüfe zuerst den Status; zum erneuten Testen Demo zurücksetzen.',
+            'Demo: Der letzte Start für diesen Workflow und Branch ist unbestätigt und wurde nicht erneut gesendet. Setze die Demo zurück, um erneut zu testen.',
         };
       if (pending.has(key))
-        return reject('Ein Start für dieses Ziel wird bereits verarbeitet.');
+        return reject(
+          'Ein Start für diesen Workflow und Branch wird bereits verarbeitet.',
+        );
       claims.set(request.requestId, signature);
       pending.add(key);
       const ticket = generation;
@@ -194,14 +197,21 @@ export function createDemoBridge(
           return reject('Offline: Kein simulierter Start möglich.');
         if (scenario === 'forbidden')
           return reject(
-            'Zugriff verweigert: Actions-Schreibberechtigung fehlt.',
+            'Zugriff verweigert: Die Token-Berechtigung „Actions: Lesen und Schreiben“ fehlt.',
           );
         if (scenario === 'uncertain') {
-          uncertain.add(key);
+          const { accountId, repoId, workflowId, ref } = request;
+          uncertain.set(key, {
+            accountId,
+            repoId,
+            workflowId,
+            ref,
+            claimedAt: new Date().toISOString(),
+          });
           const outcome: DispatchOutcome = {
             state: 'uncertain',
             message:
-              'Demo: Antwort unterbrochen. Annahme unbestätigt. Dieses Ziel bleibt gegen einen erneuten Start gesperrt. Prüfe den Status.',
+              'Demo: Antwort unterbrochen. Der Start ist unbestätigt und läuft eventuell bereits. Ein erneuter Start für diesen Workflow und Branch bleibt gesperrt.',
           };
           outcomes.set(request.requestId, outcome);
           return copy(outcome);
@@ -235,6 +245,16 @@ export function createDemoBridge(
       } finally {
         if (ticket === generation) pending.delete(key);
       }
+    },
+    async releaseUncertainStart(start) {
+      const key = targetKey(start);
+      const current = uncertain.get(key);
+      if (current && current.claimedAt !== start.claimedAt)
+        throw new Error(
+          'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.',
+        );
+      uncertain.delete(key);
+      return snapshot();
     },
     async setDemoScenario(next) {
       scenario = next;

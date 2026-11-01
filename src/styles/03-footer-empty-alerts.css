@@ -1,0 +1,118 @@
+.app-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 11px 21px;
+  border-top: 1px solid #30382d;
+  background: #1c221a;
+  color: #87967b;
+  font-size: var(--font-size-meta);
+}
+.app-footer > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.footer-dot {
+  width: 4px;
+  height: 4px;
+  background: #92ae76;
+}
+.app-footer > button {
+  font-size: var(--font-size-meta);
+  color: var(--muted-text);
+  background: transparent;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin: -10px -8px;
+}
+.desktop-footnote {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: var(--font-size-meta);
+  letter-spacing: 2px;
+  color: #485541;
+  margin-top: 18px;
+}
+.tiny-line {
+  width: 19px;
+  height: 1px;
+  background: #34402e;
+}
+.empty-state {
+  text-align: center;
+  padding: 37px 16px;
+  color: #8d9e80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  background: #283021;
+  border: 1px solid #3a472f;
+  border-radius: 13px;
+  margin-bottom: 14px;
+  color: #9eb887;
+}
+.empty-state h2 {
+  font-size: 12px;
+  font-weight: 550;
+  color: #c2ceb9;
+  margin-top: 7px;
+}
+.empty-state p {
+  font-size: var(--font-size-meta);
+  line-height: 1.7;
+  margin-top: 7px;
+  max-width: 240px;
+}
+.empty-state .text-button {
+  margin-top: 14px;
+}
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 9px;
+  border-radius: 6px;
+  font-size: var(--font-size-meta);
+  line-height: 1.45;
+  margin-top: 11px;
+}
+.alert svg {
+  margin-top: 1px;
+}
+.alert > span {
+  flex: 1;
+  min-width: 0;
+}
+.alert.warning,
+.dialog-alert.warning {
+  background: #373122;
+  color: #d2bd8c;
+  border: 1px solid #55462c;
+}
+.alert.danger,
+.dialog-alert.danger {
+  background: #382823;
+  color: #e0a292;
+  border: 1px solid #553b31;
+}
+.alert.subtle {
+  background: #2b3623;
+  border: 1px solid #3f5430;
+  color: #b7d298;
+}
+.alert + .filters {
+  padding-top: 11px;
+}

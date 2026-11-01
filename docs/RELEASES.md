@@ -4,9 +4,11 @@ The standard **Release** Action builds and publishes the unsigned Windows x64 NS
 
 ## App updates
 
-The native Tauri updater implementation remains available for separately configured signed builds, and its signature verification stays enabled. The standard unsigned Release Action does not generate signed updater artifacts or advertise an installable updater feed. These EXE releases are downloaded and installed manually. An unsigned build reports that automatic updates are not configured rather than installing an unverified package.
+Standard unsigned builds run in **notify mode**. At startup and every 6 hours they read the public GitHub `releases/latest` API for `fo0/repo-tray`, unauthenticated and only on `api.github.com` (no redirects, bounded response). If a newer stable release exists, the panel announces it and **Release-Seite öffnen** opens exactly that release's tag page. The app never downloads or installs anything itself; the user downloads and runs the new EXE. Drafts and prereleases are ignored. Account selection does not affect this check (`src-tauri/src/updates.rs`, `src-tauri/src/desktop_updates.rs`, `src/lib/UpdatePanel.svelte`).
 
-This distinction does not affect the account/source feedback, paused browser sign-in, local gh import, settings tabs, repository search or activity layout. A Tauri updater signature and a Windows Authenticode certificate are different mechanisms; neither is needed to publish the standard EXE.
+Builds compiled with an updater public key (`REPOTRAY_UPDATER_PUBLIC_KEY`, separately configured) use the Tauri updater instead: they download inside the app, verify the signature and install only after a second explicit confirmation. The standard Release Action generates no signed updater artifacts and publishes no `latest.json`, so the built-in signed feed (`releases/latest/download/latest.json`) currently resolves to nothing. Once signing is introduced, signed builds need a dedicated feed URL that serves only signed manifests.
+
+A Tauri updater signature and a Windows Authenticode certificate are different mechanisms; neither is needed to publish the standard EXE.
 
 ## Checks and release triggers
 

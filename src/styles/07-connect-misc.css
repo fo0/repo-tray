@@ -1,0 +1,41 @@
+.connect-body {
+  text-align: center;
+  padding: 24px 22px;
+}
+.connect-body h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #d1dec6;
+  letter-spacing: -0.2px;
+}
+.connect-body > p {
+  font-size: var(--font-size-meta);
+  line-height: 1.8;
+  color: #91a77f;
+  margin-top: 11px;
+}
+.full-width {
+  width: 100%;
+  margin-top: 19px;
+}
+.spinning svg {
+  animation: spin 1.2s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.group-live-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #65735c;
+}
+.app-header[data-tauri-drag-region] {
+  user-select: none;
+  cursor: default;
+}
+.app-header[data-tauri-drag-region] > * {
+  pointer-events: none;
+}

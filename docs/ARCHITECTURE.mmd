@@ -1,36 +1,55 @@
 flowchart TD
     subgraph "Svelte Frontend"
-        AppSvelte["App.svelte panel"]
+        AppSvelte["App.svelte orchestrator"]
+        PanelTs["panel.svelte.ts controller"]
+        StartsTs["starts.svelte.ts per-target starts"]
+        NoticesTs["notices.svelte.ts banner notices"]
+        FavoritesTs["favorites.svelte.ts hearts and undo"]
+        ModalsTs["modals.svelte.ts dialog and focus return"]
+        DispatchFormTs["dispatchForm.svelte.ts start form state"]
+        UpdaterTs["updater.svelte.ts and updates.ts"]
         Components["lib Svelte components"]
-        Bridge["bridge.ts IPC bridge"]
+        FocusTs["focus.ts focus trap"]
+        Styles["src/styles ordered CSS"]
+        Bridge["bridge.ts native or demo"]
+        IpcTs["ipc.ts typed command map, only invoke"]
+        ClockTs["clock.ts shared minute clock"]
+        ShortcutsTs["shortcuts.ts keyboard shortcuts"]
+        SafeUrlTs["safeGitHubUrl.ts run link check"]
         DemoTs["demo.ts browser demo"]
         ModelTs["model.ts and types.ts contract"]
         AccountSel["accountSelection.ts"]
-        UpdatesTs["updates.ts"]
         DemoFixture[("fixtures/demo.json")]
+        RunLinksFixture[("fixtures/run-links.json shared vectors")]
     end
 
     subgraph "Tauri Desktop Shell"
         MainRs("main.rs desktop bin")
         DesktopRs("desktop.rs workers, snapshots, tray")
+        DesktopAuth["desktop_auth.rs account commands"]
+        DesktopStartup["desktop_startup.rs Run value adapter"]
         TrayPopup["tray_popup.rs and windows.rs Win32"]
-        DesktopUpdates["desktop_updates.rs Tauri updater"]
+        DesktopUpdates["desktop_updates.rs update commands"]
     end
 
     subgraph "Rust Core"
         LibRs["lib.rs repotray_core"]
-        LiveRs("live.rs live service")
-        GithubRs["github.rs REST transport"]
+        LiveRs("live.rs LiveStore engine")
+        LiveMods["live: transport, connect, refresh, schedule, catalog, dispatch"]
+        GithubRs["github.rs HTTP policy"]
+        GithubMods["github: client queue, wire contracts"]
         RunHistory["run_history.rs"]
         WorkflowRs["workflow.rs dispatch YAML parsing"]
         ModelsRs["models.rs"]
-        AuthRs["auth.rs keyring and device flow"]
+        AuthRs["auth.rs and auth/native.rs keyring"]
         BrowserAuth["browser_auth.rs GitHub App flow paused"]
-        LocalAuth["local_auth.rs gh CLI and GCM"]
-        CacheRs["cache.rs"]
+        LocalAuth["local_auth.rs and local_auth/gh.rs"]
+        CacheRs["cache.rs, migrations, payload"]
+        StartupRs["startup.rs login startup rules"]
         PopupRs["popup.rs geometry"]
-        UpdatesRs["updates.rs release discovery"]
-        DemoRs["demo.rs"]
+        RunLinkRs["run_link.rs canonical run URLs"]
+        UpdatesRs["updates.rs update policy"]
+        DemoRs["demo.rs local simulation"]
     end
 
     subgraph "External Systems"
@@ -38,71 +57,129 @@ flowchart TD
         Keyring{{"OS credential store"}}
         SQLite[("SQLite metadata cache")]
         Releases{{"GitHub Releases"}}
+        RunKey{{"Windows Run registry value"}}
     end
 
     subgraph "CI and Release"
         Checks("checks.yml")
+        RustTests["cargo tests"]
+        IpcContract["ipc.contract.test.ts"]
         ReleaseYml("release.yml")
         ReleaseScripts["release.mjs and updater.mjs"]
     end
 
+    AppSvelte --> PanelTs
+    AppSvelte --> UpdaterTs
     AppSvelte --> Components
     AppSvelte --> Bridge
-    AppSvelte --> AccountSel
-    AppSvelte --> ModelTs
-    AppSvelte --> UpdatesTs
+    AppSvelte --> ModalsTs
+    AppSvelte --> ShortcutsTs
+    PanelTs --> StartsTs
+    PanelTs --> NoticesTs
+    PanelTs --> FavoritesTs
+    PanelTs --> AccountSel
+    PanelTs --> ModelTs
+    PanelTs -->|"bridge calls"| Bridge
+    PanelTs --> IpcTs
+    Components --> FocusTs
+    Components --> DispatchFormTs
+    Components --> ClockTs
+    Components --> SafeUrlTs
+    Components -->|"auth, startup, links"| IpcTs
+    SafeUrlTs -.->|"same rules"| RunLinksFixture
+    Styles -.->|"imported by main.ts"| AppSvelte
     Bridge -->|"browser mode"| DemoTs
     DemoTs --> DemoFixture
     DemoTs --> ModelTs
-    Bridge -->|"invoke commands and snapshot events"| DesktopRs
+    Bridge -->|"native commands"| IpcTs
+    Bridge -->|"snapshot events"| DesktopRs
+    UpdaterTs -->|"update commands"| IpcTs
+    IpcTs -->|"typed invoke"| DesktopRs
+    IpcTs -->|"progress Channel"| DesktopUpdates
 
     MainRs --> DesktopRs
     DesktopRs --> TrayPopup
-    TrayPopup --> PopupRs
-    DesktopRs -->|"opens SQLite cache"| CacheRs
+    DesktopRs --> DesktopAuth
+    DesktopRs --> DesktopStartup
     DesktopRs --> DesktopUpdates
     DesktopRs -->|"worker threads"| LiveRs
-    DesktopRs --> LocalAuth
-    DesktopRs --> BrowserAuth
+    DesktopRs -->|"launch decision"| StartupRs
+    DesktopRs -->|"opens SQLite cache"| CacheRs
+    TrayPopup --> PopupRs
+    DesktopRs -->|"open_run canonical only"| RunLinkRs
+    DesktopAuth --> LiveRs
+    DesktopAuth --> LocalAuth
+    DesktopAuth --> BrowserAuth
+    DesktopStartup --> StartupRs
+    DesktopStartup -->|"per-user value"| RunKey
     DesktopUpdates --> UpdatesRs
-    UpdatesRs -->|"stable feed and EXE URL"| Releases
+    UpdatesRs -->|"notify: public releases/latest"| GitHubApi
+    DesktopUpdates -->|"signed builds only"| Releases
 
     LibRs --> LiveRs
-    LiveRs --> GithubRs
-    LiveRs --> RunHistory
-    LiveRs --> WorkflowRs
-    LiveRs --> CacheRs
-    LiveRs --> AuthRs
-    LiveRs --> BrowserAuth
+    LibRs --> DemoRs
+    LibRs --> RunLinkRs
+    RunLinkRs -.->|"test vectors"| RunLinksFixture
+    LiveRs --> LiveMods
+    LiveMods --> GithubRs
+    LiveMods --> RunHistory
+    LiveMods --> WorkflowRs
+    LiveMods --> CacheRs
+    LiveMods --> AuthRs
+    LiveMods --> BrowserAuth
+    GithubRs --> GithubMods
     RunHistory --> GithubRs
     BrowserAuth --> AuthRs
     BrowserAuth --> GithubRs
     WorkflowRs --> ModelsRs
-    GithubRs --> ModelsRs
-    GithubRs -->|"ETag, rate limits, pagination"| GitHubApi
+    GithubMods --> ModelsRs
+    GithubMods -->|"ETag, rate limits, pagination"| GitHubApi
     AuthRs -->|"tokens"| Keyring
     LocalAuth -->|"explicit gh import"| Keyring
     CacheRs -->|"nonsecret data"| SQLite
+    DemoRs -->|"embedded fixture"| DemoFixture
 
     Checks -->|"validates"| LibRs
+    Checks --> RustTests
+    Checks --> IpcContract
+    IpcContract -->|"command map"| IpcTs
+    IpcContract -->|"generate_handler!"| DesktopRs
+    RustTests -->|"demo snapshots"| DemoRs
     ReleaseYml --> ReleaseScripts
     ReleaseYml -->|"publish unsigned NSIS EXE"| Releases
 
     click AppSvelte "src/App.svelte"
+    click PanelTs "src/lib/panel.svelte.ts"
+    click StartsTs "src/lib/starts.svelte.ts"
+    click NoticesTs "src/lib/notices.svelte.ts"
+    click FavoritesTs "src/lib/favorites.svelte.ts"
+    click ModalsTs "src/lib/modals.svelte.ts"
+    click DispatchFormTs "src/lib/dispatchForm.svelte.ts"
+    click UpdaterTs "src/lib/updater.svelte.ts"
     click Components "src/lib"
+    click FocusTs "src/lib/focus.ts"
+    click Styles "src/styles"
     click Bridge "src/lib/bridge.ts"
+    click IpcTs "src/lib/ipc.ts"
+    click ClockTs "src/lib/clock.ts"
+    click ShortcutsTs "src/lib/shortcuts.ts"
+    click SafeUrlTs "src/lib/safeGitHubUrl.ts"
     click DemoTs "src/lib/demo.ts"
     click ModelTs "src/lib/model.ts"
     click AccountSel "src/lib/accountSelection.ts"
-    click UpdatesTs "src/lib/updates.ts"
     click DemoFixture "fixtures/demo.json"
+    click RunLinksFixture "fixtures/run-links.json"
     click MainRs "src-tauri/src/main.rs"
     click DesktopRs "src-tauri/src/desktop.rs"
+    click DesktopAuth "src-tauri/src/desktop_auth.rs"
+    click DesktopStartup "src-tauri/src/desktop_startup.rs"
     click TrayPopup "src-tauri/src/tray_popup.rs"
     click DesktopUpdates "src-tauri/src/desktop_updates.rs"
     click LibRs "src-tauri/src/lib.rs"
     click LiveRs "src-tauri/src/live.rs"
+    click LiveMods "src-tauri/src/live"
     click GithubRs "src-tauri/src/github.rs"
+    click GithubMods "src-tauri/src/github"
     click RunHistory "src-tauri/src/run_history.rs"
     click WorkflowRs "src-tauri/src/workflow.rs"
     click ModelsRs "src-tauri/src/models.rs"
@@ -110,10 +187,13 @@ flowchart TD
     click BrowserAuth "src-tauri/src/browser_auth.rs"
     click LocalAuth "src-tauri/src/local_auth.rs"
     click CacheRs "src-tauri/src/cache.rs"
+    click StartupRs "src-tauri/src/startup.rs"
     click PopupRs "src-tauri/src/popup.rs"
+    click RunLinkRs "src-tauri/src/run_link.rs"
     click UpdatesRs "src-tauri/src/updates.rs"
     click DemoRs "src-tauri/src/demo.rs"
     click Checks ".github/workflows/checks.yml"
+    click IpcContract "src/lib/ipc.contract.test.ts"
     click ReleaseYml ".github/workflows/release.yml"
     click ReleaseScripts "scripts/release.mjs"
 
@@ -123,8 +203,8 @@ flowchart TD
     classDef external fill:#ff6347,stroke:#cc4f39,color:#fff
     classDef infra fill:#7b42bc,stroke:#5e338f,color:#fff
 
-    class AppSvelte,Components,Bridge,DemoTs,ModelTs,AccountSel,UpdatesTs frontend
-    class MainRs,DesktopRs,TrayPopup,DesktopUpdates,LibRs,LiveRs,GithubRs,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,PopupRs,UpdatesRs,DemoRs backend
-    class DemoFixture,SQLite database
-    class GitHubApi,Keyring,Releases external
-    class Checks,ReleaseYml,ReleaseScripts infra
+    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,ModalsTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
+    class MainRs,DesktopRs,DesktopAuth,DesktopStartup,TrayPopup,DesktopUpdates,LibRs,LiveRs,LiveMods,GithubRs,GithubMods,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,StartupRs,PopupRs,RunLinkRs,UpdatesRs,DemoRs backend
+    class DemoFixture,RunLinksFixture,SQLite database
+    class GitHubApi,Keyring,Releases,RunKey external
+    class Checks,RustTests,IpcContract,ReleaseYml,ReleaseScripts infra

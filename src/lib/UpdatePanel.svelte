@@ -1,6 +1,9 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import type { UpdateInfo, UpdatePhase, UpdateProgress } from './updates';
+  import { ipcErrorMessage } from './format';
+  import { call } from './ipc';
+  import type { DownloadProgress, UpdateInfo } from './types';
+  import { releaseDate, type UpdatePhase } from './updates';
 
   let {
     currentVersion,
@@ -18,7 +21,7 @@
     native: boolean;
     info: UpdateInfo | null;
     phase: UpdatePhase;
-    progress: UpdateProgress;
+    progress: DownloadProgress;
     error: string;
     checkedAt: string;
     onCheck: () => void;
@@ -33,8 +36,29 @@
       ? Math.min(100, Math.floor((progress.downloaded / progress.total) * 100))
       : undefined,
   );
+  // Unsigned builds only point to the release page; nothing is downloaded here.
+  const notify = $derived(info?.mode === 'notify');
+  const published = $derived(info ? releaseDate(info.date) : '');
+  let opening = $state(false);
+  let openError = $state('');
   function size(bytes: number) {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+  async function openReleasePage() {
+    if (!info || opening) return;
+    opening = true;
+    openError = '';
+    try {
+      // Rust validates the version and opens only its GitHub tag page.
+      await call('open_release_page', { version: info.version });
+    } catch (cause) {
+      openError = ipcErrorMessage(
+        cause,
+        'Die Release-Seite konnte nicht geöffnet werden. Versuche es erneut.',
+      );
+    } finally {
+      opening = false;
+    }
   }
 </script>
 
@@ -48,8 +72,8 @@
     <span class="version-badge">Stable</span>
   </div>
   <p class="update-description">
-    Neue Versionen direkt hier laden und installieren. Deine Konten,
-    Repositories und Favoriten bleiben erhalten.
+    RepoTray sucht regelmäßig nach neuen Versionen. Deine Konten, Repositories
+    und Favoriten bleiben bei einem Update erhalten.
   </p>
   {#if !native}
     <p class="field-help">Die Browser-Demo installiert keine App-Updates.</p>
@@ -67,7 +91,7 @@
       <span class="field-help"
         >{checkedAt
           ? `Zuletzt geprüft · ${checkedAt}`
-          : 'Kein GitHub-Login nötig'}</span
+          : 'Keine GitHub-Anmeldung nötig'}</span
       >
     </div>
     {#if phase === 'current'}
@@ -81,25 +105,29 @@
           <strong>Version {info.version}</strong><span
             >{phase === 'ready'
               ? 'Bereit zur Installation'
-              : 'Neue Version verfügbar'}</span
+              : 'Neue Version verfügbar'}{published
+              ? ` · veröffentlicht am ${published}`
+              : ''}</span
           >
         </div>
-        <ol class="update-steps" aria-label="Update-Ablauf">
-          <li
-            class:done={[
-              'downloading',
-              'verifying',
-              'ready',
-              'installing',
-            ].includes(phase)}
-          >
-            1 · Verfügbar
-          </li>
-          <li class:done={['ready', 'installing'].includes(phase)}>
-            2 · Laden & prüfen
-          </li>
-          <li class:done={phase === 'installing'}>3 · Neu starten</li>
-        </ol>
+        {#if !notify}
+          <ol class="update-steps" aria-label="Update-Ablauf">
+            <li
+              class:done={[
+                'downloading',
+                'verifying',
+                'ready',
+                'installing',
+              ].includes(phase)}
+            >
+              1 · Verfügbar
+            </li>
+            <li class:done={['ready', 'installing'].includes(phase)}>
+              2 · Laden & prüfen
+            </li>
+            <li class:done={phase === 'installing'}>3 · Neu starten</li>
+          </ol>
+        {/if}
         <details class="update-changelog" open>
           <summary>Was ist neu?</summary>
           <p>
@@ -107,7 +135,22 @@
               'Für diese Version wurden keine Änderungsnotizen hinterlegt.'}
           </p>
         </details>
-        {#if phase === 'downloading' || phase === 'verifying'}
+        {#if notify}
+          <p class="field-help">
+            Updates werden in dieser Version manuell installiert: Lade den
+            Installer auf der Release-Seite herunter und starte ihn. Deine
+            Einstellungen bleiben dabei erhalten.
+          </p>
+          <button
+            class="primary-button"
+            disabled={opening}
+            onclick={openReleasePage}
+            ><Icon name="external" size={14} />Release-Seite öffnen</button
+          >
+          {#if openError}<div class="alert danger" role="alert">
+              <Icon name="warning" size={16} /><span>{openError}</span>
+            </div>{/if}
+        {:else if phase === 'downloading' || phase === 'verifying'}
           <div class="update-progress" role="status">
             <label for="update-download"
               >{phase === 'verifying'

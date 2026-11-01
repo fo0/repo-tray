@@ -1,0 +1,196 @@
+/* Settings and onboarding: in-place confirmations, the account empty state,
+   unsaved-selection markers and tab badges. */
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 9px 11px;
+  border: 1px solid #a05a52;
+  border-radius: 6px;
+  background: #5a2c27;
+  color: #ffd9d2;
+  font-size: var(--font-size-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.danger-button:hover:not(:disabled):not([aria-disabled='true']) {
+  background: #6d342e;
+}
+.text-button.danger-text {
+  color: #e7a596;
+}
+.text-button.danger-text:hover:not(:disabled) {
+  color: #ffc4b7;
+}
+
+/* A confirmation that replaces an action in place. */
+.inline-confirm {
+  flex-basis: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px solid #6b4038;
+  border-radius: 6px;
+  background: #33241f;
+  text-align: left;
+}
+.inline-confirm p {
+  margin: 0 0 10px;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+  color: #e3c3b9;
+}
+.inline-confirm p span {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.inline-confirm p .inline-confirm-warning {
+  display: block;
+  margin-top: 6px;
+  color: var(--warning);
+  font-weight: 600;
+}
+.inline-confirm p strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: #ffe1d9;
+}
+.inline-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* Busy: inert but still focusable, so focus never falls out of the dialog. */
+.inline-confirm-actions [aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.42;
+}
+.connected-auth-card {
+  flex-wrap: wrap;
+}
+/* Beats `.connected-auth-card > div { flex: 1 }`: the question takes its own row. */
+.connected-auth-card > .inline-confirm {
+  flex: 1 0 100%;
+}
+
+/* An unsaved repository selection: marked in its tab and in the count. */
+.unsaved-hint {
+  color: var(--warning);
+}
+.tab-update-dot.unsaved {
+  background: var(--warning);
+}
+.settings-discard .inline-confirm {
+  margin-top: 0;
+}
+
+@media (forced-colors: active) {
+  .danger-button,
+  .inline-confirm {
+    border-color: CanvasText;
+  }
+  .text-button.danger-text {
+    color: LinkText;
+  }
+  /* Tab dots are fills and would vanish. */
+  .tab-update-dot {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  /* Matches the unsaved rule's specificity; hollow, so it differs from an update. */
+  .tab-update-dot.unsaved {
+    background: Canvas;
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Settings without any connected account: one empty state, one action. */
+.account-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 16px;
+  border: 1px solid #3d4f31;
+  border-radius: 8px;
+  background: #25301f;
+  text-align: center;
+}
+.account-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #34452a;
+  color: #c2e795;
+}
+.account-empty h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d8e8ca;
+}
+.account-empty p {
+  max-width: 34ch;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+  color: var(--muted-text-raised);
+}
+.account-empty .primary-button {
+  margin-top: 4px;
+}
+
+/* The next step after a first connect, shown above the repository list. */
+.settings-next-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px;
+  border: 1px solid #607f46;
+  border-radius: 6px;
+  background: #304027;
+  color: #d2e3c5;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+}
+.settings-next-step > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #b7df89;
+}
+
+/* Token permissions in the connect dialogs. */
+.token-permissions {
+  text-align: left;
+}
+.token-permissions ul {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.token-permissions li {
+  padding: 7px 9px;
+  border: 1px solid #3f5131;
+  border-radius: 6px;
+  background: #26311f;
+  font-size: var(--font-size-meta);
+  line-height: 1.5;
+}
+.token-permissions li strong {
+  display: block;
+  color: #d8e8ca;
+  font-weight: 600;
+}
+.token-permissions li span {
+  color: var(--muted-text-raised);
+}

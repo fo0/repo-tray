@@ -1,21 +1,36 @@
 //! Account-scoped SQLite storage for public preferences and cached metadata only.
 //! Credentials have no column, API, or serialization path in this module.
 
-use crate::models::{Pin, Snapshot};
-use crate::workflow::{looks_like_credential, validate_non_secret_inputs};
+use crate::models::{DispatchTarget, Pin, Snapshot, UncertainStart};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
+use std::time::Duration;
+
+mod migrations;
+mod payload;
+
+use migrations::migrate;
+use payload::{
+    decode, encode, public_snapshot, reject_credential_strings, validate_account_id, validate_pin,
+    validate_target,
+};
 
 const MAX_CACHE_BYTES: usize = 2 * 1024 * 1024;
+/// Replaces GitHub-sourced strings that look like credentials in the written cache only.
+pub const REDACTED: &str = "[entfernt]";
+/// Settings-table row for app-wide preferences; no account can use this ID.
+const APP_SETTINGS_KEY: &str = "@app";
 
 #[derive(Debug)]
 pub enum CacheError {
     Database(rusqlite::Error),
     Serialization(serde_json::Error),
     Invalid(String),
+    /// An entry larger than the cache's safety limit; it is neither written nor read.
+    TooLarge,
 }
 
 impl fmt::Display for CacheError {
@@ -24,6 +39,7 @@ impl fmt::Display for CacheError {
             Self::Database(_) => f.write_str("The local cache could not be read or written."),
             Self::Serialization(_) => f.write_str("The local cache contains invalid data."),
             Self::Invalid(message) => f.write_str(message),
+            Self::TooLarge => f.write_str("Cache entry exceeds the safety limit."),
         }
     }
 }
@@ -42,20 +58,27 @@ impl From<serde_json::Error> for CacheError {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct CachedSnapshot {
-    pub snapshot: Snapshot,
-    pub etag: Option<String>,
+/// App-wide preferences. Unknown fields are tolerated so an older build can read a newer row.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AppSettings {
+    pub notifications: bool,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AccountSettings {
-    pub selected_repo_ids: Vec<String>,
+/// Result of an explicit release request for one uncertain start.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Release {
+    Released,
+    /// No claim exists for the target (already released or resolved).
+    Missing,
+    /// The target holds a claim with another claim time than the one reviewed.
+    Replaced,
 }
 
 pub struct Cache {
     connection: Connection,
+    /// Last written payload per account with `updatedAt` cleared, to skip unchanged writes.
+    written: HashMap<String, String>,
 }
 
 impl Cache {
@@ -67,33 +90,20 @@ impl Cache {
         Self::from_connection(Connection::open_in_memory()?)
     }
 
-    fn from_connection(connection: Connection) -> Result<Self, CacheError> {
-        connection.execute_batch(
-            "PRAGMA foreign_keys = ON;
-             CREATE TABLE IF NOT EXISTS dispatch_claims (target TEXT PRIMARY KEY NOT NULL);
-             CREATE TABLE IF NOT EXISTS snapshots (
-                 account_id TEXT PRIMARY KEY NOT NULL,
-                 payload TEXT NOT NULL,
-                 etag TEXT
-             );
-             CREATE TABLE IF NOT EXISTS pins (
-                 account_id TEXT NOT NULL,
-                 pin_id TEXT NOT NULL,
-                 payload TEXT NOT NULL,
-                 PRIMARY KEY (account_id, pin_id)
-             );
-             CREATE TABLE IF NOT EXISTS settings (
-                 account_id TEXT PRIMARY KEY NOT NULL,
-                 payload TEXT NOT NULL
-             );
-             CREATE TABLE IF NOT EXISTS etags (
-                 account_id TEXT NOT NULL,
-                 resource TEXT NOT NULL,
-                 value TEXT NOT NULL,
-                 PRIMARY KEY (account_id, resource)
-             );",
-        )?;
-        Ok(Self { connection })
+    fn from_connection(mut connection: Connection) -> Result<Self, CacheError> {
+        connection.busy_timeout(Duration::from_secs(5))?;
+        // WAL needs FULL sync to make every commit durable: with NORMAL an OS crash or power
+        // loss may roll back the last commit, which can be the dispatch claim written right
+        // before the POST, so the start could be sent twice.
+        connection
+            .pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get::<_, String>(0))?;
+        connection.pragma_update(None, "synchronous", "FULL")?;
+        connection.pragma_update(None, "foreign_keys", "ON")?;
+        migrate(&mut connection)?;
+        Ok(Self {
+            connection,
+            written: HashMap::new(),
+        })
     }
 
     pub fn account_ids(&self) -> Result<Vec<String>, CacheError> {
@@ -105,72 +115,165 @@ impl Cache {
             .map_err(CacheError::Database)
     }
 
-    /// A claim is written before sending a dispatch and survives a process restart.
-    pub fn claim_dispatch(&self, target: &str) -> Result<bool, CacheError> {
-        Ok(self.connection.execute(
-            "INSERT OR IGNORE INTO dispatch_claims (target) VALUES (?1)",
-            [target],
-        )? == 1)
+    /// Written before a dispatch is sent and kept across restarts. `None` means the target
+    /// already holds a claim: its last start is unresolved, so nothing may be sent.
+    pub fn claim_dispatch(
+        &self,
+        target: &DispatchTarget,
+        claimed_at: &str,
+    ) -> Result<Option<UncertainStart>, CacheError> {
+        let workflow_id = validate_target(target)?;
+        if claimed_at.trim().is_empty()
+            || claimed_at.len() > 64
+            || claimed_at.chars().any(char::is_control)
+        {
+            return Err(CacheError::Invalid("Invalid claim time.".into()));
+        }
+        let inserted = self.connection.execute(
+            "INSERT OR IGNORE INTO dispatch_claims
+                 (account_id, repo_id, workflow_id, git_ref, claimed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                target.account_id,
+                target.repo_id,
+                workflow_id,
+                target.git_ref,
+                claimed_at
+            ],
+        )? == 1;
+        Ok(inserted.then(|| UncertainStart {
+            account_id: target.account_id.clone(),
+            repo_id: target.repo_id.clone(),
+            workflow_id: target.workflow_id,
+            git_ref: target.git_ref.clone(),
+            claimed_at: Some(claimed_at.into()),
+        }))
     }
 
-    pub fn resolve_dispatch(&self, target: &str) -> Result<(), CacheError> {
-        self.connection
-            .execute("DELETE FROM dispatch_claims WHERE target=?1", [target])?;
+    /// Removes a claim after GitHub gave a definite answer (accepted or rejected).
+    pub fn resolve_dispatch(&self, target: &DispatchTarget) -> Result<(), CacheError> {
+        let workflow_id = validate_target(target)?;
+        self.connection.execute(
+            "DELETE FROM dispatch_claims
+             WHERE account_id=?1 AND repo_id=?2 AND workflow_id=?3 AND git_ref=?4",
+            params![
+                target.account_id,
+                target.repo_id,
+                workflow_id,
+                target.git_ref
+            ],
+        )?;
         Ok(())
     }
 
+    pub fn uncertain_starts(&self) -> Result<Vec<UncertainStart>, CacheError> {
+        let mut query = self.connection.prepare(
+            "SELECT account_id, repo_id, workflow_id, git_ref, claimed_at FROM dispatch_claims
+             ORDER BY claimed_at, account_id, repo_id, workflow_id, git_ref",
+        )?;
+        let rows = query.query_map([], |row| {
+            Ok(UncertainStart {
+                account_id: row.get(0)?,
+                repo_id: row.get(1)?,
+                workflow_id: row.get::<_, i64>(2)?.max(0) as u64,
+                git_ref: row.get(3)?,
+                claimed_at: row.get(4)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(CacheError::Database)
+    }
+
+    /// Releases exactly the claim the user reviewed on GitHub. Only an explicit user command
+    /// may call this; there is no automatic release.
+    pub fn release_uncertain_start(&self, start: &UncertainStart) -> Result<Release, CacheError> {
+        let target = start.target();
+        let workflow_id = validate_target(&target)?;
+        let released = self.connection.execute(
+            "DELETE FROM dispatch_claims
+             WHERE account_id=?1 AND repo_id=?2 AND workflow_id=?3 AND git_ref=?4
+               AND claimed_at IS ?5",
+            params![
+                target.account_id,
+                target.repo_id,
+                workflow_id,
+                target.git_ref,
+                start.claimed_at
+            ],
+        )?;
+        if released == 1 {
+            return Ok(Release::Released);
+        }
+        let other: Option<i64> = self
+            .connection
+            .query_row(
+                "SELECT 1 FROM dispatch_claims
+                 WHERE account_id=?1 AND repo_id=?2 AND workflow_id=?3 AND git_ref=?4",
+                params![
+                    target.account_id,
+                    target.repo_id,
+                    workflow_id,
+                    target.git_ref
+                ],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(if other.is_some() {
+            Release::Replaced
+        } else {
+            Release::Missing
+        })
+    }
+
+    /// Stores GitHub metadata for one account. Pins and claims live in their own tables and
+    /// are never written or deleted here. An unchanged payload (ignoring `updatedAt`) is not
+    /// rewritten, so a cached `updatedAt` may be older than the last successful refresh.
     pub fn save_snapshot(
         &mut self,
         account_id: &str,
         snapshot: &Snapshot,
-        etag: Option<&str>,
     ) -> Result<(), CacheError> {
-        validate_identifier(account_id)?;
-        validate_etag(etag)?;
-        let scoped = account_snapshot(account_id, snapshot)?;
-        validate_public_snapshot(&scoped)?;
-        let payload = encode(&scoped)?;
-        let transaction = self.connection.transaction()?;
-        transaction.execute(
-            "INSERT INTO snapshots (account_id, payload, etag) VALUES (?1, ?2, ?3)
-             ON CONFLICT(account_id) DO UPDATE SET payload=excluded.payload, etag=excluded.etag",
-            params![account_id, payload, etag],
-        )?;
-        transaction.execute("DELETE FROM pins WHERE account_id=?1", [account_id])?;
-        for pin in &scoped.pins {
-            transaction.execute(
-                "INSERT INTO pins (account_id, pin_id, payload) VALUES (?1, ?2, ?3)",
-                params![account_id, pin.id, encode(pin)?],
-            )?;
+        validate_account_id(account_id)?;
+        let mut scoped = public_snapshot(account_id, snapshot)?;
+        // Defense in depth: redaction must have left no credential-looking string behind.
+        reject_credential_strings(&serde_json::to_value(&scoped)?)?;
+        let updated_at = std::mem::take(&mut scoped.updated_at);
+        let comparable = encode(&scoped)?;
+        if self.written.get(account_id) == Some(&comparable) {
+            return Ok(());
         }
-        transaction.commit()?;
+        scoped.updated_at = updated_at;
+        self.connection.execute(
+            "INSERT INTO snapshots (account_id, payload) VALUES (?1, ?2)
+             ON CONFLICT(account_id) DO UPDATE SET payload=excluded.payload",
+            params![account_id, encode(&scoped)?],
+        )?;
+        self.written.insert(account_id.into(), comparable);
         Ok(())
     }
 
-    pub fn load_snapshot(&self, account_id: &str) -> Result<Option<CachedSnapshot>, CacheError> {
-        validate_identifier(account_id)?;
-        let row: Option<(String, Option<String>)> = self
+    pub fn load_snapshot(&self, account_id: &str) -> Result<Option<Snapshot>, CacheError> {
+        validate_account_id(account_id)?;
+        let payload: Option<String> = self
             .connection
             .query_row(
-                "SELECT payload, etag FROM snapshots WHERE account_id=?1",
+                "SELECT payload FROM snapshots WHERE account_id=?1",
                 [account_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| row.get(0),
             )
             .optional()?;
-        let Some((payload, etag)) = row else {
+        let Some(payload) = payload else {
             return Ok(None);
         };
         let original: Snapshot = decode(&payload)?;
-        let mut snapshot = account_snapshot(account_id, &original)?;
+        let mut snapshot = public_snapshot(account_id, &original)?;
         snapshot.pins = self.load_pins(account_id)?;
-        validate_public_snapshot(&snapshot)?;
-        validate_etag(etag.as_deref())?;
         snapshot.stale = true;
-        Ok(Some(CachedSnapshot { snapshot, etag }))
+        Ok(Some(snapshot))
     }
 
     pub fn save_pin(&self, account_id: &str, pin: &Pin) -> Result<(), CacheError> {
-        validate_identifier(account_id)?;
+        validate_account_id(account_id)?;
         if pin.account_id != account_id {
             return Err(CacheError::Invalid(
                 "Pin belongs to another account.".into(),
@@ -186,7 +289,7 @@ impl Cache {
     }
 
     pub fn load_pins(&self, account_id: &str) -> Result<Vec<Pin>, CacheError> {
-        validate_identifier(account_id)?;
+        validate_account_id(account_id)?;
         let mut statement = self
             .connection
             .prepare("SELECT payload FROM pins WHERE account_id=?1 ORDER BY pin_id")?;
@@ -204,7 +307,7 @@ impl Cache {
     }
 
     pub fn delete_pin(&self, account_id: &str, pin_id: &str) -> Result<(), CacheError> {
-        validate_identifier(account_id)?;
+        validate_account_id(account_id)?;
         self.connection.execute(
             "DELETE FROM pins WHERE account_id=?1 AND pin_id=?2",
             params![account_id, pin_id],
@@ -212,339 +315,65 @@ impl Cache {
         Ok(())
     }
 
-    pub fn save_settings(
-        &self,
-        account_id: &str,
-        settings: &AccountSettings,
-    ) -> Result<(), CacheError> {
-        validate_identifier(account_id)?;
-        for id in &settings.selected_repo_ids {
-            validate_identifier(id)?;
+    pub fn save_app_settings(&self, settings: &AppSettings) -> Result<(), CacheError> {
+        self.write_settings_row(APP_SETTINGS_KEY, &encode(settings)?)
+    }
+
+    pub fn load_app_settings(&self) -> Result<AppSettings, CacheError> {
+        match self.read_settings_row(APP_SETTINGS_KEY)? {
+            Some(payload) => decode(&payload),
+            None => Ok(AppSettings::default()),
         }
+    }
+
+    fn write_settings_row(&self, key: &str, payload: &str) -> Result<(), CacheError> {
         self.connection.execute(
             "INSERT INTO settings (account_id, payload) VALUES (?1, ?2)
              ON CONFLICT(account_id) DO UPDATE SET payload=excluded.payload",
-            params![account_id, encode(settings)?],
+            params![key, payload],
         )?;
         Ok(())
     }
 
-    pub fn load_settings(&self, account_id: &str) -> Result<AccountSettings, CacheError> {
-        validate_identifier(account_id)?;
-        let payload: Option<String> = self
+    fn read_settings_row(&self, key: &str) -> Result<Option<String>, CacheError> {
+        Ok(self
             .connection
             .query_row(
                 "SELECT payload FROM settings WHERE account_id=?1",
-                [account_id],
+                [key],
                 |row| row.get(0),
             )
-            .optional()?;
-        match payload {
-            Some(payload) => {
-                let settings: AccountSettings = decode(&payload)?;
-                for id in &settings.selected_repo_ids {
-                    validate_identifier(id)?;
-                }
-                Ok(settings)
-            }
-            None => Ok(AccountSettings::default()),
-        }
+            .optional()?)
     }
 
-    pub fn save_etag(
-        &self,
-        account_id: &str,
-        resource: &str,
-        etag: &str,
-    ) -> Result<(), CacheError> {
-        validate_identifier(account_id)?;
-        validate_resource(resource)?;
-        validate_etag(Some(etag))?;
-        self.connection.execute(
-            "INSERT INTO etags (account_id, resource, value) VALUES (?1, ?2, ?3)
-             ON CONFLICT(account_id, resource) DO UPDATE SET value=excluded.value",
-            params![account_id, resource, etag],
-        )?;
+    /// Removes only an account's snapshot row, for a connect whose credential was never
+    /// stored. Pins, settings and claims stay: a claim is released only by an explicit user
+    /// command.
+    pub fn delete_snapshot(&mut self, account_id: &str) -> Result<(), CacheError> {
+        validate_account_id(account_id)?;
+        self.connection
+            .execute("DELETE FROM snapshots WHERE account_id=?1", [account_id])?;
+        self.written.remove(account_id);
         Ok(())
     }
 
-    pub fn load_etag(
-        &self,
-        account_id: &str,
-        resource: &str,
-    ) -> Result<Option<String>, CacheError> {
-        validate_identifier(account_id)?;
-        validate_resource(resource)?;
-        let value: Option<String> = self
-            .connection
-            .query_row(
-                "SELECT value FROM etags WHERE account_id=?1 AND resource=?2",
-                params![account_id, resource],
-                |row| row.get(0),
-            )
-            .optional()?;
-        validate_etag(value.as_deref())?;
-        Ok(value)
-    }
-
+    /// Removes everything stored for an account, including its uncertain-start claims.
     pub fn delete_account(&mut self, account_id: &str) -> Result<(), CacheError> {
-        validate_identifier(account_id)?;
+        validate_account_id(account_id)?;
         let transaction = self.connection.transaction()?;
         for sql in [
             "DELETE FROM snapshots WHERE account_id=?1",
             "DELETE FROM pins WHERE account_id=?1",
             "DELETE FROM settings WHERE account_id=?1",
-            "DELETE FROM etags WHERE account_id=?1",
+            "DELETE FROM dispatch_claims WHERE account_id=?1",
         ] {
             transaction.execute(sql, [account_id])?;
         }
         transaction.commit()?;
+        self.written.remove(account_id);
         Ok(())
     }
 }
 
-fn account_snapshot(account_id: &str, snapshot: &Snapshot) -> Result<Snapshot, CacheError> {
-    let account = snapshot
-        .accounts
-        .iter()
-        .find(|account| account.id == account_id)
-        .ok_or_else(|| CacheError::Invalid("Unknown cache account.".into()))?;
-    let mut scoped = snapshot.clone();
-    scoped.accounts = vec![account.clone()];
-    scoped.repos.retain(|repo| repo.account_id == account_id);
-    let repo_ids: BTreeSet<_> = scoped.repos.iter().map(|repo| repo.id.clone()).collect();
-    scoped
-        .workflows
-        .retain(|workflow| repo_ids.contains(&workflow.repo_id));
-    scoped.runs.retain(|run| repo_ids.contains(&run.repo_id));
-    scoped
-        .pins
-        .retain(|pin| pin.account_id == account_id && repo_ids.contains(&pin.repo_id));
-    Ok(scoped)
-}
-
-fn validate_public_snapshot(snapshot: &Snapshot) -> Result<(), CacheError> {
-    for pin in &snapshot.pins {
-        validate_pin(pin)?;
-    }
-    for workflow in &snapshot.workflows {
-        for input in &workflow.inputs {
-            if let Some(default) = &input.default {
-                validate_non_secret_inputs(&[(input.name.clone(), default.clone())].into())
-                    .map_err(|error| CacheError::Invalid(error.to_string()))?;
-            }
-        }
-    }
-    reject_credential_strings(&serde_json::to_value(snapshot)?)
-}
-
-fn validate_pin(pin: &Pin) -> Result<(), CacheError> {
-    validate_identifier(&pin.account_id)?;
-    validate_identifier(&pin.id)?;
-    validate_non_secret_inputs(&pin.inputs)
-        .map_err(|error| CacheError::Invalid(error.to_string()))?;
-    // Check all public pin strings, including a credential accidentally pasted as its label.
-    reject_credential_strings(&serde_json::to_value(pin)?)
-}
-
-fn reject_credential_strings(value: &serde_json::Value) -> Result<(), CacheError> {
-    match value {
-        serde_json::Value::String(value) if looks_like_credential(value) => {
-            Err(CacheError::Invalid(
-                "Credential-looking values cannot be stored in the local cache.".into(),
-            ))
-        }
-        serde_json::Value::Array(values) => values.iter().try_for_each(reject_credential_strings),
-        serde_json::Value::Object(values) => {
-            values.values().try_for_each(reject_credential_strings)
-        }
-        _ => Ok(()),
-    }
-}
-
-fn validate_identifier(value: &str) -> Result<(), CacheError> {
-    if value.trim().is_empty()
-        || value.len() > 256
-        || value.chars().any(char::is_control)
-        || looks_like_credential(value)
-    {
-        return Err(CacheError::Invalid(
-            "Invalid public cache identifier.".into(),
-        ));
-    }
-    Ok(())
-}
-
-fn validate_resource(value: &str) -> Result<(), CacheError> {
-    if value.len() > 2048 || crate::github::ApiUrl::parse(value).is_err() {
-        return Err(CacheError::Invalid(
-            "ETag resource must use the GitHub API scope.".into(),
-        ));
-    }
-    Ok(())
-}
-
-fn validate_etag(value: Option<&str>) -> Result<(), CacheError> {
-    if value.is_some_and(|value| {
-        value.len() > 512 || value.chars().any(char::is_control) || looks_like_credential(value)
-    }) {
-        return Err(CacheError::Invalid("Invalid public ETag.".into()));
-    }
-    Ok(())
-}
-
-fn encode<T: Serialize>(value: &T) -> Result<String, CacheError> {
-    let payload = serde_json::to_string(value)?;
-    if payload.len() > MAX_CACHE_BYTES {
-        return Err(CacheError::Invalid(
-            "Cache entry exceeds the safety limit.".into(),
-        ));
-    }
-    Ok(payload)
-}
-
-fn decode<T: serde::de::DeserializeOwned>(payload: &str) -> Result<T, CacheError> {
-    if payload.len() > MAX_CACHE_BYTES {
-        return Err(CacheError::Invalid(
-            "Cache entry exceeds the safety limit.".into(),
-        ));
-    }
-    Ok(serde_json::from_str(payload)?)
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::demo::DemoStore;
-    use crate::models::InputValue;
-
-    #[test]
-    fn uncertain_dispatch_claim_survives_restart_and_stays_target_scoped() {
-        let path = std::env::temp_dir().join(format!(
-            "repotray-claims-{}-{}.db",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        {
-            let cache = Cache::open(&path).unwrap();
-            assert!(cache
-                .claim_dispatch("account-a/repo/workflow/main")
-                .unwrap());
-        }
-        {
-            let cache = Cache::open(&path).unwrap();
-            assert!(!cache
-                .claim_dispatch("account-a/repo/workflow/main")
-                .unwrap());
-            assert!(cache
-                .claim_dispatch("account-b/repo/workflow/main")
-                .unwrap());
-            cache
-                .resolve_dispatch("account-a/repo/workflow/main")
-                .unwrap();
-            assert!(cache
-                .claim_dispatch("account-a/repo/workflow/main")
-                .unwrap());
-        }
-        std::fs::remove_file(path).unwrap();
-    }
-
-    #[test]
-    fn snapshot_pins_settings_and_etags_are_account_isolated() {
-        let mut cache = Cache::in_memory().unwrap();
-        let snapshot = DemoStore::new().snapshot();
-        cache
-            .save_snapshot("demo-personal", &snapshot, Some("\"personal\""))
-            .unwrap();
-        cache
-            .save_snapshot("demo-work", &snapshot, Some("\"work\""))
-            .unwrap();
-        let personal = cache.load_snapshot("demo-personal").unwrap().unwrap();
-        let work = cache.load_snapshot("demo-work").unwrap().unwrap();
-        assert!(personal.snapshot.stale);
-        assert_eq!(personal.snapshot.accounts.len(), 1);
-        assert_eq!(personal.etag.as_deref(), Some("\"personal\""));
-        assert!(personal
-            .snapshot
-            .repos
-            .iter()
-            .all(|repo| repo.account_id == "demo-personal"));
-        assert!(work.snapshot.pins.is_empty());
-        let personal_ids: BTreeSet<_> = personal
-            .snapshot
-            .repos
-            .iter()
-            .map(|repo| &repo.id)
-            .collect();
-        assert!(personal
-            .snapshot
-            .runs
-            .iter()
-            .all(|run| personal_ids.contains(&run.repo_id)));
-        cache
-            .save_settings(
-                "demo-personal",
-                &AccountSettings {
-                    selected_repo_ids: vec!["demo-personal-kit".into()],
-                },
-            )
-            .unwrap();
-        assert!(cache
-            .load_settings("demo-work")
-            .unwrap()
-            .selected_repo_ids
-            .is_empty());
-        let resource = "https://api.github.com/user/repos?per_page=100&page=1";
-        cache
-            .save_etag("demo-personal", resource, "\"etag-one\"")
-            .unwrap();
-        assert_eq!(cache.load_etag("demo-work", resource).unwrap(), None);
-        cache.delete_account("demo-personal").unwrap();
-        assert!(cache.load_snapshot("demo-personal").unwrap().is_none());
-        assert!(cache.load_snapshot("demo-work").unwrap().is_some());
-    }
-
-    #[test]
-    fn prevents_cross_account_pin_writes_and_secret_storage() {
-        let mut cache = Cache::in_memory().unwrap();
-        let mut snapshot = DemoStore::new().snapshot();
-        let pin = &snapshot.pins[0];
-        assert!(cache.save_pin("demo-work", pin).is_err());
-        snapshot.pins[0]
-            .inputs
-            .insert("clientSecret".into(), InputValue::String("hidden".into()));
-        assert!(cache
-            .save_snapshot("demo-personal", &snapshot, None)
-            .is_err());
-        // Transaction has not partially written a snapshot or any pins.
-        assert!(cache.load_snapshot("demo-personal").unwrap().is_none());
-        assert!(cache.load_pins("demo-personal").unwrap().is_empty());
-        assert!(cache
-            .save_etag("demo-personal", "https://evil.example/", "etag")
-            .is_err());
-        assert!(cache
-            .save_etag(
-                "demo-personal",
-                "https://api.github.com/user",
-                "etag\r\nAuthorization: x"
-            )
-            .is_err());
-    }
-
-    #[test]
-    fn deleting_one_accounts_pin_does_not_delete_another_accounts_same_id() {
-        let cache = Cache::in_memory().unwrap();
-        let pin = DemoStore::new().snapshot().pins.remove(0);
-        cache.save_pin("demo-personal", &pin).unwrap();
-        let mut other = pin.clone();
-        other.account_id = "demo-work".into();
-        other.repo_id = "demo-team-tools".into();
-        cache.save_pin("demo-work", &other).unwrap();
-        cache.delete_pin("demo-personal", &pin.id).unwrap();
-        assert!(cache.load_pins("demo-personal").unwrap().is_empty());
-        assert_eq!(cache.load_pins("demo-work").unwrap().len(), 1);
-    }
-}
+mod tests;

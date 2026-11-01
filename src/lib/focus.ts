@@ -1,6 +1,84 @@
+export interface TrapFocusOptions {
+  /**
+   * Element that receives focus when the dialog closes. Chained dialogs pass
+   * the opener of the first dialog so focus returns there, not to a button of
+   * a dialog that no longer exists.
+   */
+  returnFocus?: (() => HTMLElement | null | undefined) | undefined;
+}
+
+/** Focus was dropped (the focused element was removed or made inert). */
+export function focusLost() {
+  const active = document.activeElement;
+  return !active || active === document.body || !active.isConnected;
+}
+
+/** The active view tab: the place to land when nothing better is left. */
+function activeViewTab() {
+  return document.querySelector<HTMLElement>('[aria-current="page"]');
+}
+
+/** The first control of the notice next to this one, after it first. */
+export function neighbourNotice(node: HTMLElement) {
+  for (const sibling of [node.nextElementSibling, node.previousElementSibling])
+    if (sibling?.matches('.notice-banner'))
+      return sibling.querySelector<HTMLElement>('button');
+  return null;
+}
+
+/**
+ * Where focus goes when the notice holding it closes: the neighbour found
+ * while it was still listed, if it is still there, else the active view tab.
+ */
+export function focusAfterNotice(neighbour: HTMLElement | null) {
+  (neighbour?.isConnected ? neighbour : activeViewTab())?.focus();
+}
+
+/** Removed or disabled elements cannot take focus back. */
+function usable(target: HTMLElement | null | undefined) {
+  return (
+    !!target?.isConnected &&
+    !(target instanceof HTMLButtonElement && target.disabled)
+  );
+}
+
+/**
+ * Restores focus once the page behind the dialog is interactive again: the
+ * dialog's `destroy()` runs while the background is still `inert`, where
+ * `focus()` is silently ignored. An opener that was removed or disabled
+ * meanwhile (e.g. by a running start) hands focus to the active view tab.
+ * Never steals focus that was placed deliberately in the meantime, and
+ * leaves it to a dialog that replaced this one.
+ */
+function restoreFocus(target: HTMLElement | null | undefined, frames = 3) {
+  if (!focusLost()) return;
+  if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+  const next = usable(target) ? target : activeViewTab();
+  if (!next) return;
+  if (next.closest('[inert]')) {
+    if (frames > 0)
+      requestAnimationFrame(() => restoreFocus(target, frames - 1));
+    return;
+  }
+  next.focus();
+}
+
+/**
+ * After „In Aktivität anzeigen“: focuses the expanded run's toggle, or the
+ * active view tab while the run is not listed yet.
+ */
+export function focusRevealedRun() {
+  (
+    document.querySelector<HTMLElement>('.run button[aria-expanded="true"]') ??
+    activeViewTab()
+  )?.focus();
+}
+
 /** A small modal focus loop, including focus restoration when the dialog closes. */
-export function trapFocus(node: HTMLElement) {
-  const previous = document.activeElement as HTMLElement | null;
+export function trapFocus(node: HTMLElement, options: TrapFocusOptions = {}) {
+  const active = document.activeElement;
+  const previous = active instanceof HTMLElement ? active : null;
+  let returnFocus = options.returnFocus;
   const focusable = () =>
     [
       ...node.querySelectorAll<HTMLElement>(
@@ -14,13 +92,13 @@ export function trapFocus(node: HTMLElement) {
   const onKey = (event: KeyboardEvent) => {
     if (event.key !== 'Tab') return;
     const items = focusable();
-    if (!items.length) {
+    const first = items[0];
+    const last = items.at(-1);
+    if (!first || !last) {
       event.preventDefault();
       node.focus();
       return;
     }
-    const first = items[0],
-      last = items[items.length - 1];
     if (
       event.shiftKey &&
       (document.activeElement === first || document.activeElement === node)
@@ -34,9 +112,14 @@ export function trapFocus(node: HTMLElement) {
   };
   node.addEventListener('keydown', onKey);
   return {
+    update(next: TrapFocusOptions = {}) {
+      returnFocus = next.returnFocus;
+    },
     destroy() {
       node.removeEventListener('keydown', onKey);
-      if (previous?.isConnected) previous.focus();
+      const target = returnFocus?.() ?? previous;
+      // Runs after the current flush, when `inert` has been lifted.
+      queueMicrotask(() => restoreFocus(target));
     },
   };
 }

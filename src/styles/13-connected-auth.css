@@ -1,0 +1,45 @@
+.connected-auth {
+  margin: 16px 0;
+  text-align: left;
+}
+.connected-auth h4,
+.auth-preview .token-path h4 {
+  font-size: 12px;
+  color: #d3e3c5;
+  margin-bottom: 10px;
+}
+.connected-auth-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  margin-top: 7px;
+  border: 1px solid #4b5a3e;
+  border-radius: 7px;
+  background: #293323;
+}
+.connected-auth-card.active {
+  border-color: #8baf62;
+  background: #304027;
+}
+.connected-auth-card > svg {
+  color: #b7df89;
+  flex-shrink: 0;
+}
+.connected-auth-card > div {
+  flex: 1;
+  min-width: 0;
+}
+.connected-auth-card strong {
+  display: block;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  color: #e1eed7;
+}
+.connected-auth-card span {
+  display: block;
+  color: #b4c6a3;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+  margin-top: 3px;
+}

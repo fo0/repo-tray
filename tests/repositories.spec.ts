@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -18,13 +18,13 @@ test('repository disclosures show actions and both row and start button open the
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await toggle.click();
   await expect(
-    repo.getByRole('button', { name: 'Desktop build starten', exact: true }),
+    repo.getByRole('button', { name: 'Desktop build starten…', exact: true }),
   ).toBeEnabled();
   await expect(
-    repo.getByRole('button', { name: 'Checks starten', exact: true }),
+    repo.getByRole('button', { name: 'Checks starten…', exact: true }),
   ).toBeDisabled();
   await repo
-    .getByRole('button', { name: 'Desktop build konfigurieren', exact: true })
+    .getByRole('button', { name: 'Desktop build · main', exact: true })
     .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Workflow', { exact: true })).toHaveValue(
@@ -32,7 +32,7 @@ test('repository disclosures show actions and both row and start button open the
   );
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await repo
-    .getByRole('button', { name: 'Desktop build starten', exact: true })
+    .getByRole('button', { name: 'Desktop build starten…', exact: true })
     .click();
   await expect(dialog.getByLabel('Version', { exact: true })).toHaveValue(
     '0.1.0',
@@ -40,8 +40,25 @@ test('repository disclosures show actions and both row and start button open the
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await toggle.click();
   await expect(
-    repo.getByRole('button', { name: 'Desktop build starten', exact: true }),
+    repo.getByRole('button', { name: 'Desktop build starten…', exact: true }),
   ).toBeHidden();
+});
+
+test('expanded repositories stay open across view switches', async ({
+  page,
+}) => {
+  const toggles = page.locator('.repository-toggle');
+  await toggles.first().click();
+  await toggles.nth(1).click();
+  await toggles.nth(1).click();
+  await page.getByRole('button', { name: /^Aktivität/ }).click();
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  await expect(toggles.first()).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggles.nth(1)).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    page.getByRole('button', { name: 'Desktop build starten…', exact: true }),
+  ).toBeVisible();
 });
 
 test('heart favorites persist and remain scoped to their original account', async ({
@@ -64,10 +81,13 @@ test('heart favorites persist and remain scoped to their original account', asyn
       exact: true,
     }),
   ).toHaveAttribute('aria-pressed', 'true');
-  const pinned = page.getByRole('region', { name: 'Angeheftete Favoriten' });
+  const pinned = page.getByRole('region', {
+    name: 'Favoriten',
+    exact: true,
+  });
   await expect(
     pinned.getByRole('button', {
-      name: 'Favorit Runner health konfigurieren',
+      name: 'Favorit Runner health starten…',
       exact: true,
     }),
   ).toBeVisible();
@@ -100,13 +120,17 @@ test('heart favorites persist and remain scoped to their original account', asyn
       has: page.getByRole('heading', { name: 'Runner health', exact: true }),
     }),
   ).toContainText('team-demo');
-  await page.getByLabel('Account auswählen').selectOption('demo-personal');
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-personal');
   await expect(
     page.locator('.pin-card').filter({
       has: page.getByRole('heading', { name: 'Runner health', exact: true }),
     }),
   ).toHaveCount(0);
-  await page.getByLabel('Account auswählen').selectOption('demo-work');
+  await page
+    .getByLabel('Konto auswählen', { exact: true })
+    .selectOption('demo-work');
   await page.getByRole('button', { name: 'Repositories', exact: true }).click();
   await repo.locator('.repository-toggle').click();
   await repo
@@ -127,8 +151,16 @@ test('heart favorites persist and remain scoped to their original account', asyn
 test('pinned favorites open the stored configuration and unpin from both views', async ({
   page,
 }) => {
-  const pinned = page.getByRole('region', { name: 'Angeheftete Favoriten' });
-  await pinned.getByRole('button', { name: 'Öffnen', exact: true }).click();
+  const pinned = page.getByRole('region', {
+    name: 'Favoriten',
+    exact: true,
+  });
+  await pinned
+    .getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Version', { exact: true })).toHaveValue(
     '0.1.0',
@@ -166,7 +198,7 @@ test('activity defaults to an interleaved history and retains a new run after it
     .locator('.repository-toggle')
     .click();
   await page
-    .getByRole('button', { name: 'Desktop build starten', exact: true })
+    .getByRole('button', { name: 'Desktop build starten…', exact: true })
     .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog

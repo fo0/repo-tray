@@ -1,0 +1,225 @@
+/* Top-aligned so the tab strip keeps its position when panels of different
+   heights are shown; the max-height leaves room for the top offset. */
+.modal.settings-modal {
+  --settings-modal-top: min(6dvh, 48px);
+  align-self: flex-start;
+  margin-top: var(--settings-modal-top);
+  max-height: calc(100% - var(--settings-modal-top));
+}
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 18px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #38452f;
+}
+.startup-panel h3 {
+  margin: 0 0 18px;
+}
+.startup-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #536f3e;
+  border-radius: 8px;
+  background: #283524;
+  cursor: pointer;
+}
+.startup-option input {
+  margin: 3px 0 0;
+  flex-shrink: 0;
+  accent-color: #c2e795;
+}
+.startup-option strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.startup-option span span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #a3b394;
+}
+.startup-status {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 14px 0;
+}
+.startup-saved {
+  color: #c2e795;
+}
+.startup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.startup-help {
+  margin-top: 20px;
+}
+.settings-tabs button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #a3b394;
+  font-size: var(--font-size-meta);
+}
+.settings-tabs button[aria-selected='true'] {
+  background: #34452a;
+  border-color: #536f3e;
+  color: #d1ecb8;
+}
+.tab-update-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c2e795;
+}
+.settings-repo-search {
+  margin-bottom: 8px;
+}
+.settings-repo-search + .field-help {
+  margin-bottom: 12px;
+}
+.update-panel {
+  color: #c9d8bb;
+}
+.update-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.update-heading h3 {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+.update-heading p,
+.update-check-row,
+.update-release {
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+}
+.update-heading p {
+  color: #9eae90;
+}
+.update-symbol {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #536b3e;
+  border-radius: 10px;
+  background: #344329;
+  color: #c2e795;
+  flex-shrink: 0;
+}
+.version-badge {
+  margin-left: auto;
+  font-size: var(--font-size-meta);
+  color: #afca95;
+  padding: 3px 7px;
+  border: 1px solid #485d37;
+  border-radius: 5px;
+}
+.update-description {
+  margin: 16px 0;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+  color: #9eae90;
+}
+.update-check-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.update-release {
+  border: 1px solid #4a6138;
+  border-radius: 9px;
+  background: #25301f;
+  margin-top: 18px;
+  padding: 14px;
+}
+.update-release-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.update-release-heading strong {
+  color: #d5edbe;
+  font-size: 13px;
+}
+.update-release-heading > span {
+  color: #a1b58e;
+}
+.update-steps {
+  display: flex;
+  list-style: none;
+  gap: 8px;
+  padding: 14px 0;
+  margin: 0;
+  color: #91a37f;
+  font-size: var(--font-size-meta);
+}
+.update-steps li {
+  flex: 1;
+  border-top: 2px solid #46533c;
+  padding-top: 7px;
+}
+.update-steps .done {
+  border-color: #b2d98a;
+  color: #cde6b6;
+}
+.update-changelog {
+  border-top: 1px solid #3c4d30;
+  margin-bottom: 16px;
+}
+.update-changelog summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-weight: 600;
+}
+.update-changelog p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 180px;
+  overflow-y: auto;
+  color: #afc29d;
+}
+.update-current {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #c2e795;
+  margin: 14px 0;
+  font-size: var(--font-size-meta);
+  line-height: 1.6;
+}
+.update-progress label {
+  display: block;
+  margin-bottom: 7px;
+}
+.update-progress progress {
+  width: 100%;
+  height: 8px;
+  accent-color: #c2e795;
+}
+.update-release .primary-button {
+  width: 100%;
+  margin-top: 10px;
+  white-space: normal;
+}
+.update-release > .field-help {
+  margin-top: 10px;
+}
+.update-panel > .alert {
+  margin-top: 14px;
+}

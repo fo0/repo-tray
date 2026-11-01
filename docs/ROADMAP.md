@@ -8,7 +8,7 @@
 - [ ] Test DPI, multiple monitors, sleep/resume, close-to-tray and notification opt-in.
 - [ ] Validate macOS/Linux native behavior before claiming platform support.
 
-Native browser device-flow code, explicit local gh/GCM credential import, Settings-based account selection, tray positioning, token access, transport backoff/pagination, workflow/ref/input validation, cached snapshots, persistent uncertain-start protection and manual release downloads are implemented. Automated fixtures and compilation do not replace native runtime acceptance.
+Native browser device-flow code, explicit gh credential import with metadata-only GCM discovery, Settings-based account selection, tray positioning, token access, transport backoff/pagination, workflow/ref/input validation, cached snapshots, persistent uncertain-start protection and notify-only release checks for unsigned builds are implemented. Automated fixtures and compilation do not replace native runtime acceptance.
 
 ## Optional product features
 

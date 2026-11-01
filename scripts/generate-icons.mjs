@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 // RepoTray artwork constructed from a tile and three connected workflow nodes.
 // The 64-unit geometry is the source: no existing raster/external asset is read.
 const tile = { x: 4, y: 4, width: 56, height: 56, radius: 14 };
+/** @type {[x1: number, y1: number, x2: number, y2: number][]} */
 const links = [
   [20, 18, 20, 26],
   [20, 26, 32, 34],
@@ -10,6 +11,7 @@ const links = [
   [44, 26, 44, 18],
   [32, 34, 32, 46],
 ];
+/** @type {[cx: number, cy: number][]} */
 const nodes = [
   [20, 18],
   [44, 18],
@@ -17,10 +19,15 @@ const nodes = [
 ];
 const strokeWidth = 5;
 const nodeRadius = 3.5;
+/** @type {[null, number[], number[]]} Indexed by the `sample` result. */
 const colors = [null, [197, 236, 143], [27, 34, 25]];
 const samples = 4;
 const outputDirectory = new URL('../src-tauri/icons/', import.meta.url);
 
+/**
+ * @param {number} x
+ * @param {number} y
+ */
 function inTile(x, y) {
   const cx = Math.max(
     tile.x + tile.radius,
@@ -33,6 +40,11 @@ function inTile(x, y) {
   return (x - cx) ** 2 + (y - cy) ** 2 <= tile.radius ** 2;
 }
 
+/**
+ * @param {number} x
+ * @param {number} y
+ * @param {[number, number, number, number]} link
+ */
 function onLink(x, y, [x1, y1, x2, y2]) {
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -45,6 +57,10 @@ function onLink(x, y, [x1, y1, x2, y2]) {
   );
 }
 
+/**
+ * @param {number} x
+ * @param {number} y
+ */
 function sample(x, y) {
   if (!inTile(x, y)) return 0;
   if (
@@ -61,11 +77,15 @@ const crcTable = Array.from({ length: 256 }, (_, value) => {
   return value >>> 0;
 });
 
+/**
+ * @param {string} type
+ * @param {Buffer} data
+ */
 function chunk(type, data) {
   const content = Buffer.concat([Buffer.from(type), data]);
   let crc = 0xffffffff;
   for (const value of content)
-    crc = crcTable[(crc ^ value) & 255] ^ (crc >>> 8);
+    crc = (crcTable[(crc ^ value) & 255] ?? 0) ^ (crc >>> 8);
   const header = Buffer.alloc(4);
   header.writeUInt32BE(data.length);
   const checksum = Buffer.alloc(4);
@@ -74,7 +94,9 @@ function chunk(type, data) {
 }
 
 // Stored DEFLATE blocks avoid compressor/version/platform-dependent output.
+/** @param {Buffer} data */
 function zlibStore(data) {
+  /** @type {Buffer[]} */
   const parts = [Buffer.from([0x78, 0x01])];
   for (let offset = 0; offset < data.length; offset += 65535) {
     const block = data.subarray(offset, offset + 65535);
@@ -95,11 +117,13 @@ function zlibStore(data) {
   return Buffer.concat([...parts, adler]);
 }
 
+/** @param {number} size */
 function png(size) {
   const stride = 1 + size * 4;
   const pixels = Buffer.alloc(stride * size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
+      /** @type {[number, number, number]} */
       const counts = [0, 0, 0];
       for (let sy = 0; sy < samples; sy++)
         for (let sx = 0; sx < samples; sx++)
@@ -114,7 +138,8 @@ function png(size) {
         ? [
             ...colors[1].map((value, channel) =>
               Math.round(
-                (value * counts[1] + colors[2][channel] * counts[2]) / covered,
+                (value * counts[1] + (colors[2][channel] ?? 0) * counts[2]) /
+                  covered,
               ),
             ),
             Math.round((covered * 255) / samples ** 2),
@@ -136,6 +161,7 @@ function png(size) {
   ]);
 }
 
+/** @param {[size: number, image: Buffer][]} images */
 function ico(images) {
   const header = Buffer.alloc(6 + 16 * images.length);
   header.writeUInt16LE(1, 2);
@@ -167,17 +193,23 @@ ${nodes.map(([cx, cy]) => `    <circle cx="${cx}" cy="${cy}" r="${nodeRadius}"/>
 `;
 }
 
+/** @type {[size: number, image: Buffer][]} */
 const images = [16, 32, 48, 64, 128, 256].map((size) => [size, png(size)]);
+/** @type {Map<string, Buffer>} */
 const outputs = new Map([
   ...images
     .filter(([size]) => [32, 128, 256].includes(size))
-    .map(([size, data]) => [`${size}x${size}.png`, data]),
+    .map(
+      /** @returns {[string, Buffer]} */
+      ([size, data]) => [`${size}x${size}.png`, data],
+    ),
   ['icon.ico', ico(images)],
   ['source.svg', Buffer.from(svg())],
 ]);
 const check = process.argv[2] === '--check';
 if (process.argv.length > (check ? 3 : 2))
   throw new Error('Usage: node scripts/generate-icons.mjs [--check]');
+/** @type {string[]} */
 const mismatches = [];
 for (const [name, data] of outputs) {
   const destination = new URL(name, outputDirectory);

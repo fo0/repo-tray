@@ -4,9 +4,16 @@
 
   let {
     id,
+    name,
     quickStart,
     demo = true,
-  }: { id: string; quickStart: boolean; demo?: boolean } = $props();
+  }: {
+    id: string;
+    /** Accessible name; names the favorite, so two markers never share one. */
+    name: string;
+    quickStart: boolean;
+    demo?: boolean;
+  } = $props();
   let trigger = $state<HTMLButtonElement>();
   let tooltip = $state<HTMLDivElement>();
   let hovered = $state(false);
@@ -104,6 +111,7 @@
   type="button"
   class="uncertain-start"
   bind:this={trigger}
+  aria-label={name}
   aria-describedby={id}
   aria-controls={id}
   aria-expanded={visible}
@@ -119,7 +127,7 @@
   }}
   onclick={toggle}
 >
-  <Icon name="warning" size={12} /><span>Start-Status ungeklärt</span>
+  <Icon name="warning" size={12} /><span>Startstatus ungeklärt</span>
 </button>
 <div
   class="uncertain-start-tip"
@@ -133,20 +141,20 @@
   onpointerenter={enter}
   onpointerleave={leave}
 >
-  <strong><Icon name="warning" size={14} />Start-Status ungeklärt</strong>
+  <strong><Icon name="warning" size={14} />Startstatus ungeklärt</strong>
   <p>
-    Die Startannahme ist nicht bestätigt. Der Workflow könnte bereits laufen.
-    Ein erneuter Start für dieses Ziel bleibt gesperrt.
+    GitHub hat den Start nicht bestätigt. Der Workflow läuft eventuell bereits.
+    Ein erneuter Start für diesen Workflow und Branch bleibt gesperrt.
   </p>
   <p>
     {quickStart
-      ? 'Wähle „Konfigurieren“ und danach „Status prüfen“.'
-      : 'Wähle „Öffnen“ und danach „Status prüfen“.'}
+      ? 'Wähle das Zahnrad „Starten…“, dann „Status prüfen“ oder nach der Prüfung auf GitHub „Sperre aufheben…“.'
+      : 'Wähle „Starten…“, dann „Status prüfen“ oder nach der Prüfung auf GitHub „Sperre aufheben…“.'}
   </p>
   <p class="tip-mode">
-    Vorlage: {quickStart ? 'Schnellstart aktiviert' : 'mit Bestätigung'}. {demo
-      ? 'In der Demo hebt nur „Demo zurücksetzen“ die Beispielsperre auf.'
-      : 'Prüfe die Runs auf GitHub. Die Startsperre bleibt auch nach einem Neustart erhalten.'}
+    Favorit: {quickStart ? 'Schnellstart aktiviert' : 'mit Bestätigung'}. {demo
+      ? 'Die Beispielsperre hebst du im Startdialog oder mit „Demo zurücksetzen“ auf.'
+      : 'Die Startsperre bleibt auch nach einem Neustart erhalten, bis du sie aufhebst.'}
   </p>
 </div>
 
@@ -164,7 +172,7 @@
     background: transparent;
     color: var(--warning);
     font: inherit;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 14px;
     text-align: left;
     cursor: help;

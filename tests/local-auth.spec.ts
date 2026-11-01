@@ -1,11 +1,23 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import {
+  type TauriMock,
+  installTauriMock,
+  readCalls,
+} from './support/tauriMock';
+
+type LocalMock = {
+  scanDelay: number;
+  empty: boolean;
+  /** Counts discovery responses after the panel had a full task to apply them. */
+  scansSettled: number;
+};
+let mock: TauriMock<LocalMock>;
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(
-    ({ fixture }) => {
-      let callback = 0;
-      const calls: { cmd: string; args?: Record<string, unknown> }[] = [];
+  mock = await installTauriMock<{ fixture: typeof fixture }, LocalMock>(
+    page,
+    ({ fixture }, state) => {
       const empty = {
         ...structuredClone(fixture),
         accounts: [],
@@ -49,83 +61,59 @@ test.beforeEach(async ({ page }) => {
           actionsWrite: 'Nicht nachgewiesen.',
         },
       ];
-      Object.assign(window, {
-        isTauri: true,
-        __localCalls: calls,
-        __localScanDelay: 0,
-        __localEmpty: false,
-        __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
-        __TAURI_INTERNALS__: {
-          invoke: async (cmd: string, args?: Record<string, unknown>) => {
-            calls.push({ cmd, args });
-            if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
-              return structuredClone(empty);
-            if (cmd === 'discover_local_auth') {
-              const state = window as unknown as {
-                __localScanDelay: number;
-                __localEmpty: boolean;
-              };
-              await new Promise((resolve) =>
-                setTimeout(resolve, state.__localScanDelay),
-              );
-              return {
-                accounts: state.__localEmpty ? [] : accounts,
-                notices: [
-                  'Git erkannt; keine API-Anmeldung belegt.',
-                  'GCM-Credentials werden nicht exportiert.',
-                ],
-              };
-            }
-            if (cmd === 'connect_local_auth') {
-              if (args?.login !== 'fixture-sam' || args?.confirmImport !== true)
-                throw 'Selection mismatch';
-              return {
-                ...structuredClone(fixture),
-                mode: 'live',
-                connectivity: 'online',
-                stale: false,
-                accounts: [
-                  {
-                    id: 'github-gh-42',
-                    login: 'fixture-sam',
-                    label: 'GitHub · gh CLI (Kopie)',
-                  },
-                ],
-              };
-            }
-            if (cmd === 'plugin:event|listen') return ++callback;
-            return null;
-          },
-          transformCallback: () => ++callback,
-          unregisterCallback: () => {},
-          metadata: {
-            currentWindow: { label: 'main' },
-            currentWebview: { label: 'main', windowLabel: 'main' },
-          },
-        },
-      });
+      return async (cmd, args) => {
+        if (cmd === 'snapshot' || cmd === 'refresh_snapshot')
+          return structuredClone(empty);
+        if (cmd === 'discover_local_auth') {
+          await new Promise((resolve) => setTimeout(resolve, state.scanDelay));
+          // Count it one task later, once the panel has consumed the result.
+          setTimeout(() => state.scansSettled++, 0);
+          return {
+            accounts: state.empty ? [] : accounts,
+            notices: [
+              'Git erkannt; keine API-Anmeldung belegt.',
+              'GCM-Credentials werden nicht exportiert.',
+            ],
+          };
+        }
+        if (cmd === 'connect_local_auth') {
+          if (args?.login !== 'fixture-sam' || args?.confirmImport !== true)
+            throw 'Selection mismatch';
+          return {
+            ...structuredClone(fixture),
+            mode: 'live',
+            connectivity: 'online',
+            stale: false,
+            accounts: [
+              {
+                id: 'github-gh-42',
+                login: 'fixture-sam',
+                label: 'GitHub · gh CLI (Kopie)',
+              },
+            ],
+          };
+        }
+        return null;
+      };
     },
-    { fixture },
+    {
+      arg: { fixture },
+      state: { scanDelay: 0, empty: false, scansSettled: 0 },
+    },
   );
   await page.goto('/');
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
+    .click();
 });
 
 test('local account access requires a click, explicit choice and consent before secret import', async ({
   page,
 }) => {
-  const calls = () =>
-    page.evaluate(
-      () =>
-        (
-          window as unknown as {
-            __localCalls: { cmd: string; args?: Record<string, unknown> }[];
-          }
-        ).__localCalls,
-    );
+  const calls = () => readCalls(page);
   expect((await calls()).some((c) => c.cmd.includes('local_auth'))).toBe(false);
   await page
     .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
@@ -154,7 +142,7 @@ test('local account access requires a click, explicit choice and consent before 
     .check();
   await connect.click();
   await expect(
-    page.getByRole('heading', { name: 'Dein Workspace', exact: true }),
+    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
   ).toBeVisible();
   expect(
     (await calls()).find((c) => c.cmd === 'connect_local_auth')?.args,
@@ -172,7 +160,7 @@ test('local account access requires a click, explicit choice and consent before 
 test('unavailable sources stay unavailable and cancellation discards late process results', async ({
   page,
 }) => {
-  await page.evaluate(() => Object.assign(window, { __localScanDelay: 400 }));
+  await mock.configure({ scanDelay: 400 });
   await page
     .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
     .click();
@@ -180,14 +168,15 @@ test('unavailable sources stay unavailable and cancellation discards late proces
   await page
     .getByRole('button', { name: 'Prüfung abbrechen', exact: true })
     .click();
-  await page.waitForTimeout(500);
+  // The absence check proves nothing until the late result was delivered.
+  await expect.poll(() => mock.read('scansSettled')).toBe(1);
   await expect(page.getByLabel('Lokales Konto · gh CLI')).toHaveCount(0);
-  await page.evaluate(() =>
-    Object.assign(window, { __localScanDelay: 0, __localEmpty: true }),
-  );
+  await mock.configure({ scanDelay: 0, empty: true });
   await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
   await expect(
-    page.getByText('Keine geeignete lokale API-Anmeldung verfügbar.'),
+    page.getByText(
+      'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut.',
+    ),
   ).toBeVisible();
   await expect(
     page.getByRole('button', {
@@ -229,10 +218,21 @@ test('discovery shows recognized rather than connected until consent, then retai
   await page
     .getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' })
     .click();
+  // The new account has no selected repositories yet: settings opens there.
+  await expect(page.getByRole('tab', { name: 'Repositories' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(
+    page.getByRole('status').filter({ hasText: 'fixture-sam ist verbunden' }),
+  ).toBeVisible();
+  await page.getByRole('tab', { name: 'Konten', exact: true }).click();
   await expect(
     page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
   ).toContainText('gh-Anmeldung übernommen · Aktiv für RepoTray');
-  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   await expect(
     dialog.getByRole('region', { name: 'Verbundene Anmeldungen' }),

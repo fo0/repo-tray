@@ -9,25 +9,6 @@ use std::time::{Duration, Instant};
 const FIXTURE: &str = include_str!("../../fixtures/demo.json");
 const DEMO_MESSAGE: &str = "Demo data only. No GitHub connection or real workflow starts.";
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct Target {
-    account_id: String,
-    repo_id: String,
-    workflow_id: u64,
-    git_ref: String,
-}
-
-impl From<&DispatchRequest> for Target {
-    fn from(request: &DispatchRequest) -> Self {
-        Self {
-            account_id: request.account_id.clone(),
-            repo_id: request.repo_id.clone(),
-            workflow_id: request.workflow_id,
-            git_ref: request.git_ref.clone(),
-        }
-    }
-}
-
 #[derive(Clone)]
 struct RecordedRequest {
     request: DispatchRequest,
@@ -43,8 +24,9 @@ pub struct DemoStore {
     snapshot: Snapshot,
     scenario: DemoScenario,
     next_run_id: u64,
-    requests: BTreeMap<(String, String), RecordedRequest>,
-    uncertain_targets: BTreeSet<Target>,
+    requests: RecentOutcomes<(String, String), RecordedRequest>,
+    /// Locked targets with their claim time; only `release_uncertain_start` or a reset clears them.
+    uncertain_targets: BTreeMap<DispatchTarget, String>,
     simulated_runs: BTreeMap<u64, SimulatedRun>,
 }
 
@@ -78,14 +60,44 @@ impl DemoStore {
             snapshot,
             scenario: DemoScenario::Normal,
             next_run_id,
-            requests: BTreeMap::new(),
-            uncertain_targets: BTreeSet::new(),
+            requests: RecentOutcomes::new(MAX_RECORDED_OUTCOMES),
+            uncertain_targets: BTreeMap::new(),
             simulated_runs,
         }
     }
 
     pub fn snapshot(&self) -> Snapshot {
-        self.snapshot.clone()
+        let mut snapshot = self.snapshot.clone();
+        snapshot.uncertain_starts = self
+            .uncertain_targets
+            .iter()
+            .map(|(target, claimed_at)| UncertainStart {
+                account_id: target.account_id.clone(),
+                repo_id: target.repo_id.clone(),
+                workflow_id: target.workflow_id,
+                git_ref: target.git_ref.clone(),
+                claimed_at: Some(claimed_at.clone()),
+            })
+            .collect();
+        snapshot
+    }
+
+    /// Mirrors the live command: releases exactly the reviewed claim and never dispatches.
+    pub fn release_uncertain_start(&mut self, start: UncertainStart) -> Result<Snapshot, String> {
+        let target = start.target();
+        match self.uncertain_targets.get(&target) {
+            Some(claimed_at) if start.claimed_at.as_ref() != Some(claimed_at) => {
+                return Err(
+                    "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut."
+                        .into(),
+                )
+            }
+            Some(_) => {
+                self.uncertain_targets.remove(&target);
+            }
+            None => {}
+        }
+        Ok(self.snapshot())
     }
 
     pub fn refresh(&mut self) -> Snapshot {
@@ -149,9 +161,8 @@ impl DemoStore {
     }
 
     pub fn save_pin(&mut self, mut pin: Pin) -> Result<Snapshot, String> {
-        if pin.id.trim().is_empty() || pin.label.trim().is_empty() || pin.label.len() > 120 {
-            return Err("Pins need an ID and a label of at most 120 characters.".into());
-        }
+        validate_pin_fields(&pin)?;
+        check_pin_room(&self.snapshot.pins, &pin.id)?;
         validate_non_secret_inputs(&pin.inputs).map_err(|error| error.to_string())?;
         let request = DispatchRequest {
             account_id: pin.account_id.clone(),
@@ -187,6 +198,10 @@ impl DemoStore {
     }
 
     pub fn dispatch(&mut self, request: DispatchRequest) -> DispatchOutcome {
+        // Invalid IDs are never recorded, so they cannot grow the idempotency ledger.
+        if let Err(message) = validate_request_id(&request.request_id) {
+            return DispatchOutcome::rejected(message);
+        }
         let key = (request.account_id.clone(), request.request_id.clone());
         if let Some(recorded) = self.requests.get(&key) {
             return if recorded.request == request {
@@ -195,13 +210,14 @@ impl DemoStore {
                 DispatchOutcome::rejected("This request ID was already used for another payload.")
             };
         }
-        let outcome = if request.request_id.trim().is_empty() || request.request_id.len() > 200 {
-            DispatchOutcome::rejected("A dispatch needs a nonempty request ID.")
-        } else if let Err(message) = self.validate_request(&request) {
+        let outcome = if let Err(message) = self.validate_request(&request) {
             DispatchOutcome::rejected(message)
-        } else if self.uncertain_targets.contains(&Target::from(&request)) {
+        } else if self
+            .uncertain_targets
+            .contains_key(&DispatchTarget::from(&request))
+        {
             DispatchOutcome::uncertain(
-                "The previous start for this target is unresolved. Reset the demo before retrying.",
+                "The previous start for this target is unresolved. Release it after checking, or reset the demo.",
             )
         } else {
             match self.scenario {
@@ -212,7 +228,8 @@ impl DemoStore {
                     "Access denied: workflow write permission is required.",
                 ),
                 DemoScenario::Uncertain => {
-                    self.uncertain_targets.insert(Target::from(&request));
+                    self.uncertain_targets
+                        .insert(DispatchTarget::from(&request), Utc::now().to_rfc3339());
                     DispatchOutcome::uncertain(
                         "Simulated connection loss after sending. The outcome is unknown; do not retry.",
                     )
@@ -472,6 +489,49 @@ mod tests {
         assert_eq!(store.dispatch(work).state, DispatchState::Accepted);
         store.reset();
         assert_eq!(store.dispatch(request()).state, DispatchState::Accepted);
+    }
+
+    #[test]
+    fn uncertain_start_is_listed_and_released_only_by_an_exact_explicit_call() {
+        let mut store = DemoStore::new();
+        store.set_scenario("uncertain".into()).unwrap();
+        assert_eq!(store.dispatch(request()).state, DispatchState::Uncertain);
+        store.set_scenario("normal".into()).unwrap();
+        store.refresh();
+        let starts = store.snapshot().uncertain_starts;
+        assert_eq!(starts.len(), 1);
+        assert_eq!(starts[0].target(), DispatchTarget::from(&request()));
+        assert!(starts[0].claimed_at.is_some());
+        let mut outdated = starts[0].clone();
+        outdated.claimed_at = Some("2000-01-01T00:00:00Z".into());
+        assert!(store.release_uncertain_start(outdated).is_err());
+        assert_eq!(store.snapshot().uncertain_starts, starts);
+        let released = store.release_uncertain_start(starts[0].clone()).unwrap();
+        assert!(released.uncertain_starts.is_empty());
+        // The uncertain request ID keeps its outcome; only a new ID may start again.
+        assert_eq!(store.dispatch(request()).state, DispatchState::Uncertain);
+        let mut fresh = request();
+        fresh.request_id = "after-release".into();
+        assert_eq!(store.dispatch(fresh).state, DispatchState::Accepted);
+        assert!(store.release_uncertain_start(starts[0].clone()).is_ok());
+    }
+
+    #[test]
+    fn overlong_request_ids_are_rejected_without_being_recorded() {
+        let mut store = DemoStore::new();
+        let mut long = request();
+        long.request_id = "x".repeat(MAX_REQUEST_ID_CHARS + 1);
+        assert_eq!(store.dispatch(long).state, DispatchState::Rejected);
+        assert!(store.requests.is_empty());
+        let mut pin = store.snapshot.pins[0].clone();
+        pin.label = "x".repeat(MAX_PIN_LABEL_CHARS + 1);
+        assert!(store.save_pin(pin).is_err());
+        let mut pin = store.snapshot.pins[0].clone();
+        pin.git_ref = "main..evil".into();
+        assert_eq!(
+            store.save_pin(pin).unwrap_err(),
+            "Branch oder Tag des Favoriten ist ungültig."
+        );
     }
 
     #[test]

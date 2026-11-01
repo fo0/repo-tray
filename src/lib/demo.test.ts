@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, describe, expect, it, vi } from 'vitest';
 import {
   createDemoBridge,
   PREFERENCE_KEY,
@@ -35,10 +35,10 @@ describe('local demo bridge safety', () => {
   it('keeps snapshot reads isolated from caller mutations', async () => {
     const bridge = createDemoBridge(undefined, 0);
     const first = await bridge.snapshot();
-    first.repos[0].selected = false;
+    first.repos[0]!.selected = false;
     first.runs.length = 0;
     const next = await bridge.snapshot();
-    expect(next.repos[0].selected).toBe(true);
+    expect(next.repos[0]!.selected).toBe(true);
     expect(next.runs).toHaveLength(5);
   });
   it('rejects account mismatch, unselected repo, read-only permission and non-dispatch workflow', async () => {
@@ -132,6 +132,39 @@ describe('local demo bridge safety', () => {
         .state,
     ).toBe('accepted');
   });
+  it('lists an uncertain start and releases only the exact reviewed claim', async () => {
+    const bridge = createDemoBridge(undefined, 0);
+    expect((await bridge.snapshot()).uncertainStarts).toEqual([]);
+    await bridge.setDemoScenario('uncertain');
+    expect((await bridge.dispatchWorkflow(request())).state).toBe('uncertain');
+    await bridge.setDemoScenario('normal');
+    const [start, ...rest] = (await bridge.refreshSnapshot()).uncertainStarts!;
+    expect(rest).toEqual([]);
+    assert(start);
+    expect(start).toMatchObject({
+      accountId: 'demo-personal',
+      repoId: 'demo-personal-kit',
+      workflowId: 101,
+      ref: 'main',
+    });
+    expect(Date.parse(start.claimedAt!)).not.toBeNaN();
+    await expect(
+      bridge.releaseUncertainStart({ ...start, claimedAt: null }),
+    ).rejects.toThrow(/neuere Startsperre/);
+    expect((await bridge.snapshot()).uncertainStarts).toHaveLength(1);
+    expect((await bridge.releaseUncertainStart(start)).uncertainStarts).toEqual(
+      [],
+    );
+    // The uncertain request ID keeps its outcome; only a new ID starts again.
+    expect((await bridge.dispatchWorkflow(request())).state).toBe('uncertain');
+    expect(
+      (await bridge.dispatchWorkflow(request({ requestId: 'after-release' })))
+        .state,
+    ).toBe('accepted');
+    expect((await bridge.releaseUncertainStart(start)).uncertainStarts).toEqual(
+      [],
+    );
+  });
   it('simulates queue, running, completed independently of acceptance', async () => {
     vi.useFakeTimers();
     const bridge = createDemoBridge(undefined, 100);
@@ -139,11 +172,11 @@ describe('local demo bridge safety', () => {
     await vi.advanceTimersByTimeAsync(100);
     const outcome = await pending;
     expect(outcome.message).toMatch(/keine Build-Erfolgsmeldung/);
-    expect((await bridge.snapshot()).runs[0].status).toBe('queued');
+    expect((await bridge.snapshot()).runs[0]!.status).toBe('queued');
     await vi.advanceTimersByTimeAsync(1000);
-    expect((await bridge.snapshot()).runs[0].status).toBe('in_progress');
+    expect((await bridge.snapshot()).runs[0]!.status).toBe('in_progress');
     await vi.advanceTimersByTimeAsync(1000);
-    expect((await bridge.snapshot()).runs[0].conclusion).toBe('success');
+    expect((await bridge.snapshot()).runs[0]!.conclusion).toBe('success');
   });
   it('a reset invalidates in-flight dispatch without re-creating the run', async () => {
     vi.useFakeTimers();
@@ -181,7 +214,7 @@ describe('non-secret preference persistence', () => {
     const storage = memory();
     const bridge = createDemoBridge(storage, 0);
     const pin: Pin = {
-      ...(await bridge.snapshot()).pins[0],
+      ...(await bridge.snapshot()).pins[0]!,
       id: 'custom',
       label: 'My pin',
       quickStart: true,
@@ -214,7 +247,7 @@ describe('non-secret preference persistence', () => {
     const bridge = createDemoBridge(storage, 0);
     expect((await bridge.snapshot()).pins).toHaveLength(1);
     const pin = {
-      ...(await bridge.snapshot()).pins[0],
+      ...(await bridge.snapshot()).pins[0]!,
       token: 'never-persist-this',
     };
     await bridge.savePin(pin);
@@ -225,7 +258,7 @@ describe('non-secret preference persistence', () => {
   it('does not persist simulated runs, scenarios, or request payloads', async () => {
     const storage = memory();
     const bridge = createDemoBridge(storage, 0);
-    await bridge.savePin((await bridge.snapshot()).pins[0]);
+    await bridge.savePin((await bridge.snapshot()).pins[0]!);
     await bridge.dispatchWorkflow(request());
     await bridge.setDemoScenario('offline');
     const saved = storage.getItem(PREFERENCE_KEY)!;

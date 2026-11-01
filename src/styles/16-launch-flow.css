@@ -1,0 +1,70 @@
+/* Start flow and favorites: release confirmation, notices, row markers. */
+
+/* A locked start on a repository or workflow row, like on favorites. */
+.row-warning {
+  display: inline-flex;
+  vertical-align: -1px;
+  margin-left: 5px;
+  color: var(--warning);
+}
+
+/* The release question: deliberate, not destructive (InlineConfirm `caution`). */
+.inline-confirm.caution {
+  margin-top: 10px;
+  border-color: #605033;
+  background: #302a1d;
+}
+.inline-confirm.caution p {
+  color: #dcc391;
+}
+.inline-confirm.caution p strong {
+  color: #f0d39c;
+}
+.inline-confirm.caution .secondary-button {
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  padding-block: 6px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.4;
+}
+.release-error {
+  margin-top: 8px;
+  color: #e0a292;
+}
+
+/* The dialog footer note while a start runs: a subtle alert of its own. */
+.dialog-alert.subtle {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  background: #2b3623;
+  border: 1px solid #3f5430;
+  color: #b7d298;
+}
+.dialog-alert.subtle svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Start results and notices take focus programmatically; show where it is. */
+.outcome:focus-visible,
+.dispatch-body > .alert:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 400px) {
+  /* Narrow panels: the text keeps the first row, the action wraps below. */
+  .notice-banner {
+    flex-wrap: wrap;
+  }
+  .notice-banner > span {
+    flex: 1 1 calc(100% - 80px);
+  }
+  .notice-banner > .text-button {
+    order: 1;
+    margin-left: 23px;
+  }
+}

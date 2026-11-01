@@ -1,21 +1,11 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
-  import type { Snapshot } from './types';
-  type Status = {
-    state: string;
-    userCode?: string;
-    verificationUri?: string;
-    expiresAt?: number;
-    nextPollAt?: number;
-  };
-  type Reply = {
-    flowId: number;
-    status: Status;
-    message?: string;
-    snapshot?: Snapshot;
-  };
+  import { ipcErrorMessage } from './format';
+  import { call } from './ipc';
+  import type { DeviceFlowStatus, Snapshot } from './types';
+  /** The native flow status plus the panel's own starting and error states. */
+  type Status = DeviceFlowStatus | { state: 'starting' | 'error' };
   let {
     onConnected,
     onBusy,
@@ -36,7 +26,7 @@
   let flowId = 0;
   let timer: ReturnType<typeof setTimeout>;
   onMount(() => {
-    void invoke<{ configured: boolean }>('browser_auth_config')
+    void call('browser_auth_config')
       .then((config) => {
         if (active) configured = config?.configured === true;
       })
@@ -58,10 +48,7 @@
     )
       return;
     const now = Date.now() / 1000;
-    const due = Math.min(
-      status.nextPollAt ?? now + 5,
-      status.expiresAt ?? now + 5,
-    );
+    const due = Math.min(status.nextPollAt, status.expiresAt);
     timer = setTimeout(
       () => void poll(ticket),
       Math.max(250, (due - now) * 1000),
@@ -69,7 +56,7 @@
   }
   async function poll(ticket: number) {
     try {
-      const reply = await invoke<Reply>('poll_browser_auth', { flowId });
+      const reply = await call('poll_browser_auth', { flowId });
       if (!active || ticket !== generation || reply.flowId !== flowId) return;
       status = reply.status;
       message = reply.message ?? '';
@@ -83,23 +70,23 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message =
-        typeof cause === 'string'
-          ? cause
-          : 'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.';
+      message = ipcErrorMessage(
+        cause,
+        'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.',
+      );
       setBusy(false);
-      void invoke('cancel_connect').catch(() => {});
+      void call('cancel_connect').catch(() => {});
     }
   }
   async function openBrowser() {
     try {
-      await invoke('open_browser_auth', { flowId });
+      await call('open_browser_auth', { flowId });
     } catch (cause) {
       if (active)
-        message =
-          typeof cause === 'string'
-            ? cause
-            : 'Öffne github.com/login/device und gib den Code ein.';
+        message = ipcErrorMessage(
+          cause,
+          'Öffne github.com/login/device und gib den Code ein.',
+        );
     }
   }
   async function begin() {
@@ -111,7 +98,7 @@
     copied = false;
     status = { state: 'starting' };
     try {
-      const reply = await invoke<Reply>('start_browser_auth');
+      const reply = await call('start_browser_auth');
       if (!active || ticket !== generation) return;
       flowId = reply.flowId;
       status = reply.status;
@@ -120,10 +107,10 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message =
-        typeof cause === 'string'
-          ? cause
-          : 'Anmeldung konnte nicht gestartet werden.';
+      message = ipcErrorMessage(
+        cause,
+        'Anmeldung konnte nicht gestartet werden.',
+      );
       setBusy(false);
     }
   }
@@ -135,7 +122,7 @@
     copied = false;
     // Keep alternatives disabled until cancellation reaches the backend.
     try {
-      await invoke('cancel_connect');
+      await call('cancel_connect');
     } catch {
       if (active)
         message =
@@ -145,7 +132,7 @@
     if (active) setBusy(false);
   }
   async function copyCode() {
-    if (!status.userCode) return;
+    if (status.state !== 'awaitingAuthorization') return;
     try {
       await navigator.clipboard.writeText(status.userCode);
       if (active) copied = true;
@@ -155,13 +142,13 @@
   }
   async function install() {
     try {
-      await invoke('open_browser_installation');
+      await call('open_browser_installation');
     } catch (cause) {
       if (active)
-        message =
-          typeof cause === 'string'
-            ? cause
-            : 'GitHub konnte nicht geöffnet werden.';
+        message = ipcErrorMessage(
+          cause,
+          'GitHub konnte nicht geöffnet werden.',
+        );
     }
   }
   onDestroy(() => {
@@ -169,7 +156,7 @@
     generation++;
     clearTimeout(timer);
     onBusy(false);
-    if (busy) void invoke('cancel_connect').catch(() => {});
+    if (busy) void call('cancel_connect').catch(() => {});
   });
 </script>
 

@@ -20,3 +20,6 @@ release-work/
 
 # Local verification tools and logs.
 .local-tools/
+
+# Local agent worktrees.
+.claude/worktrees/

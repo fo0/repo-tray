@@ -1,13 +1,19 @@
 import { defineConfig } from '@playwright/test';
 
+// A distinct port lets several local checkouts run the suite side by side.
+const port = Number(process.env.E2E_PORT ?? 1420);
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: 'list',
+  // CI keeps annotations plus an HTML report (playwright-report/) that links
+  // the retained traces in test-results/ for upload as workflow artifacts.
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:1420',
+    baseURL,
     viewport: { width: 500, height: 840 },
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
@@ -15,8 +21,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 1420',
-    url: 'http://127.0.0.1:1420',
+    command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${port} --strictPort`,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
   },
 });

@@ -1,5 +1,6 @@
-//! Public, signed updates independent of GitHub account selection.
-use repotray_core::updates::{self, UpdateInfo};
+//! Public updates independent of GitHub account selection: signed in-app installation when an
+//! updater key is compiled in, otherwise notify-only via the public release page.
+use repotray_core::updates::{self, UpdateInfo, UpdateMode};
 use serde::Serialize;
 use std::{
     sync::{
@@ -51,9 +52,9 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
     if !cfg!(all(windows, target_arch = "x86_64")) {
         return Err("App-Updates stehen für die Windows-x64-Version bereit.".into());
     }
-    let key = option_env!("REPOTRAY_UPDATER_PUBLIC_KEY")
-        .filter(|key| !key.trim().is_empty())
-        .ok_or("Automatische Updates sind für diesen Build noch nicht eingerichtet.")?;
+    let Some(key) = updater_key() else {
+        return check_release(&app).await;
+    };
     let state = app.state::<UpdateState>();
     let _busy = state.begin()?;
     {
@@ -76,9 +77,11 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
         .timeout(Duration::from_secs(25))
         .build()
         .map_err(|_| "Update-Dienst nicht verfügbar.")?;
-    let mut update = updater.check().await.map_err(|_| {
-        "Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut."
-            .to_string()
+    let mut update = updater.check().await.map_err(|error| match error {
+        // A missing manifest (404) is a publishing gap, not a connection problem.
+        tauri_plugin_updater::Error::ReleaseNotFound => updates::NO_SIGNED_FEED.to_string(),
+        _ => "Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut."
+            .to_string(),
     })?;
     let info = if let Some(update) = &mut update {
         updates::validate_update(
@@ -91,8 +94,12 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
         }
         update.timeout = Some(Duration::from_secs(300));
         Some(UpdateInfo {
+            mode: UpdateMode::Install,
             version: update.version.clone(),
             notes: update.body.clone().unwrap_or_default(),
+            date: update
+                .date
+                .and_then(|date| updates::format_date(date.unix_timestamp())),
         })
     } else {
         None
@@ -103,6 +110,32 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
         .map_err(|_| "Update-Dienst nicht verfügbar.")?
         .update = update;
     Ok(info)
+}
+
+fn updater_key() -> Option<&'static str> {
+    option_env!("REPOTRAY_UPDATER_PUBLIC_KEY").filter(|key| !key.trim().is_empty())
+}
+
+/// Notify-only check for unsigned builds: public release metadata, never a download.
+async fn check_release(app: &tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let state = app.state::<UpdateState>();
+    let _busy = state.begin()?;
+    let info = tauri::async_runtime::spawn_blocking(|| {
+        updates::fetch_latest_release(env!("CARGO_PKG_VERSION"))
+    })
+    .await
+    .map_err(|_| "Updates konnten nicht geprüft werden.".to_string())??;
+    Ok(info)
+}
+
+/// Opens only the tag page of a validated, newer stable release; nothing is downloaded.
+#[tauri::command]
+pub fn open_release_page(app: tauri::AppHandle, version: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let url = updates::release_page_url(&version, env!("CARGO_PKG_VERSION"))?;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
 }
 
 #[tauri::command]

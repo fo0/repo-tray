@@ -1,19 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
+  import { errorMessage } from './format';
+  import { call } from './ipc';
+  import type { StartupStatus } from './types';
 
   let { native }: { native: boolean } = $props();
-  type StartupStatus = {
-    status:
-      | 'unsupported'
-      | 'disabled'
-      | 'enabled'
-      | 'disabledByWindows'
-      | 'unknownApproval'
-      | 'conflict';
-    registered: boolean;
-  };
   let current = $state<StartupStatus | null>(null);
   let busy = $state(false);
   let error = $state('');
@@ -45,12 +37,12 @@
     error = '';
     saved = false;
     try {
-      const result = await invoke<StartupStatus>('autostart_status');
+      const result = await call('autostart_status');
       if (!disposed) current = result;
     } catch (cause) {
       if (!disposed) {
         current = null;
-        error = String(cause);
+        error = errorMessage(cause);
       }
     } finally {
       if (!disposed) busy = false;
@@ -63,7 +55,7 @@
     error = '';
     saved = false;
     try {
-      const result = await invoke<StartupStatus>('set_autostart', { enabled });
+      const result = await call('set_autostart', { enabled });
       if (!disposed) {
         current = result;
         saved = result.status === (enabled ? 'enabled' : 'disabled');
@@ -72,7 +64,7 @@
       // A failed write or readback is uncertain. Do not keep an optimistic state.
       if (!disposed) {
         current = null;
-        error = String(cause);
+        error = errorMessage(cause);
       }
     } finally {
       if (!disposed) busy = false;
@@ -81,9 +73,9 @@
 
   async function openWindowsSettings() {
     try {
-      await invoke('open_startup_settings');
+      await call('open_startup_settings');
     } catch (cause) {
-      if (!disposed) error = String(cause);
+      if (!disposed) error = errorMessage(cause);
     }
   }
 

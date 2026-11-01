@@ -1,10 +1,4 @@
-<script lang="ts">
-  let {
-    name,
-    size = 18,
-    class: className = '',
-  }: { name: string; size?: number; class?: string } = $props();
-
+<script module lang="ts">
   // RepoTray geometry constructed from basic SVG primitives; see docs/ASSETS.md.
   type Shape = {
     tag: 'line' | 'polyline' | 'rect' | 'circle' | 'path';
@@ -30,7 +24,7 @@
     rx = 2,
   ): Shape => ({ tag: 'rect', attributes: { x, y, width, height, rx } });
 
-  const glyphs: Record<string, Shape[]> = {
+  const glyphs = {
     heart: [
       {
         tag: 'path',
@@ -123,7 +117,28 @@
     ],
     bolt: [wire('14,3 5,13 11,13 10,21 19,10 13,10 14,3')],
     arrow: [line(4, 12, 20, 12), wire('14,6 20,12 14,18')],
-  };
+    copy: [
+      box(8.5, 8.5, 12, 12),
+      {
+        tag: 'path',
+        attributes: {
+          d: 'M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3',
+        },
+      },
+    ],
+    info: [ring(12, 12, 8.5), line(12, 11, 12, 16), line(12, 8, 12, 8.01)],
+  } satisfies Record<string, Shape[]>;
+
+  /** Every glyph name; a typo at a call site is a type error, not a silent fallback. */
+  export type IconName = keyof typeof glyphs;
+</script>
+
+<script lang="ts">
+  let {
+    name,
+    size = 18,
+    class: className = '',
+  }: { name: IconName; size?: number; class?: string } = $props();
 </script>
 
 <svg
@@ -138,7 +153,7 @@
   class={className}
   aria-hidden="true"
 >
-  {#each glyphs[name] ?? glyphs.repo as shape}
+  {#each glyphs[name] ?? glyphs.repo as shape, index (index)}
     <svelte:element this={shape.tag} {...shape.attributes} />
   {/each}
 </svg>

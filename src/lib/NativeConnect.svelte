@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import Icon from './Icon.svelte';
+  import { ipcErrorMessage } from './format';
+  import { call } from './ipc';
   import LocalAuth from './LocalAuth.svelte';
   import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
   import ConnectedAccounts from './ConnectedAccounts.svelte';
+  import TokenPermissions from './TokenPermissions.svelte';
   import type { Account, Snapshot } from './types';
   let {
     onConnected,
@@ -34,12 +36,14 @@
     if (input) input.value = '';
     hasToken = false;
     try {
-      const snapshot = await invoke<Snapshot>('connect_token', { token });
+      const snapshot = await call('connect_token', { token });
       if (active) onConnected(snapshot);
     } catch (cause) {
       if (active)
-        error =
-          typeof cause === 'string' ? cause : 'Verbindung fehlgeschlagen.';
+        error = ipcErrorMessage(
+          cause,
+          'Verbindung fehlgeschlagen. Prüfe Token und Netzwerk und versuche es erneut.',
+        );
     } finally {
       if (active) busy = false;
     }
@@ -47,7 +51,7 @@
   onDestroy(() => {
     active = false;
     if (input) input.value = '';
-    void invoke('cancel_connect').catch(() => {});
+    void call('cancel_connect').catch(() => {});
   });
 </script>
 
@@ -97,10 +101,9 @@
         /></label
       >
       <p>
-        Nur im Betriebssystem-Tresor gespeichert. Für ausgewählte Repositories:
-        Actions lesen/schreiben und Contents lesen. Org-Freigaben können
-        erforderlich sein. Gespeicherte Tokens werden hier nicht angezeigt.
+        Wird nur im Betriebssystem-Tresor gespeichert und hier nie angezeigt.
       </p>
+      <TokenPermissions />
       {#if error}<div class="alert danger" role="alert">{error}</div>{/if}
       <button
         type="submit"

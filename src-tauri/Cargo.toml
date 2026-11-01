@@ -43,6 +43,13 @@ tauri-plugin-updater = { version = "2.14.1", optional = true }
 [build-dependencies]
 tauri-build = { version = "2", features = [], optional = true }
 
+# Smaller installer. Panic stays `unwind`: the app recovers JoinError and poisoned mutexes.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+
 [target.'cfg(windows)'.dependencies]
 winreg = { version = "0.56", optional = true }
 windows-sys = { version = "0.61", optional = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

@@ -1,5 +1,5 @@
 import { chromium, expect } from '@playwright/test';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -19,13 +19,29 @@ const context = await browser.newContext({
   locale: 'de-DE',
 });
 const page = await context.newPage();
+/** @type {string[]} */
 const externalRequests = [];
 page.on('request', (request) => {
   const url = new URL(request.url());
   if (!['127.0.0.1', 'localhost'].includes(url.hostname))
     externalRequests.push(request.url());
 });
+/**
+ * @type {{
+ *   filename: string;
+ *   title: string;
+ *   interaction: string;
+ *   expected: string;
+ *   sha256: string;
+ * }[]}
+ */
 const steps = [];
+/**
+ * @param {string} name
+ * @param {string} title
+ * @param {string} interaction
+ * @param {string} expected
+ */
 async function capture(name, title, interaction, expected) {
   const filename = `${String(steps.length + 1).padStart(2, '0')}-${name}.png`;
   await page.screenshot({
@@ -44,6 +60,7 @@ async function capture(name, title, interaction, expected) {
 async function launchTab() {
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
 }
+/** @param {string} name */
 async function openPin(name) {
   const card = page
     .locator('article')
@@ -51,6 +68,7 @@ async function openPin(name) {
   await card.getByRole('button', { name: 'Öffnen', exact: true }).click();
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }
+/** @param {string} value */
 async function setScenario(value) {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
@@ -58,6 +76,7 @@ async function setScenario(value) {
   await page.getByLabel('Demo-Szenario').selectOption(value);
   await page.getByRole('button', { name: 'Dialog schließen' }).click();
 }
+/** @param {import('@playwright/test').Locator} dialog */
 async function bottom(dialog) {
   await dialog.locator('.modal-body').evaluate((element) => {
     element.scrollTop = element.scrollHeight;
@@ -363,9 +382,13 @@ try {
     throw new Error(
       `Unexpected external network requests: ${externalRequests.length}`,
     );
+  const styleSources = (await readdir(path.join(root, 'src/styles')))
+    .filter((file) => file.endsWith('.css'))
+    .sort()
+    .map((file) => `src/styles/${file}`);
   const frontendSources = [
     'src/App.svelte',
-    'src/app.css',
+    ...styleSources,
     'src/lib/ConnectPanel.svelte',
   ];
   const sourceFingerprints = Object.fromEntries(

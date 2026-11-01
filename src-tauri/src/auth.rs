@@ -41,19 +41,59 @@ pub enum AuthError {
 
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Desktop commands return this text to the panel, so it is German.
         f.write_str(match self {
-            Self::Locked => "Live authentication is locked in this demo.",
-            Self::KeyringUnavailable => "The native credential store is unavailable.",
-            Self::InvalidAuthorization => "Device authorization metadata is invalid.",
-            Self::StalePoll => {
-                "The device authorization response belongs to a cancelled or previous flow."
+            Self::Locked => "Anmeldung ist in der Demo gesperrt.",
+            Self::KeyringUnavailable => VAULT_UNAVAILABLE,
+            Self::InvalidAuthorization => {
+                "Anmeldedaten von GitHub sind ungültig. Starte die Anmeldung erneut."
             }
-            Self::NotPending => "There is no active device authorization flow.",
+            Self::StalePoll => "Diese Anmeldung wurde abgebrochen oder ersetzt.",
+            Self::NotPending => "Keine Anmeldung aktiv. Starte die Anmeldung erneut.",
         })
     }
 }
 
 impl std::error::Error for AuthError {}
+
+pub const MISSING_CREDENTIAL: &str =
+    "Zugang fehlt im Tresor – verbinde das Konto neu oder trenne es.";
+pub const VAULT_UNAVAILABLE: &str = "Betriebssystem-Tresor nicht verfügbar.";
+
+/// Why an account's stored credential cannot be used. A missing entry and an unreadable
+/// vault are kept apart from each other and from network failures, so neither is retried
+/// or labelled as a connection problem.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CredentialError {
+    /// The vault answered and holds no entry for the account.
+    Missing,
+    /// The vault itself could not be read; fail closed.
+    VaultUnavailable,
+    /// The entry exists but cannot be used; user-facing German text.
+    Unusable(String),
+}
+
+impl fmt::Display for CredentialError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Missing => f.write_str(MISSING_CREDENTIAL),
+            Self::VaultUnavailable => f.write_str(VAULT_UNAVAILABLE),
+            Self::Unusable(text) => f.write_str(text),
+        }
+    }
+}
+
+impl From<String> for CredentialError {
+    fn from(text: String) -> Self {
+        Self::Unusable(text)
+    }
+}
+
+impl From<&str> for CredentialError {
+    fn from(text: &str) -> Self {
+        Self::Unusable(text.into())
+    }
+}
 
 /// A deliberately non-serializable, non-cloneable secret. Debug never prints its contents.
 /// Bytes are overwritten on drop; native adapters must also avoid intermediate log strings.
@@ -139,407 +179,7 @@ impl<K: NativeKeyring> Credentials<K> {
 // Compile the same adapter logic against mock entries in core tests. The platform-specific
 // dependency and all OS calls remain absent unless native-credentials is explicitly enabled.
 #[cfg(any(feature = "native-credentials", test))]
-mod native {
-    use super::{AuthError, NativeKeyring, SecretToken, CREDENTIAL_SERVICE};
-    use std::sync::Mutex;
-
-    // Serialize operations across adapter instances as well as accounts. Native stores can
-    // otherwise process concurrent reads/updates of the same entry in an unexpected order.
-    static OPERATION_LOCK: Mutex<()> = Mutex::new(());
-
-    trait Entry: Send + Sync {
-        fn read(&self) -> Result<Option<SecretToken>, AuthError>;
-        fn write(&self, token: &SecretToken) -> Result<(), AuthError>;
-        fn delete(&self) -> Result<(), AuthError>;
-    }
-
-    trait Backend: Send + Sync {
-        fn entry(&self, service: &str, user: &str) -> Result<Box<dyn Entry>, AuthError>;
-    }
-
-    struct Store<B> {
-        backend: B,
-    }
-
-    impl<B: Backend> NativeKeyring for Store<B> {
-        fn read_token(&self, account_id: &str) -> Result<Option<SecretToken>, AuthError> {
-            let user = account_entry(account_id)?;
-            let _guard = OPERATION_LOCK
-                .lock()
-                .map_err(|_| AuthError::KeyringUnavailable)?;
-            self.backend.entry(CREDENTIAL_SERVICE, &user)?.read()
-        }
-
-        fn write_token(&self, account_id: &str, token: &SecretToken) -> Result<(), AuthError> {
-            let user = account_entry(account_id)?;
-            if token.0.is_empty()
-                || token.0.len() > 2048
-                || token.0.iter().any(u8::is_ascii_control)
-            {
-                return Err(AuthError::KeyringUnavailable);
-            }
-            let _guard = OPERATION_LOCK
-                .lock()
-                .map_err(|_| AuthError::KeyringUnavailable)?;
-            self.backend.entry(CREDENTIAL_SERVICE, &user)?.write(token)
-        }
-
-        fn delete_token(&self, account_id: &str) -> Result<(), AuthError> {
-            let user = account_entry(account_id)?;
-            let _guard = OPERATION_LOCK
-                .lock()
-                .map_err(|_| AuthError::KeyringUnavailable)?;
-            self.backend.entry(CREDENTIAL_SERVICE, &user)?.delete()
-        }
-    }
-
-    fn account_entry(account_id: &str) -> Result<String, AuthError> {
-        if account_id.is_empty()
-            || account_id.len() > 128
-            || !account_id
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || b"-_:.".contains(&byte))
-            || crate::workflow::looks_like_credential(account_id)
-        {
-            return Err(AuthError::KeyringUnavailable);
-        }
-        // No trimming or case folding: distinct stable IDs must never collapse to one key.
-        Ok(format!("account:{account_id}"))
-    }
-
-    /// Native OS credential storage. Construction performs no OS-store access.
-    ///
-    /// The optional keyring `v1` backend uses macOS Keychain, Windows Credential Manager,
-    /// or Linux Secret Service with encrypted D-Bus transfer. No file/mock fallback is used.
-    /// Run operations on a native worker thread, never the UI thread. Native sign-in
-    /// verifies identity before writing; the demo-only Credentials gate stays locked.
-    ///
-    /// API/backend source: https://docs.rs/keyring/4.2.0/keyring/v1/index.html
-    #[cfg(feature = "native-credentials")]
-    pub struct OsKeyring {
-        store: Store<PlatformBackend>,
-    }
-
-    #[cfg(feature = "native-credentials")]
-    impl Default for OsKeyring {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    #[cfg(feature = "native-credentials")]
-    impl OsKeyring {
-        pub fn new() -> Self {
-            Self {
-                store: Store {
-                    backend: PlatformBackend,
-                },
-            }
-        }
-    }
-
-    #[cfg(feature = "native-credentials")]
-    impl std::fmt::Debug for OsKeyring {
-        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            formatter
-                .debug_struct("OsKeyring")
-                .field("service", &CREDENTIAL_SERVICE)
-                .finish_non_exhaustive()
-        }
-    }
-
-    #[cfg(feature = "native-credentials")]
-    impl NativeKeyring for OsKeyring {
-        fn read_token(&self, account_id: &str) -> Result<Option<SecretToken>, AuthError> {
-            self.store.read_token(account_id)
-        }
-
-        fn write_token(&self, account_id: &str, token: &SecretToken) -> Result<(), AuthError> {
-            self.store.write_token(account_id, token)
-        }
-
-        fn delete_token(&self, account_id: &str) -> Result<(), AuthError> {
-            self.store.delete_token(account_id)
-        }
-    }
-
-    #[cfg(feature = "native-credentials")]
-    struct PlatformBackend;
-
-    #[cfg(feature = "native-credentials")]
-    impl Backend for PlatformBackend {
-        fn entry(&self, service: &str, user: &str) -> Result<Box<dyn Entry>, AuthError> {
-            // keyring v1 initializes only its native platform store. Missing/locked stores
-            // and unsupported platforms fail closed; no in-memory or plaintext substitute.
-            let entry = keyring::Entry::new(service, user).map_err(credential_error)?;
-            Ok(Box::new(PlatformEntry(entry)))
-        }
-    }
-
-    #[cfg(feature = "native-credentials")]
-    struct PlatformEntry(keyring::Entry);
-
-    #[cfg(feature = "native-credentials")]
-    impl Entry for PlatformEntry {
-        fn read(&self) -> Result<Option<SecretToken>, AuthError> {
-            match self.0.get_secret() {
-                Ok(mut bytes) => {
-                    if std::str::from_utf8(&bytes).is_err()
-                        || bytes.is_empty()
-                        || bytes.len() > 2048
-                    {
-                        bytes.fill(0);
-                        std::hint::black_box(&mut bytes);
-                        return Err(AuthError::KeyringUnavailable);
-                    }
-                    Ok(Some(SecretToken(bytes)))
-                }
-                Err(keyring::Error::NoEntry) => Ok(None),
-                // Never format or return platform errors; some may contain credential bytes.
-                Err(error) => Err(credential_error(error)),
-            }
-        }
-
-        fn write(&self, token: &SecretToken) -> Result<(), AuthError> {
-            self.0.set_secret(&token.0).map_err(credential_error)
-        }
-
-        fn delete(&self) -> Result<(), AuthError> {
-            match self.0.delete_credential() {
-                Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-                Err(error) => Err(credential_error(error)),
-            }
-        }
-    }
-
-    #[cfg(feature = "native-credentials")]
-    fn credential_error(error: keyring::Error) -> AuthError {
-        if let keyring::Error::BadEncoding(mut bytes) = error {
-            bytes.fill(0);
-            std::hint::black_box(&mut bytes);
-        }
-        AuthError::KeyringUnavailable
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        use std::collections::BTreeMap;
-        use std::sync::Arc;
-
-        #[derive(Default)]
-        struct MockState {
-            values: BTreeMap<(String, String), String>,
-            entries: Vec<(String, String)>,
-            fail: bool,
-        }
-
-        struct MockBackend(Arc<Mutex<MockState>>);
-
-        struct MockEntry {
-            key: (String, String),
-            state: Arc<Mutex<MockState>>,
-        }
-
-        impl Backend for MockBackend {
-            fn entry(&self, service: &str, user: &str) -> Result<Box<dyn Entry>, AuthError> {
-                let mut state = self.0.lock().unwrap();
-                state.entries.push((service.into(), user.into()));
-                if state.fail {
-                    return Err(AuthError::KeyringUnavailable);
-                }
-                Ok(Box::new(MockEntry {
-                    key: (service.into(), user.into()),
-                    state: self.0.clone(),
-                }))
-            }
-        }
-
-        impl Entry for MockEntry {
-            fn read(&self) -> Result<Option<SecretToken>, AuthError> {
-                Ok(self
-                    .state
-                    .lock()
-                    .unwrap()
-                    .values
-                    .get(&self.key)
-                    .cloned()
-                    .map(SecretToken::new))
-            }
-
-            fn write(&self, token: &SecretToken) -> Result<(), AuthError> {
-                token.with_secret(|value| {
-                    self.state
-                        .lock()
-                        .unwrap()
-                        .values
-                        .insert(self.key.clone(), value.into());
-                });
-                Ok(())
-            }
-
-            fn delete(&self) -> Result<(), AuthError> {
-                self.state.lock().unwrap().values.remove(&self.key);
-                Ok(())
-            }
-        }
-
-        #[test]
-        fn adapter_keeps_account_entries_separate_under_a_stable_service() {
-            let state = Arc::new(Mutex::new(MockState::default()));
-            let store = Store {
-                backend: MockBackend(state.clone()),
-            };
-            store
-                .write_token("github:1", &SecretToken::new("synthetic-personal".into()))
-                .unwrap();
-            store
-                .write_token("github:2", &SecretToken::new("synthetic-work".into()))
-                .unwrap();
-            assert!(store
-                .read_token("github:1")
-                .unwrap()
-                .unwrap()
-                .with_secret(|value| value == "synthetic-personal"));
-            assert!(store
-                .read_token("github:2")
-                .unwrap()
-                .unwrap()
-                .with_secret(|value| value == "synthetic-work"));
-            store.delete_token("github:1").unwrap();
-            assert!(store.read_token("github:1").unwrap().is_none());
-            assert!(store.read_token("github:2").unwrap().is_some());
-            let state = state.lock().unwrap();
-            assert!(state
-                .entries
-                .iter()
-                .all(|(service, _)| service == CREDENTIAL_SERVICE));
-            assert!(state
-                .values
-                .contains_key(&(CREDENTIAL_SERVICE.into(), "account:github:2".into())));
-            assert_ne!(
-                account_entry("Account-A").unwrap(),
-                account_entry("account-a").unwrap()
-            );
-        }
-
-        #[test]
-        fn locked_gate_prevents_even_creating_a_backend_entry() {
-            let state = Arc::new(Mutex::new(MockState::default()));
-            let credentials = super::super::Credentials::locked(Store {
-                backend: MockBackend(state.clone()),
-            });
-            assert!(matches!(
-                credentials.read("github:1"),
-                Err(AuthError::Locked)
-            ));
-            assert_eq!(
-                credentials.write("github:1", &SecretToken::new("synthetic-token".into())),
-                Err(AuthError::Locked)
-            );
-            assert_eq!(credentials.delete("github:1"), Err(AuthError::Locked));
-            assert!(state.lock().unwrap().entries.is_empty());
-            assert!(state.lock().unwrap().values.is_empty());
-        }
-
-        #[test]
-        fn invalid_names_and_credential_metadata_fail_without_backend_access() {
-            let state = Arc::new(Mutex::new(MockState::default()));
-            let store = Store {
-                backend: MockBackend(state.clone()),
-            };
-            for id in [
-                "",
-                " account",
-                "../other",
-                "account\0other",
-                "ghp_synthetic",
-            ] {
-                assert!(matches!(
-                    store.read_token(id),
-                    Err(AuthError::KeyringUnavailable)
-                ));
-                assert_eq!(
-                    store.write_token(id, &SecretToken::new("synthetic".into())),
-                    Err(AuthError::KeyringUnavailable)
-                );
-                assert_eq!(store.delete_token(id), Err(AuthError::KeyringUnavailable));
-            }
-            assert_eq!(
-                store.write_token("valid-account", &SecretToken::new("".into())),
-                Err(AuthError::KeyringUnavailable)
-            );
-            assert_eq!(
-                store.write_token(
-                    "valid-account",
-                    &SecretToken::new("synthetic\ntoken".into())
-                ),
-                Err(AuthError::KeyringUnavailable)
-            );
-            assert!(state.lock().unwrap().entries.is_empty());
-        }
-
-        #[test]
-        fn unavailable_store_fails_closed_with_no_fallback_or_secret_in_error() {
-            let state = Arc::new(Mutex::new(MockState {
-                fail: true,
-                ..MockState::default()
-            }));
-            let store = Store {
-                backend: MockBackend(state.clone()),
-            };
-            let token = SecretToken::new("synthetic-private-token".into());
-            let error = store.write_token("github:1", &token).unwrap_err();
-            assert_eq!(error, AuthError::KeyringUnavailable);
-            assert!(!format!("{error:?} {error} {token:?}").contains("synthetic-private-token"));
-            assert!(state.lock().unwrap().values.is_empty());
-            assert!(matches!(
-                store.read_token("github:1"),
-                Err(AuthError::KeyringUnavailable)
-            ));
-            assert_eq!(
-                store.delete_token("github:1"),
-                Err(AuthError::KeyringUnavailable)
-            );
-        }
-
-        #[cfg(feature = "native-credentials")]
-        #[test]
-        fn native_adapter_can_be_constructed_and_gated_without_any_os_entry_access() {
-            let adapter = OsKeyring::new();
-            assert_eq!(
-                format!("{adapter:?}"),
-                "OsKeyring { service: \"io.github.fo0.repotray\", .. }"
-            );
-            let credentials = super::super::Credentials::locked(adapter);
-            assert!(matches!(
-                credentials.read("synthetic-account"),
-                Err(AuthError::Locked)
-            ));
-            assert_eq!(
-                credentials.write(
-                    "synthetic-account",
-                    &SecretToken::new("synthetic-token".into())
-                ),
-                Err(AuthError::Locked)
-            );
-            assert_eq!(
-                credentials.delete("synthetic-account"),
-                Err(AuthError::Locked)
-            );
-        }
-
-        #[cfg(feature = "native-credentials")]
-        #[test]
-        fn platform_errors_with_secret_bytes_are_mapped_to_one_public_error() {
-            let error = credential_error(keyring::Error::BadEncoding(
-                b"synthetic-private-token".to_vec(),
-            ));
-            assert_eq!(error, AuthError::KeyringUnavailable);
-            assert!(!format!("{error:?} {error}").contains("synthetic-private-token"));
-        }
-    }
-}
+mod native;
 
 /// Pure protocol input. A caller may use synthetic values for tests; it performs no network I/O.
 pub struct DeviceAuthorization {
@@ -755,155 +395,4 @@ impl DeviceFlow {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
-
-    fn authorization() -> DeviceAuthorization {
-        DeviceAuthorization {
-            device_code: SecretToken::new("synthetic-device-code".into()),
-            user_code: "DEMO-1234".into(),
-            verification_uri: "https://github.com/login/device".into(),
-            expires_in: 900,
-            interval: 5,
-        }
-    }
-
-    #[test]
-    fn locked_gate_never_reads_or_writes_the_native_keyring() {
-        struct CountingKeyring(Arc<AtomicUsize>);
-        impl NativeKeyring for CountingKeyring {
-            fn read_token(&self, _: &str) -> Result<Option<SecretToken>, AuthError> {
-                self.0.fetch_add(1, Ordering::SeqCst);
-                Ok(None)
-            }
-            fn write_token(&self, _: &str, _: &SecretToken) -> Result<(), AuthError> {
-                self.0.fetch_add(1, Ordering::SeqCst);
-                Ok(())
-            }
-            fn delete_token(&self, _: &str) -> Result<(), AuthError> {
-                self.0.fetch_add(1, Ordering::SeqCst);
-                Ok(())
-            }
-        }
-        let calls = Arc::new(AtomicUsize::new(0));
-        let credentials = Credentials::locked(CountingKeyring(calls.clone()));
-        assert!(matches!(credentials.read("demo"), Err(AuthError::Locked)));
-        assert_eq!(
-            credentials.write("demo", &SecretToken::new("synthetic-token".into())),
-            Err(AuthError::Locked)
-        );
-        assert_eq!(credentials.delete("demo"), Err(AuthError::Locked));
-        assert_eq!(AuthGate::Locked.begin_device_flow(), Err(AuthError::Locked));
-        assert_eq!(calls.load(Ordering::SeqCst), 0);
-    }
-
-    #[test]
-    fn device_flow_respects_poll_interval_slowdown_and_cancellation() {
-        let mut flow = DeviceFlow::new();
-        flow.start_local(authorization(), 100).unwrap();
-        assert_eq!(flow.next_poll(104).unwrap(), None);
-        let ticket = flow.next_poll(105).unwrap().unwrap();
-        assert_eq!(flow.next_poll(105).unwrap(), None);
-        assert!(flow
-            .with_device_code(ticket, 105, |value| value == "synthetic-device-code")
-            .unwrap());
-        let status = flow
-            .apply_poll(ticket, DevicePollResult::SlowDown, 105)
-            .unwrap();
-        assert!(matches!(
-            status,
-            DeviceFlowStatus::AwaitingAuthorization {
-                next_poll_at: 115,
-                ..
-            }
-        ));
-        assert_eq!(flow.next_poll(114).unwrap(), None);
-        let ticket = flow.next_poll(115).unwrap().unwrap();
-        flow.cancel();
-        assert_eq!(
-            flow.apply_poll(ticket, DevicePollResult::Authorized, 116),
-            Err(AuthError::StalePoll)
-        );
-        assert_eq!(flow.status(116), DeviceFlowStatus::Cancelled);
-        assert!(flow.pending.is_none());
-    }
-
-    #[test]
-    fn transport_failures_reduce_polling_frequency() {
-        let mut flow = DeviceFlow::new();
-        flow.start_local(authorization(), 0).unwrap();
-        let ticket = flow.next_poll(5).unwrap().unwrap();
-        let status = flow
-            .apply_poll(ticket, DevicePollResult::TransportFailure, 5)
-            .unwrap();
-        assert!(matches!(
-            status,
-            DeviceFlowStatus::AwaitingAuthorization {
-                next_poll_at: 15,
-                ..
-            }
-        ));
-        assert!(flow.next_poll(14).unwrap().is_none());
-    }
-
-    #[test]
-    fn expiry_clears_secret_and_rejects_late_authorization() {
-        let mut flow = DeviceFlow::new();
-        flow.start_local(authorization(), 0).unwrap();
-        let ticket = flow.next_poll(5).unwrap().unwrap();
-        assert_eq!(flow.status(900), DeviceFlowStatus::Expired);
-        assert!(flow.pending.is_none());
-        assert_eq!(
-            flow.apply_poll(ticket, DevicePollResult::Authorized, 900),
-            Err(AuthError::StalePoll)
-        );
-        assert_eq!(flow.next_poll(901), Err(AuthError::NotPending));
-    }
-
-    #[test]
-    fn expired_device_codes_cannot_be_read_by_a_delayed_poll() {
-        let mut flow = DeviceFlow::new();
-        flow.start_local(authorization(), 0).unwrap();
-        let ticket = flow.next_poll(5).unwrap().unwrap();
-        assert_eq!(
-            flow.with_device_code(ticket, 900, |_| ()),
-            Err(AuthError::StalePoll)
-        );
-        assert!(flow.pending.is_none());
-    }
-
-    #[test]
-    fn previous_flow_tickets_cannot_authorize_a_new_flow() {
-        let mut flow = DeviceFlow::new();
-        flow.start_local(authorization(), 0).unwrap();
-        let old = flow.next_poll(5).unwrap().unwrap();
-        flow.start_local(authorization(), 10).unwrap();
-        assert_eq!(
-            flow.apply_poll(old, DevicePollResult::Authorized, 11),
-            Err(AuthError::StalePoll)
-        );
-        let current = flow.next_poll(15).unwrap().unwrap();
-        assert_eq!(
-            flow.apply_poll(current, DevicePollResult::Authorized, 16)
-                .unwrap(),
-            DeviceFlowStatus::Completed
-        );
-        assert!(flow.pending.is_none());
-    }
-
-    #[test]
-    fn public_status_and_debug_never_contain_device_code_or_token() {
-        let token = SecretToken::new("synthetic-token".into());
-        assert_eq!(format!("{token:?}"), "SecretToken([REDACTED])");
-        let mut flow = DeviceFlow::new();
-        let status = flow.start_local(authorization(), 0).unwrap();
-        let public = serde_json::to_string(&status).unwrap();
-        assert!(!public.contains("synthetic-device-code"));
-        assert!(!public.contains("deviceCode"));
-        assert!(public.contains("DEMO-1234"));
-    }
-}
+mod tests;
