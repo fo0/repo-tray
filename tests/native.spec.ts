@@ -11,9 +11,6 @@ type NativeMock = {
   tokenDelay: number;
   updateCheckError: boolean;
   updateCurrent: boolean;
-  downloadFail: boolean;
-  downloadDelay: number;
-  installFail: boolean;
 };
 let mock: TauriMock<NativeMock>;
 
@@ -63,37 +60,10 @@ test.beforeEach(async ({ page }) => {
             throw 'Updateprüfung fehlgeschlagen. Prüfe die Verbindung.';
           if (state.updateCurrent) return null;
           return {
-            mode: 'install',
             version: '0.2.0',
-            notes: 'Test-Changelog · nur IPC-Mock',
+            notes: '* Test-Changelog · nur IPC-Mock',
             date: '2026-11-01T09:05:00Z',
           };
-        }
-        if (cmd === 'download_update') {
-          const progress = args?.onProgress as {
-            onmessage: (value: unknown) => void;
-          };
-          progress.onmessage({
-            downloaded: 5242880,
-            total: 10485760,
-            stage: 'downloading',
-          });
-          await new Promise((resolve) =>
-            setTimeout(resolve, state.downloadDelay),
-          );
-          progress.onmessage({
-            downloaded: 0,
-            total: null,
-            stage: 'verifying',
-          });
-          if (state.downloadFail)
-            throw 'Signaturprüfung fehlgeschlagen. Es wurde nichts installiert.';
-          return null;
-        }
-        if (cmd === 'install_update') {
-          if (state.installFail)
-            throw 'Installation konnte nicht gestartet werden.';
-          return null;
         }
         if (cmd === 'select_repos') return structuredClone(snapshot);
         if (cmd === 'disconnect_account') {
@@ -116,9 +86,6 @@ test.beforeEach(async ({ page }) => {
         tokenDelay: 150,
         updateCheckError: false,
         updateCurrent: false,
-        downloadFail: false,
-        downloadDelay: 150,
-        installFail: false,
       },
     },
   );
@@ -200,132 +167,27 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
     page.getByRole('heading', { name: 'Einstellungen', exact: true }),
   ).toBeVisible();
 });
-test('public update downloads inside the app and installs only after a separate confirmation', async ({
-  page,
-}) => {
-  await page
-    .getByRole('button', { name: 'Einstellungen', exact: true })
-    .click();
-  await page.getByRole('tab', { name: 'Updates' }).click();
-  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
-  await expect(page.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
-  await mock.configure({ downloadDelay: 700 });
-  await page
-    .getByRole('button', { name: 'Update herunterladen', exact: true })
-    .click();
-  await expect(page.getByRole('progressbar')).toHaveAttribute('value', '50');
-  await expect(
-    page.getByRole('button', { name: 'Installieren und neu starten' }),
-  ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
-  await page
-    .getByRole('button', { name: 'Einstellungen', exact: true })
-    .click();
-  await page.getByRole('tab', { name: 'Updates' }).click();
-  const install = page.getByRole('button', {
-    name: 'Installieren und neu starten',
-  });
-  await expect(install).toBeEnabled();
-  const calls = await readCommands(page);
-  expect(calls.filter((cmd) => cmd === 'download_update')).toHaveLength(1);
-  expect(calls).not.toContain('install_update');
-  expect(calls).not.toContain('open_update');
-  await install.click();
-  await expect
-    .poll(async () =>
-      (await readCommands(page)).filter((cmd) => cmd === 'install_update'),
-    )
-    .toHaveLength(1);
-  await expect(
-    page.getByRole('button', { name: 'Installation wird gestartet …' }),
-  ).toBeDisabled();
-});
-
-test('a failed download never enables installation and can be retried', async ({
-  page,
-}) => {
-  await page
-    .getByRole('button', { name: 'Einstellungen', exact: true })
-    .click();
-  await page.getByRole('tab', { name: 'Updates' }).click();
-  await mock.configure({ downloadFail: true });
-  await page
-    .getByRole('button', { name: 'Update herunterladen', exact: true })
-    .click();
-  await expect(page.getByRole('alert')).toContainText(
-    'Es wurde nichts installiert',
-  );
-  await expect(
-    page.getByRole('button', { name: 'Installieren und neu starten' }),
-  ).toHaveCount(0);
-  await mock.configure({
-    downloadFail: false,
-    installFail: true,
-  });
-  await page
-    .getByRole('button', { name: 'Update herunterladen', exact: true })
-    .click();
-  await page
-    .getByRole('button', { name: 'Installieren und neu starten' })
-    .click();
-  await expect(page.getByRole('alert')).toContainText(
-    'Installation konnte nicht gestartet werden',
-  );
-  await expect(
-    page.getByRole('button', { name: 'Installieren und neu starten' }),
-  ).toBeEnabled();
-});
-
 test('failed update checks clear stale results and a successful retry can report current', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Update ansehen' }).click();
+  await page.getByRole('button', { name: 'Ansehen', exact: true }).click();
+  await expect(page.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
   await mock.configure({ updateCheckError: true });
-  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
+  await page.getByRole('button', { name: 'Nach Updates suchen' }).click();
   await expect(page.getByRole('alert')).toContainText(
     'Updateprüfung fehlgeschlagen',
   );
   await expect(
-    page.getByRole('button', { name: 'Update herunterladen', exact: true }),
+    page.getByRole('button', { name: 'Installieren', exact: true }),
   ).toHaveCount(0);
+  await expect(page.getByText('Test-Changelog · nur IPC-Mock')).toHaveCount(0);
   await mock.configure({
     updateCheckError: false,
     updateCurrent: true,
   });
-  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
-  await expect(
-    page.getByText('Du verwendest die aktuelle Version.'),
-  ).toBeVisible();
+  await page.getByRole('button', { name: 'Nach Updates suchen' }).click();
+  await expect(page.getByText('Aktuell.', { exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
-});
-
-test('update details and install confirmation fit a narrow panel', async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 360, height: 760 });
-  await page.getByRole('button', { name: 'Update ansehen' }).click();
-  await expect(page.getByRole('tab', { name: 'Updates' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
-  const panel = page.getByRole('region', { name: 'RepoTray aktuell halten' });
-  await expect(panel.getByText('Test-Changelog · nur IPC-Mock')).toBeVisible();
-  expect(
-    await panel.evaluate((node) => node.scrollWidth <= node.clientWidth),
-  ).toBe(true);
-  await page.screenshot({
-    path: testInfo.outputPath('updates-available-360.png'),
-  });
-  await page
-    .getByRole('button', { name: 'Update herunterladen', exact: true })
-    .click();
-  await expect(
-    page.getByRole('button', { name: 'Installieren und neu starten' }),
-  ).toBeEnabled();
-  expect(
-    await panel.evaluate((node) => node.scrollWidth <= node.clientWidth),
-  ).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('updates-ready-360.png') });
 });
 
 test('native invalid token is rejected and disconnect removes the account view', async ({

@@ -9,11 +9,15 @@ const BUSY_PHASES: UpdatePhase[] = [
   'verifying',
   'installing',
 ];
+const INSTALL_PHASES: UpdatePhase[] = [
+  'downloading',
+  'verifying',
+  'installing',
+];
 
 /**
  * In-app update flow; only the native shell reaches the updater commands.
- * State is read-only from outside: only `check`, `download` and `install`
- * change it.
+ * State is read-only from outside: only `check` and `install` change it.
  */
 export class Updater {
   #info = $state<UpdateInfo | null>(null);
@@ -52,7 +56,7 @@ export class Updater {
   }
 
   check = async (silent = false) => {
-    if (!this.#enabled || this.#busy || this.#phase === 'ready') return;
+    if (!this.#enabled || this.#busy) return;
     this.#phase = 'checking';
     this.#message = '';
     try {
@@ -66,33 +70,29 @@ export class Updater {
     }
   };
 
-  download = async () => {
-    if (this.#busy || !this.#info || this.#phase === 'ready') return;
+  /**
+   * Downloads, verifies and starts the installer in one native call; on
+   * success RepoTray exits and the installer restarts it. A failure returns
+   * to `available` with its message, so the same button retries.
+   */
+  install = async () => {
+    if (!this.#enabled || this.#busy || !this.#info) return;
     this.#phase = 'downloading';
     this.#message = '';
     this.#progress = { downloaded: 0, total: null, stage: 'downloading' };
     const onProgress = channel<DownloadProgress>((progress) => {
-      if (this.#phase !== 'downloading' && this.#phase !== 'verifying') return;
+      // Stages only move forward, and never once the call has failed.
+      const current = INSTALL_PHASES.indexOf(this.#phase);
+      if (current < 0 || INSTALL_PHASES.indexOf(progress.stage) < current)
+        return;
       this.#phase = progress.stage;
       if (progress.stage === 'downloading') this.#progress = progress;
     });
     try {
-      await call('download_update', { onProgress });
-      this.#phase = 'ready';
+      await call('install_update', { onProgress });
+      this.#phase = 'installing';
     } catch (cause) {
       this.#phase = 'available';
-      this.#message = errorMessage(cause);
-    }
-  };
-
-  install = async () => {
-    if (this.#phase !== 'ready') return;
-    this.#phase = 'installing';
-    this.#message = '';
-    try {
-      await call('install_update');
-    } catch (cause) {
-      this.#phase = 'ready';
       this.#message = errorMessage(cause);
     }
   };

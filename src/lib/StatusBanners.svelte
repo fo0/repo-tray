@@ -5,6 +5,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import NoticeBanner from './NoticeBanner.svelte';
+  import { focusAfterNotice, neighbourNotice } from './focus';
   import type { Notice } from './notices.svelte';
   import type { Snapshot } from './types';
   import type { UpdateInfo } from './types';
@@ -35,13 +36,31 @@
     onShowRun: (runId: number) => void;
     onDismissNotice: (id: number) => void;
   } = $props();
+  /** The version whose banner was closed this session; a newer one shows again. */
+  let dismissedUpdate = $state('');
+  /** Like a notice: focus moves on first, so closing never drops it to <body>. */
+  function dismissUpdate(event: MouseEvent, version: string) {
+    const banner = (event.currentTarget as HTMLElement).closest<HTMLElement>(
+      '.notice-banner',
+    );
+    if (banner?.contains(document.activeElement))
+      focusAfterNotice(neighbourNotice(banner));
+    dismissedUpdate = version;
+  }
 </script>
 
-{#if update && !demo}<div class="alert subtle notice-banner" role="status">
+{#if update && !demo && dismissedUpdate !== update.version}<div
+    class="alert subtle notice-banner"
+    role="status"
+  >
     <Icon name="refresh" size={16} /><span
-      >RepoTray {update.version} verfügbar</span
-    ><button class="text-button" onclick={() => onShowUpdate()}
-      >Update ansehen</button
+      >Update {update.version} verfügbar</span
+    ><button class="text-button" onclick={() => onShowUpdate()}>Ansehen</button
+    ><button
+      class="icon-button small"
+      aria-label="Hinweis schließen"
+      onclick={(event) => dismissUpdate(event, update.version)}
+      ><Icon name="close" size={13} /></button
     >
   </div>{/if}
 {#if snapshot?.stale || snapshot?.connectivity === 'forbidden' || (!demo && snapshot?.message && snapshot.accounts.length > 0)}<div

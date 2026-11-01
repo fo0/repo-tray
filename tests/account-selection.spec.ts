@@ -76,9 +76,8 @@ async function setup(page: Page, saved: string | null = null) {
           );
           return {
             version: '0.2.0',
-            notes: `Öffentliches Update`,
-            downloadUrl:
-              'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
+            notes: '* Öffentliches Update',
+            date: null,
           };
         }
         if (cmd === 'disconnect_account') {
@@ -179,7 +178,7 @@ test('native startup requires an account choice for workflows while updates need
   ]);
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
-    page.getByRole('button', { name: 'Auf Updates prüfen' }),
+    page.getByRole('button', { name: 'Nach Updates suchen' }),
   ).toBeEnabled();
   expect((await updateCalls(page))[0]?.args).toEqual({});
 });
@@ -325,11 +324,11 @@ test('an in-flight public update check remains valid after switching the workflo
     page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
   await mock.configure({ updateDelay: 600 });
-  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
+  await page.getByRole('button', { name: 'Nach Updates suchen' }).click();
   await pickAccount(page, 'github-device-42');
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
-    page.getByRole('button', { name: 'Auf Updates prüfen' }),
+    page.getByRole('button', { name: 'Nach Updates suchen' }),
   ).toBeEnabled();
   await expect(
     page.getByText('Öffentliches Update', { exact: true }),

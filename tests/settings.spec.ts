@@ -15,8 +15,12 @@ test('settings tabs support keyboard navigation and keep updates reachable at na
   await expect(updates).toBeFocused();
   await expect(updates).toHaveAttribute('aria-selected', 'true');
   await expect(
-    page.getByText('Die Browser-Demo installiert keine App-Updates.'),
+    page.getByText('In der Demo nicht verfügbar.', { exact: true }),
   ).toBeVisible();
+  // The demo never offers checking or installing an update.
+  await expect(
+    page.getByRole('button', { name: /Nach Updates suchen|Installieren/ }),
+  ).toHaveCount(0);
   await expect(page.getByLabel('Repositories filtern')).toHaveCount(0);
   const dialog = page.getByRole('dialog');
   expect(
