@@ -137,6 +137,30 @@ describe('Starts local guard', () => {
     expect(reads).toBe(2);
   });
 
+  it('a thrown start locks its target like an uncertain one until it is released', async () => {
+    const { panel, bridge } = await setup({
+      dispatchWorkflow: async () => {
+        throw new Error('Verbindung unterbrochen.');
+      },
+    });
+    const read = deferred<Snapshot>();
+    bridge.snapshot = () => read.promise;
+    const started = panel.starts.dispatch(request, { label: 'A' });
+    await flush();
+    // The catch-up read is still pending: the target must not look free.
+    expect(panel.starts.isRunning(request)).toBe(false);
+    expect(panel.starts.isQuarantined(request)).toBe(true);
+    read.resolve(panel.snapshot!);
+    await started;
+    expect(texts(panel)).toEqual(['A: Verbindung unterbrochen.']);
+    expect(panel.starts.isQuarantined(request)).toBe(true);
+    // The service may never have persisted it; the same confirmation releases it.
+    const held = panel.starts.claimFor(request);
+    expect(held).toEqual({ ...claim, claimedAt: null });
+    await panel.starts.release(held!);
+    expect(panel.starts.isQuarantined(request)).toBe(false);
+  });
+
   it('drops a session lock once its account is gone, also after a reconnect', async () => {
     const { panel, push } = await setup({
       dispatchWorkflow: async () => ({

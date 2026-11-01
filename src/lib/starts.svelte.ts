@@ -66,11 +66,21 @@ export class Starts {
 
   isQuarantined = (target: DispatchTarget) =>
     this.claims.has(targetKey(target));
-  /** The persisted claim of this target, exactly as the snapshot reported it. */
-  claimFor = (target: DispatchTarget): UncertainStart | undefined =>
-    this.#panel.snapshot?.uncertainStarts?.find(
-      (start) => targetKey(start) === targetKey(target),
+  /**
+   * The claim a release confirms: the persisted one exactly as the snapshot
+   * reported it, else this session's own lock without a claim time (a thrown
+   * start the service may never have persisted). The service releases only
+   * an exact match and refuses while a newer claim exists, so the latter
+   * never removes a claim the user has not seen.
+   */
+  claimFor = (target: DispatchTarget): UncertainStart | undefined => {
+    const key = targetKey(target);
+    const persisted = this.#panel.snapshot?.uncertainStarts?.find(
+      (start) => targetKey(start) === key,
     );
+    const own = this.#session.get(key);
+    return persisted ?? (own && { ...own, claimedAt: null });
+  };
   /**
    * Refs with a locked start of one repository, or of one of its workflows,
    * for warning markers on repository and workflow rows.
@@ -175,17 +185,15 @@ export class Starts {
     let result: StartResult;
     try {
       const outcome = await this.#bridge.dispatchWorkflow(payload);
-      if (outcome.state === 'uncertain') {
-        const { accountId, repoId, workflowId, ref } = payload;
-        this.#session = new Map(this.#session).set(key, {
-          accountId,
-          repoId,
-          workflowId,
-          ref,
-        });
-      }
+      if (outcome.state === 'uncertain') this.#lock(payload);
       result = { outcome };
     } catch (cause) {
+      // A thrown call is uncertain from the panel's view: the service may
+      // have persisted the claim and sent the request before the answer was
+      // lost, e.g. to a crashed task or a broken IPC channel. Locked like an
+      // uncertain outcome, the target never turns startable while the
+      // catch-up read is pending, and only an explicit release frees it.
+      this.#lock(payload);
       result = { error: errorMessage(cause) };
     }
     // The snapshot then shows the new run or the persisted claim; even a
@@ -199,6 +207,17 @@ export class Starts {
     this.running = rest;
     if (!this.any && this.#stale) await this.#catchUp();
     return this.#settle(result, payload, options);
+  }
+
+  /** Quarantines a target whose start has an unknown outcome. */
+  #lock({ accountId, repoId, workflowId, ref }: DispatchTarget) {
+    // An account removed meanwhile took its claims along (see retainAccounts).
+    if (!this.#panel.snapshot?.accounts.some((item) => item.id === accountId))
+      return;
+    this.#session = new Map(this.#session).set(
+      targetKey({ accountId, repoId, workflowId, ref }),
+      { accountId, repoId, workflowId, ref },
+    );
   }
 
   /**
