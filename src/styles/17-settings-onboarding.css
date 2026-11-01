@@ -103,6 +103,11 @@
     forced-color-adjust: none;
     background: CanvasText;
   }
+  /* Matches the unsaved rule's specificity; hollow, so it differs from an update. */
+  .tab-update-dot.unsaved {
+    background: Canvas;
+    border: 1px solid CanvasText;
+  }
 }
 
 /* Settings without any connected account: one empty state, one action. */
