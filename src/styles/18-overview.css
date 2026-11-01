@@ -151,12 +151,20 @@
   white-space: nowrap;
   font-size: 13.5px;
 }
+/* The repository leads in bold; workflow and run number follow, smaller and
+   dimmed, and are cut first when the line runs short. */
 .live-title strong {
   font-weight: 620;
 }
-.live-repo {
+.live-workflow {
+  margin-left: 4px;
+  color: var(--text-2);
+  font-size: var(--font-size-meta);
+}
+.live-number {
   margin-left: 4px;
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .live-elapsed {
   flex-shrink: 0;

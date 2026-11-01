@@ -47,7 +47,9 @@ test('a collapsed row has no actions; the expanded one opens through the shell a
     await expect(row(page, id).getByRole('button')).toHaveCount(1);
     await expect(row(page, id).getByRole('link')).toHaveCount(0);
   }
-  await expect(toggle).toHaveAccessibleName(/^Desktop build #8401 · /);
+  await expect(toggle).toHaveAccessibleName(
+    /^demo-dev\/launch-kit-demo · Desktop build #8401 · /,
+  );
   await toggle.focus();
   await page.keyboard.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');

@@ -122,7 +122,8 @@
   flex: 1;
   min-width: 0;
 }
-.run-name {
+/* The repository leads in bold; the owner is in its tooltip. */
+.run-repo {
   display: block;
   overflow: hidden;
   font-size: 13.5px;
@@ -131,14 +132,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.run-number {
-  margin-left: 5px;
-  color: var(--text-3);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-/* One meta line, so every row keeps one height: the repository shortens
-   first, a long branch at half the line, the duration stays whole. */
+/* One meta line, so every row keeps one height: the workflow and its dimmed
+   run number shorten first, a long branch at half the line, the duration
+   stays whole. */
 .run-meta {
   display: flex;
   align-items: center;
@@ -150,10 +146,16 @@
   line-height: 18px;
   white-space: nowrap;
 }
-.run-repo {
+.run-workflow {
   min-width: 2ch;
   overflow: hidden;
+  color: var(--text-2);
   text-overflow: ellipsis;
+}
+.run-number {
+  margin-left: 4px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .run-meta .branch-chip {
   flex-shrink: 0;

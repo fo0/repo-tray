@@ -10,7 +10,9 @@ import {
   recentSummary,
   repositoryActivity,
   repositoryStatus,
+  runLabel,
   runTone,
+  shortRepo,
   statusLabel,
   visibleRuns,
 } from './runs';
@@ -92,6 +94,17 @@ describe('activity model', () => {
     expect(statusLabel(data.runs[3]!)).toBe('Fehlgeschlagen');
     expect(duration(data.runs[0]!)).toBe('1:00 min');
     expect(fullRepo(data.repos[1]!)).toBe('example-org/runner-tools-demo');
+  });
+  it('names a run by its repository first, then workflow and number', () => {
+    const data = snapshot();
+    const repo = fullRepo(data.repos[1]!);
+    expect(shortRepo(repo)).toBe('runner-tools-demo');
+    expect(shortRepo('Repository nicht verfügbar')).toBe(
+      'Repository nicht verfügbar',
+    );
+    expect(runLabel(data.runs[2]!, repo)).toBe(
+      'example-org/runner-tools-demo · Runner health #8403',
+    );
   });
   it.each([
     ['queued', null, 'In Warteschlange'],

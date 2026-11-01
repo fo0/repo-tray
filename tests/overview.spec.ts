@@ -39,7 +39,11 @@ test.describe('demo overview', () => {
     await expect(section(page, 'repos')).toContainText('3 Repositories');
     const live = section(page, 'runs').getByRole('listitem');
     await expect(live).toHaveCount(3);
-    await expect(live.first()).toContainText('Checks');
+    // The repository leads in bold, the workflow and its number follow.
+    await expect(live.first().locator('strong')).toHaveText('launch-kit-demo');
+    await expect(live.first().locator('.live-workflow')).toHaveText(
+      '· Checks#8402',
+    );
     await expect(live.first()).toContainText('develop');
     // The demo polls every second: the rows are no live region.
     await expect(section(page, 'runs').locator('[aria-live]')).toHaveCount(0);
@@ -168,7 +172,7 @@ test.describe('demo overview', () => {
     page,
   }) => {
     const row = section(page, 'runs').getByRole('button', {
-      name: /^Runner health #8403 · /,
+      name: /^example-org\/runner-tools-demo · Runner health #8403 · /,
     });
     await expect(row).toHaveAccessibleDescription('Im Verlauf anzeigen');
     await page.getByLabel('Übersicht durchsuchen').fill('runner');

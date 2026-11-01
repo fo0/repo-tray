@@ -8,9 +8,10 @@ test.beforeEach(async ({ page }) => {
 test('account and owner context, filters and search stay isolated', async ({
   page,
 }) => {
-  // A row shows the repository's name; its accessible name keeps the owner.
+  // A row shows the repository's name; its accessible name leads with it,
+  // owner included.
   const rowsOf = (repo: string) =>
-    page.getByRole('button', { name: ` · ${repo} · `, exact: false });
+    page.getByRole('button', { name: new RegExp(`^${repo} · `) });
   await expect(rowsOf('demo-dev/launch-kit-demo').first()).toBeVisible();
   await chooseAccount(page, 'team-demo');
   await expect(rowsOf('example-org/runner-tools-demo').first()).toBeVisible();
@@ -58,7 +59,7 @@ for (const width of [360, 480]) {
           status.right <= footer.right,
         rowHeight: run.height,
         runFont: parseFloat(
-          getComputedStyle(document.querySelector('.run-name')!).fontSize,
+          getComputedStyle(document.querySelector('.run-repo')!).fontSize,
         ),
         minIconTarget: Math.min(
           ...[...document.querySelectorAll('.icon-button')].map((button) =>
