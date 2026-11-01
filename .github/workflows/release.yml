@@ -12,9 +12,6 @@ on:
     branches: [main]
 permissions:
   contents: read
-concurrency:
-  group: repotray-release
-  cancel-in-progress: false
 jobs:
   windows-release:
     if: >-
@@ -25,23 +22,32 @@ jobs:
        github.event.workflow_run.head_repository.full_name == github.repository &&
        contains(github.event.workflow_run.head_commit.message, '[release]'))
     runs-on: windows-latest
+    timeout-minutes: 90
+    # Job-level, not workflow-level: every Checks completion on main starts a Release
+    # run, and a workflow-level group would let a later no-op run displace a pending
+    # real release before the job conditions are evaluated.
+    concurrency:
+      group: repotray-release
+      cancel-in-progress: false
     permissions:
       contents: write
       actions: read # Read this run's immutable created_at for retry-stable versions.
     env:
       RELEASE_SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
       - name: Prepare automatic release
         shell: pwsh
@@ -111,7 +117,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Release exists, but download verification failed' }
           $downloaded = Join-Path release-work/download-check $filename
           if ((Get-FileHash $downloaded -Algorithm SHA256).Hash -ne (Get-FileHash $installer -Algorithm SHA256).Hash) { throw 'Release exists, but downloaded installer differs' }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always() && steps.installer.outcome == 'success'
         with:
           name: RepoTray-Windows-release
@@ -128,6 +134,11 @@ jobs:
        github.event.workflow_run.head_repository.full_name == github.repository &&
        contains(github.event.workflow_run.head_commit.message, '[publish-existing:'))
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Same group as windows-release (see the note there).
+    concurrency:
+      group: repotray-release
+      cancel-in-progress: false
     permissions:
       contents: write
     env:
@@ -135,8 +146,9 @@ jobs:
       EXISTING_TAG: ${{ inputs.existing_tag }}
       REQUEST_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Download and publish the already built EXE
         shell: pwsh
