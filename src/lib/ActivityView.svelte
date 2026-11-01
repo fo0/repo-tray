@@ -1,5 +1,5 @@
 <script module lang="ts">
-  import type { ActivityFilter } from './model';
+  import type { ActivityFilter } from './runs';
 
   const FILTERS: { id: ActivityFilter; label: string }[] = [
     { id: 'all', label: 'Alle' },
@@ -20,7 +20,7 @@
   import RunRow from './RunRow.svelte';
   import { minuteClock } from './clock';
   import { plural } from './format';
-  import { HISTORY_LIMIT, isActive } from './model';
+  import { HISTORY_LIMIT, isActive } from './runs';
   import type { NoticeTone } from './StatusBanners.svelte';
   import type { Run } from './types';
 

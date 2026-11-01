@@ -1,5 +1,6 @@
 import { accountTitle } from './accountSelection';
-import { duration, fullRepo, isActive } from './model';
+import { fullRepo } from './model';
+import { duration, isActive } from './runs';
 import type { Run, Snapshot } from './types';
 
 export const FALLBACK_ERROR =

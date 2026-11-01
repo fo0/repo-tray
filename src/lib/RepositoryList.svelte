@@ -1,8 +1,9 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { plural } from './format';
-  import { fullRepo, statusLabel, type repositoryActivity } from './model';
+  import { fullRepo } from './model';
   import { workflowTarget } from './pins';
+  import { statusLabel, type repositoryActivity } from './runs';
   import { START_REASONS, startReason } from './startReason';
   import type { DispatchTarget, Pin, Workflow } from './types';
 

@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import ReleaseLock from './ReleaseLock.svelte';
   import RunLink from './RunLink.svelte';
-  import { safeGitHubUrl } from './model';
+  import { safeGitHubUrl } from './safeGitHubUrl';
   import type { DispatchOutcome, UncertainStart } from './types';
 
   let {

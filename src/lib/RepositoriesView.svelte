@@ -3,7 +3,7 @@
   import PinnedFavorites from './PinnedFavorites.svelte';
   import RepositoryList from './RepositoryList.svelte';
   import type { Modals } from './modals.svelte';
-  import type { repositoryActivity } from './model';
+  import type { repositoryActivity } from './runs';
   import type { Panel } from './panel.svelte';
   import { blockedReason } from './startReason';
   import type { Pin } from './types';

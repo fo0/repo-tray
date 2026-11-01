@@ -2,7 +2,8 @@
   import Icon, { type IconName } from './Icon.svelte';
   import RunLink from './RunLink.svelte';
   import { clockTime, runDuration, runMoment } from './format';
-  import { safeGitHubUrl, statusLabel } from './model';
+  import { statusLabel } from './runs';
+  import { safeGitHubUrl } from './safeGitHubUrl';
   import type { NoticeTone } from './StatusBanners.svelte';
   import type { Run } from './types';
 

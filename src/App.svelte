@@ -23,7 +23,7 @@
     repositoryActivity,
     visibleRuns,
     type ActivityFilter,
-  } from './lib/model';
+  } from './lib/runs';
   import { Modals } from './lib/modals.svelte';
   import { Panel } from './lib/panel.svelte';
   import { createShortcuts } from './lib/shortcuts';
