@@ -17,6 +17,8 @@ struct Remote {
     failing: BTreeMap<&'static str, u16>,
     /// Every active-run list page links a next page, as a listing past the page budget does.
     endless_active: bool,
+    /// Every discovery-window page links a next page, as a burst of runs past the budget does.
+    endless_created: bool,
 }
 struct Mock(Arc<Mutex<Remote>>);
 impl Transport for Mock {
@@ -44,7 +46,9 @@ impl Transport for Mock {
         }
         let query: BTreeMap<_, _> = uri.query_pairs().into_owned().collect();
         let mut headers = BTreeMap::new();
-        if remote.endless_active && query.contains_key("status") {
+        if (remote.endless_active && query.contains_key("status"))
+            || (remote.endless_created && query.contains_key("created"))
+        {
             let page = query
                 .get("page")
                 .map_or(1, |page| page.parse::<u64>().unwrap());
@@ -497,6 +501,65 @@ fn an_active_run_list_past_the_page_budget_fails_the_repository_instead_of_hidin
     assert_eq!(pass.runs, known);
     assert!(pass.polled.is_empty());
     assert_eq!(pass.failures.len(), 1);
+}
+#[test]
+fn a_discovery_window_past_the_page_budget_keeps_its_newest_runs_and_the_repository_polling() {
+    let remote = Arc::new(Mutex::new(Remote {
+        created: vec![run(3, "completed")],
+        endless_created: true,
+        ..Remote::default()
+    }));
+    let client = ApiClient::new(Mock(remote.clone()));
+    let mut blocked = BTreeSet::new();
+    let first = refresh_selected(
+        &client,
+        &[repo()],
+        &[],
+        &BTreeMap::new(),
+        &BTreeMap::from([("fixture-repo".to_string(), 100)]),
+        &mut blocked,
+        200,
+    );
+    // Only the newest runs of the window matter; the cut is accepted, not a failure.
+    assert!(first.failures.is_empty(), "{:?}", first.failures);
+    assert_eq!(first.polled, vec![("fixture-repo".to_string(), 200)]);
+    assert_eq!(first.runs.iter().map(|run| run.id).collect::<Vec<_>>(), [3]);
+    let windows = |remote: &Remote| {
+        remote
+            .calls
+            .iter()
+            .filter(|call| call.contains("created="))
+            .count()
+    };
+    assert_eq!(windows(&remote.lock().unwrap()), 20, "the page budget");
+    // The next window opens where this pass ended, so the repository keeps updating.
+    remote.lock().unwrap().created = vec![run(4, "in_progress"), run(3, "completed")];
+    let second = refresh_selected(
+        &client,
+        &[repo()],
+        &first.runs,
+        &BTreeMap::from([("fixture-repo".to_string(), 200)]),
+        &BTreeMap::from([("fixture-repo".to_string(), 200)]),
+        &mut blocked,
+        300,
+    );
+    assert!(second.failures.is_empty(), "{:?}", second.failures);
+    assert_eq!(second.polled, vec![("fixture-repo".to_string(), 300)]);
+    let mut ids: Vec<_> = second.runs.iter().map(|run| run.id).collect();
+    ids.sort_unstable();
+    assert_eq!(ids, [3, 4]);
+    let opened = format!(
+        ">={}",
+        chrono::DateTime::from_timestamp(198, 0)
+            .unwrap()
+            .to_rfc3339()
+    );
+    assert!(remote.lock().unwrap().calls.iter().any(|call| {
+        reqwest::Url::parse(call)
+            .unwrap()
+            .query_pairs()
+            .any(|(key, value)| key == "created" && value == opened)
+    }));
 }
 
 #[test]

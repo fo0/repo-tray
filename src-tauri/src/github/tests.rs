@@ -37,7 +37,8 @@ fn moving_discovery_windows_follow_pagination_without_retaining_pages() {
             0,
         )
         .unwrap();
-    assert_eq!(pages.len(), 2);
+    assert_eq!(pages.bodies.len(), 2);
+    assert!(!pages.truncated);
     assert_eq!(requests.lock().unwrap().len(), 2);
     assert!(client.state.lock().unwrap().pages.is_empty());
 }

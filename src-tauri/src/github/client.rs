@@ -107,14 +107,16 @@ impl<T: Transport> ApiClient<T> {
     }
 
     /// Moving discovery windows have unique URLs; retaining their pages would grow without bound.
+    /// Budgeted like `get_pages_limited`: a window only needs its newest entries, so the
+    /// caller may use the first pages of a cut-off listing.
     #[cfg(feature = "network")]
     pub(crate) fn get_pages_uncached(
         &self,
         account_id: &str,
         first: ApiUrl,
         now: u64,
-    ) -> Result<Vec<Vec<u8>>, ApiError> {
-        complete(self.traverse(account_id, first, now, false, MAX_PAGES)?)
+    ) -> Result<Pages, ApiError> {
+        self.traverse(account_id, first, now, false, MAX_PAGES)
     }
 
     fn traverse(

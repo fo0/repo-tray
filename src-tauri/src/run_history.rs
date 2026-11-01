@@ -151,15 +151,20 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
     if let Some(since) = since {
         // Discover runs created between polls, including short runs that already finished.
         // This does not revisit older completed history or use it as a status-poll target.
+        // GitHub lists the newest first, so a window past the page budget still holds the
+        // newest runs: open ones are listed completely above and only COMPLETED_LIMIT
+        // completed runs are kept. Accepting the cut lets the next window start from now
+        // instead of failing on an ever longer window.
         let timestamp = chrono::DateTime::from_timestamp(since.saturating_sub(2) as i64, 0)
             .ok_or("Run-Zeitfenster ungültig.")?
             .to_rfc3339();
         let created = format!(">={timestamp}");
-        for body in client.get_pages_uncached(
+        let window = client.get_pages_uncached(
             &repo.account_id,
             url(&path, &[("per_page", "100"), ("created", &created)])?,
             now,
-        )? {
+        )?;
+        for body in window.bodies {
             for run in parse_list(&repo.id, &body)? {
                 fresh.entry(run.id).or_insert(run);
             }
