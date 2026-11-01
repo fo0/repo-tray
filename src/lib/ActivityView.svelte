@@ -150,18 +150,26 @@
             : 'Hier ist gerade Ruhe'}
       text={needsAccount
         ? accountNotice ||
-          'Öffne die Einstellungen und wähle dort Konto und Anmeldequelle. Repository-Starts bleiben an ihr Konto gebunden.'
+          (hasAccounts
+            ? 'Öffne die Einstellungen und wähle dort Konto und Anmeldequelle. Repository-Starts bleiben an ihr Konto gebunden.'
+            : 'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.')
         : !hasRepos
           ? 'Wähle Repositories in den Einstellungen aus.'
           : searching
             ? 'Versuche einen anderen Suchbegriff.'
             : 'Für diesen Filter gibt es keine Runs.'}
       action={needsAccount
-        ? {
-            label: 'Konto in Einstellungen wählen',
-            icon: 'arrow',
-            run: onOpenSettings,
-          }
+        ? hasAccounts
+          ? {
+              label: 'Konto in Einstellungen wählen',
+              icon: 'arrow',
+              run: onOpenSettings,
+            }
+          : {
+              label: 'GitHub-Konto verbinden',
+              icon: 'plus',
+              run: onOpenSettings,
+            }
         : !hasRepos
           ? {
               label: 'Repositories auswählen',
