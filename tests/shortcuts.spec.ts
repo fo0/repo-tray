@@ -81,21 +81,37 @@ test('/ focuses the search; typing keeps plain keys, Escape clears then leaves',
   await expect(search).toHaveValue('');
   await page.keyboard.type('demo/1');
   await expect(search).toHaveValue('demo/1');
-  await page.keyboard.press('Control+2');
-  await expect(tab(page, views.repositories)).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
   await page.keyboard.press('Escape');
   await expect(search).toHaveValue('');
   await expect(search).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(search).not.toBeFocused();
+});
+
+test('F5, Ctrl+R and Ctrl+1/2/3 still work from the search field', async ({
+  page,
+}) => {
+  const search = page.getByLabel('Repositories durchsuchen');
+  await page.keyboard.press('/');
+  await page.keyboard.type('demo');
+  await page.keyboard.press('F5');
+  await expect(refreshed(page)).toBeVisible();
+  await expect(search).toHaveValue('demo');
+  await expect(search).toBeFocused();
+  await page
+    .getByRole('status')
+    .getByRole('button', { name: 'Meldung schließen' })
+    .click();
+  await search.focus();
+  await page.keyboard.press('Control+r');
+  await expect(refreshed(page)).toBeVisible();
+  await search.focus();
   await page.keyboard.press('Control+2');
   await expect(tab(page, views.activity)).toHaveAttribute(
     'aria-current',
     'page',
   );
+  expect(await prevented(page)).toEqual(['/', 'F5', 'r', '2']);
 });
 
 test('an open dialog keeps the keyboard and never reloads', async ({

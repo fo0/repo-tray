@@ -126,22 +126,40 @@ describe('createShortcuts', () => {
     run(handle, event('/'));
     expect(actions.focusSearch).toHaveBeenCalledTimes(1);
   });
-  it('ignores everything but Escape while typing, yet never reloads', () => {
+  it('lets / type in a text field but runs commands from it', () => {
     const { actions, handle } = setup(false, true);
-    const reload = event('r', { ctrlKey: true }, 'INPUT');
-    run(handle, reload);
-    expect(reload.preventDefault).toHaveBeenCalled();
-    expect(actions.refresh).not.toHaveBeenCalled();
     const slash = event('/', {}, 'INPUT');
     run(handle, slash);
     expect(slash.preventDefault).not.toHaveBeenCalled();
-    run(handle, event('1', { ctrlKey: true }, 'SELECT'));
     expect(actions.focusSearch).not.toHaveBeenCalled();
-    expect(actions.selectTab).not.toHaveBeenCalled();
+    for (const key of ['F5', 'r']) {
+      const reload = event(key, { ctrlKey: key === 'r' }, 'INPUT');
+      run(handle, reload);
+      expect(reload.preventDefault).toHaveBeenCalled();
+    }
+    expect(actions.refresh).toHaveBeenCalledTimes(2);
+    const tab = event('3', { ctrlKey: true }, 'INPUT');
+    run(handle, tab);
+    expect(tab.preventDefault).toHaveBeenCalled();
+    expect(actions.selectTab).toHaveBeenCalledWith('launch');
+    run(handle, event('1', { ctrlKey: true }, 'SELECT'));
+    expect(actions.selectTab).toHaveBeenLastCalledWith('repositories');
     const escape = event('Escape', {}, 'INPUT');
     run(handle, escape);
     expect(actions.escape).toHaveBeenCalledWith(escape.target);
     expect(escape.preventDefault).toHaveBeenCalled();
+  });
+  it('keeps IME composition and AltGr out of shortcuts in a text field', () => {
+    const { actions, handle } = setup();
+    const composing = event('F5', { isComposing: true }, 'INPUT');
+    run(handle, composing);
+    // The reload is still suppressed, but nothing runs mid-composition.
+    expect(composing.preventDefault).toHaveBeenCalled();
+    run(handle, event('2', { ctrlKey: true, isComposing: true }, 'INPUT'));
+    // AltGr arrives as Ctrl+Alt and types a character.
+    run(handle, event('2', { ctrlKey: true, altKey: true }, 'INPUT'));
+    expect(actions.refresh).not.toHaveBeenCalled();
+    expect(actions.selectTab).not.toHaveBeenCalled();
   });
   it('leaves the keyboard to an open dialog but still blocks a reload', () => {
     const { actions, handle } = setup(true);
