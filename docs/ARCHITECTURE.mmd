@@ -64,7 +64,7 @@ flowchart TD
     end
 
     subgraph "CI and Release"
-        Checks("checks.yml")
+        Checks("ci.yml")
         RustTests["cargo tests"]
         IpcContract["ipc.contract.test.ts"]
         ReleaseYml("release.yml")
@@ -156,6 +156,7 @@ flowchart TD
     IpcContract -->|"generate_handler!"| DesktopRs
     RustTests -->|"demo snapshots"| DemoRs
     ReleaseYml --> ReleaseScripts
+    ReleaseYml -->|"runs first"| Checks
     ReleaseYml -->|"publish unsigned NSIS EXE"| Releases
 
     click AppSvelte "src/App.svelte"
@@ -205,7 +206,7 @@ flowchart TD
     click RunLinkRs "src-tauri/src/run_link.rs"
     click UpdatesRs "src-tauri/src/updates.rs"
     click DemoRs "src-tauri/src/demo.rs"
-    click Checks ".github/workflows/checks.yml"
+    click Checks ".github/workflows/ci.yml"
     click IpcContract "src/lib/ipc.contract.test.ts"
     click ReleaseYml ".github/workflows/release.yml"
     click ReleaseScripts "scripts/release.mjs"

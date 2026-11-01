@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import {
   chmodSync,
   copyFileSync,
@@ -85,7 +84,6 @@ if (process.env.RELEASE_TEST_COMMAND === 'pnpm') {
   if (endpoint.includes('/actions/runs/')) console.log('2026-11-01T00:15:00Z');
   else if (endpoint.includes('/generate-notes')) console.log(state.emptyNotes ? '' : '## Changes\n- Test release');
   else if (endpoint.includes('/releases?')) console.log('[[]]');
-  else if (endpoint.includes('/releases/tags/')) console.log(JSON.stringify(state.release));
   else fail('Unexpected GitHub API endpoint: ' + endpoint);
 } else if (args[0] === 'release' && args[1] === 'create') {
   const uploads = args.slice(3, args.indexOf('--target'));
@@ -100,18 +98,9 @@ if (process.env.RELEASE_TEST_COMMAND === 'pnpm') {
   if (state.downloadFails) fail('Synthetic download failure');
   fs.mkdirSync(after('--dir'), { recursive: true });
   fs.writeFileSync(path.join(after('--dir'), after('--pattern')), state.downloadPayload ?? state.payload);
-} else if (args[0] === 'release' && args[1] === 'edit') {
-  if (!/^[a-f0-9]{40}$/.test(after('--target'))) fail('Expected a resolved source commit');
-  state.editSource = after('--target');
-  state.edited = true;
-  state.release.draft = false;
-  save();
 } else if (args[0] === 'release' && args[1] === 'view') {
-  const fields = after('--json').split(',');
-  // The official CLI exposes id, not databaseId.
-  if (fields.some((field) => !['id', 'isDraft', 'tagName', 'url'].includes(field))) fail('Unknown JSON field');
-  if (args.includes('--jq')) console.log(String(state.release.draft));
-  else console.log(JSON.stringify({ isDraft: state.release.draft, tagName: state.release.tag_name, url: 'https://github.com/fo0/repo-tray/releases/tag/' + state.release.tag_name }));
+  if (after('--json') !== 'isDraft' || !args.includes('--jq')) fail('Unexpected release view');
+  console.log(String(state.release.draft));
 } else fail('Unexpected GitHub command');
 `;
 
@@ -169,30 +158,19 @@ function fixture(t, changes = {}) {
   const sha = git('rev-parse', 'HEAD');
   git('remote', 'add', 'origin', directory);
   git('update-ref', 'refs/remotes/origin/main', sha);
-  git('tag', 'v0.1.0');
   const payload = 'Synthetic EXE bytes; never executable.';
-  const release = {
-    tag_name: 'v0.1.0',
-    draft: true,
-    prerelease: false,
-    target_commitish: 'main',
-    assets: [
-      {
-        name: 'RepoTray_0.1.0_x64-setup.exe',
-        size: Buffer.byteLength(payload),
-      },
-    ],
-  };
+  const release = { tag_name: '', draft: true };
   const stateFile = path.join(directory, 'state.json');
   const actionsEnv = path.join(directory, 'github-env');
   writeFileSync(stateFile, JSON.stringify({ payload, release, ...changes }));
   const bin = path.join(directory, 'bin');
   mkdirSync(bin);
-  for (const name of ['gh', 'pnpm', 'cargo']) {
+  // cargo and rustup are no-ops: the Action must never touch a real toolchain here.
+  for (const name of ['gh', 'pnpm', 'cargo', 'rustup']) {
     const mock = path.join(bin, `${name}.cjs`);
     writeFileSync(
       mock,
-      `process.env.RELEASE_TEST_COMMAND = ${JSON.stringify(name)};\n${name === 'cargo' ? '' : command}`,
+      `process.env.RELEASE_TEST_COMMAND = ${JSON.stringify(name)};\n${['gh', 'pnpm'].includes(name) ? command : ''}`,
     );
     if (process.platform === 'win32') {
       writeFileSync(
@@ -216,8 +194,6 @@ function fixture(t, changes = {}) {
     GITHUB_RUN_ID: '1',
     GITHUB_ENV: actionsEnv,
     RELEASE_SOURCE_SHA: sha,
-    EXISTING_TAG: 'v0.1.0',
-    REQUEST_MESSAGE: '',
   });
   /** @param {string} job */
   function run(job) {
@@ -252,15 +228,7 @@ function fixture(t, changes = {}) {
   }
   return {
     run,
-    git,
-    sha,
     state: () => JSON.parse(readFileSync(stateFile, 'utf8')),
-    /** @param {(state: any) => void} mutate Edits the parsed JSON state. */
-    update: (mutate) => {
-      const state = JSON.parse(readFileSync(stateFile, 'utf8'));
-      mutate(state);
-      writeFileSync(stateFile, JSON.stringify(state));
-    },
   };
 }
 
@@ -269,7 +237,7 @@ test(
   options,
   (t) => {
     const f = fixture(t, { emptyNotes: true });
-    const result = f.run('windows-release');
+    const result = f.run('release');
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.equal(f.state().built, true);
     assert.equal(f.state().created, true);
@@ -277,83 +245,25 @@ test(
   },
 );
 
-test(
-  'existing EXE-only drafts publish with a branch target, empty notes and no digest or databaseId',
-  options,
-  (t) => {
-    const f = fixture(t);
-    const result = f.run('publish-existing');
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.equal(f.state().edited, true);
-  },
-);
-
-test(
-  'existing assets with a matching SHA-256 digest still publish',
-  options,
-  (t) => {
-    const f = fixture(t);
-    f.update((state) => {
-      state.release.assets[0].digest = `sha256:${createHash('sha256').update(state.payload).digest('hex')}`;
-    });
-    const result = f.run('publish-existing');
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.equal(f.state().edited, true);
-  },
-);
-
-for (const failure of /** @type {const} */ ([
-  'digest',
-  'size',
-  'download',
-  'source',
+for (const [name, changes, expected] of /** @type {const} */ ([
+  ['fails', { downloadFails: true }, 'download verification failed'],
+  [
+    'differs',
+    { downloadPayload: 'Tampered bytes' },
+    'downloaded installer differs',
+  ],
 ])) {
   test(
-    `existing-release publication still rejects a bad ${failure}`,
+    `a published release fails when its EXE download ${name}`,
     options,
     (t) => {
-      const f = fixture(t);
-      f.update((state) => {
-        if (failure === 'digest')
-          state.release.assets[0].digest = `sha256:${'0'.repeat(64)}`;
-        if (failure === 'size') state.release.assets[0].size++;
-        if (failure === 'download') state.downloadFails = true;
-      });
-      if (failure === 'source') {
-        const orphan = f.git(
-          'commit-tree',
-          'HEAD^{tree}',
-          '-m',
-          'Unrelated source',
-        );
-        f.git('tag', '-f', 'v0.1.0', orphan);
-      }
-      const result = f.run('publish-existing');
+      const f = fixture(t, changes);
+      const result = f.run('release');
       assert.notEqual(result.status, 0);
-      const expected = {
-        digest: 'hash differs',
-        size: 'size differs',
-        download: 'Cannot download built EXE',
-        source: 'outside main',
-      };
       assert.ok(
-        `${result.stderr}${result.stdout}`.includes(expected[failure]),
+        `${result.stderr}${result.stdout}`.includes(expected),
         result.stderr || result.stdout,
       );
-      assert.notEqual(f.state().edited, true);
     },
   );
 }
-
-test(
-  'a draft with an uploaded EXE but no Git tag resolves and pins its branch target',
-  options,
-  (t) => {
-    const f = fixture(t);
-    f.git('tag', '-d', 'v0.1.0');
-    const result = f.run('publish-existing');
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.equal(f.state().edited, true);
-    assert.equal(f.state().editSource, f.sha);
-  },
-);
