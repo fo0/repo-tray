@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import AppFooter from './lib/AppFooter.svelte';
   import AppHeader from './lib/AppHeader.svelte';
+  import EmptyState from './lib/EmptyState.svelte';
   import Icon from './lib/Icon.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
   import RunLink from './lib/RunLink.svelte';
@@ -105,6 +106,8 @@
   const viewEpoch = new RequestEpoch();
   const dialogEpoch = new RequestEpoch();
 
+  /** Native mode without a deliberately chosen account shows no repository data. */
+  const needsAccount = $derived(native && !accountId);
   const repos = $derived(
     snapshot?.repos.filter(
       (repo) =>
@@ -242,6 +245,9 @@
   function showNotice(value: string, tone: NoticeTone = 'subtle') {
     notice = value;
     noticeTone = tone;
+  }
+  function clearQuery() {
+    query = '';
   }
   function warn(value: string) {
     showNotice(value, 'warning');
@@ -871,17 +877,14 @@
       />
 
       {#if !snapshot}
-        <div class="empty-state">
-          <span class="empty-icon"><Icon name="tray" size={26} /></span>
-          <h2>
-            {error ? 'Demo nicht geladen' : 'Workflows werden sortiert …'}
-          </h2>
-          <p>
-            {error
-              ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
-              : 'Dein Überblick ist gleich bereit.'}
-          </p>
-        </div>
+        <EmptyState
+          icon="tray"
+          iconSize={26}
+          title={error ? 'Demo nicht geladen' : 'Workflows werden sortiert …'}
+          text={error
+            ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
+            : 'Dein Überblick ist gleich bereit.'}
+        />
       {:else if tab === 'repositories'}
         {#if pins.length}
           <section
@@ -957,37 +960,32 @@
           {dispatching}
           {blocked}
         />
-        {#if !repoGroups.length}<div class="empty-state">
-            <span class="empty-icon"><Icon name="repo" size={25} /></span>
-            <h2>
-              {native && !accountId
-                ? snapshot.accounts.length
-                  ? 'Wähle ein aktives Konto'
-                  : 'Verbinde dein GitHub-Konto'
-                : query
-                  ? 'Keine passenden Repositories'
-                  : 'Noch keine Repositories ausgewählt'}
-            </h2>
-            <p>
-              {native && !accountId
-                ? accountSelectionNotice ||
-                  'Wähle Konto und Repositories in den Einstellungen.'
-                : query
-                  ? 'Suche nach einem Repository oder einer Action.'
-                  : 'Wähle Repositories in den Einstellungen aus.'}
-            </p>
-            {#if query}<button class="text-button" onclick={() => (query = '')}
-                >Suche leeren<Icon name="close" size={14} /></button
-              >
-            {:else}<button class="text-button" onclick={openSettings}
-                >{native && !accountId
-                  ? 'Konto in Einstellungen wählen'
-                  : 'Repositories auswählen'}<Icon
-                  name="arrow"
-                  size={14}
-                /></button
-              >{/if}
-          </div>{/if}
+        {#if !repoGroups.length}<EmptyState
+            icon="repo"
+            iconSize={25}
+            title={needsAccount
+              ? snapshot.accounts.length
+                ? 'Wähle ein aktives Konto'
+                : 'Verbinde dein GitHub-Konto'
+              : query
+                ? 'Keine passenden Repositories'
+                : 'Noch keine Repositories ausgewählt'}
+            text={needsAccount
+              ? accountSelectionNotice ||
+                'Wähle Konto und Repositories in den Einstellungen.'
+              : query
+                ? 'Suche nach einem Repository oder einer Action.'
+                : 'Wähle Repositories in den Einstellungen aus.'}
+            action={query
+              ? { label: 'Suche leeren', icon: 'close', run: clearQuery }
+              : {
+                  label: needsAccount
+                    ? 'Konto in Einstellungen wählen'
+                    : 'Repositories auswählen',
+                  icon: 'arrow',
+                  run: openSettings,
+                }}
+          />{/if}
       {:else if tab === 'activity'}
         <div class="filters" aria-label="Aktivitätsfilter">
           {#each [{ id: 'all', label: 'Alle' }, { id: 'active', label: 'Aktiv' }, { id: 'failed', label: 'Fehlgeschlagen' }, { id: 'recent', label: 'Abgeschlossen' }] as item}<button
@@ -1107,41 +1105,38 @@
                     >{/if}
                 </div>{/if}
             </article>
-          {:else}<div class="empty-state">
-              <span class="empty-icon"><Icon name="activity" size={25} /></span>
-              <h2>
-                {native && !accountId
-                  ? snapshot?.accounts.length
-                    ? 'Wähle ein aktives Konto'
-                    : 'Verbinde dein GitHub-Konto'
+          {:else}<EmptyState
+              icon="activity"
+              iconSize={25}
+              title={needsAccount
+                ? snapshot?.accounts.length
+                  ? 'Wähle ein aktives Konto'
+                  : 'Verbinde dein GitHub-Konto'
+                : repos.length
+                  ? 'Hier ist gerade Ruhe'
+                  : 'Noch keine Repositories ausgewählt'}
+              text={needsAccount
+                ? accountSelectionNotice ||
+                  'Öffne die Einstellungen und wähle dort Konto und Anmeldequelle. Repository-Starts bleiben an ihr Konto gebunden.'
+                : query
+                  ? 'Für diese Suche gibt es keine Runs.'
                   : repos.length
-                    ? 'Hier ist gerade Ruhe'
-                    : 'Noch keine Repositories ausgewählt'}
-              </h2>
-              <p>
-                {native && !accountId
-                  ? accountSelectionNotice ||
-                    'Öffne die Einstellungen und wähle dort Konto und Anmeldequelle. Repository-Starts bleiben an ihr Konto gebunden.'
-                  : query
-                    ? 'Für diese Suche gibt es keine Runs.'
-                    : repos.length
-                      ? 'Für diesen Filter gibt es keine Runs.'
-                      : 'Wähle Repositories in den Einstellungen aus.'}
-              </p>
-              {#if native && !accountId}<button
-                  class="text-button"
-                  onclick={openSettings}
-                  >Konto in Einstellungen wählen<Icon
-                    name="arrow"
-                    size={14}
-                  /></button
-                >
-              {:else if !repos.length}<button
-                  class="text-button"
-                  onclick={openSettings}
-                  >Repositories auswählen<Icon name="arrow" size={14} /></button
-                >{/if}
-            </div>{/each}
+                    ? 'Für diesen Filter gibt es keine Runs.'
+                    : 'Wähle Repositories in den Einstellungen aus.'}
+              action={needsAccount
+                ? {
+                    label: 'Konto in Einstellungen wählen',
+                    icon: 'arrow',
+                    run: openSettings,
+                  }
+                : !repos.length
+                  ? {
+                      label: 'Repositories auswählen',
+                      icon: 'arrow',
+                      run: openSettings,
+                    }
+                  : undefined}
+            />{/each}
         </div>
       {:else}
         <div class="section-heading launch-heading">
@@ -1255,32 +1250,30 @@
                 >{/each}
             </div>{/each}
         </div>
-        {#if query.trim() && !pins.length && !launchRepos.length}<div
-            class="empty-state"
-          >
-            <Icon name="search" size={26} />
-            <h2>Keine passenden Vorlagen oder Workflows</h2>
-            <p>Versuche einen anderen Namen, Owner oder Repository.</p>
-            <button class="text-button" onclick={() => (query = '')}
-              >Suche leeren<Icon name="close" size={14} /></button
-            >
-          </div>{/if}
-        {#if !repos.length}<div class="empty-state">
-            <Icon name="repo" size={26} />
-            <h2>
-              {native && !accountId
-                ? 'Wähle ein aktives Konto'
-                : 'Wähle deine Repositories'}
-            </h2>
-            <p>
-              {native && !accountId
-                ? 'Konto und Anmeldequelle findest du in den Einstellungen.'
-                : 'Deine Auswahl erscheint hier.'}
-            </p>
-            <button class="text-button" onclick={openSettings}
-              >Einstellungen öffnen<Icon name="arrow" size={14} /></button
-            >
-          </div>{/if}
+        {#if query.trim() && !pins.length && !launchRepos.length}<EmptyState
+            icon="search"
+            iconSize={26}
+            framed={false}
+            title="Keine passenden Vorlagen oder Workflows"
+            text="Versuche einen anderen Namen, Owner oder Repository."
+            action={{ label: 'Suche leeren', icon: 'close', run: clearQuery }}
+          />{/if}
+        {#if !repos.length}<EmptyState
+            icon="repo"
+            iconSize={26}
+            framed={false}
+            title={needsAccount
+              ? 'Wähle ein aktives Konto'
+              : 'Wähle deine Repositories'}
+            text={needsAccount
+              ? 'Konto und Anmeldequelle findest du in den Einstellungen.'
+              : 'Deine Auswahl erscheint hier.'}
+            action={{
+              label: 'Einstellungen öffnen',
+              icon: 'arrow',
+              run: openSettings,
+            }}
+          />{/if}
       {/if}
     </div>
 
