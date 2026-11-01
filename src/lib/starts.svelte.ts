@@ -2,7 +2,12 @@ import type { Bridge } from './demo';
 import { errorMessage } from './format';
 import { targetKey, validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
-import type { DispatchOutcome, DispatchRequest, DispatchTarget } from './types';
+import type {
+  DispatchOutcome,
+  DispatchRequest,
+  DispatchTarget,
+  UncertainStart,
+} from './types';
 
 export type StartResult = { outcome: DispatchOutcome } | { error: string };
 /** The last result of one target; `seq` identifies the start that produced it. */
@@ -20,11 +25,24 @@ export interface StartOptions {
 /**
  * Workflow starts, tracked per target and independent of any dialog: closing
  * the start dialog neither drops the result nor frees a target that is still
- * starting. An uncertain outcome quarantines its target; nothing here retries.
+ * starting. An uncertain outcome quarantines its target until the user
+ * releases it explicitly; nothing here retries or releases on its own.
  */
 export class Starts {
-  /** Targets whose start has an unknown outcome; never re-sent. */
-  quarantined = $state.raw(new Set<string>());
+  /** This session's starts with an unknown outcome, by target key. */
+  #session = $state.raw(new Map<string, DispatchTarget>());
+  /**
+   * Every locked target: persisted claims from the snapshot, which survive a
+   * restart, plus this session's own uncertain outcomes. Never re-sent.
+   */
+  claims = $derived.by(() => {
+    const all = new Map(this.#session);
+    for (const start of this.#panel.snapshot?.uncertainStarts ?? [])
+      all.set(targetKey(start), start);
+    return all;
+  });
+  /** Claims whose release is in flight, by target key. */
+  releasing = $state.raw(new Set<string>());
   /** Starts in flight: target key → sequence number of the start. */
   running = $state.raw(new Map<string, number>());
   /**
@@ -36,7 +54,7 @@ export class Starts {
   #panel: Panel;
   #bridge: Bridge;
   #seq = 0;
-  /** An accepted start waits for a snapshot that shows its run. */
+  /** A start changed state (a run, a claim) the snapshot does not show yet. */
   #stale = false;
 
   constructor(panel: Panel, bridge: Bridge) {
@@ -45,7 +63,14 @@ export class Starts {
   }
 
   isQuarantined = (target: DispatchTarget) =>
-    this.quarantined.has(targetKey(target));
+    this.claims.has(targetKey(target));
+  /** The persisted claim of this target, exactly as the snapshot reported it. */
+  claimFor = (target: DispatchTarget): UncertainStart | undefined =>
+    this.#panel.snapshot?.uncertainStarts?.find(
+      (start) => targetKey(start) === targetKey(target),
+    );
+  isReleasing = (target: DispatchTarget) =>
+    this.releasing.has(targetKey(target));
   isRunning = (target: DispatchTarget) => this.running.has(targetKey(target));
   /** Sequence number of the start running for this target, if any. */
   runningSeq = (target: DispatchTarget) => this.running.get(targetKey(target));
@@ -53,7 +78,33 @@ export class Starts {
 
   /** Demo reset only: the demo bridge drops its claims at the same time. */
   clearQuarantine() {
-    this.quarantined = new Set();
+    this.#session = new Map();
+  }
+
+  /**
+   * Releases exactly this persisted claim after the user checked the runs on
+   * GitHub. Never dispatches; rejects with a user-facing error.
+   */
+  async release(start: UncertainStart) {
+    const panel = this.#panel;
+    const key = targetKey(start);
+    if (this.releasing.has(key)) return;
+    this.releasing = new Set([...this.releasing, key]);
+    try {
+      const value = await this.#bridge.releaseUncertainStart(start);
+      const session = new Map(this.#session);
+      session.delete(key);
+      this.#session = session;
+      // The answer is authoritative; older reads in flight must not win.
+      panel.viewEpoch.next();
+      panel.refreshing = false;
+      panel.accept(value);
+      panel.notices.clear(key);
+    } finally {
+      const rest = new Set(this.releasing);
+      rest.delete(key);
+      this.releasing = rest;
+    }
   }
 
   /**
@@ -77,9 +128,17 @@ export class Starts {
     let result: StartResult;
     try {
       const outcome = await this.#bridge.dispatchWorkflow(payload);
-      if (outcome.state === 'uncertain')
-        this.quarantined = new Set([...this.quarantined, key]);
-      if (outcome.state === 'accepted') this.#stale = true;
+      if (outcome.state === 'uncertain') {
+        const { accountId, repoId, workflowId, ref } = payload;
+        this.#session = new Map(this.#session).set(key, {
+          accountId,
+          repoId,
+          workflowId,
+          ref,
+        });
+      }
+      // The snapshot then shows the new run or the persisted claim.
+      if (outcome.state !== 'rejected') this.#stale = true;
       result = { outcome };
     } catch (cause) {
       result = { error: errorMessage(cause) };

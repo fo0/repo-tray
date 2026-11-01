@@ -101,6 +101,37 @@ describe('Panel starts', () => {
     ]);
   });
 
+  it('locks persisted claims and releases exactly the reported claim without starting', async () => {
+    const claim = {
+      accountId: request.accountId,
+      repoId: request.repoId,
+      workflowId: request.workflowId,
+      ref: request.ref,
+      claimedAt: '2026-11-01T08:00:00Z',
+    };
+    const released: unknown[] = [];
+    let dispatched = 0;
+    const { panel, push } = await setup({
+      dispatchWorkflow: async () => {
+        dispatched++;
+        return { state: 'uncertain', message: 'Offen.' };
+      },
+      releaseUncertainStart: async (start) => {
+        released.push(start);
+        return { ...panel.snapshot!, uncertainStarts: [] };
+      },
+    });
+    // A restart: the claim arrives only through the snapshot.
+    push({ ...panel.snapshot!, uncertainStarts: [claim] });
+    expect(panel.starts.isQuarantined(request)).toBe(true);
+    expect(panel.starts.claimFor(request)).toBe(claim);
+    await panel.starts.release(panel.starts.claimFor(request)!);
+    expect(released).toHaveLength(1);
+    expect(released[0]).toBe(claim);
+    expect(panel.starts.isQuarantined(request)).toBe(false);
+    expect(dispatched).toBe(0);
+  });
+
   it('keeps one banner per target: a later start neither clears nor overwrites another', async () => {
     const answers = new Map<
       string,

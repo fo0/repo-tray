@@ -19,20 +19,11 @@
   import Modal from './Modal.svelte';
   import SavePinPanel from './SavePinPanel.svelte';
   import WorkflowInputs from './WorkflowInputs.svelte';
+  import { DispatchForm } from './dispatchForm.svelte';
   import { accountLabel, errorMessage } from './format';
-  import {
-    defaultInputs,
-    RequestEpoch,
-    targetKey,
-    validateDispatch,
-  } from './model';
+  import { RequestEpoch, targetKey } from './model';
   import type { Panel } from './panel.svelte';
-  import type {
-    DispatchOutcome as Outcome,
-    DispatchRequest,
-    DispatchTarget,
-    InputValue,
-  } from './types';
+  import type { DispatchOutcome as Outcome } from './types';
 
   let {
     panel,
@@ -52,13 +43,6 @@
 
   const snapshot = $derived(panel.snapshot);
   const demo = $derived(panel.demo);
-  let repoId = $state('');
-  let workflowId = $state(0);
-  let ref = $state('main');
-  let inputs = $state<Record<string, InputValue>>({});
-  let pinLabel = $state('');
-  let pinQuickStart = $state(false);
-  let editingPinId = $state<string | null>(null);
   let outcome = $state<Outcome | null>(null);
   let error = $state('');
   let notice = $state('');
@@ -73,28 +57,27 @@
     alive = false;
     epoch.invalidate();
   });
+  function clearMessages() {
+    outcome = null;
+    error = '';
+    notice = '';
+    watched = null;
+  }
+  const form = untrack(
+    () =>
+      new DispatchForm(panel, seed, () => {
+        epoch.invalidate();
+        clearMessages();
+      }),
+  );
+  if (untrack(() => seed.favoriteIntent))
+    notice =
+      'Ergänze die benötigten Angaben und speichere den Workflow als Favorit.';
 
-  const chosenRepo = $derived(
-    snapshot?.repos.find((repo) => repo.id === repoId),
-  );
-  const workflows = $derived(
-    snapshot?.workflows.filter((workflow) => workflow.repoId === repoId) ?? [],
-  );
-  const chosenWorkflow = $derived(
-    workflows.find((workflow) => workflow.id === workflowId),
-  );
-  const target = $derived<DispatchTarget>({
-    accountId: chosenRepo?.accountId ?? '',
-    repoId,
-    workflowId,
-    ref,
-  });
-  const validation = $derived(
-    snapshot && chosenRepo && chosenWorkflow
-      ? validateDispatch(snapshot, request('validation'))
-      : 'Wähle Repository und Workflow.',
-  );
+  const target = $derived(form.target);
   const uncertain = $derived(panel.starts.isQuarantined(target));
+  /** The persisted claim behind `uncertain`, exactly as reported. */
+  const claim = $derived(panel.starts.claimFor(target));
   /** A start for this target is running, from this dialog or a quick start. */
   const starting = $derived(panel.starts.isRunning(target));
   $effect.pre(() => {
@@ -113,75 +96,15 @@
     error || (followed && 'error' in followed ? followed.error : ''),
   );
 
-  function request(id: string): DispatchRequest {
-    return { ...target, inputs: { ...inputs }, requestId: id };
-  }
-  function clearMessages() {
-    outcome = null;
-    error = '';
-    notice = '';
-    watched = null;
-  }
-  function selectWorkflow(value: number) {
-    epoch.invalidate();
-    clearMessages();
-    workflowId = value;
-    editingPinId = null;
-    const workflow = workflows.find((item) => item.id === value);
-    inputs = workflow ? defaultInputs(workflow) : {};
-    ref = chosenRepo?.defaultBranch ?? 'main';
-    if (workflow && !workflow.refs.includes(ref)) ref = workflow.refs[0] ?? '';
-    pinLabel = workflow?.name ?? '';
-    pinQuickStart = false;
-  }
-  function selectRepo(value: string) {
-    repoId = value;
-    // `workflows` already follows the new repository.
-    const first = workflows.find((item) => item.dispatch) ?? workflows[0];
-    selectWorkflow(first?.id ?? 0);
-  }
-  function changeRef(value: string) {
-    epoch.invalidate();
-    clearMessages();
-    ref = value;
-  }
-  function setInput(name: string, value: InputValue) {
-    inputs = { ...inputs, [name]: value };
-    error = '';
-  }
-
-  untrack(() => {
-    const { pin, workflow } = seed;
-    const repos = panel.repos;
-    selectRepo(
-      pin?.repoId ??
-        workflow?.repoId ??
-        repos.find((repo) => repo.permission === 'write')?.id ??
-        repos[0]?.id ??
-        '',
-    );
-    if (workflow) selectWorkflow(workflow.id);
-    if (pin) {
-      selectWorkflow(pin.workflowId);
-      ref = pin.ref;
-      inputs = { ...pin.inputs };
-      pinLabel = pin.label;
-      pinQuickStart = pin.quickStart;
-      editingPinId = pin.id;
-    }
-    if (seed.favoriteIntent)
-      notice =
-        'Ergänze die benötigten Angaben und speichere den Workflow als Favorit.';
-  });
-
   async function start() {
     if (starting || panel.templateBusy) return;
     const ticket = epoch.next();
     clearMessages();
-    const answer = await panel.starts.dispatch(request(crypto.randomUUID()), {
+    const answer = await panel.starts.dispatch(
+      form.request(crypto.randomUUID()),
       // Closing, replacing or retargeting the dialog hands the result to the banner.
-      owner: () => alive && epoch.current(ticket),
-    });
+      { owner: () => alive && epoch.current(ticket) },
+    );
     if (!answer) return;
     if ('error' in answer) error = answer.error;
     else outcome = answer.outcome;
@@ -203,22 +126,30 @@
         'Status geprüft. GitHub hat den Start weiterhin nicht bestätigt. Ein erneuter Start bleibt gesperrt.';
     }
   }
+  /** Explicit release after checking GitHub; never starts anything. */
+  async function release() {
+    if (!claim) return;
+    const key = targetKey(target);
+    await panel.starts.release(claim);
+    if (!alive || targetKey(target) !== key) return;
+    outcome = null;
+    watched = null;
+    error = '';
+    noticeTone = 'subtle';
+    notice = 'Sperre aufgehoben. Du kannst den Workflow wieder starten.';
+    await tick();
+    result?.focus();
+  }
   async function saveTemplate(asNew: boolean) {
-    if (!chosenRepo || panel.templateBusy || starting) return;
-    const pin: Pin = {
-      id: !asNew && editingPinId ? editingPinId : crypto.randomUUID(),
-      label: pinLabel,
-      ...target,
-      inputs: { ...inputs },
-      quickStart: pinQuickStart,
-    };
+    if (!form.repo || panel.templateBusy || starting) return;
+    const pin = form.pin(asNew);
     const ticket = epoch.next();
     error = '';
     notice = '';
     try {
       if (!(await panel.saveTemplate(pin)) || !alive || !epoch.current(ticket))
         return;
-      editingPinId = pin.id;
+      form.editingPinId = pin.id;
       noticeTone = 'subtle';
       notice = `„${pin.label.trim()}“ als Favorit gespeichert.`;
     } catch (cause) {
@@ -249,25 +180,28 @@
       </div>
       <DispatchTargetFields
         repos={panel.repos}
-        {workflows}
-        {repoId}
-        {workflowId}
-        gitRef={ref}
-        defaultBranch={chosenRepo?.defaultBranch}
+        workflows={form.workflows}
+        repoId={form.repoId}
+        workflowId={form.workflowId}
+        gitRef={form.ref}
+        defaultBranch={form.repo?.defaultBranch}
         disabled={starting}
         accountName={(id) => accountLabel(snapshot, id, panel.native)}
-        onRepo={selectRepo}
-        onWorkflow={selectWorkflow}
-        onRef={changeRef}
+        onRepo={form.selectRepo}
+        onWorkflow={form.selectWorkflow}
+        onRef={form.changeRef}
       />
       <WorkflowInputs
-        workflow={chosenWorkflow}
-        values={inputs}
+        workflow={form.workflow}
+        values={form.inputs}
         disabled={starting}
-        onChange={setInput}
+        onChange={(name, value) => {
+          form.setInput(name, value);
+          error = '';
+        }}
       />
-      {#if validation}<div class="alert warning">
-          <Icon name="shield" size={16} /><span>{validation}</span>
+      {#if form.validation}<div class="alert warning">
+          <Icon name="shield" size={16} /><span>{form.validation}</span>
         </div>{/if}
       {#if panel.blocked}<div class="alert warning">
           <Icon name="warning" size={16} /><span
@@ -278,12 +212,12 @@
         </div>{/if}
       <SavePinPanel
         open={!!seed.favoriteIntent}
-        bind:label={pinLabel}
-        bind:quickStart={pinQuickStart}
-        editing={!!editingPinId}
+        bind:label={form.pinLabel}
+        bind:quickStart={form.pinQuickStart}
+        editing={!!form.editingPinId}
         saving={panel.templateBusy}
         locked={starting}
-        valid={!validation}
+        valid={!form.validation}
         onSave={(asNew) => void saveTemplate(asNew)}
       />
       <DispatchOutcome
@@ -296,7 +230,10 @@
         {demo}
         native={panel.native}
         checking={panel.refreshing}
+        releasable={!!claim}
+        releasing={panel.starts.isReleasing(target)}
         onCheckStatus={checkStatus}
+        onRelease={release}
         {onShowRun}
         {onLinkError}
       />
@@ -307,7 +244,7 @@
       finished={!!shownOutcome}
       canStart={!uncertain &&
         !panel.templateBusy &&
-        !validation &&
+        !form.validation &&
         !panel.blocked &&
         shownOutcome?.state !== 'uncertain' &&
         shownOutcome?.state !== 'accepted'}

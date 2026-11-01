@@ -1,0 +1,35 @@
+/* Start flow and favorites: release confirmation, notices, row markers. */
+
+.release-confirm {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #605033;
+  border-radius: 6px;
+  background: #302a1d;
+}
+.release-confirm p {
+  margin: 0;
+}
+.release-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+.release-actions .secondary-button {
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  padding-block: 6px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.4;
+}
+.release-actions .text-button {
+  margin-top: 0;
+}
+.release-error {
+  margin-top: 8px;
+  color: #e0a292;
+}

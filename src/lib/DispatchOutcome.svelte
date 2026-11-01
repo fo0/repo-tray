@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import ReleaseLock from './ReleaseLock.svelte';
   import RunLink from './RunLink.svelte';
   import { safeGitHubUrl } from './model';
   import type { DispatchOutcome } from './types';
@@ -13,7 +14,10 @@
     demo,
     native,
     checking,
+    releasable,
+    releasing,
     onCheckStatus,
+    onRelease,
     onShowRun,
     onLinkError,
   }: {
@@ -28,17 +32,22 @@
     native: boolean;
     /** A status refresh is running. */
     checking: boolean;
+    /** The snapshot holds the persisted claim, so it can be released. */
+    releasable: boolean;
+    releasing: boolean;
     onCheckStatus: () => void;
+    onRelease: () => Promise<void>;
     onShowRun: (runId: number) => void;
     onLinkError: (message: string) => void;
   } = $props();
   let box = $state<HTMLElement>();
   let errorBox = $state<HTMLElement>();
+  let noticeBox = $state<HTMLElement>();
   const runUrl = $derived(safeGitHubUrl(outcome?.htmlUrl ?? ''));
 
   /** Brings a fresh result or error into view and moves focus to it. */
   export function focus() {
-    const target = box ?? errorBox;
+    const target = box ?? errorBox ?? noticeBox;
     target?.scrollIntoView({ block: 'nearest' });
     target?.focus({ preventScroll: true });
   }
@@ -52,7 +61,12 @@
   >
     <Icon name="warning" size={16} /><span>{error}</span>
   </div>{/if}
-{#if notice}<div class={`alert ${noticeTone}`} role="status">
+{#if notice}<div
+    class={`alert ${noticeTone}`}
+    role="status"
+    tabindex="-1"
+    bind:this={noticeBox}
+  >
     <Icon
       name={noticeTone === 'warning' ? 'warning' : 'check'}
       size={16}
@@ -64,7 +78,7 @@
     class="text-button"
     onclick={() => onCheckStatus()}
     disabled={checking}>Status prüfen<Icon name="refresh" size={12} /></button
-  >{/snippet}
+  >{#if releasable}<ReleaseLock {releasing} {onRelease} />{/if}{/snippet}
 
 {#if outcome}<div
     class="outcome"
@@ -112,7 +126,7 @@
       <p>
         GitHub hat den letzten Start für diesen Workflow und Branch nicht
         bestätigt. Er läuft eventuell bereits. Prüfe die Runs auf GitHub. Ein
-        erneuter Start bleibt gesperrt.
+        erneuter Start bleibt gesperrt, bis du die Sperre aufhebst.
       </p>
       {@render checkStatus()}
     </div>

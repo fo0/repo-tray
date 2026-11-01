@@ -140,13 +140,13 @@
   </p>
   <p>
     {quickStart
-      ? 'Wähle das Zahnrad „Starten…“ und danach „Status prüfen“.'
-      : 'Wähle „Starten…“ und danach „Status prüfen“.'}
+      ? 'Wähle das Zahnrad „Starten…“, dann „Status prüfen“ oder nach der Prüfung auf GitHub „Sperre aufheben…“.'
+      : 'Wähle „Starten…“, dann „Status prüfen“ oder nach der Prüfung auf GitHub „Sperre aufheben…“.'}
   </p>
   <p class="tip-mode">
     Favorit: {quickStart ? 'Schnellstart aktiviert' : 'mit Bestätigung'}. {demo
-      ? 'In der Demo hebt nur „Demo zurücksetzen“ die Beispielsperre auf.'
-      : 'Prüfe die Runs auf GitHub. Die Startsperre bleibt auch nach einem Neustart erhalten.'}
+      ? 'Die Beispielsperre hebst du im Startdialog oder mit „Demo zurücksetzen“ auf.'
+      : 'Die Startsperre bleibt auch nach einem Neustart erhalten, bis du sie aufhebst.'}
   </p>
 </div>
 
