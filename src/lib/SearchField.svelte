@@ -45,6 +45,10 @@
   />{#if query}<button
       class="icon-button small"
       aria-label="Suche leeren"
-      onclick={() => (query = '')}><Icon name="close" size={14} /></button
+      onclick={() => {
+        query = '';
+        // The button goes with the query; focus stays in the field.
+        input?.focus();
+      }}><Icon name="close" size={14} /></button
     >{:else}<kbd title={SHORTCUT_HINT}>/</kbd>{/if}</label
 >

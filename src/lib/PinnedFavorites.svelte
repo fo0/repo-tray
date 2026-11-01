@@ -72,11 +72,12 @@
             ><Icon name="heart" size={15} /></button
           >
           <!-- Without quick start this chip opens the same dialog as the
-               row: one control for assistive tech and the keyboard. -->
+               row: one control for assistive tech and the keyboard. Off via
+               aria-disabled, so a start that locks it keeps focus here. -->
           <button
             class="action-start pinned-start"
-            onclick={() => onLaunch(pin)}
-            disabled={!can.canStart}
+            onclick={() => can.canStart && onLaunch(pin)}
+            aria-disabled={can.canStart ? undefined : 'true'}
             aria-label={pin.quickStart ? names.quickStart : names.open}
             aria-hidden={pin.quickStart ? undefined : 'true'}
             tabindex={pin.quickStart ? undefined : -1}

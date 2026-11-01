@@ -96,7 +96,7 @@
   min-height: 32px;
   white-space: nowrap;
 }
-.pin-start:hover:not(:disabled) {
+.pin-start:hover:not(:disabled):not([aria-disabled='true']) {
   background: #cdecac;
 }
 .pin-configure {

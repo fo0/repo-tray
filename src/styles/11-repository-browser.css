@@ -149,7 +149,7 @@
   min-height: 32px;
   flex-shrink: 0;
 }
-.action-start:hover:not(:disabled) {
+.action-start:hover:not(:disabled):not([aria-disabled='true']) {
   background: #425b32;
 }
 .repository-no-actions {

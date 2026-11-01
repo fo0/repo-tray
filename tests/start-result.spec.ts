@@ -67,9 +67,11 @@ for (const [name, close] of Object.entries(closers)) {
 test('closing the start dialog while its opener is locked moves focus to the view tab', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
   await holdStarts(page);
-  await templateCard(page, 'Windows build')
+  // The pinned row opens the dialog and is disabled while its target starts.
+  await page
+    .getByRole('region', { name: 'Favoriten', exact: true })
     .getByRole('button', {
       name: 'Favorit Windows build starten…',
       exact: true,
@@ -83,7 +85,7 @@ test('closing the start dialog while its opener is locked moves focus to the vie
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
-    page.getByRole('button', { name: 'Favoriten', exact: true }),
+    page.getByRole('button', { name: 'Repositories', exact: true }),
   ).toBeFocused();
   await page.clock.runFor(400);
 });

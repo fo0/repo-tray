@@ -36,11 +36,12 @@
     onclick={() => onClose()}
     aria-describedby={starting ? 'start-continues' : undefined}
     >{finished || starting ? 'Schließen' : 'Abbrechen'}</button
-  ><button
+  ><!-- Off via aria-disabled, not disabled: the running start keeps focus
+       here instead of dropping it to <body> inside the dialog. --><button
     type="button"
     class="primary-button"
-    onclick={() => onStart()}
-    disabled={starting || !canStart}
+    onclick={() => !starting && canStart && onStart()}
+    aria-disabled={starting || !canStart ? 'true' : undefined}
     title={starting || !canStart ? (reason ?? undefined) : undefined}
     >{starting
       ? demo

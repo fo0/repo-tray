@@ -69,7 +69,11 @@
       (workflow) =>
         workflow.repoId === id && matches(`${workflow.name} ${repoName(id)}`),
     ) ?? [];
-  const clearQuery = () => (query = '');
+  /** Empty-state „Suche leeren“: its button goes, focus moves to the field. */
+  const clearQuery = () => {
+    query = '';
+    searchField?.focus();
+  };
   const warn = (value: string) => panel.showNotice(value, 'warning');
 
   /** A load error offers a retry before any snapshot exists. */

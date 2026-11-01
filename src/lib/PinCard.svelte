@@ -63,10 +63,12 @@
     </div>
   </div>
   <div class="pin-actions">
+    <!-- Off via aria-disabled, not disabled: a start that locks it keeps
+         focus here instead of dropping it to <body>. -->
     <button
       class="pin-start"
-      onclick={() => onLaunch()}
-      disabled={!gate.canStart}
+      onclick={() => gate.canStart && onLaunch()}
+      aria-disabled={gate.canStart ? undefined : 'true'}
       title={gate.reason ?? undefined}
       aria-label={pin.quickStart ? names.quickStart : names.open}
       ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={13} />{pin.quickStart
