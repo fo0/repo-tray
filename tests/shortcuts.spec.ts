@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openConnection } from './support/demo';
 
 const tab = (page: Page, name: RegExp) => page.getByRole('button', { name });
 const views = {
@@ -128,4 +129,32 @@ test('the search hint lists the keyboard shortcuts', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Aktualisieren', exact: true }),
   ).toHaveAttribute('aria-keyshortcuts', 'F5 Control+R');
+});
+
+// Focus regressions: SearchField.focus() and Toolbar.focusPicker().
+test('pressing / on a run row moves focus into the search field', async ({
+  page,
+}) => {
+  await page.keyboard.press('Control+2');
+  await page.locator('.run-button').first().focus();
+  await page.keyboard.press('/');
+  await expect(page.getByLabel('Aktivität durchsuchen')).toBeFocused();
+  await expect(page.getByLabel('Aktivität durchsuchen')).toHaveValue('');
+});
+
+test('finishing the demo token connect focuses the account picker', async ({
+  page,
+}) => {
+  const dialog = await openConnection(page);
+  await dialog
+    .getByText('Alternativ: Token hinterlegen', { exact: true })
+    .click();
+  await dialog.getByLabel('Beispiel-Token').fill('demo-token');
+  await dialog
+    .getByRole('button', { name: 'Token prüfen und verbinden' })
+    .click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByLabel('Konto auswählen', { exact: true }),
+  ).toBeFocused();
 });
