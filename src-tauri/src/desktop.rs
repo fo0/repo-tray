@@ -449,12 +449,15 @@ pub fn run() {
                                 let Some(state) = handle.try_state::<NativeState>() else {
                                     return;
                                 };
-                                if let Ok(mut engine) = state.engine.lock() {
-                                    // Best effort: the toggle still applies to this session.
-                                    let _ = engine.set_notifications_enabled(
-                                        state.notifications.load(Ordering::Relaxed),
-                                    );
-                                }
+                                // A `let` binding drops the guard before `state`; a trailing
+                                // `if let` expression would outlive it (E0597).
+                                let Ok(mut engine) = state.engine.lock() else {
+                                    return;
+                                };
+                                // Best effort: the toggle still applies to this session.
+                                let _ = engine.set_notifications_enabled(
+                                    state.notifications.load(Ordering::Relaxed),
+                                );
                             });
                         }
                     }
