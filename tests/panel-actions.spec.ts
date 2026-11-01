@@ -97,6 +97,16 @@ test('demo reset is the explicit way to release a quarantined demo start', async
     dialog.getByText('Startstatus ungeklärt', { exact: true }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  // Returning to the normal scenario alone must not release the quarantine.
+  await scenario(page, 'normal');
+  dialog = await openLaunch(page);
+  await expect(
+    dialog.getByRole('button', { name: 'Start simulieren' }),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByText('Startstatus ungeklärt', { exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Dialog schließen' }).click();
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
