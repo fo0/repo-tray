@@ -61,6 +61,7 @@
   busy={panel.pinsBusy}
   isStarting={panel.starts.isRunning}
   {blocked}
+  uncertainRefs={panel.starts.uncertainRefs}
   expanded={panel.expandedRepos}
   onToggle={panel.toggleRepo}
 />

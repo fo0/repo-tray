@@ -30,7 +30,7 @@
 
 <details class="save-pin" {open}>
   <summary
-    ><Icon name="pin" size={14} />Als Favorit speichern<Icon
+    ><Icon name="heart" size={14} />Als Favorit speichern<Icon
       name="down"
       size={13}
     /></summary
@@ -71,7 +71,7 @@
       class="secondary-button compact"
       onclick={() => onSave(false)}
       disabled={!canSave}
-      ><Icon name="pin" size={13} />{saving
+      ><Icon name="heart" size={13} />{saving
         ? 'Speichert …'
         : editing
           ? 'Favorit aktualisieren'

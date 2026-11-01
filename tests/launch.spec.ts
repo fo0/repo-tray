@@ -130,7 +130,12 @@ test('an offline status check never claims a successful refresh of an uncertain 
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
-  await card.getByRole('button', { name: 'Starten…', exact: true }).click();
+  await card
+    .getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    })
+    .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog
     .getByRole('button', { name: 'Status prüfen', exact: true })

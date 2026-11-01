@@ -69,6 +69,24 @@ export class Starts {
     this.#panel.snapshot?.uncertainStarts?.find(
       (start) => targetKey(start) === targetKey(target),
     );
+  /**
+   * Refs with a locked start of one repository, or of one of its workflows,
+   * for warning markers on repository and workflow rows.
+   */
+  uncertainRefs = (scope: {
+    accountId: string;
+    repoId: string;
+    workflowId?: number;
+  }) =>
+    [...this.claims.values()]
+      .filter(
+        (claim) =>
+          claim.accountId === scope.accountId &&
+          claim.repoId === scope.repoId &&
+          (scope.workflowId === undefined ||
+            claim.workflowId === scope.workflowId),
+      )
+      .map((claim) => claim.ref);
   isReleasing = (target: DispatchTarget) =>
     this.releasing.has(targetKey(target));
   isRunning = (target: DispatchTarget) => this.running.has(targetKey(target));

@@ -33,7 +33,12 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   await expect(
     card.getByText('Mit Bestätigung', { exact: false }),
   ).toBeVisible();
-  await card.getByRole('button', { name: 'Starten…', exact: true }).click();
+  await card
+    .getByRole('button', {
+      name: 'Favorit My saved build starten…',
+      exact: true,
+    })
+    .click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Branch oder Tag')).toHaveValue('main');
   await expect(dialog.getByLabel('Version')).toHaveValue('0.1.0');
@@ -124,9 +129,17 @@ test('offline still allows opening and editing a saved template', async ({
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
   await expect(
-    card.getByRole('button', { name: 'Starten…', exact: true }),
+    card.getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    }),
   ).toBeEnabled();
-  await card.getByRole('button', { name: 'Starten…', exact: true }).click();
+  await card
+    .getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Version')).toBeEnabled();
   await expect(
@@ -161,7 +174,12 @@ test('copying an existing template keeps the original and its values', async ({
   const original = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
-  await original.getByRole('button', { name: 'Starten…', exact: true }).click();
+  await original
+    .getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog.getByLabel('Branch oder Tag').selectOption('develop');
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
@@ -181,7 +199,12 @@ test('copying an existing template keeps the original and its values', async ({
   await expect(
     page.getByRole('heading', { name: 'Develop copy', exact: true }),
   ).toBeVisible();
-  await original.getByRole('button', { name: 'Starten…', exact: true }).click();
+  await original
+    .getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    })
+    .click();
   await expect(
     page.getByRole('dialog').getByLabel('Branch oder Tag'),
   ).toHaveValue('main');

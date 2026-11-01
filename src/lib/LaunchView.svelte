@@ -62,7 +62,7 @@
       onRemove={() => panel.favorites.remove(pin.id)}
     />
   {:else}{#if !searching}<div class="empty-pins">
-        <Icon name="pin" size={18} /><span
+        <Icon name="heart" size={18} /><span
           >Deine häufigen Starts, einen Klick näher.<small
             >Klicke unter „Repositories“ beim Workflow auf das Herz, um ihn hier
             zu speichern.</small
@@ -81,6 +81,7 @@
 <WorkflowList
   repos={launchRepos}
   {workflowsFor}
+  uncertainRefs={panel.starts.uncertainRefs}
   onOpen={(workflow) => modals.openDispatch(undefined, workflow)}
 />
 {#if searching && !pins.length && !launchRepos.length}<EmptyState

@@ -12,7 +12,12 @@ async function uncertainTemplate(page: Page, quickStart = false) {
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   const card = templateCard(page, 'Windows build');
   if (quickStart) {
-    await card.getByRole('button', { name: 'Starten…', exact: true }).click();
+    await card
+      .getByRole('button', {
+        name: 'Favorit Windows build starten…',
+        exact: true,
+      })
+      .click();
     const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
     await dialog.getByText('Als Favorit speichern', { exact: true }).click();
     await dialog
@@ -33,7 +38,7 @@ async function uncertainTemplate(page: Page, quickStart = false) {
   await scenario(page, 'uncertain');
   await card
     .getByRole('button', {
-      name: quickStart ? 'Favorit Windows build starten…' : 'Starten…',
+      name: 'Favorit Windows build starten…',
       exact: true,
     })
     .click();
@@ -89,7 +94,10 @@ for (const width of [360, 480]) {
     await expect(status).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(
-      card.getByRole('button', { name: 'Starten…', exact: true }),
+      card.getByRole('button', {
+        name: 'Favorit Windows build starten…',
+        exact: true,
+      }),
     ).toBeFocused();
     await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog', { name: 'Workflow starten' });

@@ -1,5 +1,13 @@
 /* Start flow and favorites: release confirmation, notices, row markers. */
 
+/* A locked start on a repository or workflow row, like on favorites. */
+.row-warning {
+  display: inline-flex;
+  vertical-align: -1px;
+  margin-left: 5px;
+  color: var(--warning);
+}
+
 .release-confirm {
   margin-top: 10px;
   padding: 10px;

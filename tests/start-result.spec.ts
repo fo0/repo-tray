@@ -70,7 +70,10 @@ test('closing the start dialog while its opener is locked moves focus to the vie
   await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
   await holdStarts(page);
   await templateCard(page, 'Windows build')
-    .getByRole('button', { name: 'Starten…', exact: true })
+    .getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    })
     .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();

@@ -14,6 +14,7 @@
     busy,
     isStarting,
     blocked,
+    uncertainRefs,
     expanded,
     onToggle,
   }: {
@@ -26,15 +27,32 @@
     isStarting: (target: DispatchTarget) => boolean;
     /** Why starts are off for every target (offline, forbidden); null otherwise. */
     blocked: string | null;
+    /** Refs with a locked start in a repository or one of its workflows. */
+    uncertainRefs: (scope: {
+      accountId: string;
+      repoId: string;
+      workflowId?: number;
+    }) => string[];
     /** Expanded repository IDs; owned by the panel so they survive view switches. */
     expanded: Set<string>;
     onToggle: (repoId: string) => void;
   } = $props();
 </script>
 
+{#snippet warning(label: string)}<span
+    class="row-warning"
+    role="img"
+    aria-label={label}
+    title={label}><Icon name="warning" size={12} /></span
+  >{/snippet}
+
 <div class="repository-list">
   {#each groups as group (group.repo.id)}
     {@const open = expanded.has(group.repo.id)}
+    {@const repoLocked = uncertainRefs({
+      accountId: group.repo.accountId,
+      repoId: group.repo.id,
+    }).length}
     <section
       class="repository-card"
       class:open
@@ -48,7 +66,11 @@
       >
         <span class="repository-symbol"><Icon name="repo" size={16} /></span>
         <span class="repository-copy">
-          <strong>{fullRepo(group.repo)}</strong>
+          <strong
+            >{fullRepo(group.repo)}{#if repoLocked}{@render warning(
+                'Startstatus ungeklärt in diesem Repository',
+              )}{/if}</strong
+          >
           <small
             >{plural(group.workflows.length, 'Workflow', 'Workflows')}
             <span class="meta-dot">·</span>
@@ -68,6 +90,11 @@
       >
         {#each group.workflows as workflow (workflow.id)}
           {@const pin = favorite(workflow)}
+          {@const locked = uncertainRefs({
+            accountId: group.repo.accountId,
+            repoId: group.repo.id,
+            workflowId: workflow.id,
+          })}
           {@const starting = isStarting(workflowTarget(group.repo, workflow))}
           {@const unavailable =
             !workflow.dispatch || group.repo.permission !== 'write'}
@@ -86,13 +113,17 @@
             <button
               class="action-copy"
               onclick={() => onopen(workflow)}
-              aria-label={`${workflow.name} · ${detail}`}
+              aria-label={`${workflow.name} · ${detail}${locked.length ? ` · Startstatus ungeklärt (${locked.join(', ')})` : ''}`}
               title={starting ? START_REASONS.running : undefined}
               disabled={starting}
             >
               <span class="action-dot"></span>
               <span
-                ><strong>{workflow.name}</strong><small>{detail}</small></span
+                ><strong
+                  >{workflow.name}{#if locked.length}{@render warning(
+                      `Startstatus ungeklärt · ${locked.join(', ')}`,
+                    )}{/if}</strong
+                ><small>{detail}</small></span
               >
             </button>
             <button

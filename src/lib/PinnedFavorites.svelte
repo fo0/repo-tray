@@ -35,7 +35,7 @@
 {#if pins.length}
   <section class="repository-favorites" aria-label="Favoriten">
     <div class="section-heading pinned-heading">
-      <h2><Icon name="pin" size={13} />Favoriten</h2>
+      <h2><Icon name="heart" size={13} />Favoriten</h2>
       <span>{plural(pins.length, 'Favorit', 'Favoriten')}</span>
     </div>
     <div class="pinned-list">
@@ -49,7 +49,7 @@
           <button
             class="pinned-copy"
             onclick={() => onConfigure(pin)}
-            aria-label={`Favorit ${pin.label} starten…`}
+            aria-label={`Favorit ${pin.label} öffnen…`}
             title={starting
               ? START_REASONS.running
               : `${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
@@ -81,6 +81,9 @@
             class="action-start pinned-start"
             onclick={() => onLaunch(pin)}
             disabled={!!reason}
+            aria-label={pin.quickStart
+              ? undefined
+              : `Favorit ${pin.label} starten…`}
             title={reason ??
               (pin.quickStart
                 ? 'Ohne Bestätigung mit den gespeicherten Eingaben starten'

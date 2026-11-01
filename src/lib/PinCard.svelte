@@ -74,6 +74,7 @@
       onclick={() => onLaunch()}
       disabled={!!reason}
       title={reason ?? undefined}
+      aria-label={pin.quickStart ? undefined : `Favorit ${pin.label} starten…`}
       ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={13} />{pin.quickStart
         ? 'Schnellstart'
         : 'Starten…'}</button

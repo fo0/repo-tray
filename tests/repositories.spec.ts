@@ -155,7 +155,12 @@ test('pinned favorites open the stored configuration and unpin from both views',
     name: 'Favoriten',
     exact: true,
   });
-  await pinned.getByRole('button', { name: 'Starten…', exact: true }).click();
+  await pinned
+    .getByRole('button', {
+      name: 'Favorit Windows build starten…',
+      exact: true,
+    })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Version', { exact: true })).toHaveValue(
     '0.1.0',
