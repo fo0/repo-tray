@@ -63,8 +63,12 @@
   <NoticeBanner
     text={notice.text}
     tone={notice.tone}
-    actionLabel={runId ? 'In Aktivität anzeigen' : undefined}
-    onAction={runId ? () => onShowRun(runId) : undefined}
+    actionLabel={notice.action?.label ??
+      (runId ? 'In Aktivität anzeigen' : undefined)}
+    onAction={notice.action?.run ??
+      (runId ? () => onShowRun(runId) : undefined)}
+    navigates={!notice.action}
+    timeout={notice.timeout}
     onDismiss={() => onDismissNotice(notice.id)}
   />
 {/each}

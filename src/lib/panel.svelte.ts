@@ -6,12 +6,12 @@ import {
   restoreActiveAccount,
 } from './accountSelection';
 import type { Bridge } from './demo';
+import { Favorites } from './favorites.svelte';
 import { errorMessage } from './format';
-import { RequestEpoch, validateDispatch } from './model';
+import { RequestEpoch } from './model';
 import { Notices, PANEL_NOTICE } from './notices.svelte';
-import { favoriteDraft, findFavorite, removedNotice } from './pins';
 import { Starts } from './starts.svelte';
-import type { DemoScenario, Pin, Snapshot, Workflow } from './types';
+import type { DemoScenario, Pin, Snapshot } from './types';
 
 type BusyFlag =
   | 'pinsBusy'
@@ -52,6 +52,7 @@ export class Panel {
 
   readonly native: boolean;
   readonly starts: Starts;
+  readonly favorites: Favorites;
   readonly notices = new Notices();
   readonly viewEpoch = new RequestEpoch();
   #bridge: Bridge;
@@ -70,6 +71,9 @@ export class Panel {
     this.native = native;
     this.#observe = observe;
     this.starts = new Starts(this, bridge);
+    this.favorites = new Favorites(this, bridge, (run) =>
+      this.#mutation('pinsBusy', run),
+    );
   }
 
   /** Native is never labelled demo, not even before its first snapshot. */
@@ -203,44 +207,6 @@ export class Panel {
       if (this.viewEpoch.current(ticket)) this.refreshing = false;
     }
   }
-
-  favoritePin = (workflow: Workflow) => findFavorite(this.snapshot, workflow);
-
-  /** Resolves to 'incomplete' when the favorite needs input in the dialog. */
-  async toggleFavorite(workflow: Workflow): Promise<'incomplete' | void> {
-    if (!this.snapshot || this.pinsBusy) return;
-    const existing = this.favoritePin(workflow);
-    // Only the favorite's own target is locked while it starts.
-    if (existing && this.starts.isRunning(existing)) return;
-    if (existing) return void (await this.deletePin(existing.id));
-    const pin = favoriteDraft(this.snapshot, workflow);
-    if (!pin || this.starts.isRunning(pin)) return;
-    if (validateDispatch(this.snapshot, { ...pin, requestId: 'favorite' }))
-      return 'incomplete';
-    await this.#pinMutation(
-      () => this.#bridge.savePin(pin),
-      `„${pin.label}“ als Favorit gespeichert.`,
-    );
-  }
-
-  deletePin = (pinId: string) =>
-    this.#pinMutation(
-      () => this.#bridge.deletePin(pinId),
-      removedNotice(this.snapshot, pinId),
-    );
-
-  /** View-level pin changes report in the banner, not in a dialog. */
-  #pinMutation = (run: () => Promise<Snapshot>, done: string) =>
-    this.#mutation('pinsBusy', async (ticket) => {
-      try {
-        const value = await run();
-        if (!this.viewEpoch.current(ticket)) return;
-        this.accept(value);
-        this.showNotice(done);
-      } catch (cause) {
-        if (this.viewEpoch.current(ticket)) this.error = errorMessage(cause);
-      }
-    });
 
   // Dialog mutations reject with a user-facing error for the dialog.
   /** Resolves to false when another template save is still running. */

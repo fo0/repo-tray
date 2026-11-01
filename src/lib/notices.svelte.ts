@@ -17,6 +17,10 @@ export interface Notice {
   runId?: number;
   /** Account of that run; the activity action only fits while it is shown. */
   accountId?: string;
+  /** One follow-up action, e.g. „Rückgängig“. */
+  action?: { label: string; run: () => void };
+  /** Closes after this many milliseconds while neither hovered nor focused. */
+  timeout?: number;
 }
 
 /** Banner notices of the panel, oldest first and bounded. */

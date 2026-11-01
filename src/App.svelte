@@ -26,7 +26,6 @@
   } from './lib/model';
   import { Modals } from './lib/modals.svelte';
   import { Panel } from './lib/panel.svelte';
-  import { pinRequest } from './lib/pins';
   import { createShortcuts } from './lib/shortcuts';
   import type { Pin, Snapshot, Workflow } from './lib/types';
   import { Updater } from './lib/updater.svelte';
@@ -144,11 +143,8 @@
     if (native && !snapshot?.accounts.length) modals.show('connect');
     else openSettings(panel.needsAccount ? 'accounts' : 'repositories');
   }
-  function launchPin(pin: Pin) {
-    if (pin.quickStart)
-      void panel.starts.dispatch(pinRequest(pin), { label: pin.label });
-    else openDispatch(pin);
-  }
+  const launchPin = (pin: Pin) =>
+    panel.favorites.launch(pin) || openDispatch(pin);
   function selectTab(next: ViewTab) {
     tab = next;
     query = '';
@@ -161,7 +157,7 @@
     escape: (target) => !!searchField?.escape(target),
   });
   async function toggleFavorite(workflow: Workflow) {
-    if ((await panel.toggleFavorite(workflow)) === 'incomplete')
+    if ((await panel.favorites.toggle(workflow)) === 'incomplete')
       openDispatch(undefined, workflow, true);
   }
 </script>
@@ -234,7 +230,7 @@
           {pins}
           groups={view ? repositoryActivity(view, accountId, query) : []}
           isUncertain={panel.starts.isQuarantined}
-          favorite={panel.favoritePin}
+          favorite={panel.favorites.find}
           {repoName}
           {accountName}
           isStarting={panel.starts.isRunning}
@@ -245,7 +241,7 @@
           accountNotice={panel.accountNotice}
           {searching}
           onConfigure={(pin) => openDispatch(pin)}
-          onRemove={panel.deletePin}
+          onRemove={panel.favorites.remove}
           onLaunch={launchPin}
           onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
           onFavorite={(workflow) => void toggleFavorite(workflow)}
@@ -291,7 +287,7 @@
           needsAccount={panel.needsAccount}
           onLaunch={launchPin}
           onConfigure={(pin) => openDispatch(pin)}
-          onRemove={panel.deletePin}
+          onRemove={panel.favorites.remove}
           onOpenWorkflow={(workflow) => openDispatch(undefined, workflow)}
           onNew={() => openDispatch()}
           onClearQuery={clearQuery}

@@ -222,7 +222,7 @@ describe('Panel busy state', () => {
     const answer = deferred<Snapshot>();
     const { panel, push } = await setup({ deletePin: () => answer.promise });
     const loaded = panel.snapshot!;
-    const deletion = panel.deletePin(loaded.pins[0].id);
+    const deletion = panel.favorites.remove(loaded.pins[0].id);
     expect(panel.pinsBusy).toBe(true);
     push({ ...loaded, updatedAt: 'pushed-mid-operation' });
     expect(panel.snapshot).toBe(loaded);
@@ -233,6 +233,34 @@ describe('Panel busy state', () => {
     expect(panel.snapshot).toBe(after);
     expect(panel.notices.items.map((item) => item.text)).toEqual([
       'Favorit „Windows build“ entfernt.',
+    ]);
+  });
+
+  it('offers to undo a removal by saving the identical favorite again', async () => {
+    const saved: unknown[] = [];
+    const { panel, bridge } = await setup();
+    const pin = { ...panel.snapshot!.pins[0], quickStart: true };
+    await panel.saveTemplate(pin);
+    const save = bridge.savePin;
+    bridge.savePin = async (value) => {
+      saved.push(value);
+      return save(value);
+    };
+    await panel.favorites.remove(pin.id);
+    expect(panel.snapshot!.pins).toEqual([]);
+    const undo = panel.notices.items.find((item) => item.action);
+    expect(undo).toMatchObject({
+      text: 'Favorit „Windows build“ entfernt.',
+      tone: 'subtle',
+      timeout: 8000,
+      action: { label: 'Rückgängig' },
+    });
+    undo!.action!.run();
+    await flush();
+    expect(saved).toEqual([pin]);
+    expect(panel.snapshot!.pins).toEqual([pin]);
+    expect(panel.notices.items.map((item) => item.text)).toEqual([
+      'Favorit „Windows build“ wiederhergestellt.',
     ]);
   });
 

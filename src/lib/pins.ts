@@ -58,12 +58,6 @@ export function favoriteDraft(
   };
 }
 
-/** Banner text after removing a favorite, named by its label when known. */
-export function removedNotice(snapshot: Snapshot | null, pinId: string) {
-  const label = snapshot?.pins.find((pin) => pin.id === pinId)?.label;
-  return label ? `Favorit „${label}“ entfernt.` : 'Favorit entfernt.';
-}
-
 /** What a quick start sends for a favorite: its stored target and inputs, a fresh ID. */
 export function pinRequest(pin: Pin): DispatchRequest {
   return {

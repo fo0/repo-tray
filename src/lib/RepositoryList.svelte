@@ -95,7 +95,7 @@
               title={unavailable
                 ? 'Favoriten brauchen einen manuell startbaren Workflow mit Schreibzugriff'
                 : pin
-                  ? 'Favorit entfernen'
+                  ? `Favorit „${pin.label}“ entfernen`
                   : 'Mit Standardwerten als Favorit speichern'}
               disabled={busy || starting || unavailable}
               onclick={() => onfavorite(workflow)}
