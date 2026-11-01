@@ -9,9 +9,10 @@
 </script>
 
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import AccountsTab from './AccountsTab.svelte';
   import Icon from './Icon.svelte';
+  import InlineConfirm from './InlineConfirm.svelte';
   import Modal from './Modal.svelte';
   import ReposTab from './ReposTab.svelte';
   import StartupSettings from './StartupSettings.svelte';
@@ -83,6 +84,44 @@
   let error = $state('');
   let alive = true;
   onDestroy(() => (alive = false));
+  /** Ticked IDs that still exist; a vanished repository is no pending edit. */
+  const known = (ids: string[]) =>
+    ids.filter((id) => snapshot?.repos.some((repo) => repo.id === id));
+  /** The repository selection differs from the saved one. */
+  const dirty = $derived.by(() => {
+    const saved = savedSelection();
+    const current = known(selected);
+    return (
+      current.length !== saved.length ||
+      current.some((id) => !saved.includes(id))
+    );
+  });
+  /** Tab states, marked visually and announced as the tab's description. */
+  const badges = $derived<Partial<Record<SettingsTab, string>>>(
+    dirty ? { repositories: 'Auswahl nicht gespeichert' } : {},
+  );
+  /** Leaving action that waits for „Verwerfen“; null while nobody is asked. */
+  let discarding = $state.raw<(() => void) | null>(null);
+  let saveButton = $state<HTMLButtonElement>();
+
+  /** Account and app settings apply at once; only the selection can be lost. */
+  function leave(action: () => void) {
+    if (discarding) return;
+    if (dirty && !saving) discarding = action;
+    else action();
+  }
+  function discard() {
+    const action = discarding;
+    discarding = null;
+    selected = savedSelection();
+    action?.();
+  }
+  async function keepEditing() {
+    discarding = null;
+    tab = 'repositories';
+    await tick();
+    saveButton?.focus();
+  }
 
   /** Runs a mutation and shows its error while this dialog is still open. */
   async function attempt(run: () => Promise<unknown>) {
@@ -101,7 +140,8 @@
   const disconnect = (id: string) =>
     attempt(async () => {
       await onDisconnect(id);
-      selected = savedSelection();
+      // Unsaved edits for the remaining accounts survive the disconnect.
+      selected = known(selected);
     });
   const save = () =>
     attempt(async () => {
@@ -146,7 +186,7 @@
   eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
   wide
   {returnFocus}
-  {onClose}
+  onClose={() => leave(onClose)}
 >
   <div
     class="settings-tabs"
@@ -162,12 +202,20 @@
         aria-selected={tab === item.id}
         aria-controls="settings-panel"
         tabindex={tab === item.id ? 0 : -1}
+        aria-describedby={badges[item.id]
+          ? `settings-tab-${item.id}-badge`
+          : undefined}
         onclick={() => (tab = item.id)}
         >{item.label}{#if item.id === 'updates' && updater.info}<span
             class="tab-update-dot"
             role="img"
             aria-label="Update verfügbar"
-          ></span>{/if}</button
+          ></span>{:else if badges[item.id]}<span
+            class="tab-update-dot"
+            aria-hidden="true"
+          ></span><span id={`settings-tab-${item.id}-badge`} hidden
+            >{badges[item.id]}</span
+          >{/if}</button
       >
     {/each}
   </div>
@@ -188,7 +236,7 @@
         {scenario}
         {busy}
         {onChangeAccount}
-        {onConnect}
+        onConnect={() => leave(onConnect)}
         onScenario={(value) => attempt(() => onScenario(value))}
         onReset={reset}
         onDisconnect={disconnect}
@@ -199,6 +247,7 @@
         {demo}
         {connected}
         {busy}
+        {dirty}
         bind:query
         bind:selected
         onManageInstallation={() => attempt(onManageInstallation)}
@@ -224,17 +273,28 @@
   {#if error}<div class="dialog-alert danger" role="alert">
       {error}
     </div>{/if}
-  <div class="modal-actions">
-    <button class="secondary-button" onclick={() => onClose()}
-      >{tab === 'repositories' ? 'Abbrechen' : 'Schließen'}</button
-    >{#if tab === 'repositories'}<button
-        class="primary-button"
-        onclick={save}
-        disabled={busy}
-        >{saving ? 'Speichert …' : 'Auswahl speichern'}<Icon
-          name="check"
-          size={15}
-        /></button
-      >{/if}
-  </div>
+  {#if discarding}<div class="modal-actions settings-discard">
+      <InlineConfirm
+        id="settings-discard"
+        title="Änderungen verwerfen?"
+        text="Deine geänderte Repository-Auswahl ist noch nicht gespeichert."
+        confirmLabel="Verwerfen"
+        cancelLabel="Weiter bearbeiten"
+        onConfirm={discard}
+        onCancel={() => void keepEditing()}
+      />
+    </div>{:else}<div class="modal-actions">
+      <button class="secondary-button" onclick={() => leave(onClose)}
+        >Schließen</button
+      >{#if tab === 'repositories'}<button
+          class="primary-button"
+          bind:this={saveButton}
+          onclick={save}
+          disabled={busy}
+          >{saving ? 'Speichert …' : 'Auswahl speichern'}<Icon
+            name="check"
+            size={15}
+          /></button
+        >{/if}
+    </div>{/if}
 </Modal>

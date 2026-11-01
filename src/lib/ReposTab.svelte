@@ -9,6 +9,7 @@
     demo,
     connected = '',
     busy,
+    dirty = false,
     query = $bindable(),
     selected = $bindable(),
     onManageInstallation,
@@ -20,6 +21,8 @@
     connected?: string;
     /** A repository mutation is running. */
     busy: boolean;
+    /** The ticked selection differs from the saved one. */
+    dirty?: boolean;
     /** Filter text; owned by the dialog so it survives tab switches. */
     query: string;
     /** Repository IDs ticked in this dialog, saved only on „Auswahl speichern“. */
@@ -79,7 +82,11 @@
   /></label
 >
 <p class="field-help">
-  {plural(selected.length, 'Repository', 'Repositories')} ausgewählt
+  {plural(selected.length, 'Repository', 'Repositories')} ausgewählt{#if dirty}<span
+      class="unsaved-hint"
+    >
+      · noch nicht gespeichert</span
+    >{/if}
 </p>
 <div class="repo-selection">
   {#each snapshot?.accounts ?? [] as account}<div class="selection-account">

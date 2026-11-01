@@ -64,6 +64,19 @@
   flex-wrap: wrap;
 }
 
+/* An unsaved repository selection: marked in its tab and in the count. */
+.unsaved-hint {
+  color: var(--warning);
+}
+.settings-tabs
+  [aria-describedby='settings-tab-repositories-badge']
+  .tab-update-dot {
+  background: var(--warning);
+}
+.settings-discard .inline-confirm {
+  margin-top: 0;
+}
+
 @media (forced-colors: active) {
   .danger-button,
   .inline-confirm {
