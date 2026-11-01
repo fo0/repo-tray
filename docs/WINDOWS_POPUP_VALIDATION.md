@@ -6,7 +6,8 @@ and second-instance activation query the current icon rectangle. Placement uses
 that monitor's work area and DPI; the previous desktop position is not reused.
 All four taskbar edges, negative monitor coordinates, auto-hide and windows larger
 than the work area are handled. A temporary size cap retains the preferred logical
-size for the next monitor. Startup positions the hidden window before showing it.
+size for the next monitor. Manual startup positions the hidden window before
+showing it; [Windows login startup](WINDOWS_AUTOSTART.md) keeps it hidden.
 
 Outside focus loss hides the existing webview after 120 ms. A generation cancels
 stale dismissals after a tray gesture, focus return, explicit hide or reopen.

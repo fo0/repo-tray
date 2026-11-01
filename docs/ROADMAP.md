@@ -12,7 +12,8 @@ Native browser device-flow code, explicit local gh/GCM credential import, Settin
 
 ## Optional product features
 
-- [ ] Visible autostart and global shortcut preferences.
+- [x] Optional Windows login startup with direct tray launch; interactive acceptance remains in [Windows startup](WINDOWS_AUTOSTART.md).
+- [ ] Global shortcut preferences.
 - [ ] Cancel/re-run actions with explicit target context and operation deduplication.
 - [ ] Rich log viewing in addition to GitHub links.
 - [ ] Optional signed automatic updates if the project chooses to support them.

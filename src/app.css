@@ -2258,6 +2258,51 @@ svg {
   flex-shrink: 0;
   border-bottom: 1px solid #38452f;
 }
+.startup-panel h3 {
+  margin: 0 0 18px;
+}
+.startup-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #536f3e;
+  border-radius: 8px;
+  background: #283524;
+  cursor: pointer;
+}
+.startup-option input {
+  margin: 3px 0 0;
+  flex-shrink: 0;
+  accent-color: #c2e795;
+}
+.startup-option strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.startup-option span span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #a3b394;
+}
+.startup-status {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 14px 0;
+}
+.startup-saved {
+  color: #c2e795;
+}
+.startup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.startup-help {
+  margin-top: 20px;
+}
 .settings-tabs button {
   flex: 1;
   display: flex;

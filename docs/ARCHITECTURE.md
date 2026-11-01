@@ -41,6 +41,6 @@ Use REST version `2026-03-10`. Dispatch responses include the exact run ID; lega
 
 ## Desktop and updates
 
-The stable app ID is `io.github.fo0.repotray`. The webview loads local assets under a restrictive CSP, with no general shell capability. Closing the panel keeps it in the tray; Quit exits the process. Optional autostart and hotkeys are follow-up work.
+The stable app ID is `io.github.fo0.repotray`. The webview loads local assets under a restrictive CSP, with no general shell capability. Closing the panel keeps it in the tray; Quit exits the process. Optional Windows login startup uses a guarded per-user Run value as its source of truth. The `--autostart` launch path keeps the already-hidden window hidden; a duplicate login launch leaves the existing instance alone. See [Windows startup](WINDOWS_AUTOSTART.md). Global hotkeys remain follow-up work.
 
 `desktop_updates.rs` uses the official Tauri updater with a fixed public feed and a build-bound public key. `updates.rs` enforces stable versions, newer-than-current ordering and the exact repository/version-bound EXE URL. The service retains the update handle and verified bytes, streams download progress over an IPC channel, and installs only after a second explicit UI action. Installer signatures bind the version; Windows uses passive NSIS update/restart. Account selection does not affect updates. See [release process](RELEASES.md).
