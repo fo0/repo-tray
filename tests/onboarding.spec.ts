@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
               { id: 'github-7', login: 'fixture-new', label: 'GitHub · Token' },
             ],
             repos: ['alpha', 'beta'].map((name) => ({
-              ...fixture.repos[0],
+              ...fixture.repos[0]!,
               id: `github-7:${name}`,
               accountId: 'github-7',
               owner: 'fixture-new',
@@ -114,7 +114,7 @@ test('the first-launch action opens the connect dialog directly and a first conn
     .getByRole('button', { name: 'Auswahl speichern' })
     .click();
   await expect(settings(page)).toHaveCount(0);
-  expect((await readCalls(page, 'select_repos'))[0].args).toEqual({
+  expect((await readCalls(page, 'select_repos'))[0]?.args).toEqual({
     repoIds: ['github-7:alpha'],
   });
 });

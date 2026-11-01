@@ -19,20 +19,39 @@ const page = await browser.newPage({
   deviceScaleFactor: 2,
   locale: 'de-DE',
 });
+/** @type {string[]} */
 const externalRequests = [];
 page.on('request', (request) => {
   if (!['localhost', '127.0.0.1'].includes(new URL(request.url()).hostname))
     externalRequests.push(request.url());
 });
+/**
+ * Manifest entries; `metrics` is whatever the page measured.
+ * @type {{ filename: string; caption: string; metrics: any; sha256: string }[]}
+ */
 const shots = [];
+/**
+ * @param {string} filename
+ * @param {string} caption
+ */
 async function capture(filename, caption) {
   await page.screenshot({
     path: path.join(output, filename),
     animations: 'disabled',
   });
   const metrics = await page.evaluate(() => {
+    /**
+     * @template {Element} T
+     * @param {T | null} node
+     * @returns {T}
+     */
+    const must = (node) => {
+      if (!node) throw new Error('Expected review element is missing');
+      return node;
+    };
+    /** @param {string} selector */
     const rect = (selector) => {
-      const r = document.querySelector(selector).getBoundingClientRect();
+      const r = must(document.querySelector(selector)).getBoundingClientRect();
       return { top: r.top, bottom: r.bottom, width: r.width, height: r.height };
     };
     return {
@@ -42,7 +61,7 @@ async function capture(filename, caption) {
       content: rect('.content'),
       pinList: rect('.pin-list'),
       cards: [...document.querySelectorAll('.pin-card')].map((card) => ({
-        title: card.querySelector('h3').textContent,
+        title: must(card.querySelector('h3')).textContent,
         height: card.getBoundingClientRect().height,
         width: card.getBoundingClientRect().width,
         warning: !!card.querySelector('.uncertain-start'),
@@ -53,8 +72,9 @@ async function capture(filename, caption) {
       notice: (() => {
         const banner = document.querySelector('.notice-banner');
         if (!banner) return null;
+        /** @param {Element | null} node */
         const center = (node) => {
-          const r = node.getBoundingClientRect();
+          const r = must(node).getBoundingClientRect();
           return r.top + r.height / 2;
         };
         return {
@@ -76,6 +96,7 @@ async function capture(filename, caption) {
       .digest('hex'),
   });
 }
+/** @param {string} name */
 async function openPin(name) {
   await page
     .locator('article.pin-card')
@@ -199,15 +220,18 @@ try {
       2,
     ) + '\n',
   );
+  const [normal, twoCards, warning] = shots;
+  if (!normal || !twoCards || !warning)
+    throw new Error('Expected the normal, two-card and warning shots');
   console.log(
     JSON.stringify({
       output,
       count: shots.length,
-      normalHeight: shots[0].metrics.cards[0].height,
-      twoCardList: shots[1].metrics.pinList.height,
-      warningHeight: shots[2].metrics.cards[0].height,
-      workflowHeight: shots[0].metrics.workflowRow.height,
-      headerHeight: shots[0].metrics.header.height,
+      normalHeight: normal.metrics.cards[0].height,
+      twoCardList: twoCards.metrics.pinList.height,
+      warningHeight: warning.metrics.cards[0].height,
+      workflowHeight: normal.metrics.workflowRow.height,
+      headerHeight: normal.metrics.header.height,
     }),
   );
 } finally {

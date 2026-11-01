@@ -3,8 +3,8 @@
 
   /** What the start dialog opens with. */
   export interface DispatchSeed {
-    pin?: Pin;
-    workflow?: Workflow;
+    pin?: Pin | undefined;
+    workflow?: Workflow | undefined;
     /** Opened from a heart favorite that still needs input. */
     favoriteIntent?: boolean;
   }
@@ -36,7 +36,7 @@
   }: {
     panel: Panel;
     seed: DispatchSeed;
-    returnFocus?: () => HTMLElement | null | undefined;
+    returnFocus?: (() => HTMLElement | null | undefined) | undefined;
     onClose: () => void;
     onShowRun: (runId: number) => void;
     onLinkError: (message: string) => void;

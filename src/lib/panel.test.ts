@@ -222,7 +222,7 @@ describe('Panel busy state', () => {
     const answer = deferred<Snapshot>();
     const { panel, push } = await setup({ deletePin: () => answer.promise });
     const loaded = panel.snapshot!;
-    const deletion = panel.favorites.remove(loaded.pins[0].id);
+    const deletion = panel.favorites.remove(loaded.pins[0]!.id);
     expect(panel.pinsBusy).toBe(true);
     push({ ...loaded, updatedAt: 'pushed-mid-operation' });
     expect(panel.snapshot).toBe(loaded);
@@ -239,7 +239,7 @@ describe('Panel busy state', () => {
   it('offers to undo a removal by saving the identical favorite again', async () => {
     const saved: unknown[] = [];
     const { panel, bridge } = await setup();
-    const pin = { ...panel.snapshot!.pins[0], quickStart: true };
+    const pin = { ...panel.snapshot!.pins[0]!, quickStart: true };
     await panel.saveTemplate(pin);
     const save = bridge.savePin;
     bridge.savePin = async (value) => {
@@ -267,7 +267,7 @@ describe('Panel busy state', () => {
   it('keeps operations independent: a template save does not mark pins busy', async () => {
     const answer = deferred<Snapshot>();
     const { panel } = await setup({ savePin: () => answer.promise });
-    const pin = panel.snapshot!.pins[0];
+    const pin = panel.snapshot!.pins[0]!;
     const save = panel.saveTemplate(pin);
     expect(panel.templateBusy).toBe(true);
     expect(panel.pinsBusy).toBe(false);

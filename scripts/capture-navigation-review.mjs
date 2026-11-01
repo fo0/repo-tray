@@ -14,6 +14,7 @@ try {
     deviceScaleFactor: 2,
     reducedMotion: 'reduce',
   });
+  /** @type {string[]} */
   const externalRequests = [];
   page.on('request', (request) => {
     if (!new URL(request.url()).hostname.match(/^(127\.0\.0\.1|localhost)$/))

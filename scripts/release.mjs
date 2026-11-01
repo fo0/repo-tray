@@ -2,11 +2,26 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/**
+ * @typedef {{
+ *   version: string;
+ *   tag: string;
+ *   title: string;
+ *   created_at: string;
+ *   source_sha: string;
+ * }} ReleasePlan
+ */
+/** @param {string} tag */
 export function versionFromTag(tag) {
   if (!/^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(tag))
     throw new Error('Expected a stable vX.Y.Z tag');
   return tag.slice(1);
 }
+/**
+ * @param {string} timestamp
+ * @param {string} sourceSha
+ * @returns {ReleasePlan}
+ */
 export function releasePlan(timestamp, sourceSha) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(timestamp))
     throw new Error('Expected an explicit UTC release timestamp');
@@ -44,13 +59,20 @@ export function releasePlan(timestamp, sourceSha) {
     source_sha: sourceSha,
   };
 }
+/** @param {ReleasePlan} plan */
 export function validatePlan(plan) {
   const expected = releasePlan(plan.created_at, plan.source_sha);
-  for (const key of Object.keys(expected)) {
+  for (const key of /** @type {(keyof ReleasePlan)[]} */ (
+    Object.keys(expected)
+  )) {
     if (plan[key] !== expected[key]) throw new Error('Release plan mismatch');
   }
   return plan;
 }
+/**
+ * @param {ReleasePlan} plan
+ * @param {unknown} releases
+ */
 export function assertNewRelease(plan, releases) {
   validatePlan(plan);
   if (!Array.isArray(releases)) throw new Error('Release history unavailable');
@@ -63,6 +85,7 @@ export function assertNewRelease(plan, releases) {
         'Release already exists for this minute; inspect it before starting a new run',
       );
     if (release.draft || release.prerelease) continue;
+    /** @type {bigint[]} */
     let previous;
     try {
       previous = versionFromTag(release.tag_name).split('.').map(BigInt);
@@ -72,10 +95,16 @@ export function assertNewRelease(plan, releases) {
     const different = previous.findIndex(
       (part, index) => part !== candidate[index],
     );
-    if (different === -1 || previous[different] > candidate[different])
+    const older = previous[different];
+    const newer = candidate[different];
+    if (
+      different === -1 ||
+      (older !== undefined && newer !== undefined && older > newer)
+    )
       throw new Error('Release would not be newer than the published versions');
   }
 }
+/** @param {string} directory */
 function appVersions(directory) {
   const pkgText = readFileSync(path.join(directory, 'package.json'), 'utf8');
   const tauriText = readFileSync(
@@ -94,6 +123,10 @@ function appVersions(directory) {
   );
   return { pkg, tauri, pkgText, tauriText, cargo, lock };
 }
+/**
+ * @param {string} directory
+ * @param {ReleasePlan} plan
+ */
 export function stampVersions(directory, plan) {
   validatePlan(plan);
   const { pkg, pkgText, tauriText, cargo, lock } = appVersions(directory);
@@ -108,6 +141,7 @@ export function stampVersions(directory, plan) {
     throw new Error(
       'RepoTray Cargo package/lockfile entry missing or ambiguous',
     );
+  /** @param {string} text */
   const versionJson = (text) => {
     // Preserve formatting: pnpm verify lints these files after the CI stamp.
     const changed = text.replace(
@@ -120,6 +154,7 @@ export function stampVersions(directory, plan) {
     return changed;
   };
   // Validate all inputs before changing any file. Dependency versions stay intact.
+  /** @type {[file: string, contents: string][]} */
   const changes = [
     ['package.json', versionJson(pkgText)],
     ['src-tauri/tauri.conf.json', versionJson(tauriText)],
@@ -132,6 +167,10 @@ export function stampVersions(directory, plan) {
   for (const [file, contents] of changes)
     writeFileSync(path.join(directory, file), contents);
 }
+/**
+ * @param {string} directory
+ * @param {ReleasePlan} plan
+ */
 export function assertVersions(directory, plan) {
   validatePlan(plan);
   const { pkg, tauri, cargo, lock } = appVersions(directory);
@@ -149,6 +188,10 @@ export function assertVersions(directory, plan) {
   )
     throw new Error('Release plan and app versions differ');
 }
+/**
+ * @param {ReleasePlan} plan
+ * @param {string} generatedNotes
+ */
 export function releaseNotes(plan, generatedNotes) {
   validatePlan(plan);
   const changelog =
@@ -157,20 +200,27 @@ export function releaseNotes(plan, generatedNotes) {
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, ...args] = process.argv.slice(2);
+  /** @param {number} index */
+  const arg = (index) => {
+    const value = args[index];
+    if (value === undefined)
+      throw new Error('Missing release command argument');
+    return value;
+  };
   if (command === 'plan') {
     writeFileSync(
-      args[2],
-      JSON.stringify(releasePlan(args[0], args[1]), null, 2) + '\n',
+      arg(2),
+      JSON.stringify(releasePlan(arg(0), arg(1)), null, 2) + '\n',
     );
     process.exit(0);
   }
-  const plan = validatePlan(JSON.parse(readFileSync(args[0])));
+  const plan = validatePlan(JSON.parse(readFileSync(arg(0), 'utf8')));
   if (command === 'check-history') {
-    assertNewRelease(plan, JSON.parse(readFileSync(args[1])));
+    assertNewRelease(plan, JSON.parse(readFileSync(arg(1), 'utf8')));
   } else if (command === 'prepare') {
-    const notes = releaseNotes(plan, readFileSync(args[1], 'utf8'));
+    const notes = releaseNotes(plan, readFileSync(arg(1), 'utf8'));
     stampVersions(root, plan);
     assertVersions(root, plan);
-    writeFileSync(args[2], notes);
+    writeFileSync(arg(2), notes);
   } else throw new Error('Unknown release command');
 }

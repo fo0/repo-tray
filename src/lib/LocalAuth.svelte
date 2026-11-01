@@ -67,7 +67,7 @@
       notices = result.notices;
       checked = true;
       const usable = accounts.filter((a) => a.usable && a.source === 'gh');
-      if (usable.length === 1) selected = usable[0].login;
+      if (usable.length === 1 && usable[0]) selected = usable[0].login;
     } catch (cause) {
       if (active && ticket === generation)
         error = errorMessage(

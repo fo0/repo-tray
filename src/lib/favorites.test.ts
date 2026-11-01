@@ -32,7 +32,7 @@ const texts = (panel: Panel) => panel.notices.items.map((item) => item.text);
 describe('Favorite undo', () => {
   it('skips „Rückgängig“ when the same favorite was saved again meanwhile', async () => {
     const { panel, saved, push } = await setup();
-    const pin = panel.snapshot!.pins[0];
+    const pin = panel.snapshot!.pins[0]!;
     await panel.favorites.remove(pin.id);
     const undo = undoOffer(panel)!;
     // Re-added elsewhere under a new id, e.g. from another panel window.
@@ -46,7 +46,7 @@ describe('Favorite undo', () => {
 
   it('restores a removed favorite next to an alike one that was already there', async () => {
     const { panel, saved } = await setup();
-    const pin = panel.snapshot!.pins[0];
+    const pin = panel.snapshot!.pins[0]!;
     const twin = {
       ...pin,
       id: 'twin',
@@ -69,7 +69,7 @@ describe('Favorite undo', () => {
   it('drops the undo offer when the heart saves the favorite again', async () => {
     const { panel } = await setup();
     const workflow = panel.snapshot!.workflows.find((item) => item.id === 101)!;
-    await panel.favorites.remove(panel.snapshot!.pins[0].id);
+    await panel.favorites.remove(panel.snapshot!.pins[0]!.id);
     expect(undoOffer(panel)).toBeDefined();
     await panel.favorites.toggle(workflow);
     expect(undoOffer(panel)).toBeUndefined();
@@ -78,7 +78,7 @@ describe('Favorite undo', () => {
 
   it('drops the undo offer when the dialog saves the favorite again', async () => {
     const { panel } = await setup();
-    const pin = panel.snapshot!.pins[0];
+    const pin = panel.snapshot!.pins[0]!;
     await panel.favorites.remove(pin.id);
     await panel.saveTemplate({ ...pin, id: 'copy', label: 'Kopie' });
     expect(undoOffer(panel)).toBeUndefined();
@@ -86,7 +86,7 @@ describe('Favorite undo', () => {
 
   it('keeps the undo offer when another favorite is saved', async () => {
     const { panel } = await setup();
-    const pin = panel.snapshot!.pins[0];
+    const pin = panel.snapshot!.pins[0]!;
     await panel.favorites.remove(pin.id);
     await panel.saveTemplate({ ...pin, id: 'other', ref: 'develop' });
     expect(undoOffer(panel)).toBeDefined();
@@ -94,7 +94,7 @@ describe('Favorite undo', () => {
 
   it('drops the undo offer when the active account changes', async () => {
     const { panel } = await setup();
-    await panel.favorites.remove(panel.snapshot!.pins[0].id);
+    await panel.favorites.remove(panel.snapshot!.pins[0]!.id);
     panel.changeAccount('demo-work');
     expect(undoOffer(panel)).toBeUndefined();
   });

@@ -15,7 +15,7 @@
     accounts: Account[];
     activeAccountId: string;
     /** Locked starts; disconnecting their account releases the lock. */
-    uncertainStarts?: UncertainStart[];
+    uncertainStarts?: UncertainStart[] | undefined;
     disabled?: boolean;
     onUse: (id: string) => void;
     /**

@@ -17,7 +17,7 @@
     /** Settings layout: a wider dialog with a tab strip. */
     wide?: boolean;
     /** Opener that gets focus back when the dialog closes. */
-    returnFocus?: () => HTMLElement | null | undefined;
+    returnFocus?: (() => HTMLElement | null | undefined) | undefined;
     /** Close button and Escape. */
     onClose: () => void;
     children: Snippet;

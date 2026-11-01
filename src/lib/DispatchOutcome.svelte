@@ -36,7 +36,7 @@
     /** The snapshot holds the persisted claim, so it can be released. */
     releasable: boolean;
     /** The persisted claim the confirmation holds on to when it opens. */
-    claim?: UncertainStart;
+    claim?: UncertainStart | undefined;
     releasing: boolean;
     onCheckStatus: () => void;
     onRelease: (claim?: UncertainStart) => Promise<void>;

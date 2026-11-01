@@ -18,7 +18,7 @@
     title: string;
     text: string;
     /** A consequence the user must weigh first; its own line under the text. */
-    warning?: string;
+    warning?: string | undefined;
     /** The destructive action, styled as danger. */
     confirmLabel: string;
     cancelLabel?: string;

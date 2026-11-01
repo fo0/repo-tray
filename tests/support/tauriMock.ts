@@ -6,7 +6,10 @@ import type { Page } from '@playwright/test';
  * native branch against synthetic fixtures only.
  */
 export type IpcArgs = Record<string, unknown> | undefined;
-export type IpcCall = { cmd: string; args?: Record<string, unknown> };
+export type IpcCall = {
+  cmd: string;
+  args?: Record<string, unknown> | undefined;
+};
 /** Answers one IPC command; `undefined` resolves as `null`, a throw rejects. */
 export type IpcHandler = (cmd: string, args: IpcArgs) => unknown;
 /**

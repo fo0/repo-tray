@@ -16,7 +16,7 @@ export interface Notice {
   text: string;
   tone: NoticeTone;
   /** An accepted start the banner can show in the activity list. */
-  runId?: number;
+  runId?: number | undefined;
   /** Account of that run; the activity action only fits while it is shown. */
   accountId?: string;
   /** One follow-up action, e.g. „Rückgängig“. */
@@ -25,7 +25,7 @@ export interface Notice {
    * Closes after this many milliseconds while neither hovered nor focused;
    * subtle notices default to `SUCCESS_TIMEOUT`. Warnings and errors stay.
    */
-  timeout?: number;
+  timeout?: number | undefined;
 }
 
 /** Banner notices of the panel, oldest first; successes are bounded. */

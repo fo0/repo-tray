@@ -61,7 +61,7 @@ describe('Starts and running mutations', () => {
     const snapshot = bridge.snapshot;
     bridge.snapshot = () => (reads++, snapshot());
     const loaded = panel.snapshot!;
-    const removal = panel.favorites.remove(loaded.pins[0].id);
+    const removal = panel.favorites.remove(loaded.pins[0]!.id);
     await panel.starts.dispatch(other, { label: 'Checks' });
     const after = { ...loaded, pins: [] };
     deletion.resolve(after);
@@ -83,7 +83,7 @@ describe('Starts and running mutations', () => {
     });
     push({ ...panel.snapshot!, uncertainStarts: [claim] });
     const loaded = panel.snapshot!;
-    const removal = panel.favorites.remove(loaded.pins[0].id);
+    const removal = panel.favorites.remove(loaded.pins[0]!.id);
     await panel.starts.release(claim);
     deletion.resolve({ ...loaded, pins: [], uncertainStarts: [] });
     await removal;

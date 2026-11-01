@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { updaterConfig, updaterManifest } from './updater.mjs';
 
+/** @param {string} version */
 const signature = (version) =>
   Buffer.from(
     `untrusted comment: test fixture\nnot-a-real-signature\ntrusted comment: timestamp:1\tfile:installer.exe\tversion:${version}\nnot-a-real-global-signature\n`,
@@ -21,6 +22,7 @@ test('release feed accepts version-bound artifacts produced by the pinned Tauri 
   const key = path.join(directory, 'test-only.key');
   const file = path.join(directory, 'test-only.exe');
   // Disposable test material; output is captured so no private key enters logs.
+  /** @param {string[]} args */
   const call = (...args) =>
     spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
   assert.equal(

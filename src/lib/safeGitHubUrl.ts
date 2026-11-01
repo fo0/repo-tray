@@ -37,13 +37,14 @@ export function safeGitHubUrl(value: string): string | null {
     .split('/');
   if (
     rest.length > 0 ||
-    !OWNER.test(owner) ||
+    !OWNER.test(owner ?? '') ||
     !REPO.test(repo ?? '') ||
     repo === '.' ||
     repo === '..' ||
     actions !== 'actions' ||
     runs !== 'runs' ||
-    !RUN_ID.test(id ?? '') ||
+    id === undefined ||
+    !RUN_ID.test(id) ||
     BigInt(id) > U64_MAX
   )
     return null;

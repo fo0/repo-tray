@@ -70,6 +70,11 @@
 
   /** The refresh and history-limit note is on demand, not always visible. */
   let showNote = $state(false);
+  /** The divider goes above the first completed run after the open ones. */
+  const followsOpenRun = (index: number) => {
+    const previous = runs[index - 1];
+    return !previous || isActive(previous);
+  };
 </script>
 
 <div class="filters" role="group" aria-label="Aktivitätsfilter">
@@ -106,7 +111,7 @@
 </p>
 <div class="run-list history-list">
   {#each runs as run, index (`${run.repoId}:${run.id}`)}
-    {#if filter === 'all' && !isActive(run) && (index === 0 || isActive(runs[index - 1]))}<div
+    {#if filter === 'all' && !isActive(run) && followsOpenRun(index)}<div
         class="list-divider"
       >
         <span>Zuletzt abgeschlossen</span>

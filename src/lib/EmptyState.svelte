@@ -25,7 +25,7 @@
     framed?: boolean;
     title: string;
     text: string;
-    action?: EmptyAction;
+    action?: EmptyAction | undefined;
   } = $props();
 </script>
 

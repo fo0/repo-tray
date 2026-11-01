@@ -62,7 +62,7 @@ export interface Snapshot {
   connectivity: 'online' | 'offline' | 'forbidden';
   updatedAt: string;
   stale: boolean;
-  message?: string;
+  message?: string | undefined;
   /** Targets locked after a start with unknown outcome; omitted when none. */
   uncertainStarts?: UncertainStart[];
 }

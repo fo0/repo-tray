@@ -10,7 +10,7 @@
     /** A release of this claim is in flight. */
     releasing: boolean;
     /** The claim shown right now; the confirmation releases this one. */
-    claim?: C;
+    claim?: C | undefined;
     /**
      * Releases the claim held since the confirmation opened; never
      * dispatches. Rejects with a user-facing error.

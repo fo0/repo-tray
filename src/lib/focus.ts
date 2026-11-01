@@ -4,7 +4,7 @@ export interface TrapFocusOptions {
    * the opener of the first dialog so focus returns there, not to a button of
    * a dialog that no longer exists.
    */
-  returnFocus?: () => HTMLElement | null | undefined;
+  returnFocus?: (() => HTMLElement | null | undefined) | undefined;
 }
 
 /** Focus was dropped (the focused element was removed or made inert). */
@@ -76,13 +76,13 @@ export function trapFocus(node: HTMLElement, options: TrapFocusOptions = {}) {
   const onKey = (event: KeyboardEvent) => {
     if (event.key !== 'Tab') return;
     const items = focusable();
-    if (!items.length) {
+    const first = items[0];
+    const last = items.at(-1);
+    if (!first || !last) {
       event.preventDefault();
       node.focus();
       return;
     }
-    const first = items[0],
-      last = items[items.length - 1];
     if (
       event.shiftKey &&
       (document.activeElement === first || document.activeElement === node)

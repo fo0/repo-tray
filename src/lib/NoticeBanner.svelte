@@ -15,12 +15,12 @@
     text: string;
     tone: NoticeTone;
     /** Optional follow-up action, e.g. „In Aktivität anzeigen“. */
-    actionLabel?: string;
-    onAction?: () => void;
+    actionLabel?: string | undefined;
+    onAction?: (() => void) | undefined;
     /** The action leads elsewhere (arrow icon) rather than acting in place. */
     navigates?: boolean;
     /** Closes after this many milliseconds; paused while hovered or focused. */
-    timeout?: number;
+    timeout?: number | undefined;
     /** Holds the timeout, e.g. while a dialog hides the notice; restarts in full after. */
     paused?: boolean;
     onDismiss: () => void;

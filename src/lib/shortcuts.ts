@@ -58,7 +58,8 @@ export function shortcutFor(event: KeyPress): Shortcut | null {
     const digit =
       /^(?:Digit|Numpad)([1-3])$/.exec(event.code)?.[1] ??
       /^[1-3]$/.exec(event.key)?.[0];
-    return digit ? { kind: 'tab', tab: TAB_ORDER[Number(digit) - 1] } : null;
+    const tab = digit ? TAB_ORDER[Number(digit) - 1] : undefined;
+    return tab ? { kind: 'tab', tab } : null;
   }
   if (event.key === 'Escape') return { kind: 'escape' };
   if (event.key === '/') return { kind: 'search' };

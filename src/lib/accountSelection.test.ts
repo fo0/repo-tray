@@ -7,10 +7,17 @@ import {
   restoreActiveAccount,
   type AccountPreferenceStorage,
 } from './accountSelection';
-const accounts = [
-  { id: 'github-42', login: 'fixture-user', label: 'GitHub · Token' },
-  { id: 'github-device-42', login: 'fixture-user', label: 'GitHub · Browser' },
-];
+const token = {
+  id: 'github-42',
+  login: 'fixture-user',
+  label: 'GitHub · Token',
+};
+const browser = {
+  id: 'github-device-42',
+  login: 'fixture-user',
+  label: 'GitHub · Browser',
+};
+const accounts = [token, browser];
 function memory(): AccountPreferenceStorage {
   const values = new Map<string, string>();
   return {
@@ -26,21 +33,21 @@ function memory(): AccountPreferenceStorage {
 describe('explicit active account preference', () => {
   it('restores only the exact stable credential identity and keeps same-login sources separate', () => {
     const target = memory();
-    expect(rememberActiveAccount(accounts[1].id, target)).toBe(true);
+    expect(rememberActiveAccount(browser.id, target)).toBe(true);
     expect(target.getItem(ACTIVE_ACCOUNT_KEY)).toBe('"github-device-42"');
     expect(restoreActiveAccount(accounts, readActiveAccount(target))).toEqual({
-      id: accounts[1].id,
+      id: browser.id,
       missing: false,
     });
-    expect(accountTitle(accounts[0])).toBe('fixture-user · Token');
-    expect(accountTitle(accounts[1])).toBe('fixture-user · Browser');
+    expect(accountTitle(token)).toBe('fixture-user · Token');
+    expect(accountTitle(browser)).toBe('fixture-user · Browser');
   });
   it('never chooses the first remaining account when the saved identity is absent or removed', () => {
     expect(restoreActiveAccount(accounts, null)).toEqual({
       id: '',
       missing: false,
     });
-    expect(restoreActiveAccount([accounts[0]], accounts[1].id)).toEqual({
+    expect(restoreActiveAccount([token], browser.id)).toEqual({
       id: '',
       missing: true,
     });
@@ -56,7 +63,7 @@ describe('explicit active account preference', () => {
     ]) {
       expect(rememberActiveAccount(invalid, target)).toBe(false);
     }
-    rememberActiveAccount(accounts[0].id, target);
+    rememberActiveAccount(token.id, target);
     expect(target.getItem(ACTIVE_ACCOUNT_KEY)).not.toContain('fixture-user');
     rememberActiveAccount('', target);
     expect(readActiveAccount(target)).toBeNull();
@@ -77,6 +84,6 @@ describe('explicit active account preference', () => {
       },
     };
     expect(readActiveAccount(denied)).toBeNull();
-    expect(rememberActiveAccount(accounts[0].id, denied)).toBe(false);
+    expect(rememberActiveAccount(token.id, denied)).toBe(false);
   });
 });

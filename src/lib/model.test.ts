@@ -26,7 +26,7 @@ describe('dispatch validation', () => {
   it('accepts exact typed inputs and provides typed defaults', () => {
     const data = snapshot();
     expect(validateDispatch(data, request())).toBeNull();
-    expect(defaultInputs(data.workflows[0])).toEqual({
+    expect(defaultInputs(data.workflows[0]!)).toEqual({
       target: 'windows-x64',
       version: '0.1.0',
       dry_run: true,
@@ -34,7 +34,7 @@ describe('dispatch validation', () => {
   });
   it('falls back to false for booleans and an empty string otherwise without defaults', () => {
     const workflow: Workflow = {
-      ...snapshot().workflows[0],
+      ...snapshot().workflows[0]!,
       inputs: (
         ['boolean', 'string', 'choice', 'number', 'environment'] as const
       ).map((type) => ({
@@ -94,13 +94,13 @@ describe('dispatch validation', () => {
   );
   it('requires selected repository, write rights, and dispatch availability on default branch', () => {
     const data = snapshot();
-    data.repos[0].selected = false;
+    data.repos[0]!.selected = false;
     expect(validateDispatch(data, request())).toMatch(/Einstellungen/);
-    data.repos[0].selected = true;
-    data.repos[0].permission = 'read';
+    data.repos[0]!.selected = true;
+    data.repos[0]!.permission = 'read';
     expect(validateDispatch(data, request())).toMatch(/Schreibzugriff/);
-    data.repos[0].permission = 'write';
-    data.workflows[0].refs = ['develop'];
+    data.repos[0]!.permission = 'write';
+    data.workflows[0]!.refs = ['develop'];
     expect(validateDispatch(data, request({ ref: 'develop' }))).toMatch(
       /Standardbranch/,
     );
@@ -118,7 +118,7 @@ describe('dispatch validation', () => {
       expect(
         validateDispatch(data, { ...base, inputs: { attempts: value } }),
       ).toMatch(/muss eine Zahl sein/);
-    data.workflows[1].inputs = [
+    data.workflows[1]!.inputs = [
       {
         name: 'environment',
         label: 'Environment',
@@ -127,7 +127,7 @@ describe('dispatch validation', () => {
         options: ['preview', 'staging'],
       },
     ];
-    data.workflows[1].dispatch = true;
+    data.workflows[1]!.dispatch = true;
     expect(
       validateDispatch(
         data,
@@ -146,9 +146,13 @@ describe('dispatch validation', () => {
 describe('safe pins', () => {
   it('whitelists persisted pin fields and blocks credential-named inputs', () => {
     const data = snapshot();
-    const pin = { ...data.pins[0], label: '  My build  ', token: 'never-copy' };
-    expect(safePin(data, pin)).toEqual({ ...data.pins[0], label: 'My build' });
-    const workflow: Workflow = data.workflows[0];
+    const pin = {
+      ...data.pins[0]!,
+      label: '  My build  ',
+      token: 'never-copy',
+    };
+    expect(safePin(data, pin)).toEqual({ ...data.pins[0]!, label: 'My build' });
+    const workflow: Workflow = data.workflows[0]!;
     workflow.inputs.push({
       name: 'api_token',
       label: 'Token',
@@ -158,11 +162,11 @@ describe('safe pins', () => {
     });
     expect(() =>
       safePin(data, {
-        ...data.pins[0],
-        inputs: { ...data.pins[0].inputs, api_token: 'secret' },
+        ...data.pins[0]!,
+        inputs: { ...data.pins[0]!.inputs, api_token: 'secret' },
       }),
     ).toThrow(/Geheime/);
-    expect(() => safePin(data, { ...data.pins[0], label: ' ' })).toThrow(
+    expect(() => safePin(data, { ...data.pins[0]!, label: ' ' })).toThrow(
       /Namen/,
     );
     expect(

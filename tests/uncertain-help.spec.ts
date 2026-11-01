@@ -120,7 +120,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
   baseURL,
 }) => {
   const context = await browser.newContext({
-    baseURL,
+    ...(baseURL ? { baseURL } : {}),
     hasTouch: true,
     viewport: { width: 360, height: 760 },
   });

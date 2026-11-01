@@ -60,7 +60,7 @@
     busy: boolean;
     /** The repository selection is being saved. */
     saving: boolean;
-    returnFocus?: () => HTMLElement | null | undefined;
+    returnFocus?: (() => HTMLElement | null | undefined) | undefined;
     onClose: () => void;
     /** Replaces this dialog with the connection dialog. */
     onConnect: () => void;
@@ -175,7 +175,9 @@
         : event.key === 'End'
           ? count - 1
           : (index + direction + count) % count;
-    tab = SETTINGS_TABS[next].id;
+    const target = SETTINGS_TABS[next];
+    if (!target) return;
+    tab = target.id;
     event.currentTarget
       .querySelectorAll<HTMLButtonElement>('[role=tab]')
       [next]?.focus();

@@ -170,7 +170,7 @@ test('native startup requires an account choice for workflows while updates need
   await expect(
     page.getByRole('button', { name: 'Auf Updates prüfen' }),
   ).toBeEnabled();
-  expect((await updateCalls(page))[0].args).toEqual({});
+  expect((await updateCalls(page))[0]?.args).toEqual({});
 });
 
 test('source-specific settings selection survives restart and pins remain tied to their original credential', async ({
@@ -294,7 +294,7 @@ test('public update results survive account switches without using any account t
     page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
   expect(await updateCalls(page)).toHaveLength(1);
-  expect((await updateCalls(page))[0].args).toEqual({});
+  expect((await updateCalls(page))[0]?.args).toEqual({});
 });
 
 test('an in-flight public update check remains valid after switching the workflow account', async ({

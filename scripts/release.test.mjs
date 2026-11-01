@@ -24,6 +24,7 @@ import {
 const sourceSha = 'a'.repeat(40);
 const timestamp = '2026-10-31T15:33:04Z';
 const plan = releasePlan(timestamp, sourceSha);
+/** @param {import('node:test').TestContext} t */
 function workspace(t) {
   const directory = mkdtempSync(path.join(tmpdir(), 'repotray-release-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -66,13 +67,15 @@ test('one stable UTC timestamp produces version, tag and Berlin release title', 
   assert.deepEqual(releasePlan(timestamp, sourceSha), plan);
 });
 test('midnight, leading zero fields, leap day and year rollover remain Windows-compatible', () => {
-  for (const [date, version] of [
+  /** @type {[date: string, version: string][]} */
+  const cases = [
     ['2026-01-01T00:00:00Z', '2026.101.0'],
     ['2026-01-02T00:05:00Z', '2026.102.5'],
     ['2028-02-29T23:59:59Z', '2028.229.2359'],
     ['2026-12-31T23:59:59Z', '2026.1231.2359'],
     ['2027-01-01T00:00:00Z', '2027.101.0'],
-  ]) {
+  ];
+  for (const [date, version] of cases) {
     const result = releasePlan(date, sourceSha);
     assert.equal(result.version, version);
     assert.ok(version.split('.').every((part) => Number(part) <= 65535));
@@ -132,8 +135,9 @@ test('stamp keeps all four app/lockfile versions aligned without modifying depen
   assert.match(cargo, /serde = \{ version = "1" \}/);
   assert.match(lock, /name = "dependency"\nversion = "1.2.3"/);
   assert.equal(
-    JSON.parse(readFileSync(path.join(directory, 'src-tauri/tauri.conf.json')))
-      .identifier,
+    JSON.parse(
+      readFileSync(path.join(directory, 'src-tauri/tauri.conf.json'), 'utf8'),
+    ).identifier,
     'io.github.fo0.repotray',
   );
   assert.equal(
@@ -185,6 +189,7 @@ test('CLI generates versions and release notes without signing configuration', (
   const metadata = path.join(directory, 'release-meta.json');
   const generated = path.join(directory, 'generated.md');
   const notes = path.join(directory, 'notes.md');
+  /** @param {string[]} args */
   const call = (args) =>
     spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
   assert.equal(call(['plan', timestamp, sourceSha, metadata]).status, 0);

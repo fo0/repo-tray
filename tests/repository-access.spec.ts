@@ -95,7 +95,7 @@ test('refreshing repository access shows granted repositories and drops revoked 
   await expect(page.getByRole('alert')).toHaveCount(0);
   await page.getByRole('button', { name: 'Auswahl speichern' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  expect((await readCalls(page, 'select_repos'))[0].args).toEqual({
+  expect((await readCalls(page, 'select_repos'))[0]?.args).toEqual({
     repoIds: ['github-device-42:kept-repo'],
   });
 });

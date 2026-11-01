@@ -30,6 +30,7 @@ const options = {
 };
 
 // Execute the actual Action run blocks, not copies of their release logic.
+/** @param {string} job */
 function scripts(job) {
   const start = workflow.indexOf(`  ${job}:`);
   assert.notEqual(start, -1);
@@ -39,7 +40,7 @@ function scripts(job) {
   const lines = block.split('\n');
   const result = [];
   for (let i = 0; i < lines.length; i++) {
-    const match = /^(?: {6}- run: | {8}run: )(.*)$/.exec(lines[i]);
+    const match = /^(?: {6}- run: | {8}run: )(.*)$/.exec(lines[i] ?? '');
     if (!match) continue;
     if (match[1] !== '|') {
       result.push(match[1]);
@@ -48,9 +49,9 @@ function scripts(job) {
     const body = [];
     while (
       i + 1 < lines.length &&
-      (lines[i + 1].startsWith('          ') || lines[i + 1] === '')
+      (lines[i + 1]?.startsWith('          ') || lines[i + 1] === '')
     ) {
-      body.push(lines[++i].slice(10));
+      body.push((lines[++i] ?? '').slice(10));
     }
     result.push(body.join('\n'));
   }
@@ -114,6 +115,10 @@ if (process.env.RELEASE_TEST_COMMAND === 'pnpm') {
 } else fail('Unexpected GitHub command');
 `;
 
+/**
+ * @param {import('node:test').TestContext} t
+ * @param {Record<string, unknown>} [changes]
+ */
 function fixture(t, changes = {}) {
   const directory = mkdtempSync(
     path.join(tmpdir(), 'repotray-release-action-'),
@@ -132,6 +137,7 @@ function fixture(t, changes = {}) {
   ])
     copyFileSync(path.join(root, file), path.join(directory, file));
   const inheritedPath = process.env.PATH ?? '';
+  /** @type {NodeJS.ProcessEnv} */
   const env = { ...process.env, GH_TOKEN: 'synthetic-test-token' };
   for (const name of Object.keys(env)) {
     if (
@@ -141,6 +147,7 @@ function fixture(t, changes = {}) {
     )
       delete env[name];
   }
+  /** @param {string[]} args */
   const git = (...args) => {
     const result = spawnSync(
       'git',
@@ -177,6 +184,7 @@ function fixture(t, changes = {}) {
     ],
   };
   const stateFile = path.join(directory, 'state.json');
+  const actionsEnv = path.join(directory, 'github-env');
   writeFileSync(stateFile, JSON.stringify({ payload, release, ...changes }));
   const bin = path.join(directory, 'bin');
   mkdirSync(bin);
@@ -206,11 +214,12 @@ function fixture(t, changes = {}) {
     GITHUB_REF: 'refs/heads/main',
     GITHUB_REPOSITORY: 'fo0/repo-tray',
     GITHUB_RUN_ID: '1',
-    GITHUB_ENV: path.join(directory, 'github-env'),
+    GITHUB_ENV: actionsEnv,
     RELEASE_SOURCE_SHA: sha,
     EXISTING_TAG: 'v0.1.0',
     REQUEST_MESSAGE: '',
   });
+  /** @param {string} job */
   function run(job) {
     for (const script of scripts(job)) {
       const file = path.join(directory, 'action.ps1');
@@ -226,14 +235,17 @@ function fixture(t, changes = {}) {
       });
       if (result.status !== 0) return result;
       try {
-        for (const line of readFileSync(env.GITHUB_ENV, 'utf8').split(
-          /\r?\n/,
-        )) {
+        for (const line of readFileSync(actionsEnv, 'utf8').split(/\r?\n/)) {
           const equals = line.indexOf('=');
           if (equals > 0) env[line.slice(0, equals)] = line.slice(equals + 1);
         }
       } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
+        if (!(
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ))
+          throw error;
       }
     }
     return { status: 0, stdout: '', stderr: '' };
@@ -243,6 +255,7 @@ function fixture(t, changes = {}) {
     git,
     sha,
     state: () => JSON.parse(readFileSync(stateFile, 'utf8')),
+    /** @param {(state: any) => void} mutate Edits the parsed JSON state. */
     update: (mutate) => {
       const state = JSON.parse(readFileSync(stateFile, 'utf8'));
       mutate(state);
@@ -289,7 +302,12 @@ test(
   },
 );
 
-for (const failure of ['digest', 'size', 'download', 'source']) {
+for (const failure of /** @type {const} */ ([
+  'digest',
+  'size',
+  'download',
+  'source',
+])) {
   test(
     `existing-release publication still rejects a bad ${failure}`,
     options,

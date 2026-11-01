@@ -173,7 +173,7 @@ test('an imported gh account confirms that the gh CLI stays untouched and focus 
   await expect(
     page.getByText('1 Konto verbunden', { exact: true }),
   ).toBeVisible();
-  expect((await readCalls(page, 'disconnect_account'))[0].args).toEqual({
+  expect((await readCalls(page, 'disconnect_account'))[0]?.args).toEqual({
     accountId: 'github-gh-42',
   });
   const picker = page.getByLabel('Aktives Konto auswählen', { exact: true });

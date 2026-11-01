@@ -17,8 +17,8 @@ const snapshot = () => structuredClone(fixture) as Snapshot;
 describe('activity model', () => {
   it('orders repositories by latest activity, including completed runs, and keeps unused repositories', () => {
     const data = snapshot();
-    data.repos[3].selected = true;
-    data.runs[3].updatedAt = '2026-10-31T10:00:00Z';
+    data.repos[3]!.selected = true;
+    data.runs[3]!.updatedAt = '2026-10-31T10:00:00Z';
     expect(repositoryActivity(data, '', '').map(({ repo }) => repo.id)).toEqual(
       [
         'demo-personal-site',
@@ -73,21 +73,21 @@ describe('activity model', () => {
     expect(
       visibleRuns(data, '', '', 'recent').every((run) => !isActive(run)),
     ).toBe(true);
-    data.repos[0].selected = false;
+    data.repos[0]!.selected = false;
     expect(
       visibleRuns(data, 'demo-personal', '', 'all').map((run) => run.id),
     ).toEqual([8404]);
   });
   it('sorts active first, then by start date and reports truthful status', () => {
     const data = snapshot();
-    data.runs[4].createdAt = '2030-01-01T00:00:00Z';
+    data.runs[4]!.createdAt = '2030-01-01T00:00:00Z';
     expect(visibleRuns(data, '', '', 'all').map((run) => run.id)).toEqual([
       8402, 8401, 8403, 8405, 8404,
     ]);
-    expect(statusLabel(data.runs[1])).toBe('In Warteschlange');
-    expect(statusLabel(data.runs[3])).toBe('Fehlgeschlagen');
-    expect(duration(data.runs[0])).toBe('1:00 min');
-    expect(fullRepo(data.repos[1])).toBe('example-org/runner-tools-demo');
+    expect(statusLabel(data.runs[1]!)).toBe('In Warteschlange');
+    expect(statusLabel(data.runs[3]!)).toBe('Fehlgeschlagen');
+    expect(duration(data.runs[0]!)).toBe('1:00 min');
+    expect(fullRepo(data.repos[1]!)).toBe('example-org/runner-tools-demo');
   });
   it.each([
     ['queued', null, 'In Warteschlange'],
@@ -100,7 +100,7 @@ describe('activity model', () => {
   ] satisfies [Run['status'], Run['conclusion'], string][])(
     'labels status %s with conclusion %s as %s',
     (status, conclusion, label) => {
-      const run = { ...snapshot().runs[0], status, conclusion };
+      const run = { ...snapshot().runs[0]!, status, conclusion };
       expect(statusLabel(run)).toBe(label);
     },
   );
@@ -115,7 +115,7 @@ describe('activity model', () => {
     const updatedAt = new Date(Date.parse(createdAt) + seconds * 1000);
     expect(
       duration({
-        ...snapshot().runs[0],
+        ...snapshot().runs[0]!,
         createdAt,
         updatedAt: updatedAt.toISOString(),
       }),
