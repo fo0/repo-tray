@@ -4,6 +4,7 @@
   import AppHeader from './lib/AppHeader.svelte';
   import Icon from './lib/Icon.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
+  import RunLink from './lib/RunLink.svelte';
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
@@ -243,6 +244,9 @@
   ) {
     notice = value;
     noticeTone = tone;
+  }
+  function warn(value: string) {
+    showNotice(value, 'warning');
   }
   function request(id: string): DispatchRequest {
     return {
@@ -1092,7 +1096,10 @@
                   ><Icon name="chevron" size={14} /></span
                 >
               </button>
-              {#if expanded === run.id}<div class="run-details">
+              {#if expanded === run.id}{@const runUrl = safeGitHubUrl(
+                  run.htmlUrl,
+                )}
+                <div class="run-details">
                   <div>
                     <span>Account</span><strong
                       >{accountName(
@@ -1111,23 +1118,12 @@
                   <div>
                     <span>Ergebnis</span><strong>{statusLabel(run)}</strong>
                   </div>
-                  {#if safeGitHubUrl(run.htmlUrl)}<a
-                      class="detail-link"
-                      href={safeGitHubUrl(run.htmlUrl)!}
-                      onclick={(event) => {
-                        if (native) {
-                          event.preventDefault();
-                          void invoke('open_run', {
-                            url: run.htmlUrl,
-                          }).catch((cause) =>
-                            showNotice(errorMessage(cause), 'warning'),
-                          );
-                        }
-                      }}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >Auf GitHub ansehen<Icon name="external" size={13} /></a
-                    >{:else}<button
+                  {#if runUrl}<RunLink
+                      url={runUrl}
+                      label="Auf GitHub ansehen"
+                      {native}
+                      onError={warn}
+                    />{:else}<button
                       class="detail-link"
                       disabled
                       title="Demo-Runs haben keinen GitHub-Link"
@@ -1899,26 +1895,13 @@
                     >
                     <p>{outcome.message}</p>
                     {#if outcome.state === 'accepted' && outcome.runId}
-                      {#if safeGitHubUrl(outcome.htmlUrl ?? '')}<a
-                          class="detail-link"
-                          href={safeGitHubUrl(outcome.htmlUrl ?? '')!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onclick={(event) => {
-                            if (native) {
-                              event.preventDefault();
-                              void invoke('open_run', {
-                                url: outcome?.htmlUrl,
-                              }).catch((cause) =>
-                                showNotice(errorMessage(cause), 'warning'),
-                              );
-                            }
-                          }}
-                          >Run #{outcome.runId} auf GitHub<Icon
-                            name="external"
-                            size={13}
-                          /></a
-                        >{/if}
+                      {@const runUrl = safeGitHubUrl(outcome.htmlUrl ?? '')}
+                      {#if runUrl}<RunLink
+                          url={runUrl}
+                          label={`Run #${outcome.runId} auf GitHub`}
+                          {native}
+                          onError={warn}
+                        />{/if}
                       <button
                         type="button"
                         class="text-button"
