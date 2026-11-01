@@ -20,6 +20,8 @@ export interface InputSpec {
   required: boolean;
   default?: InputValue;
   options: string[];
+  /** Set when the service could not offer options (e.g. too many environments). */
+  note?: string;
 }
 export interface Workflow {
   id: number;

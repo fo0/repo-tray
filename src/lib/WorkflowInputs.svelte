@@ -59,6 +59,7 @@
           >{/if}<small>{TYPE_LABELS[input.type]}</small></span
       >{#if input.type === 'choice' || input.type === 'environment'}<select
           aria-label={input.label}
+          aria-describedby={input.note ? `input-note-${input.name}` : undefined}
           value={text(input)}
           onchange={(event) => onChange(input.name, event.currentTarget.value)}
           {disabled}
@@ -81,6 +82,9 @@
           oninput={(event) => onChange(input.name, event.currentTarget.value)}
           autocomplete="off"
           {disabled}
-        />{/if}</label
+        />{/if}{#if input.note}<small
+          class="field-help"
+          id={`input-note-${input.name}`}>{input.note}</small
+        >{/if}</label
     >{/if}
 {/each}
