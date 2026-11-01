@@ -1,10 +1,4 @@
-<script lang="ts">
-  let {
-    name,
-    size = 18,
-    class: className = '',
-  }: { name: string; size?: number; class?: string } = $props();
-
+<script module lang="ts">
   // RepoTray geometry constructed from basic SVG primitives; see docs/ASSETS.md.
   type Shape = {
     tag: 'line' | 'polyline' | 'rect' | 'circle' | 'path';
@@ -30,7 +24,7 @@
     rx = 2,
   ): Shape => ({ tag: 'rect', attributes: { x, y, width, height, rx } });
 
-  const glyphs: Record<string, Shape[]> = {
+  const glyphs = {
     heart: [
       {
         tag: 'path',
@@ -123,7 +117,18 @@
     ],
     bolt: [wire('14,3 5,13 11,13 10,21 19,10 13,10 14,3')],
     arrow: [line(4, 12, 20, 12), wire('14,6 20,12 14,18')],
-  };
+  } satisfies Record<string, Shape[]>;
+
+  /** Every glyph name; a typo at a call site is a type error, not a silent fallback. */
+  export type IconName = keyof typeof glyphs;
+</script>
+
+<script lang="ts">
+  let {
+    name,
+    size = 18,
+    class: className = '',
+  }: { name: IconName; size?: number; class?: string } = $props();
 </script>
 
 <svg
