@@ -321,7 +321,7 @@
           onToggle={(id) => (expanded = expanded === id ? null : id)}
           onOpenSettings={openNextStep}
           onClearQuery={clearQuery}
-          onLinkError={warn}
+          onNotice={(text, tone) => panel.showNotice(text, tone)}
         />
       {:else}
         <LaunchView

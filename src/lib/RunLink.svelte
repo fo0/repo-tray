@@ -8,12 +8,16 @@
     label,
     native,
     onError,
+    iconOnly = false,
   }: {
     /** Already checked with safeGitHubUrl; the shell re-validates it. */
     url: string;
+    /** Visible text, or the accessible name of the icon-only variant. */
     label: string;
     native: boolean;
     onError: (message: string) => void;
+    /** Compact row action: icon only, `label` becomes its accessible name. */
+    iconOnly?: boolean;
   } = $props();
 
   function open(event: MouseEvent) {
@@ -26,10 +30,18 @@
   }
 </script>
 
-<a
-  class="detail-link"
-  href={url}
-  onclick={open}
-  target="_blank"
-  rel="noopener noreferrer">{label}<Icon name="external" size={13} /></a
->
+{#if iconOnly}<a
+    class="run-action"
+    href={url}
+    onclick={open}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label={label}
+    title="Auf GitHub öffnen"><Icon name="external" size={14} /></a
+  >{:else}<a
+    class="detail-link"
+    href={url}
+    onclick={open}
+    target="_blank"
+    rel="noopener noreferrer">{label}<Icon name="external" size={13} /></a
+  >{/if}

@@ -21,6 +21,7 @@
   import { minuteClock } from './clock';
   import { plural } from './format';
   import { HISTORY_LIMIT, isActive } from './model';
+  import type { NoticeTone } from './StatusBanners.svelte';
   import type { Run } from './types';
 
   let {
@@ -42,7 +43,7 @@
     onToggle,
     onOpenSettings,
     onClearQuery,
-    onLinkError,
+    onNotice,
   }: {
     runs: Run[];
     filter: ActivityFilter;
@@ -63,7 +64,7 @@
     onToggle: (runId: number) => void;
     onOpenSettings: () => void;
     onClearQuery: () => void;
-    onLinkError: (message: string) => void;
+    onNotice: (text: string, tone: NoticeTone) => void;
   } = $props();
 </script>
 
@@ -105,7 +106,7 @@
       {native}
       now={$minuteClock}
       onToggle={() => onToggle(run.id)}
-      {onLinkError}
+      {onNotice}
     />
   {:else}<EmptyState
       icon="activity"
