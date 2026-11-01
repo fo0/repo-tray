@@ -10,6 +10,7 @@
     cancelLabel = 'Abbrechen',
     busyLabel,
     busy = false,
+    tone = 'danger',
     onConfirm,
     onCancel,
   }: {
@@ -19,12 +20,14 @@
     text: string;
     /** A consequence the user must weigh first; its own line under the text. */
     warning?: string | undefined;
-    /** The destructive action, styled as danger. */
+    /** The action asked for; styled as danger unless `tone` says otherwise. */
     confirmLabel: string;
     cancelLabel?: string;
     /** Confirm label while the action runs. */
     busyLabel?: string;
     busy?: boolean;
+    /** `caution`: deliberate but not destructive, e.g. releasing a start lock. */
+    tone?: 'danger' | 'caution';
     onConfirm: () => void;
     onCancel: () => void;
   } = $props();
@@ -56,6 +59,7 @@
 
 <div
   class="inline-confirm"
+  class:caution={tone === 'caution'}
   role="group"
   aria-labelledby={`${id}-title`}
   aria-describedby={warning ? `${id}-text ${id}-warning` : `${id}-text`}
@@ -78,7 +82,7 @@
     >
     <button
       type="button"
-      class="danger-button"
+      class={tone === 'danger' ? 'danger-button' : 'secondary-button compact'}
       aria-disabled={busy ? 'true' : undefined}
       onclick={unlessBusy(onConfirm)}
       >{busy && busyLabel ? busyLabel : confirmLabel}</button

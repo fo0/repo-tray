@@ -8,24 +8,19 @@
   color: var(--warning);
 }
 
-.release-confirm {
+/* The release question: deliberate, not destructive (InlineConfirm `caution`). */
+.inline-confirm.caution {
   margin-top: 10px;
-  padding: 10px;
-  border: 1px solid #605033;
-  border-radius: 6px;
+  border-color: #605033;
   background: #302a1d;
 }
-.release-confirm p {
-  margin: 0;
+.inline-confirm.caution p {
+  color: #dcc391;
 }
-.release-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  margin-top: 10px;
+.inline-confirm.caution p strong {
+  color: #f0d39c;
 }
-.release-actions .secondary-button {
+.inline-confirm.caution .secondary-button {
   max-width: 100%;
   height: auto;
   min-height: 32px;
@@ -33,9 +28,6 @@
   white-space: normal;
   text-align: left;
   line-height: 1.4;
-}
-.release-actions .text-button {
-  margin-top: 0;
 }
 .release-error {
   margin-top: 8px;

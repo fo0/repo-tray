@@ -1,5 +1,6 @@
 <script lang="ts" generics="C">
   import { tick } from 'svelte';
+  import InlineConfirm from './InlineConfirm.svelte';
   import { errorMessage } from './format';
 
   let {
@@ -17,20 +18,20 @@
      */
     onRelease: (claim?: C) => Promise<void>;
   } = $props();
+  /** Unique per instance, so label and description IDs never collide. */
+  const uid = $props.id();
   let confirming = $state(false);
   let error = $state('');
   /** The claim the user confirms: as shown when the confirmation opened. */
   let held: C | undefined;
   let ask = $state<HTMLButtonElement>();
-  let cancel = $state<HTMLButtonElement>();
 
-  async function open() {
+  // The question takes focus on its safe choice (InlineConfirm), so Enter
+  // right after opening releases nothing.
+  function open() {
     held = claim;
     confirming = true;
     error = '';
-    await tick();
-    // The safe choice takes focus first.
-    cancel?.focus();
   }
   async function close() {
     confirming = false;
@@ -53,35 +54,23 @@
   }
 </script>
 
+<!-- Escape cancels only this question, never the start dialog; while the
+     release runs both buttons stay focusable (aria-disabled). -->
 {#if !confirming}<button
     type="button"
     class="text-button"
     bind:this={ask}
-    onclick={() => void open()}>Sperre aufheben…</button
-  >{#if error}<p class="release-error" role="alert">{error}</p>{/if}{:else}<div
-    class="release-confirm"
-    role="group"
-    aria-label="Sperre aufheben"
-    aria-describedby="release-hint"
-  >
-    <p id="release-hint">
-      Hebe die Sperre nur auf, wenn du auf GitHub geprüft hast, dass dieser
-      Start nicht läuft oder ein erneuter Start gewollt ist. RepoTray startet
-      dabei nichts.
-    </p>
-    <div class="release-actions">
-      <button
-        type="button"
-        class="secondary-button compact"
-        disabled={releasing}
-        onclick={() => void confirm()}
-        >Ich habe die Runs auf GitHub geprüft – Sperre aufheben</button
-      ><button
-        type="button"
-        class="text-button"
-        bind:this={cancel}
-        disabled={releasing}
-        onclick={() => void close()}>Abbrechen</button
-      >
-    </div>
-  </div>{/if}
+    onclick={open}>Sperre aufheben…</button
+  >{#if error}<p class="release-error" role="alert">
+      {error}
+    </p>{/if}{:else}<InlineConfirm
+    id={`release-${uid}`}
+    tone="caution"
+    title="Sperre aufheben?"
+    text="Hebe die Sperre nur auf, wenn du auf GitHub geprüft hast, dass dieser Start nicht läuft oder ein erneuter Start gewollt ist. RepoTray startet dabei nichts."
+    confirmLabel="Ich habe die Runs auf GitHub geprüft – Sperre aufheben"
+    busyLabel="Sperre wird aufgehoben …"
+    busy={releasing}
+    onConfirm={() => void confirm()}
+    onCancel={() => void close()}
+  />{/if}
