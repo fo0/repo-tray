@@ -125,18 +125,14 @@ pub(super) fn validate_identifier(value: &str) -> Result<(), CacheError> {
 pub(super) fn encode<T: Serialize>(value: &T) -> Result<String, CacheError> {
     let payload = serde_json::to_string(value)?;
     if payload.len() > MAX_CACHE_BYTES {
-        return Err(CacheError::Invalid(
-            "Cache entry exceeds the safety limit.".into(),
-        ));
+        return Err(CacheError::TooLarge);
     }
     Ok(payload)
 }
 
 pub(super) fn decode<T: serde::de::DeserializeOwned>(payload: &str) -> Result<T, CacheError> {
     if payload.len() > MAX_CACHE_BYTES {
-        return Err(CacheError::Invalid(
-            "Cache entry exceeds the safety limit.".into(),
-        ));
+        return Err(CacheError::TooLarge);
     }
     Ok(serde_json::from_str(payload)?)
 }

@@ -208,6 +208,24 @@ fn a_refused_favorite_write_is_reported_in_german() {
         live.save_pin(pin.clone()).unwrap_err(),
         "Namen oder Werte, die wie Zugangsdaten aussehen, werden nicht gespeichert."
     );
+    // An oversized favorite is refused by its input limits, never as a credential.
+    let oversized = Pin {
+        label: "Fixture pin".into(),
+        inputs: Inputs::from([(
+            "notes".into(),
+            InputValue::String("x".repeat(3 * 1024 * 1024)),
+        )]),
+        ..pin.clone()
+    };
+    assert_eq!(
+        live.save_pin(oversized).unwrap_err(),
+        "Eingabewerte eines Favoriten dürfen höchstens 1.000 Zeichen lang sein."
+    );
+    // Should an entry still exceed the cache limit, it is named as too large.
+    assert_eq!(
+        pin_save_error(CacheError::TooLarge),
+        "Favorit ist zu groß zum Speichern – kürze seine Eingaben."
+    );
     rusqlite::Connection::open(&path)
         .unwrap()
         .execute_batch(

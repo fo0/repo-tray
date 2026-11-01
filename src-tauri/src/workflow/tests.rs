@@ -169,3 +169,31 @@ fn an_input_without_a_choice_takes_no_value_and_blocks_only_when_required() {
         "Pflichtfeld „stage“ fehlt."
     );
 }
+
+#[test]
+fn pin_inputs_are_bounded_in_count_and_characters() {
+    let text = |chars: usize| InputValue::String("ä".repeat(chars));
+    let widest: Inputs = (0..MAX_INPUTS)
+        .map(|index| {
+            let name = format!("{index:0>width$}", width = MAX_PIN_INPUT_NAME_CHARS);
+            (name, text(MAX_PIN_INPUT_VALUE_CHARS))
+        })
+        .collect();
+    assert!(validate_pin_inputs(&widest).is_ok());
+    let mut crowded = widest.clone();
+    crowded.insert("extra".into(), InputValue::Boolean(true));
+    assert_eq!(
+        validate_pin_inputs(&crowded).unwrap_err().0,
+        "Ein Favorit speichert höchstens 25 Eingaben."
+    );
+    let long_name = Inputs::from([("n".repeat(MAX_PIN_INPUT_NAME_CHARS + 1), text(1))]);
+    assert_eq!(
+        validate_pin_inputs(&long_name).unwrap_err().0,
+        "Eingabenamen eines Favoriten dürfen höchstens 100 Zeichen lang sein."
+    );
+    let long_value = Inputs::from([("notes".to_string(), text(MAX_PIN_INPUT_VALUE_CHARS + 1))]);
+    assert_eq!(
+        validate_pin_inputs(&long_value).unwrap_err().0,
+        "Eingabewerte eines Favoriten dürfen höchstens 1.000 Zeichen lang sein."
+    );
+}

@@ -77,14 +77,17 @@ const BROWSER_SETUP_NOTICE: &str = "GitHub-Konto verbunden. Richte in den Einste
 
 const PIN_CREDENTIAL_REFUSED: &str =
     "Namen oder Werte, die wie Zugangsdaten aussehen, werden nicht gespeichert.";
+const PIN_TOO_LARGE: &str = "Favorit ist zu groß zum Speichern – kürze seine Eingaben.";
 const PIN_SAVE_FAILED: &str = "Favorit konnte nicht lokal gespeichert werden. Versuche es erneut.";
 const PIN_DELETE_FAILED: &str = "Favorit konnte nicht lokal entfernt werden. Versuche es erneut.";
 
 /// The panel text for a favorite the cache refused. `CacheError` text is internal English;
-/// after the store's own checks, a refused value can only be a credential-looking string.
+/// after the store's own checks (input limits included), a refused value can only be a
+/// credential-looking string, and an oversized entry is named as such.
 fn pin_save_error(error: CacheError) -> String {
     match error {
         CacheError::Invalid(_) => PIN_CREDENTIAL_REFUSED,
+        CacheError::TooLarge => PIN_TOO_LARGE,
         CacheError::Database(_) | CacheError::Serialization(_) => PIN_SAVE_FAILED,
     }
     .into()

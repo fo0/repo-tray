@@ -157,6 +157,21 @@ fn snapshot_pins_and_settings_are_account_isolated() {
 }
 
 #[test]
+fn an_oversized_pin_is_too_large_rather_than_invalid() {
+    let cache = Cache::in_memory().unwrap();
+    let mut pin = DemoStore::new().snapshot().pins.remove(0);
+    pin.inputs.insert(
+        "notes".into(),
+        InputValue::String("x".repeat(MAX_CACHE_BYTES)),
+    );
+    assert!(matches!(
+        cache.save_pin(&pin.account_id.clone(), &pin),
+        Err(CacheError::TooLarge)
+    ));
+    assert!(cache.load_pins(&pin.account_id).unwrap().is_empty());
+}
+
+#[test]
 fn pins_reject_secrets_and_snapshots_never_write_pins() {
     let mut cache = Cache::in_memory().unwrap();
     let mut snapshot = DemoStore::new().snapshot();

@@ -319,7 +319,7 @@ pub fn validate_pin_fields(pin: &Pin) -> Result<(), String> {
     if !valid_git_ref(&pin.git_ref) {
         return Err("Branch oder Tag des Favoriten ist ungültig.".into());
     }
-    Ok(())
+    crate::workflow::validate_pin_inputs(&pin.inputs).map_err(|error| error.to_string())
 }
 
 /// Shared by the demo and live stores: a new favorite needs room; replacing one never does.

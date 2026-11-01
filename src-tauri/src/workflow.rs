@@ -6,7 +6,12 @@ use std::collections::BTreeSet;
 use std::fmt;
 
 pub const MAX_WORKFLOW_BYTES: usize = 64 * 1024;
-const MAX_INPUTS: usize = 25;
+/// The most inputs a workflow may declare; a favorite never needs to store more.
+pub const MAX_INPUTS: usize = 25;
+/// Character limits of a favorite's input names and text values. Together with
+/// `MAX_INPUTS` they keep every favorite far below the cache entry limit.
+pub const MAX_PIN_INPUT_NAME_CHARS: usize = 100;
+pub const MAX_PIN_INPUT_VALUE_CHARS: usize = 1_000;
 const MAX_YAML_DEPTH: usize = 48;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -313,6 +318,32 @@ pub fn looks_like_credential(value: &str) -> bool {
         || value.contains("-----BEGIN PRIVATE KEY-----")
         || value.contains("-----BEGIN RSA PRIVATE KEY-----")
         || value.to_ascii_lowercase().starts_with("bearer ")
+}
+
+/// A favorite's inputs arrive over IPC unchecked against any workflow, so they are bounded
+/// here before they reach the cache.
+pub fn validate_pin_inputs(inputs: &Inputs) -> Result<(), WorkflowError> {
+    if inputs.len() > MAX_INPUTS {
+        return Err(error(format!(
+            "Ein Favorit speichert höchstens {MAX_INPUTS} Eingaben."
+        )));
+    }
+    if inputs
+        .keys()
+        .any(|name| name.chars().count() > MAX_PIN_INPUT_NAME_CHARS)
+    {
+        return Err(error(
+            "Eingabenamen eines Favoriten dürfen höchstens 100 Zeichen lang sein.",
+        ));
+    }
+    if inputs.values().any(|value| {
+        matches!(value, InputValue::String(text) if text.chars().count() > MAX_PIN_INPUT_VALUE_CHARS)
+    }) {
+        return Err(error(
+            "Eingabewerte eines Favoriten dürfen höchstens 1.000 Zeichen lang sein.",
+        ));
+    }
+    Ok(())
 }
 
 /// Pins and cache are public preferences; secret-looking fields/values never enter them.

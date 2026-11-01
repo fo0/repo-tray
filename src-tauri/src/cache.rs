@@ -29,6 +29,8 @@ pub enum CacheError {
     Database(rusqlite::Error),
     Serialization(serde_json::Error),
     Invalid(String),
+    /// An entry larger than the cache's safety limit; it is neither written nor read.
+    TooLarge,
 }
 
 impl fmt::Display for CacheError {
@@ -37,6 +39,7 @@ impl fmt::Display for CacheError {
             Self::Database(_) => f.write_str("The local cache could not be read or written."),
             Self::Serialization(_) => f.write_str("The local cache contains invalid data."),
             Self::Invalid(message) => f.write_str(message),
+            Self::TooLarge => f.write_str("Cache entry exceeds the safety limit."),
         }
     }
 }
