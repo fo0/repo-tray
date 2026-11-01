@@ -59,7 +59,7 @@
               class="pinned-warning"
               title="Startstatus ungeklärt · Wähle den Favoriten, um den Status zu prüfen"
               role="img"
-              aria-label="Startstatus ungeklärt"
+              aria-label={names.uncertain}
               ><Icon name="warning" size={14} /></span
             >{/if}
           <button
@@ -77,7 +77,7 @@
             class="action-start pinned-start"
             onclick={() => onLaunch(pin)}
             disabled={!can.canStart}
-            aria-label={pin.quickStart ? undefined : names.open}
+            aria-label={pin.quickStart ? names.quickStart : names.open}
             aria-hidden={pin.quickStart ? undefined : 'true'}
             tabindex={pin.quickStart ? undefined : -1}
             title={can.reason ??

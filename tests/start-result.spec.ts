@@ -233,9 +233,17 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await holdStarts(page);
   const card = templateCard(page, 'Quick build');
-  await card.getByRole('button', { name: 'Schnellstart', exact: true }).click();
+  await card
+    .getByRole('button', {
+      name: 'Favorit Quick build schnellstarten',
+      exact: true,
+    })
+    .click();
   await expect(
-    card.getByRole('button', { name: 'Schnellstart', exact: true }),
+    card.getByRole('button', {
+      name: 'Favorit Quick build schnellstarten',
+      exact: true,
+    }),
   ).toBeDisabled();
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
@@ -244,12 +252,18 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
   // Still running after the settings dialog closed: no second start possible.
   await expect(
-    card.getByRole('button', { name: 'Schnellstart', exact: true }),
+    card.getByRole('button', {
+      name: 'Favorit Quick build schnellstarten',
+      exact: true,
+    }),
   ).toBeDisabled();
   await page.clock.runFor(400);
   await expect(page.getByText(/Quick build: .*Demo-Run #9001/)).toBeVisible();
   await expect(
-    card.getByRole('button', { name: 'Schnellstart', exact: true }),
+    card.getByRole('button', {
+      name: 'Favorit Quick build schnellstarten',
+      exact: true,
+    }),
   ).toBeEnabled();
 });
 

@@ -104,7 +104,10 @@ test('a notice that arrives behind a dialog waits there and times out only after
   await page
     .getByRole('article')
     .filter({ has: page.getByRole('heading', { name: 'Quick build' }) })
-    .getByRole('button', { name: 'Schnellstart', exact: true })
+    .getByRole('button', {
+      name: 'Favorit Quick build schnellstarten',
+      exact: true,
+    })
     .click();
   // The quick start settles while the settings dialog hides the panel.
   await page

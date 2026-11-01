@@ -117,3 +117,64 @@ test('repository and workflow rows mark a locked start like favorites do', async
   });
   await expect(tools.locator('.row-warning')).toHaveCount(0);
 });
+
+test('two quick-start favorites name their quick start and their lock uniquely', async ({
+  page,
+}) => {
+  for (const [label, ref] of [
+    ['Develop quick', 'develop'],
+    ['Main quick', 'main'],
+  ] as const) {
+    const dialog = await openLaunch(page);
+    await dialog.getByLabel('Branch oder Tag').selectOption(ref);
+    await dialog.getByText('Als Favorit speichern', { exact: true }).click();
+    await dialog.getByLabel('Name des Favoriten').fill(label);
+    await dialog
+      .getByLabel('Schnellstart aktivieren', { exact: false })
+      .check();
+    await dialog
+      .getByRole('button', { name: 'Favorit speichern', exact: true })
+      .click();
+    await expect(
+      dialog.getByText(`„${label}“ als Favorit gespeichert.`, { exact: true }),
+    ).toBeVisible();
+    await dialog
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+  }
+  const quick = (label: string) =>
+    page.getByRole('button', {
+      name: `Favorit ${label} schnellstarten`,
+      exact: true,
+    });
+  await expect(quick('Develop quick')).toBeVisible();
+  await expect(quick('Main quick')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Schnellstart', exact: true }),
+  ).toHaveCount(0);
+
+  // An uncertain quick start locks main: both favorites on it say which.
+  await scenario(page, 'uncertain');
+  await page.getByRole('button', { name: 'Favoriten', exact: true }).click();
+  await quick('Main quick').click();
+  const locked = (label: string) =>
+    page.getByRole('button', {
+      name: `Startstatus ungeklärt: ${label}`,
+      exact: true,
+    });
+  await expect(locked('Main quick')).toBeVisible();
+  await expect(locked('Windows build')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Startstatus ungeklärt', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Repositories', exact: true }).click();
+  const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
+  await expect(
+    pinned.getByRole('img', { name: 'Startstatus ungeklärt: Main quick' }),
+  ).toBeVisible();
+  await expect(
+    pinned.getByRole('button', {
+      name: 'Favorit Develop quick schnellstarten',
+    }),
+  ).toBeEnabled();
+});

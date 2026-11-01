@@ -60,7 +60,7 @@ for (const width of [360, 480]) {
     await page.setViewportSize({ width, height: 760 });
     const card = await uncertainTemplate(page);
     const status = card.getByRole('button', {
-      name: 'Startstatus ungeklärt',
+      name: 'Startstatus ungeklärt: Windows build',
       exact: true,
     });
     const tooltip = page.getByRole('tooltip');
@@ -129,12 +129,15 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     await page.goto('/');
     const card = await uncertainTemplate(page, true);
     const status = card.getByRole('button', {
-      name: 'Startstatus ungeklärt',
+      name: 'Startstatus ungeklärt: Windows build',
       exact: true,
     });
     const tooltip = page.getByRole('tooltip');
     await expect(
-      card.getByRole('button', { name: 'Schnellstart', exact: true }),
+      card.getByRole('button', {
+        name: 'Favorit Windows build schnellstarten',
+        exact: true,
+      }),
     ).toBeDisabled();
     await status.tap();
     await expect(tooltip).toBeVisible();

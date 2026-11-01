@@ -56,11 +56,14 @@ export function startReason(causes: StartCauses): string | null {
 
 /**
  * Accessible names of a favorite's controls, one rule in every view: „…“
- * marks a control that opens the start dialog.
+ * marks a control that opens the start dialog. Each names its favorite, so
+ * two favorites never share a name.
  */
 export const favoriteNames = (label: string) => ({
   open: `Favorit ${label} starten…`,
+  quickStart: `Favorit ${label} schnellstarten`,
   remove: `Favorit ${label} entfernen`,
+  uncertain: `Startstatus ungeklärt: ${label}`,
 });
 
 /**

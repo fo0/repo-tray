@@ -62,7 +62,12 @@ test('explicitly enabled quick launch dispatches from a saved template', async (
   const card = page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: 'Quick build' }) });
-  await card.getByRole('button', { name: 'Schnellstart', exact: true }).click();
+  await card
+    .getByRole('button', {
+      name: 'Favorit Quick build schnellstarten',
+      exact: true,
+    })
+    .click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByText(/Demo-Run #9001/)).toBeVisible();
 });
@@ -210,7 +215,10 @@ test('compact saved templates keep quick-start configuration and removal reachab
     card.getByText('Schnellstart aktiv', { exact: true }),
   ).toBeVisible();
   await expect(
-    card.getByRole('button', { name: 'Schnellstart', exact: true }),
+    card.getByRole('button', {
+      name: 'Favorit Compact quick build schnellstarten',
+      exact: true,
+    }),
   ).toBeVisible();
   await opener(card, 'Compact quick build').click();
   await expect(page.getByRole('dialog').getByLabel('Version')).toHaveValue(

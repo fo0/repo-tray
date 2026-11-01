@@ -4,9 +4,16 @@
 
   let {
     id,
+    name,
     quickStart,
     demo = true,
-  }: { id: string; quickStart: boolean; demo?: boolean } = $props();
+  }: {
+    id: string;
+    /** Accessible name; names the favorite, so two markers never share one. */
+    name: string;
+    quickStart: boolean;
+    demo?: boolean;
+  } = $props();
   let trigger = $state<HTMLButtonElement>();
   let tooltip = $state<HTMLDivElement>();
   let hovered = $state(false);
@@ -104,6 +111,7 @@
   type="button"
   class="uncertain-start"
   bind:this={trigger}
+  aria-label={name}
   aria-describedby={id}
   aria-controls={id}
   aria-expanded={visible}

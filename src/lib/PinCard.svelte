@@ -51,6 +51,7 @@
     <div class="pin-meta">
       {#if uncertain}<UncertainStartHelp
           id={`uncertain-help-${pin.id}`}
+          name={names.uncertain}
           quickStart={pin.quickStart}
           {demo}
         />
@@ -67,7 +68,7 @@
       onclick={() => onLaunch()}
       disabled={!gate.canStart}
       title={gate.reason ?? undefined}
-      aria-label={pin.quickStart ? undefined : names.open}
+      aria-label={pin.quickStart ? names.quickStart : names.open}
       ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={13} />{pin.quickStart
         ? 'Schnellstart'
         : 'Starten…'}</button

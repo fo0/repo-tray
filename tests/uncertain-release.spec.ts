@@ -77,7 +77,10 @@ test('a persisted claim locks the start after a restart until it is released exp
   const mock = await nativeWithClaim(page);
   const card = templateCard(page, 'Windows build');
   await expect(
-    card.getByRole('button', { name: 'Startstatus ungeklärt', exact: true }),
+    card.getByRole('button', {
+      name: 'Startstatus ungeklärt: Windows build',
+      exact: true,
+    }),
   ).toBeVisible();
   await card.locator('.pin-start').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
@@ -138,7 +141,10 @@ test('a persisted claim locks the start after a restart until it is released exp
   expect(await readCalls(page, 'dispatch_workflow')).toEqual([]);
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(
-    card.getByRole('button', { name: 'Startstatus ungeklärt', exact: true }),
+    card.getByRole('button', {
+      name: 'Startstatus ungeklärt: Windows build',
+      exact: true,
+    }),
   ).toHaveCount(0);
 });
 
