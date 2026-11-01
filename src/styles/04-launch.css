@@ -88,7 +88,7 @@
   background: #bddf92;
   color: #26331a;
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   line-height: 14px;
   border: 1px solid #cee7ad;
   border-radius: 5px;

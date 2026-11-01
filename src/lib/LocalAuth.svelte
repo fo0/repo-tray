@@ -341,13 +341,13 @@
     gap: 3px;
   }
   .local-method-copy strong {
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     font-weight: 600;
     line-height: 1.45;
   }
   .local-method-copy small {
     color: #a9bd98;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     line-height: 1.4;
   }
   .local-method-chevron {
@@ -364,7 +364,7 @@
     display: flex;
     align-items: flex-start;
     gap: 0.5rem;
-    font-size: 0.8rem;
+    font-size: var(--font-size-meta);
   }
   .import-consent input {
     margin-top: 0.2rem;
@@ -379,7 +379,7 @@
     padding: 0;
     margin: 14px 0;
     list-style: none;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     color: #a5b398;
   }
   .local-auth-steps li {
@@ -403,7 +403,7 @@
   }
   .local-auth-help {
     margin-top: 14px;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     line-height: 1.65;
     color: #a9bd98;
   }

@@ -70,7 +70,7 @@
   border: 1px solid transparent;
   border-radius: 6px;
   color: #a3b394;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
 }
 .settings-tabs button[aria-selected='true'] {
   background: #34452a;
@@ -104,7 +104,7 @@
 .update-heading p,
 .update-check-row,
 .update-release {
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   line-height: 1.6;
 }
 .update-heading p {
@@ -131,7 +131,7 @@
 }
 .update-description {
   margin: 16px 0;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   line-height: 1.6;
   color: #9eae90;
 }
@@ -200,7 +200,7 @@
   gap: 7px;
   color: #c2e795;
   margin: 14px 0;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   line-height: 1.6;
 }
 .update-progress label {

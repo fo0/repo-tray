@@ -155,7 +155,7 @@
 .repository-no-actions {
   padding: 15px 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-meta);
 }
 .history-note {
   font-size: var(--font-size-meta);

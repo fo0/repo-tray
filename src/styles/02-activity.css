@@ -121,7 +121,7 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   font-weight: 550;
   letter-spacing: 0.1px;
   color: #e2e7de;

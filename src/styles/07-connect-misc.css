@@ -9,7 +9,7 @@
   letter-spacing: -0.2px;
 }
 .connect-body > p {
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   line-height: 1.8;
   color: #91a77f;
   margin-top: 11px;

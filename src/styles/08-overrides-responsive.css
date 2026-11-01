@@ -17,7 +17,7 @@
 .field select,
 .empty-state p,
 .outcome p {
-  font-size: 11px;
+  font-size: var(--font-size-meta);
 }
 .run-button {
   min-height: 64px;

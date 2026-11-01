@@ -61,6 +61,17 @@ summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+/* These sit inside overflow-clipped rows or scroll containers, so their ring is
+   drawn inside the box instead of being cut off. */
+.repository-toggle:focus-visible,
+.action-copy:focus-visible,
+.run-button:focus-visible,
+.save-pin summary:focus-visible,
+.app-footer > button:focus-visible,
+.modal-body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 button {
   color: inherit;
 }

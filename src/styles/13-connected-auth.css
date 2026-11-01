@@ -39,11 +39,11 @@
 .connected-auth-card span {
   display: block;
   color: #b4c6a3;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   line-height: 1.6;
   margin-top: 3px;
 }
 .auth-preview .auth-not-connected {
   color: #b4c6a3;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
 }
