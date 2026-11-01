@@ -191,3 +191,36 @@ fn an_unreadable_vault_that_still_deletes_removes_the_new_account_row() {
     assert!(h.live.cache.account_ids().unwrap().is_empty());
     assert!(h.live.snapshot().accounts.is_empty());
 }
+
+/// The panel selects the account a connect returned by reading `accounts.last()`.
+fn last_id(snapshot: &Snapshot) -> &str {
+    &snapshot.accounts.last().expect("a connected account").id
+}
+
+fn ids(snapshot: Snapshot) -> Vec<String> {
+    snapshot.accounts.into_iter().map(|a| a.id).collect()
+}
+
+#[test]
+fn a_new_connect_lists_the_connected_account_last() {
+    let mut h = Harness::new("connect-order", Remote::new(), &[]);
+    for id in ["github-1", "github-2", "github-3"] {
+        let snapshot = h.live.connect_account(account(id), commit(id)).unwrap();
+        assert_eq!(last_id(&snapshot), id);
+    }
+    assert_eq!(ids(h.live.snapshot()), ["github-1", "github-2", "github-3"]);
+}
+
+#[test]
+fn a_reconnect_moves_the_existing_account_last_and_keeps_the_others() {
+    let mut h = Harness::new("reconnect-order", Remote::new(), &[]);
+    for id in ["github-1", "github-2", "github-3"] {
+        h.live.connect_account(account(id), commit(id)).unwrap();
+    }
+    for id in ["github-1", "github-2"] {
+        let snapshot = h.live.connect_account(account(id), commit(id)).unwrap();
+        assert_eq!(last_id(&snapshot), id);
+        assert_eq!(snapshot.accounts.len(), 3);
+    }
+    assert_eq!(ids(h.live.snapshot()), ["github-3", "github-1", "github-2"]);
+}
