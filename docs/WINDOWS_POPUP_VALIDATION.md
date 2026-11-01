@@ -55,6 +55,13 @@ PC is needed. Keep the published installer/release unchanged.
    reopen and confirm the draft remains. Test the integrated browser-login flow; hiding must not cancel it.
 6. Disconnect/reconnect a display or restart Explorer, then reopen from the
    recreated tray icon. Confirm placement uses the new icon/monitor geometry.
+7. Drag the panel by its header, then double-click the header: the panel moves,
+   never maximizes, and the next tray open places it beside the icon again.
+
+The remaining native-only checks (snapshot events under the narrowed
+capabilities, update notify mode, signed download progress, WebView2 clipboard,
+High Contrast and autostart after uninstall) are listed in the
+[native Windows smoke checklist](VALIDATION.md#native-windows-smoke-checklist).
 
 The lifecycle and generation approach was compared read-only with
 `fo0/OpenQuota` at `0b21b354e1a0a3f65d78900ec244c43f581542e2`
