@@ -61,8 +61,6 @@ test('the settings dialog traps Tab and Shift+Tab and closes with Escape', async
 test('closing settings with Escape returns focus to the settings button', async ({
   page,
 }) => {
-  // Fixed in the dialog-focus change (#8)
-  test.fail();
   await page.goto('/');
   const opener = page.getByRole('button', {
     name: 'Einstellungen',
@@ -77,7 +75,28 @@ test('closing settings with Escape returns focus to the settings button', async 
   await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(opener).toBeFocused();
+  await expect(opener).toBeFocused({ timeout: 1000 });
+});
+
+test('a chained dialog returns focus to the opener of the first dialog', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const opener = page.getByRole('button', {
+    name: 'Einstellungen',
+    exact: true,
+  });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Einrichten', exact: true }).click();
+  const connect = page.getByRole('dialog', {
+    name: 'GitHub verbinden',
+    exact: true,
+  });
+  await expect(connect).toBeVisible();
+  await connect.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(opener).toBeFocused({ timeout: 1000 });
 });
 
 test('repository search preserves hidden selections and edits across settings tabs', async ({

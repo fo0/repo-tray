@@ -1,6 +1,39 @@
+export interface TrapFocusOptions {
+  /**
+   * Element that receives focus when the dialog closes. Chained dialogs pass
+   * the opener of the first dialog so focus returns there, not to a button of
+   * a dialog that no longer exists.
+   */
+  returnFocus?: () => HTMLElement | null | undefined;
+}
+
+/** Focus was dropped (the focused element was removed or made inert). */
+function focusLost() {
+  const active = document.activeElement;
+  return !active || active === document.body || !active.isConnected;
+}
+
+/**
+ * Restores focus once the page behind the dialog is interactive again: the
+ * dialog's `destroy()` runs while the background is still `inert`, where
+ * `focus()` is silently ignored. Never steals focus that was placed
+ * deliberately in the meantime, and leaves it to a dialog that replaced this one.
+ */
+function restoreFocus(target: HTMLElement | null | undefined, frames = 3) {
+  if (!target?.isConnected || !focusLost()) return;
+  if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+  if (target.closest('[inert]')) {
+    if (frames > 0)
+      requestAnimationFrame(() => restoreFocus(target, frames - 1));
+    return;
+  }
+  target.focus();
+}
+
 /** A small modal focus loop, including focus restoration when the dialog closes. */
-export function trapFocus(node: HTMLElement) {
+export function trapFocus(node: HTMLElement, options: TrapFocusOptions = {}) {
   const previous = document.activeElement as HTMLElement | null;
+  let returnFocus = options.returnFocus;
   const focusable = () =>
     [
       ...node.querySelectorAll<HTMLElement>(
@@ -34,9 +67,14 @@ export function trapFocus(node: HTMLElement) {
   };
   node.addEventListener('keydown', onKey);
   return {
+    update(next: TrapFocusOptions = {}) {
+      returnFocus = next.returnFocus;
+    },
     destroy() {
       node.removeEventListener('keydown', onKey);
-      if (previous?.isConnected) previous.focus();
+      const target = returnFocus?.() ?? previous;
+      // Runs after the current flush, when `inert` has been lifted.
+      queueMicrotask(() => restoreFocus(target));
     },
   };
 }
