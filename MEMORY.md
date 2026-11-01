@@ -22,7 +22,7 @@ Stable project knowledge. **Read at session start.**
 
 - **`[release]` in a `main` commit/merge message publishes a release** once Checks pass; `[publish-existing:vYYYY.MMDD.HHmm]` publishes an existing draft. Never write either unprompted. (2026-11-01)
 - **`pnpm lint` is `prettier --check .`** — it covers Markdown and JSON too, so agent docs, `BACKLOG.md` tables and `.claude/settings.json` must be formatted (`pnpm format`) or CI fails. (2026-11-01)
-- **`--features desktop` does not build on Linux.** Local/Linux Rust checks use `--no-default-features --features network,native-credentials`; Win32 popup tests (`--features desktop --bin repotray`) run only in the CI Windows job. A Linux Windows-target compile is compilation evidence only. (2026-10-31)
+- **`--features desktop` is built and tested only on Windows in CI** (Linux/macOS need Tauri system libraries and are unvalidated). Linux Rust checks use `--no-default-features --features network,native-credentials`; Win32 popup tests (`--features desktop --bin repotray`) run only in the CI Windows job. A Linux Windows-target compile is compilation evidence only. (2026-10-31)
 - **`release:test` skips the workflow tests without PowerShell 7** (`# SKIP Install PowerShell 7`); CI runners have it, a cloud container usually does not — a local pass there does not cover `release.yml`. (2026-11-01)
 - **`gh release view` has no `databaseId` field** — the release workflow reads releases via the REST tag endpoint instead. (2026-10-31)
 - **gh `--no-refresh` only when the installed gh supports it** — passing it unconditionally broke older gh versions during local-account discovery (`src-tauri/src/local_auth.rs` probes the command help first). (2026-10-31)

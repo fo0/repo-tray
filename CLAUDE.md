@@ -109,7 +109,7 @@ cargo clippy --locked --manifest-path src-tauri/Cargo.toml --no-default-features
 cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials
 ```
 
-`--features desktop` compiles only on Windows (CI `windows-desktop` job).
+`--features desktop` needs Tauri system libraries; CI builds it only in the Windows job.
 
 ## Key Patterns
 

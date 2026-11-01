@@ -58,7 +58,8 @@ flowchart TD
 
     MainRs --> DesktopRs
     DesktopRs --> TrayPopup
-    DesktopRs --> PopupRs
+    TrayPopup --> PopupRs
+    DesktopRs -->|"opens SQLite cache"| CacheRs
     DesktopRs --> DesktopUpdates
     DesktopRs -->|"worker threads"| LiveRs
     DesktopRs --> LocalAuth
@@ -78,7 +79,6 @@ flowchart TD
     BrowserAuth --> GithubRs
     WorkflowRs --> ModelsRs
     GithubRs --> ModelsRs
-    CacheRs --> DemoRs
     GithubRs -->|"ETag, rate limits, pagination"| GitHubApi
     AuthRs -->|"tokens"| Keyring
     LocalAuth -->|"explicit gh import"| Keyring
@@ -86,7 +86,7 @@ flowchart TD
 
     Checks -->|"validates"| LibRs
     ReleaseYml --> ReleaseScripts
-    ReleaseScripts -->|"publish signed installers"| Releases
+    ReleaseYml -->|"publish unsigned NSIS EXE"| Releases
 
     click AppSvelte "src/App.svelte"
     click Components "src/lib"
