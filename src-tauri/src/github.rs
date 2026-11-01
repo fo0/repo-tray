@@ -23,7 +23,7 @@ impl ApiUrl {
     pub fn parse(value: &str) -> Result<Self, ApiError> {
         let path = value
             .strip_prefix("https://api.github.com/")
-            .ok_or(ApiError::Policy("Only https://api.github.com is allowed."))?;
+            .ok_or(ApiError::Policy("Nur https://api.github.com ist erlaubt."))?;
         if value.len() > 2048
             || !value.is_ascii()
             || value.bytes().any(|byte| {
@@ -37,14 +37,16 @@ impl ApiUrl {
                 .split('/')
                 .any(|part| part == "." || part == ".." || part.is_empty())
         {
-            return Err(ApiError::Policy("Malformed GitHub API URL."));
+            return Err(ApiError::Policy("GitHub-API-Adresse ungültig."));
         }
         if let Some((_, query)) = path.split_once('?') {
             for pair in query.split('&') {
                 let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
                 // Percent-encoded query keys are unnecessary for our API paths and could hide secrets.
                 if name.contains('%') || sensitive_key(name) || looks_like_credential(value) {
-                    return Err(ApiError::Policy("Credentials are not allowed in API URLs."));
+                    return Err(ApiError::Policy(
+                        "Zugangsdaten sind in API-Adressen nicht erlaubt.",
+                    ));
                 }
             }
         }
@@ -107,7 +109,7 @@ impl ApiRequest {
         validate_segment(owner)?;
         validate_segment(repo)?;
         if workflow_id == 0 || git_ref.trim().is_empty() || inputs.len() > 25 {
-            return Err(ApiError::Policy("Invalid workflow dispatch metadata."));
+            return Err(ApiError::Policy("Startdaten des Workflows ungültig."));
         }
         let url = ApiUrl::parse(&format!(
             "{API_ORIGIN}/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"
@@ -115,7 +117,7 @@ impl ApiRequest {
         let body = serde_json::to_vec(&serde_json::json!({"ref": git_ref, "inputs": inputs}))
             .map_err(|_| ApiError::InvalidResponse)?;
         if body.len() > 64 * 1024 {
-            return Err(ApiError::Policy("Dispatch input payload is too large."));
+            return Err(ApiError::Policy("Workflow-Eingaben sind zu groß."));
         }
         Self::new(account_id, Method::Post, url, Some(body))
     }
@@ -131,7 +133,7 @@ impl ApiRequest {
             || account_id.chars().any(char::is_control)
             || looks_like_credential(account_id)
         {
-            return Err(ApiError::Policy("An account namespace is required."));
+            return Err(ApiError::Policy("Ein Konto ist erforderlich."));
         }
         let mut headers = BTreeMap::from([
             ("Accept".into(), "application/vnd.github+json".into()),
@@ -224,16 +226,31 @@ impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Policy(message) => f.write_str(message),
-            Self::Transport(_) => f.write_str("GitHub transport failed."),
-            Self::Http(status) => write!(f, "GitHub returned HTTP {status}."),
-            Self::RateLimited { retry_at } => {
-                write!(f, "GitHub requests are paused until {retry_at}.")
-            }
-            Self::InvalidResponse => f.write_str("GitHub returned an invalid response."),
-            Self::CacheMiss => f.write_str("A conditional response has no cached page."),
-            Self::QueueUnavailable => f.write_str("The request queue is unavailable."),
+            Self::Transport(_) => f.write_str("GitHub nicht erreichbar – prüfe deine Verbindung."),
+            Self::Http(status) => write!(f, "GitHub-Fehler {status}."),
+            Self::RateLimited { retry_at } => write!(
+                f,
+                "GitHub-Limit erreicht – neuer Versuch um {}.",
+                local_time(*retry_at)
+            ),
+            Self::InvalidResponse => f.write_str("GitHub-Antwort ungültig."),
+            Self::CacheMiss => f.write_str("GitHub-Antwort passt nicht zum Zwischenspeicher."),
+            Self::QueueUnavailable => f.write_str("Anfragewarteschlange nicht verfügbar."),
         }
     }
+}
+
+/// `HH:MM` in the user's local time zone; GitHub reports rate-limit resets as UNIX seconds.
+pub(crate) fn local_time(timestamp: u64) -> String {
+    i64::try_from(timestamp)
+        .ok()
+        .and_then(|seconds| chrono::DateTime::from_timestamp(seconds, 0))
+        .map(|time| {
+            time.with_timezone(&chrono::Local)
+                .format("%H:%M")
+                .to_string()
+        })
+        .unwrap_or_else(|| "--:--".into())
 }
 
 impl std::error::Error for ApiError {}
@@ -293,7 +310,7 @@ impl<T: Transport> ApiClient<T> {
     /// so callers never mistake a rate limit for missing access. Other statuses stay `Ok`.
     pub fn get(&self, request: &ApiRequest, now: u64) -> Result<ApiResponse, ApiError> {
         if request.method != Method::Get {
-            return Err(ApiError::Policy("Only GET requests are read this way."));
+            return Err(ApiError::Policy("Nur GET-Anfragen sind hier erlaubt."));
         }
         let mut state = self.state.lock().map_err(|_| ApiError::QueueUnavailable)?;
         let response = send_once(&mut state, request, now)?;
@@ -358,7 +375,7 @@ impl<T: Transport> ApiClient<T> {
             }
             if !seen.insert(url.clone()) || url.path() != first_path {
                 return Err(ApiError::Policy(
-                    "Pagination exceeded its bounded resource scope.",
+                    "GitHub-Seitenfolge verlässt die angefragte Ressource.",
                 ));
             }
             let key = (account_id.to_owned(), url.clone());
@@ -399,7 +416,7 @@ impl<T: Transport> ApiClient<T> {
                 .is_some_and(|next| next.path() != first_path)
             {
                 return Err(ApiError::Policy(
-                    "Pagination changed the requested resource.",
+                    "GitHub-Seitenfolge wechselt die Ressource.",
                 ));
             }
             next = page.next.clone();
@@ -421,7 +438,7 @@ impl<T: Transport> ApiClient<T> {
         now: u64,
     ) -> DispatchOutcome {
         if request.method != Method::Post {
-            return DispatchOutcome::rejected("A dispatch requires a POST request.");
+            return DispatchOutcome::rejected("Ein Start braucht eine POST-Anfrage.");
         }
         match self.execute(request, now) {
             Ok(response) => match parse_dispatch_confirmation(&response, owner, repo) {
@@ -429,23 +446,26 @@ impl<T: Transport> ApiClient<T> {
                     state: DispatchState::Accepted,
                     run_id: Some(confirmation.workflow_run_id),
                     html_url: Some(confirmation.html_url),
-                    message: "GitHub confirmed the workflow run ID.".into(),
+                    message: format!(
+                        "GitHub hat den Start angenommen (Run #{}). Das ist keine Build-Erfolgsmeldung.",
+                        confirmation.workflow_run_id
+                    ),
                 },
                 Err(_) if matches!(response.status, 400 | 401 | 403 | 404 | 422 | 429) => {
                     DispatchOutcome::rejected(format!(
-                        "GitHub rejected the start (HTTP {}).",
+                        "GitHub hat den Start abgelehnt (HTTP {}). Es wurde nichts gestartet.",
                         response.status
                     ))
                 }
                 Err(_) => DispatchOutcome::uncertain(
-                    "GitHub did not confirm a run ID. Check the run before sending another start.",
+                    "GitHub hat keine Run-ID bestätigt. Prüfe die Runs auf GitHub, bevor du erneut startest.",
                 ),
             },
             Err(ApiError::Transport(TransportError::OutcomeUnknown)) => DispatchOutcome::uncertain(
-                "The start may have reached GitHub. Check the run before trying again.",
+                "Der Start hat GitHub möglicherweise erreicht. Prüfe die Runs auf GitHub, bevor du es erneut versuchst.",
             ),
             Err(ApiError::InvalidResponse) => DispatchOutcome::uncertain(
-                "The start response could not be verified. Do not retry automatically.",
+                "Die Antwort auf den Start ließ sich nicht prüfen. Es gibt keinen automatischen neuen Versuch.",
             ),
             Err(error) => DispatchOutcome::rejected(error.to_string()),
         }
@@ -475,6 +495,8 @@ fn send_once<T: Transport>(
                 || String::from_utf8_lossy(&response.body)
                     .to_ascii_lowercase()
                     .contains("secondary rate limit")));
+    // An absolute deadline at or before `now` (a local clock ahead of GitHub's) falls back to
+    // the escalating delay; a deadline of now+1 would meet the exhausted quota on every refresh.
     let retry_after = response.header("retry-after").and_then(|value| {
         value
             .trim()
@@ -485,11 +507,13 @@ fn send_once<T: Transport>(
                 chrono::DateTime::parse_from_rfc2822(value)
                     .ok()
                     .and_then(|time| u64::try_from(time.timestamp()).ok())
+                    .filter(|deadline| *deadline > now)
             })
     });
     let reset = response
         .header("x-ratelimit-reset")
-        .and_then(|value| value.parse::<u64>().ok());
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|reset| *reset > now);
     let succeeded = (200..300).contains(&response.status) || response.status == 304;
     if primary_exhausted || secondary || retry_after.is_some() {
         // Only failed requests escalate the fallback; a 2xx that spent the last unit does not.
@@ -588,7 +612,7 @@ fn validate_segment(value: &str) -> Result<(), ApiError> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
     {
-        return Err(ApiError::Policy("Invalid repository owner or name."));
+        return Err(ApiError::Policy("Owner oder Repository-Name ungültig."));
     }
     Ok(())
 }
@@ -1168,6 +1192,45 @@ mod tests {
                 "{headers:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_reset_or_retry_date_in_the_past_waits_the_fallback_delay() {
+        let get = ApiRequest::get(
+            "personal",
+            ApiUrl::parse("https://api.github.com/user").unwrap(),
+        )
+        .unwrap();
+        // The local clock runs ahead of GitHub's: the reported deadline is already over.
+        for headers in [
+            vec![("X-RateLimit-Remaining", "0"), ("X-RateLimit-Reset", "900")],
+            vec![
+                ("X-RateLimit-Remaining", "0"),
+                ("X-RateLimit-Reset", "1000"),
+            ],
+            vec![("Retry-After", "Thu, 01 Jan 1970 00:15:00 GMT")],
+        ] {
+            let (client, sent) = client(vec![Ok(response(429, &headers, "{}"))]);
+            client.execute(&get, 1_000).unwrap();
+            assert_eq!(
+                client.execute(&get, 1_001).unwrap_err(),
+                ApiError::RateLimited { retry_at: 1_060 },
+                "{headers:?}"
+            );
+            assert_eq!(sent.lock().unwrap().len(), 1);
+        }
+    }
+
+    #[test]
+    fn user_facing_errors_are_german_with_a_local_clock_time() {
+        assert_eq!(ApiError::Http(502).to_string(), "GitHub-Fehler 502.");
+        let limited = ApiError::RateLimited { retry_at: 0 }.to_string();
+        assert!(limited.starts_with("GitHub-Limit erreicht – neuer Versuch um "));
+        assert!(!limited.contains("1970") && !limited.ends_with(" 0."));
+        assert_eq!(local_time(u64::MAX), "--:--");
+        assert!(ApiError::Transport(TransportError::BeforeSend)
+            .to_string()
+            .contains("nicht erreichbar"));
     }
 
     #[test]

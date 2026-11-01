@@ -2,7 +2,8 @@
 //! Every repository refreshes on its own: a failing one keeps its last known runs.
 use crate::{
     github::{
-        resource_gone, run_from_wire, ApiClient, ApiError, ApiRequest, RunTracker, Transport,
+        local_time, resource_gone, run_from_wire, ApiClient, ApiError, ApiRequest, RunTracker,
+        Transport,
     },
     live::url,
     models::{Repo, Run, RunStatus},
@@ -12,56 +13,85 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const COMPLETED_LIMIT: usize = 50;
 
+/// What went wrong in one scope, kept structured so the panel can name it in German for
+/// the right account or repository.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Cause {
+    Http(u16),
+    RateLimited {
+        retry_at: u64,
+    },
+    /// No answer from GitHub: network, TLS or timeout.
+    Unreachable,
+    /// Already user-facing German text, such as a malformed response or an unusable credential.
+    Text(String),
+}
+
 /// Why one refresh scope (an account or a repository) failed. That scope keeps its last
 /// known state while the others stay fresh.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ScopeError {
     /// 403/404/410 on a repository endpoint: that repository's Actions are not reachable.
-    Denied(String),
+    Denied(Cause),
     /// 401 or an unusable credential: the whole account needs attention.
-    Unauthorized(String),
-    /// Network, rate limit, server or malformed responses: retried on the next refresh.
-    Transient(String),
+    Unauthorized(Cause),
+    /// Network, rate limit, server or malformed responses: retried on a later refresh.
+    Transient(Cause),
 }
 
 impl ScopeError {
     /// Account-wide endpoints have no narrower scope; a denial there concerns the account.
     pub(crate) fn for_account(self) -> Self {
         match self {
-            Self::Denied(message) => Self::Unauthorized(message),
+            Self::Denied(cause) => Self::Unauthorized(cause),
             other => other,
         }
     }
 
-    pub(crate) fn message(&self) -> &str {
+    /// The German sentence the panel shows. `login` names the account; `repo` is
+    /// `owner/name` when the failing scope is a repository.
+    pub(crate) fn describe(&self, login: &str, repo: Option<&str>) -> String {
+        let scope = repo.unwrap_or(login);
         match self {
-            Self::Denied(message) | Self::Unauthorized(message) | Self::Transient(message) => {
-                message
+            Self::Unauthorized(Cause::Text(text)) => format!("{login}: {text}"),
+            Self::Unauthorized(_) => {
+                format!("Zugang von {login} abgelaufen oder widerrufen – verbinde das Konto neu.")
             }
+            Self::Denied(cause) | Self::Transient(cause) => match cause {
+                Cause::Http(status) => format!("GitHub-Fehler {status} bei {scope}."),
+                Cause::RateLimited { retry_at } => format!(
+                    "GitHub-Limit erreicht – neuer Versuch um {}.",
+                    local_time(*retry_at)
+                ),
+                Cause::Unreachable => "GitHub nicht erreichbar – prüfe deine Verbindung.".into(),
+                Cause::Text(text) => format!("{scope}: {text}"),
+            },
         }
     }
 }
 
 impl From<ApiError> for ScopeError {
     fn from(error: ApiError) -> Self {
-        let message = error.to_string();
         match error {
-            ApiError::Http(401) => Self::Unauthorized(message),
-            ApiError::Http(403 | 404 | 410) => Self::Denied(message),
-            _ => Self::Transient(message),
+            ApiError::Http(401) => Self::Unauthorized(Cause::Http(401)),
+            ApiError::Http(status @ (403 | 404 | 410)) => Self::Denied(Cause::Http(status)),
+            ApiError::Http(status) => Self::Transient(Cause::Http(status)),
+            ApiError::RateLimited { retry_at } => Self::Transient(Cause::RateLimited { retry_at }),
+            ApiError::Transport(_) => Self::Transient(Cause::Unreachable),
+            other => Self::Transient(Cause::Text(other.to_string())),
         }
     }
 }
 
 impl From<String> for ScopeError {
     fn from(message: String) -> Self {
-        Self::Transient(message)
+        Self::Transient(Cause::Text(message))
     }
 }
 
 impl From<&str> for ScopeError {
     fn from(message: &str) -> Self {
-        Self::Transient(message.into())
+        Self::Transient(Cause::Text(message.into()))
     }
 }
 
@@ -559,14 +589,8 @@ mod tests {
         assert_eq!(
             pass.failures,
             vec![
-                (
-                    broken,
-                    ScopeError::Transient("GitHub returned HTTP 502.".into())
-                ),
-                (
-                    denied,
-                    ScopeError::Denied("GitHub returned HTTP 403.".into())
-                ),
+                (broken, ScopeError::Transient(Cause::Http(502))),
+                (denied, ScopeError::Denied(Cause::Http(403))),
             ]
         );
         assert!(blocked.is_empty());
@@ -739,6 +763,58 @@ mod tests {
                 ScopeError::from(transient),
                 ScopeError::Transient(_)
             ));
+        }
+    }
+    #[test]
+    fn every_scope_failure_reads_as_german_and_names_its_scope() {
+        let describe =
+            |error: ApiError, repo| ScopeError::from(error).describe("fixture-alex", repo);
+        assert_eq!(
+            describe(ApiError::Http(401), Some("fixture-owner/fixture-name")),
+            "Zugang von fixture-alex abgelaufen oder widerrufen – verbinde das Konto neu."
+        );
+        assert_eq!(
+            describe(ApiError::Http(502), Some("fixture-owner/fixture-name")),
+            "GitHub-Fehler 502 bei fixture-owner/fixture-name."
+        );
+        assert_eq!(
+            describe(ApiError::Http(500), None),
+            "GitHub-Fehler 500 bei fixture-alex."
+        );
+        assert_eq!(
+            describe(ApiError::Transport(TransportError::OutcomeUnknown), None),
+            "GitHub nicht erreichbar – prüfe deine Verbindung."
+        );
+        let limited = describe(
+            ApiError::RateLimited {
+                retry_at: 1_793_462_400,
+            },
+            None,
+        );
+        assert!(limited.starts_with("GitHub-Limit erreicht – neuer Versuch um "));
+        assert!(!limited.contains("1793462400"));
+        let time = limited
+            .trim_start_matches("GitHub-Limit erreicht – neuer Versuch um ")
+            .trim_end_matches('.');
+        assert!(
+            chrono::NaiveTime::parse_from_str(time, "%H:%M").is_ok(),
+            "{time}"
+        );
+        assert_eq!(
+            ScopeError::from("Run-Liste ungültig.").describe("fixture-alex", Some("o/r")),
+            "o/r: Run-Liste ungültig."
+        );
+        for error in [
+            ApiError::Http(404),
+            ApiError::InvalidResponse,
+            ApiError::QueueUnavailable,
+            ApiError::Policy("Nur https://api.github.com ist erlaubt."),
+        ] {
+            let text = describe(error, Some("o/r"));
+            assert!(
+                !text.contains("GitHub returned") && !text.contains("paused"),
+                "{text}"
+            );
         }
     }
 }

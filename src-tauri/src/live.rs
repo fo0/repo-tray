@@ -8,7 +8,7 @@ use crate::{
     cache::{AppSettings, Cache, Release},
     github::{ApiClient, ApiRequest, ApiResponse, ApiUrl, Method, Transport, TransportError},
     models::*,
-    run_history::{self, ScopeError},
+    run_history::{self, Cause, ScopeError},
     workflow::{parse_workflow_yaml, validate_inputs, validate_non_secret_inputs},
 };
 use base64::Engine as _;
@@ -179,147 +179,39 @@ pub fn empty_snapshot() -> Snapshot {
     }
 }
 const CACHE_NOTICE: &str = "Lokaler Zwischenspeicher konnte nicht aktualisiert werden.";
+const ACCOUNT_SAVE_FAILED: &str =
+    "Konto konnte nicht lokal gespeichert werden. Es wurde nichts verbunden; versuche es erneut.";
+const BROWSER_SETUP_NOTICE: &str = "GitHub-Konto verbunden. Richte in den Einstellungen die App-Installation und Repository-Freigabe ein; Organisationsfreigabe oder SSO können erforderlich sein.";
 
-pub struct LiveStore {
+/// Appends a notice to a panel message, once.
+fn with_notice(message: Option<String>, notice: &str) -> String {
+    match message {
+        Some(message) if message.contains(notice) => message,
+        Some(message) => format!("{message} · {notice}"),
+        None => notice.into(),
+    }
+}
+
+/// The native engine. `T` is the GitHub transport; tests drive it through a synthetic one.
+pub struct LiveStore<T: Transport = HttpTransport> {
     data: Snapshot,
-    client: ApiClient<HttpTransport>,
+    client: ApiClient<T>,
     keyring: Arc<dyn NativeKeyring>,
     cache: Cache,
-    catalog_at: u64,
+    schedule: Schedule,
     poll_at: BTreeMap<String, u64>,
     history_since: BTreeMap<String, u64>,
     tracked: BTreeMap<u64, crate::github::RunTracker>,
     outcomes: RecentOutcomes<String, (String, DispatchOutcome)>,
     /// Mirrors the persisted dispatch claims; kept outside `data` so no reset can hide one.
     claims: Vec<UncertainStart>,
+    /// UNIX seconds for refresh timers and backoff; tests step it forward.
+    clock: fn() -> u64,
 }
-impl LiveStore {
+impl LiveStore<HttpTransport> {
     pub fn new(cache: Cache, keyring: Arc<dyn NativeKeyring>) -> Result<Self, String> {
-        let mut data = empty_snapshot();
-        for account in cache
-            .account_ids()
-            .map_err(|_| "Konten konnten nicht geladen werden.")?
-        {
-            if let Some(cached) = cache
-                .load_snapshot(&account)
-                .map_err(|_| "Cache konnte nicht geladen werden.")?
-            {
-                if cached.mode != Mode::Live {
-                    continue;
-                }
-                data.accounts.extend(cached.accounts);
-                data.repos.extend(cached.repos);
-                data.workflows.extend(cached.workflows);
-                data.runs.extend(cached.runs);
-                data.pins.extend(cached.pins);
-                data.updated_at = cached.updated_at;
-            }
-        }
-        let claims = cache
-            .uncertain_starts()
-            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
-        if !data.accounts.is_empty() {
-            data.stale = true;
-            data.connectivity = Connectivity::Offline;
-            data.message = Some("Letzter gespeicherter Stand · Verbindung wird geprüft.".into());
-        }
-        Ok(Self {
-            client: ApiClient::new(HttpTransport::new(keyring.clone())?),
-            data,
-            keyring,
-            cache,
-            catalog_at: 0,
-            poll_at: BTreeMap::new(),
-            history_since: BTreeMap::new(),
-            tracked: BTreeMap::new(),
-            outcomes: RecentOutcomes::new(MAX_RECORDED_OUTCOMES),
-            claims,
-        })
-    }
-    pub fn snapshot(&self) -> Snapshot {
-        let mut snapshot = self.data.clone();
-        snapshot.uncertain_starts = self.claims.clone();
-        snapshot
-    }
-    /// Explicit user action after checking the runs on GitHub. It never dispatches, and no
-    /// code path calls it automatically.
-    pub fn release_uncertain_start(&mut self, start: UncertainStart) -> Result<Snapshot, String> {
-        let release = self
-            .cache
-            .release_uncertain_start(&start)
-            .map_err(|_| "Startsperre konnte nicht aufgehoben werden.")?;
-        self.claims = self
-            .cache
-            .uncertain_starts()
-            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
-        if release == Release::Replaced {
-            return Err(
-                "Für dieses Ziel gibt es eine neuere Startsperre. Prüfe die Runs erneut.".into(),
-            );
-        }
-        Ok(self.snapshot())
-    }
-    /// An unreadable preference keeps the default: notifications off.
-    pub fn notifications_enabled(&self) -> bool {
-        self.cache
-            .load_app_settings()
-            .is_ok_and(|settings| settings.notifications)
-    }
-    pub fn set_notifications_enabled(&mut self, enabled: bool) -> Result<(), String> {
-        let mut settings: AppSettings = self.cache.load_app_settings().unwrap_or_default();
-        settings.notifications = enabled;
-        self.cache
-            .save_app_settings(&settings)
-            .map_err(|_| "Einstellung konnte nicht gespeichert werden.".into())
-    }
-    fn pages(
-        &self,
-        account: &str,
-        path: &[&str],
-        query: &[(&str, &str)],
-    ) -> Result<Vec<Value>, String> {
-        self.client
-            .get_pages(account, url(path, query)?, now())
-            .map_err(|e| e.to_string())?
-            .iter()
-            .map(|body| serde_json::from_slice(body).map_err(|_| "GitHub-Antwort ungültig.".into()))
-            .collect()
-    }
-    fn one(&self, account: &str, path: &[&str], query: &[(&str, &str)]) -> Result<Value, String> {
-        self.pages(account, path, query)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| "GitHub-Antwort fehlt.".into())
-    }
-    fn list(&self, account: &str, path: &[&str], key: Option<&str>) -> Result<Vec<Value>, String> {
-        let mut all = vec![];
-        for page in self.pages(account, path, &[("per_page", "100")])? {
-            all.extend(
-                key.map_or(&page, |k| &page[k])
-                    .as_array()
-                    .ok_or("GitHub-Liste ungültig.")?
-                    .iter()
-                    .cloned(),
-            );
-        }
-        Ok(all)
-    }
-    /// Writes the public metadata cache. A failed write never marks data stale: what is in
-    /// memory is still what GitHub returned, so the failure only becomes a notice.
-    fn persist(&mut self) {
-        let mut failed = false;
-        for account in &self.data.accounts {
-            failed |= self.cache.save_snapshot(&account.id, &self.data).is_err();
-        }
-        if failed {
-            self.data.message = Some(match self.data.message.take() {
-                Some(message) if !message.contains(CACHE_NOTICE) => {
-                    format!("{message} · {CACHE_NOTICE}")
-                }
-                Some(message) => message,
-                None => CACHE_NOTICE.into(),
-            });
-        }
+        let client = ApiClient::new(HttpTransport::new(keyring.clone())?);
+        Self::with_client(cache, keyring, client)
     }
     pub fn connect_token(
         &mut self,
@@ -382,10 +274,8 @@ impl LiveStore {
         if !still_current() {
             return Err("Anmeldung wurde abgebrochen.".into());
         }
-        browser_auth::commit_credential(self.keyring.as_ref(), &id, &token, &still_current)?;
-        self.data.accounts.retain(|a| a.id != id);
-        self.data.accounts.push(Account {
-            id,
+        let account = Account {
+            id: id.clone(),
             login,
             label: if expected_login.is_some() {
                 "GitHub · gh CLI (Kopie)"
@@ -393,11 +283,10 @@ impl LiveStore {
                 "GitHub · Token"
             }
             .into(),
-        });
-        self.catalog_at = 0;
-        self.refresh();
-        self.persist();
-        Ok(self.snapshot())
+        };
+        self.connect_account(account, |keyring| {
+            browser_auth::commit_credential(keyring, &id, &token, &still_current)
+        })
     }
     pub fn connect_browser(
         &mut self,
@@ -418,21 +307,190 @@ impl LiveStore {
         if !still_current() {
             return Err("Anmeldung wurde abgebrochen.".into());
         }
-        browser_auth::commit_credential(
-            self.keyring.as_ref(),
-            &id,
-            &credential.encode()?,
-            &still_current,
-        )?;
-        self.data.accounts.retain(|a| a.id != id);
-        self.data.accounts.push(Account {
-            id,
+        let encoded = credential.encode()?;
+        let account = Account {
+            id: id.clone(),
             login,
             label: "GitHub · Browser".into(),
-        });
-        self.catalog_at = 0;
+        };
+        self.connect_account(account, |keyring| {
+            browser_auth::commit_credential(keyring, &id, &encoded, &still_current)
+        })
+    }
+}
+impl<T: Transport> LiveStore<T> {
+    fn with_client(
+        cache: Cache,
+        keyring: Arc<dyn NativeKeyring>,
+        client: ApiClient<T>,
+    ) -> Result<Self, String> {
+        let mut data = empty_snapshot();
+        for account in cache
+            .account_ids()
+            .map_err(|_| "Konten konnten nicht geladen werden.")?
+        {
+            if let Some(cached) = cache
+                .load_snapshot(&account)
+                .map_err(|_| "Cache konnte nicht geladen werden.")?
+            {
+                if cached.mode != Mode::Live {
+                    continue;
+                }
+                data.accounts.extend(cached.accounts);
+                data.repos.extend(cached.repos);
+                data.workflows.extend(cached.workflows);
+                data.runs.extend(cached.runs);
+                data.pins.extend(cached.pins);
+                data.updated_at = cached.updated_at;
+            }
+        }
+        let claims = cache
+            .uncertain_starts()
+            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
+        if !data.accounts.is_empty() {
+            data.stale = true;
+            data.connectivity = Connectivity::Offline;
+            data.message = Some("Letzter gespeicherter Stand · Verbindung wird geprüft.".into());
+        }
+        Ok(Self {
+            client,
+            data,
+            keyring,
+            cache,
+            schedule: Schedule::default(),
+            poll_at: BTreeMap::new(),
+            history_since: BTreeMap::new(),
+            tracked: BTreeMap::new(),
+            outcomes: RecentOutcomes::new(MAX_RECORDED_OUTCOMES),
+            claims,
+            clock: now,
+        })
+    }
+    /// A denied repository's open runs are frozen at their last known state; they leave the
+    /// panel instead of looking current. Completed runs stay as history.
+    pub fn snapshot(&self) -> Snapshot {
+        let mut snapshot = self.data.clone();
+        snapshot.uncertain_starts = self.claims.clone();
+        let denied: BTreeSet<_> = snapshot
+            .repos
+            .iter()
+            .filter(|repo| repo.permission == Permission::Denied)
+            .map(|repo| repo.id.clone())
+            .collect();
+        snapshot
+            .runs
+            .retain(|run| run.status == RunStatus::Completed || !denied.contains(&run.repo_id));
+        snapshot
+    }
+    /// Explicit user action after checking the runs on GitHub. It never dispatches, and no
+    /// code path calls it automatically.
+    pub fn release_uncertain_start(&mut self, start: UncertainStart) -> Result<Snapshot, String> {
+        let release = self
+            .cache
+            .release_uncertain_start(&start)
+            .map_err(|_| "Startsperre konnte nicht aufgehoben werden.")?;
+        self.claims = self
+            .cache
+            .uncertain_starts()
+            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
+        if release == Release::Replaced {
+            return Err(
+                "Für dieses Ziel gibt es eine neuere Startsperre. Prüfe die Runs erneut.".into(),
+            );
+        }
+        Ok(self.snapshot())
+    }
+    /// An unreadable preference keeps the default: notifications off.
+    pub fn notifications_enabled(&self) -> bool {
+        self.cache
+            .load_app_settings()
+            .is_ok_and(|settings| settings.notifications)
+    }
+    pub fn set_notifications_enabled(&mut self, enabled: bool) -> Result<(), String> {
+        let mut settings: AppSettings = self.cache.load_app_settings().unwrap_or_default();
+        settings.notifications = enabled;
+        self.cache
+            .save_app_settings(&settings)
+            .map_err(|_| "Einstellung konnte nicht gespeichert werden.".into())
+    }
+    fn pages(
+        &self,
+        account: &str,
+        path: &[&str],
+        query: &[(&str, &str)],
+    ) -> Result<Vec<Value>, String> {
+        self.client
+            .get_pages(account, url(path, query)?, (self.clock)())
+            .map_err(|e| e.to_string())?
+            .iter()
+            .map(|body| serde_json::from_slice(body).map_err(|_| "GitHub-Antwort ungültig.".into()))
+            .collect()
+    }
+    fn one(&self, account: &str, path: &[&str], query: &[(&str, &str)]) -> Result<Value, String> {
+        self.pages(account, path, query)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| "GitHub-Antwort fehlt.".into())
+    }
+    fn list(&self, account: &str, path: &[&str], key: Option<&str>) -> Result<Vec<Value>, String> {
+        let mut all = vec![];
+        for page in self.pages(account, path, &[("per_page", "100")])? {
+            all.extend(
+                key.map_or(&page, |k| &page[k])
+                    .as_array()
+                    .ok_or("GitHub-Liste ungültig.")?
+                    .iter()
+                    .cloned(),
+            );
+        }
+        Ok(all)
+    }
+    /// Writes the public metadata cache. A failed write never marks data stale: what is in
+    /// memory is still what GitHub returned, so the failure only becomes a notice.
+    fn persist(&mut self) {
+        let mut failed = false;
+        for account in &self.data.accounts {
+            failed |= self.cache.save_snapshot(&account.id, &self.data).is_err();
+        }
+        if failed {
+            self.data.message = Some(with_notice(self.data.message.take(), CACHE_NOTICE));
+        }
+    }
+    /// Adds a verified account. Its cache row is written before `commit` stores the
+    /// credential, so a connected account always survives a restart and stays removable from
+    /// the panel even when a later full snapshot write fails. A failed row write leaves the
+    /// vault untouched.
+    fn connect_account(
+        &mut self,
+        account: Account,
+        commit: impl FnOnce(&dyn NativeKeyring) -> Result<(), String>,
+    ) -> Result<Snapshot, String> {
+        let id = account.id.clone();
+        let stored = self
+            .cache
+            .account_ids()
+            .map_err(|_| ACCOUNT_SAVE_FAILED)?
+            .contains(&id);
+        if !stored {
+            let mut minimal = empty_snapshot();
+            minimal.accounts = vec![account.clone()];
+            minimal.message = None;
+            self.cache
+                .save_snapshot(&id, &minimal)
+                .map_err(|_| ACCOUNT_SAVE_FAILED)?;
+        }
+        if let Err(error) = commit(self.keyring.as_ref()) {
+            if !stored {
+                // Best effort; only the row goes, never pins, settings or claims. A row left
+                // behind shows an account that asks to be reconnected or disconnected.
+                let _ = self.cache.delete_snapshot(&id);
+            }
+            return Err(error);
+        }
+        self.schedule.forget_account(&id, &self.data.repos);
+        self.data.accounts.retain(|a| a.id != id);
+        self.data.accounts.push(account);
         self.refresh();
-        self.persist();
         Ok(self.snapshot())
     }
     pub fn disconnect(&mut self, account: &str) -> Result<Snapshot, String> {
@@ -443,6 +501,7 @@ impl LiveStore {
         self.cache
             .delete_account(account)
             .map_err(|_| "Kontometadaten konnten nicht entfernt werden.")?;
+        self.schedule.forget_account(account, &self.data.repos);
         self.claims.retain(|claim| claim.account_id != account);
         self.data.accounts.retain(|a| a.id != account);
         self.data.repos.retain(|r| r.account_id != account);
@@ -456,34 +515,34 @@ impl LiveStore {
             .retain(|_, tracker| tracker.account_id != account);
         Ok(self.snapshot())
     }
-    /// Lists every usable account on its own. A failing account keeps its last known
-    /// repositories and sits out this refresh; the other accounts' catalogs update.
-    fn catalog(&mut self, issues: &mut RefreshIssues) {
+    /// Lists every account whose catalog is due, each on its own timer. A failing account
+    /// keeps its last known repositories: a transient failure retries after a minute, an
+    /// unauthorized account waits out its hold. Healthy accounts are not refetched early.
+    fn catalog(&mut self, issues: &mut RefreshIssues, now: u64) {
         let mut listings = BTreeMap::new();
         for account in &self.data.accounts {
-            if issues.blocked.contains(&account.id) {
+            if issues.blocked.contains(&account.id) || !self.schedule.catalog_due(&account.id, now)
+            {
                 continue;
             }
-            match account_repos(&self.client, account) {
+            match account_repos(&self.client, account, now) {
                 Ok(listing) => {
+                    self.schedule.catalog_read(&account.id, None, now);
                     listings.insert(account.id.clone(), listing);
                 }
                 Err(error) => {
-                    issues.blocked.insert(account.id.clone());
-                    issues
-                        .failures
-                        .push((account.login.clone(), error.for_account()));
+                    let error = error.for_account();
+                    self.schedule.catalog_read(&account.id, Some(&error), now);
+                    if matches!(error, ScopeError::Unauthorized(_)) {
+                        self.schedule.hold(&account.id, error.clone(), now);
+                    }
+                    issues.block(account, error);
                 }
             }
         }
-        let complete = listings.len() == self.data.accounts.len();
-        self.data.repos = merge_catalog(&self.data.repos, &self.data.accounts, listings);
-        // A failed account retries its catalog after a minute, not after the full interval.
-        self.catalog_at = if complete {
-            now()
-        } else {
-            now().saturating_sub(CATALOG_SECONDS - 60)
-        };
+        if !listings.is_empty() {
+            self.data.repos = merge_catalog(&self.data.repos, &self.data.accounts, listings);
+        }
     }
     fn yaml(
         &self,
@@ -508,14 +567,19 @@ impl LiveStore {
         parse_workflow_yaml(std::str::from_utf8(&bytes).map_err(|_| "Workflow ist kein UTF-8.")?)
             .map_err(|e| e.to_string())
     }
-    fn repo_metadata(&self, repo: &Repo) -> Result<Vec<Workflow>, ScopeError> {
+    fn repo_metadata(&self, repo: &Repo, now: u64) -> Result<Vec<Workflow>, ScopeError> {
         let base = ["repos", repo.owner.as_str(), repo.name.as_str()];
-        let mut found = vec![];
-        for kind in ["branches", "tags"] {
+        let mut listing = RefListing::default();
+        for (kind, names) in [
+            ("branches", &mut listing.branches),
+            ("tags", &mut listing.tags),
+        ] {
             let path = [base.as_slice(), &[kind]].concat();
-            let (values, _) = list_values(&self.client, &repo.account_id, &path, None, REF_PAGES)?;
+            let (values, truncated) =
+                list_values(&self.client, &repo.account_id, &path, None, REF_PAGES, now)?;
+            listing.truncated |= truncated;
             for value in values {
-                found.push(text(&value, "name")?.to_string());
+                names.push(text(&value, "name")?.to_string());
             }
         }
         let mut workflows = vec![];
@@ -525,6 +589,7 @@ impl LiveStore {
             &[base.as_slice(), &["actions", "workflows"]].concat(),
             Some("workflows"),
             usize::MAX,
+            now,
         )?;
         for value in values {
             let path = text(&value, "path")?;
@@ -574,7 +639,7 @@ impl LiveStore {
             .map(|pin| pin.git_ref.as_str())
             .collect();
         let copies = workflows.iter().filter(|w| w.dispatch).count();
-        let refs = bounded_refs(&repo.default_branch, &pinned, &found, copies);
+        let refs = bounded_refs(&repo.default_branch, &pinned, &listing, copies);
         for workflow in &mut workflows {
             // Only startable workflows offer a ref choice; the others show the default branch.
             workflow.refs = if workflow.dispatch {
@@ -586,36 +651,43 @@ impl LiveStore {
         Ok(workflows)
     }
     /// Every account and repository refreshes on its own: a failing scope keeps its last
-    /// known data while the others update. A denied repository is marked on the repository
-    /// itself; any other failure still marks the whole snapshot stale, because the models
-    /// carry no per-account or per-repository freshness yet.
+    /// known data while the others update, and each keeps its own metadata timer. A denied
+    /// repository is marked on the repository itself and named in a notice; any other failure
+    /// still marks the whole snapshot stale, because the models carry no per-account or
+    /// per-repository freshness yet.
     pub fn refresh(&mut self) -> Snapshot {
         if self.data.accounts.is_empty() {
             self.data = empty_snapshot();
             return self.snapshot();
         }
+        let now = (self.clock)();
         let mut issues = RefreshIssues::default();
         let mut oauth = OAuthClient::default();
         for account in &self.data.accounts {
-            if browser_auth::is_browser_account(&account.id) {
-                let usable = match oauth.prepare(&account.id) {
-                    Ok(oauth) => {
-                        browser_auth::access_token(self.keyring.as_ref(), &account.id, oauth, now())
-                            .map(drop)
-                            .map_err(ScopeError::Unauthorized)
-                    }
-                    Err(error) => Err(ScopeError::Transient(error)),
-                };
-                if let Err(error) = usable {
-                    issues.blocked.insert(account.id.clone());
-                    issues.failures.push((account.login.clone(), error));
+            // An unauthorized account waits for its hold to end or for a reconnect.
+            if let Some(error) = self.schedule.held(&account.id, now) {
+                issues.block(account, error.clone());
+                continue;
+            }
+            if !browser_auth::is_browser_account(&account.id) {
+                continue;
+            }
+            let usable = match oauth.prepare(&account.id) {
+                Ok(oauth) => {
+                    browser_auth::access_token(self.keyring.as_ref(), &account.id, oauth, now)
+                        .map(drop)
+                        .map_err(|error| ScopeError::Unauthorized(Cause::Text(error)))
                 }
+                Err(error) => Err(ScopeError::Transient(Cause::Text(error))),
+            };
+            if let Err(error) = usable {
+                if matches!(error, ScopeError::Unauthorized(_)) {
+                    self.schedule.hold(&account.id, error.clone(), now);
+                }
+                issues.block(account, error);
             }
         }
-        let metadata_due = now().saturating_sub(self.catalog_at) >= CATALOG_SECONDS;
-        if metadata_due {
-            self.catalog(&mut issues);
-        }
+        self.catalog(&mut issues, now);
         let selected: Vec<_> = self
             .data
             .repos
@@ -628,14 +700,16 @@ impl LiveStore {
             if issues.blocked.contains(&repo.account_id) || repo.permission == Permission::Denied {
                 continue;
             }
-            if metadata_due || !self.data.workflows.iter().any(|w| w.repo_id == repo.id) {
-                match self.repo_metadata(repo) {
+            if self.schedule.metadata_due(&repo.id, now) {
+                match self.repo_metadata(repo, now) {
                     Ok(workflows) => {
+                        self.schedule.metadata_read(&repo.id, None, now);
                         self.data.workflows.retain(|w| w.repo_id != repo.id);
                         self.data.workflows.extend(workflows);
                     }
                     Err(error) => {
-                        self.scope_failed(&mut issues, repo, error);
+                        self.schedule.metadata_read(&repo.id, Some(&error), now);
+                        self.scope_failed(&mut issues, repo, error, now);
                         continue;
                     }
                 }
@@ -653,7 +727,7 @@ impl LiveStore {
             &self.poll_at,
             &self.history_since,
             &mut issues.blocked,
-            now(),
+            now,
         );
         // Held repositories (account unusable, access denied, metadata failed) keep their runs.
         let eligible_ids: BTreeSet<_> = eligible.iter().map(|r| r.id.as_str()).collect();
@@ -668,7 +742,7 @@ impl LiveStore {
                 .cloned(),
         );
         for (repo, error) in failures {
-            self.scope_failed(&mut issues, &repo, error);
+            self.scope_failed(&mut issues, &repo, error, now);
         }
         let active: BTreeSet<_> = self
             .data
@@ -681,7 +755,7 @@ impl LiveStore {
             })
             .map(|r| r.id.clone())
             .collect();
-        run_history::follow_dispatched(&self.client, &mut self.tracked, &active, &mut runs, now());
+        run_history::follow_dispatched(&self.client, &mut self.tracked, &active, &mut runs, now);
         self.data.runs = runs;
         for (repo_id, polled_at) in polled {
             self.poll_at.insert(repo_id.clone(), polled_at);
@@ -690,10 +764,24 @@ impl LiveStore {
         self.settle(issues);
         self.snapshot()
     }
+    fn login(&self, account_id: &str) -> String {
+        self.data
+            .accounts
+            .iter()
+            .find(|account| account.id == account_id)
+            .map_or_else(|| account_id.to_owned(), |account| account.login.clone())
+    }
     /// A repository-level denial marks only that repository ("Actions · Kein Zugriff"),
     /// which also blocks dispatch to it; the next catalog listing re-reads its permission
-    /// and retries it. Every other failure is reported at snapshot level.
-    fn scope_failed(&mut self, issues: &mut RefreshIssues, repo: &Repo, error: ScopeError) {
+    /// and retries it. An unauthorized answer holds the whole account. Every other failure
+    /// is reported at snapshot level.
+    fn scope_failed(
+        &mut self,
+        issues: &mut RefreshIssues,
+        repo: &Repo,
+        error: ScopeError,
+        now: u64,
+    ) {
         if let ScopeError::Denied(_) = error {
             if let Some(known) = self.data.repos.iter_mut().find(|r| r.id == repo.id) {
                 known.permission = Permission::Denied;
@@ -702,35 +790,62 @@ impl LiveStore {
         }
         if let ScopeError::Unauthorized(_) = error {
             issues.blocked.insert(repo.account_id.clone());
+            self.schedule.hold(&repo.account_id, error.clone(), now);
         }
-        issues
-            .failures
-            .push((format!("{}/{}", repo.owner, repo.name), error));
+        issues.failures.push(Failure {
+            login: self.login(&repo.account_id),
+            repo: Some(format!("{}/{}", repo.owner, repo.name)),
+            error,
+        });
+    }
+    /// Selected repositories whose Actions GitHub refused; their runs are not current.
+    fn denied_notice(&self) -> Option<String> {
+        let mut denied = self
+            .data
+            .repos
+            .iter()
+            .filter(|repo| repo.selected && repo.permission == Permission::Denied);
+        let first = denied.next()?;
+        let more = match denied.count() {
+            0 => String::new(),
+            count => format!(" (+{count} weitere)"),
+        };
+        Some(format!(
+            "Kein Zugriff auf Actions: {}/{}{more} – prüfe Token-Rechte oder SSO-Freigabe.",
+            first.owner, first.name
+        ))
     }
     fn settle(&mut self, issues: RefreshIssues) {
-        match issues.failures.first() {
+        let denied = self.denied_notice();
+        // An account that needs reconnecting is the most actionable headline.
+        let headline = issues
+            .failures
+            .iter()
+            .find(|failure| matches!(failure.error, ScopeError::Unauthorized(_)))
+            .or_else(|| issues.failures.first());
+        match headline {
             None => {
                 self.data.updated_at = chrono::Utc::now().to_rfc3339();
                 self.data.stale = false;
                 self.data.connectivity = Connectivity::Online;
-                self.data.message = if self.data.repos.is_empty()
+                let setup = (self.data.repos.is_empty()
                     && self
                         .data
                         .accounts
                         .iter()
-                        .any(|a| browser_auth::is_browser_account(&a.id))
-                {
-                    Some("GitHub-Konto verbunden. Richte in den Einstellungen die App-Installation und Repository-Freigabe ein; Organisationsfreigabe oder SSO können erforderlich sein.".into())
-                } else {
-                    None
+                        .any(|a| browser_auth::is_browser_account(&a.id)))
+                .then(|| BROWSER_SETUP_NOTICE.to_owned());
+                self.data.message = match (setup, denied) {
+                    (Some(setup), Some(denied)) => Some(with_notice(Some(setup), &denied)),
+                    (setup, denied) => setup.or(denied),
                 };
             }
-            Some((scope, error)) => {
+            Some(failure) => {
                 self.data.stale = true;
                 self.data.connectivity = if issues
                     .failures
                     .iter()
-                    .any(|(_, error)| matches!(error, ScopeError::Unauthorized(_)))
+                    .any(|failure| matches!(failure.error, ScopeError::Unauthorized(_)))
                 {
                     Connectivity::Forbidden
                 } else {
@@ -740,18 +855,21 @@ impl LiveStore {
                     0 => String::new(),
                     count => format!(" (+{count} weitere)"),
                 };
-                self.data.message = Some(format!(
-                    "Letzter Stand · {scope}: {}{more}",
-                    error.message()
-                ));
+                let headline = format!("Letzter Stand · {}{more}", failure.describe());
+                self.data.message = Some(match denied {
+                    Some(denied) => with_notice(Some(headline), &denied),
+                    None => headline,
+                });
             }
         }
         // Healthy scopes were updated even when another one failed; keep them. A failed cache
         // write only adds a notice and never marks fresh data stale.
         self.persist();
     }
+    /// The explicit "refresh repository access" action: every scope, including a held
+    /// account, reads its catalog and metadata again now.
     pub fn refresh_repositories(&mut self) -> Snapshot {
-        self.catalog_at = 0;
+        self.schedule = Schedule::default();
         self.refresh()
     }
     pub fn select_repos(&mut self, ids: Vec<String>) -> Result<Snapshot, String> {
@@ -816,6 +934,8 @@ impl LiveStore {
         self.data.pins.retain(|p| p.id != id);
         Ok(self.snapshot())
     }
+    /// Validates against the last refresh, reads the workflow at the requested ref (a ref
+    /// GitHub no longer knows is rejected here, before any claim), then sends exactly once.
     pub fn dispatch(&mut self, request: DispatchRequest) -> DispatchOutcome {
         if let Err(error) = validate_request_id(&request.request_id) {
             return DispatchOutcome::rejected(error);
@@ -915,7 +1035,9 @@ impl LiveStore {
             }
             Ok(Some(claim)) => self.claims.push(claim),
         }
-        let mut outcome = self.client.dispatch(&api, &repo.owner, &repo.name, now());
+        let mut outcome = self
+            .client
+            .dispatch(&api, &repo.owner, &repo.name, (self.clock)());
         if outcome.state != DispatchState::Uncertain {
             match self.cache.resolve_dispatch(&target) {
                 Ok(()) => self.claims.retain(|claim| claim.target() != target),
@@ -963,20 +1085,108 @@ fn verify_local_identity(expected: Option<&str>, actual: &str) -> Result<(), Str
     }
     Ok(())
 }
+/// How often each account's catalog and each repository's metadata are read again.
 const CATALOG_SECONDS: u64 = 600;
+/// A transiently failed catalog or metadata read retries after this delay.
+const RETRY_SECONDS: u64 = 60;
 /// Pages (100 names each) read per ref kind for the ref picker.
 const REF_PAGES: usize = 3;
-/// Refs offered per startable workflow, the default branch included.
+/// Refs offered per startable workflow, the default branch included; pinned refs come on top.
 const MAX_REFS: usize = 100;
 /// Every workflow carries its own copy of the repository's refs; all copies of one
 /// repository share this budget, so 50 selected repositories stay far below the cache cap.
 const REPO_REF_BYTES: usize = 8 * 1024;
 
+/// One failing scope of a refresh, named for the panel.
+struct Failure {
+    login: String,
+    /// `owner/name` when the scope is a repository.
+    repo: Option<String>,
+    error: ScopeError,
+}
+impl Failure {
+    fn describe(&self) -> String {
+        self.error.describe(&self.login, self.repo.as_deref())
+    }
+}
+
 /// Per-refresh bookkeeping: failing scopes and the accounts that sit this refresh out.
 #[derive(Default)]
 struct RefreshIssues {
     blocked: BTreeSet<String>,
-    failures: Vec<(String, ScopeError)>,
+    failures: Vec<Failure>,
+}
+impl RefreshIssues {
+    /// The account sits out the rest of this refresh.
+    fn block(&mut self, account: &Account, error: ScopeError) {
+        self.blocked.insert(account.id.clone());
+        self.failures.push(Failure {
+            login: account.login.clone(),
+            repo: None,
+            error,
+        });
+    }
+}
+
+/// When each scope next reads its metadata (UNIX seconds; a missing entry means now). Every
+/// account catalog and every repository's branches, tags and workflows keep their own timer,
+/// so a failing scope never makes the healthy ones refetch early. An unauthorized account
+/// sits out every request for the full interval, until it reconnects, or until the explicit
+/// repository-access refresh.
+#[derive(Debug, Default)]
+struct Schedule {
+    catalog: BTreeMap<String, u64>,
+    metadata: BTreeMap<String, u64>,
+    held: BTreeMap<String, (u64, ScopeError)>,
+}
+impl Schedule {
+    fn catalog_due(&self, account: &str, now: u64) -> bool {
+        self.catalog.get(account).is_none_or(|at| now >= *at)
+    }
+    fn metadata_due(&self, repo: &str, now: u64) -> bool {
+        self.metadata.get(repo).is_none_or(|at| now >= *at)
+    }
+    fn catalog_read(&mut self, account: &str, failure: Option<&ScopeError>, now: u64) {
+        let delay = match failure {
+            Some(ScopeError::Transient(_)) => RETRY_SECONDS,
+            _ => CATALOG_SECONDS,
+        };
+        self.catalog
+            .insert(account.to_owned(), now.saturating_add(delay));
+    }
+    /// A denied repository is skipped until a catalog listing grants access again and then
+    /// reads its metadata at once.
+    fn metadata_read(&mut self, repo: &str, failure: Option<&ScopeError>, now: u64) {
+        let delay = match failure {
+            Some(ScopeError::Denied(_)) => {
+                self.metadata.remove(repo);
+                return;
+            }
+            Some(ScopeError::Transient(_)) => RETRY_SECONDS,
+            _ => CATALOG_SECONDS,
+        };
+        self.metadata
+            .insert(repo.to_owned(), now.saturating_add(delay));
+    }
+    fn hold(&mut self, account: &str, error: ScopeError, now: u64) {
+        let until = now.saturating_add(CATALOG_SECONDS);
+        self.held.insert(account.to_owned(), (until, error));
+        self.catalog.insert(account.to_owned(), until);
+    }
+    fn held(&self, account: &str, now: u64) -> Option<&ScopeError> {
+        self.held
+            .get(account)
+            .filter(|(until, _)| now < *until)
+            .map(|(_, error)| error)
+    }
+    /// A new, reconnected or removed account starts its timers over.
+    fn forget_account(&mut self, account: &str, repos: &[Repo]) {
+        self.catalog.remove(account);
+        self.held.remove(account);
+        for repo in repos.iter().filter(|repo| repo.account_id == account) {
+            self.metadata.remove(&repo.id);
+        }
+    }
 }
 
 /// A listing within `max_pages` (`usize::MAX`: the transport's whole page budget).
@@ -987,13 +1197,10 @@ fn list_values<T: Transport>(
     path: &[&str],
     key: Option<&str>,
     max_pages: usize,
+    now: u64,
 ) -> Result<(Vec<Value>, bool), ScopeError> {
-    let pages = client.get_pages_limited(
-        account,
-        url(path, &[("per_page", "100")])?,
-        now(),
-        max_pages,
-    )?;
+    let pages =
+        client.get_pages_limited(account, url(path, &[("per_page", "100")])?, now, max_pages)?;
     let mut all = vec![];
     for body in &pages.bodies {
         let page: Value = serde_json::from_slice(body).map_err(|_| "GitHub-Antwort ungültig.")?;
@@ -1017,6 +1224,7 @@ struct AccountRepos {
 fn account_repos<T: Transport>(
     client: &ApiClient<T>,
     account: &Account,
+    now: u64,
 ) -> Result<AccountRepos, ScopeError> {
     let mut values = vec![];
     let mut truncated = false;
@@ -1027,6 +1235,7 @@ fn account_repos<T: Transport>(
             &["user", "installations"],
             Some("installations"),
             usize::MAX,
+            now,
         )?;
         truncated |= cut;
         for installation in installations {
@@ -1040,6 +1249,7 @@ fn account_repos<T: Transport>(
                 &["user", "installations", &installation_id, "repositories"],
                 Some("repositories"),
                 usize::MAX,
+                now,
             )?;
             truncated |= cut;
             for value in repositories {
@@ -1048,8 +1258,14 @@ fn account_repos<T: Transport>(
             }
         }
     } else {
-        let (repositories, cut) =
-            list_values(client, &account.id, &["user", "repos"], None, usize::MAX)?;
+        let (repositories, cut) = list_values(
+            client,
+            &account.id,
+            &["user", "repos"],
+            None,
+            usize::MAX,
+            now,
+        )?;
         truncated |= cut;
         for value in repositories {
             let permission = if value["permissions"]["push"].as_bool() == Some(true) {
@@ -1109,14 +1325,29 @@ fn merge_catalog(
     repos
 }
 
-/// The refs one startable workflow offers, sorted: the default branch always, then pinned
-/// refs that still exist, then branches and tags in GitHub's order, while `MAX_REFS` and the
-/// repository's byte budget (shared by `copies` workflows) allow. Dispatch validation in UI
-/// and core checks against exactly this list.
+/// A repository's branches and tags as far as the ref picker reads them.
+#[derive(Debug, Default)]
+struct RefListing {
+    branches: Vec<String>,
+    tags: Vec<String>,
+    /// Either kind was cut at `REF_PAGES`.
+    truncated: bool,
+}
+
+/// The refs one startable workflow offers, sorted. Dispatch validation in UI and core checks
+/// against exactly this list.
+///
+/// - The default branch, always.
+/// - Every ref a pin of this repository uses, outside `MAX_REFS` and the byte budget, so a
+///   template stays startable: when the listing names it, or when the listing was cut off and
+///   cannot prove the ref is gone. A vanished ref is still safe: `dispatch` reads the workflow
+///   at that ref before it claims or sends anything, and GitHub's 404 rejects the start.
+/// - Branches and tags in turns, in GitHub's order, while `MAX_REFS` and the repository's
+///   byte budget (shared by `copies` workflows) allow; neither kind starves the other.
 fn bounded_refs(
     default_branch: &str,
     pinned: &[&str],
-    found: &[String],
+    listing: &RefListing,
     copies: usize,
 ) -> Vec<String> {
     let budget = REPO_REF_BYTES / copies.max(1);
@@ -1124,11 +1355,21 @@ fn bounded_refs(
     let cost = |name: &str| name.len() + 3;
     let mut used = cost(default_branch);
     let mut refs = BTreeSet::from([default_branch.to_owned()]);
-    let existing_pins = pinned
-        .iter()
-        .copied()
-        .filter(|name| found.iter().any(|known| known == name));
-    for name in existing_pins.chain(found.iter().map(String::as_str)) {
+    for name in pinned {
+        let listed = listing
+            .branches
+            .iter()
+            .chain(&listing.tags)
+            .any(|known| known == name);
+        if (listed || listing.truncated) && refs.insert((*name).to_owned()) {
+            used += cost(name);
+        }
+    }
+    let turns = listing.branches.len().max(listing.tags.len());
+    let alternating = (0..turns)
+        .flat_map(|index| [listing.branches.get(index), listing.tags.get(index)])
+        .flatten();
+    for name in alternating {
         if refs.len() >= MAX_REFS {
             break;
         }
@@ -1136,7 +1377,7 @@ fn bounded_refs(
             continue;
         }
         used += cost(name);
-        refs.insert(name.to_owned());
+        refs.insert(name.clone());
     }
     refs.into_iter().collect()
 }
@@ -1223,7 +1464,10 @@ mod refresh_scope_tests {
 
     #[test]
     fn refs_are_bounded_and_always_offer_the_default_branch_and_existing_pins() {
-        let found: Vec<_> = (0..600).map(|i| format!("release/{i:04}")).collect();
+        let found = RefListing {
+            branches: (0..600).map(|i| format!("release/{i:04}")).collect(),
+            ..RefListing::default()
+        };
         let refs = bounded_refs("trunk", &["release/0599", "gone"], &found, 1);
         assert_eq!(refs.len(), MAX_REFS);
         assert!(refs.contains(&"trunk".to_string()));
@@ -1240,6 +1484,56 @@ mod refresh_scope_tests {
         // An oversized default branch is still offered.
         let long = "x".repeat(REPO_REF_BYTES);
         assert_eq!(bounded_refs(&long, &[], &found, 50), vec![long]);
+    }
+
+    #[test]
+    fn pinned_refs_survive_the_cap_the_budget_and_a_cut_off_listing() {
+        let branches: Vec<_> = (0..300).map(|i| format!("feature/{i:04}")).collect();
+        let tags: Vec<_> = (0..5).map(|i| format!("v1.{i}")).collect();
+        let cut = RefListing {
+            branches: branches.clone(),
+            tags: tags.clone(),
+            truncated: true,
+        };
+        // Ten startable workflows leave each copy about 800 bytes, far fewer than MAX_REFS.
+        let pins = ["release/beyond-the-cut", "feature/0299", "v1.4"];
+        let refs = bounded_refs("main", &pins, &cut, 10);
+        for pin in pins {
+            assert!(refs.contains(&pin.to_string()), "{pin}");
+        }
+        // Tags are not starved by a long branch list.
+        for tag in &tags {
+            assert!(refs.contains(tag), "{tag}");
+        }
+        let bytes: usize = refs.iter().map(|name| name.len() + 3).sum();
+        let pin_bytes: usize = pins.iter().map(|name| name.len() + 3).sum();
+        assert!(bytes <= REPO_REF_BYTES / 10 + pin_bytes);
+        // A complete listing proves an unlisted pinned ref is gone.
+        let complete = RefListing {
+            truncated: false,
+            ..cut
+        };
+        let refs = bounded_refs("main", &pins, &complete, 10);
+        assert!(!refs.contains(&"release/beyond-the-cut".to_string()));
+        assert!(refs.contains(&"feature/0299".to_string()));
+        // Pins stay offered even when they alone exceed MAX_REFS.
+        let many: Vec<String> = (0..MAX_REFS + 5).map(|i| format!("pin/{i}")).collect();
+        let many: Vec<&str> = many.iter().map(String::as_str).collect();
+        let unknown = RefListing {
+            truncated: true,
+            ..RefListing::default()
+        };
+        assert_eq!(bounded_refs("main", &many, &unknown, 1).len(), MAX_REFS + 6);
+        // Both kinds share one budget in turns.
+        let even = RefListing {
+            branches: (0..200).map(|i| format!("b{i:03}")).collect(),
+            tags: (0..200).map(|i| format!("t{i:03}")).collect(),
+            truncated: false,
+        };
+        let refs = bounded_refs("main", &[], &even, 1);
+        let tagged = refs.iter().filter(|name| name.starts_with('t')).count();
+        let branched = refs.iter().filter(|name| name.starts_with('b')).count();
+        assert_eq!((branched, tagged), (50, 49));
     }
 
     /// An endlessly paginating repository listing, or a revoked token.
@@ -1277,16 +1571,18 @@ mod refresh_scope_tests {
     #[test]
     fn endless_repository_listing_is_truncated_instead_of_failing_the_account() {
         let client = ApiClient::new(Listing { revoked: false });
-        let listing = account_repos(&client, &account("github-1")).unwrap();
+        let listing = account_repos(&client, &account("github-1"), 0).unwrap();
         assert!(listing.truncated);
         assert_eq!(listing.repos.len(), 20);
         assert_eq!(listing.repos[0].permission, Permission::Write);
         assert_eq!(listing.repos[1].permission, Permission::Read);
         let revoked = ApiClient::new(Listing { revoked: true });
-        let error = account_repos(&revoked, &account("github-2")).err().unwrap();
+        let error = account_repos(&revoked, &account("github-2"), 0)
+            .err()
+            .unwrap();
         assert!(matches!(error, ScopeError::Unauthorized(_)));
         assert!(matches!(
-            ScopeError::Denied("GitHub returned HTTP 403.".into()).for_account(),
+            ScopeError::Denied(Cause::Http(403)).for_account(),
             ScopeError::Unauthorized(_)
         ));
     }
