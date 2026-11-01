@@ -190,7 +190,7 @@ mod windows {
             let (approval, _) = registry.root.create_subkey(APPROVAL).unwrap();
             let veto = RegValue {
                 vtype: REG_BINARY,
-                bytes: vec![3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                bytes: vec![3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0].into(),
             };
             approval.set_raw_value(VALUE_NAME, &veto).unwrap();
             assert_eq!(
