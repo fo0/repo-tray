@@ -69,7 +69,8 @@ fn parse_sha256(digest: &str) -> Option<[u8; 32]> {
         return None;
     }
     let mut hash = [0; 32];
-    for (byte, pair) in hash.iter_mut().zip(hex.chunks_exact(2)) {
+    let (pairs, _) = hex.as_chunks::<2>();
+    for (byte, pair) in hash.iter_mut().zip(pairs) {
         let pair = std::str::from_utf8(pair).ok()?;
         if !pair.bytes().all(|c| c.is_ascii_hexdigit()) {
             return None;
