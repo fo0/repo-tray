@@ -5,10 +5,10 @@
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
-  import { Channel, invoke } from '@tauri-apps/api/core';
+  import { invoke } from '@tauri-apps/api/core';
   import UpdatePanel from './lib/UpdatePanel.svelte';
   import StartupSettings from './lib/StartupSettings.svelte';
-  import type { UpdateInfo, UpdatePhase, UpdateProgress } from './lib/updates';
+  import { Updater } from './lib/updater.svelte';
   import NativeConnect from './lib/NativeConnect.svelte';
   import ConnectedAccounts from './lib/ConnectedAccounts.svelte';
   import ConnectPanel from './lib/ConnectPanel.svelte';
@@ -54,20 +54,7 @@
 
   let snapshot = $state<Snapshot | null>(null);
   const demo = $derived(snapshot?.mode !== 'live');
-  let updateInfo = $state<UpdateInfo | null>(null);
-  let updatePhase = $state<UpdatePhase>('idle');
-  let updateProgress = $state<UpdateProgress>({
-    downloaded: 0,
-    total: null,
-    stage: 'downloading',
-  });
-  let updateMessage = $state('');
-  let updateCheckedAt = $state('');
-  const updateBusy = $derived(
-    ['checking', 'downloading', 'verifying', 'installing'].includes(
-      updatePhase,
-    ),
-  );
+  const updater = new Updater(native);
   const settingsTabs = [
     { id: 'accounts', label: 'Konten' },
     { id: 'repositories', label: 'Repositories' },
@@ -203,57 +190,13 @@
     }
   }
 
-  async function checkUpdates(silent = false) {
-    if (!native || updateBusy || updatePhase === 'ready') return;
-    updatePhase = 'checking';
-    updateMessage = '';
-    try {
-      updateInfo = await invoke<UpdateInfo | null>('check_update');
-      updateCheckedAt = clockTime();
-      updatePhase = updateInfo ? 'available' : 'current';
-    } catch (cause) {
-      updateInfo = null;
-      updatePhase = 'idle';
-      if (!silent) updateMessage = errorMessage(cause);
-    }
-  }
-  async function downloadUpdate() {
-    if (updateBusy || !updateInfo || updatePhase === 'ready') return;
-    updatePhase = 'downloading';
-    updateMessage = '';
-    updateProgress = { downloaded: 0, total: null, stage: 'downloading' };
-    const onProgress = new Channel<UpdateProgress>();
-    onProgress.onmessage = (progress) => {
-      if (updatePhase !== 'downloading' && updatePhase !== 'verifying') return;
-      updatePhase = progress.stage;
-      if (progress.stage === 'downloading') updateProgress = progress;
-    };
-    try {
-      await invoke('download_update', { onProgress });
-      updatePhase = 'ready';
-    } catch (cause) {
-      updatePhase = 'available';
-      updateMessage = errorMessage(cause);
-    }
-  }
-  async function installUpdate() {
-    if (updatePhase !== 'ready') return;
-    updatePhase = 'installing';
-    updateMessage = '';
-    try {
-      await invoke('install_update');
-    } catch (cause) {
-      updatePhase = 'ready';
-      updateMessage = errorMessage(cause);
-    }
-  }
   function connectedNative(value: Snapshot) {
     viewEpoch.invalidate();
     acceptSnapshot(value);
     changeAccount(value.accounts.at(-1)?.id ?? '');
     closeModal();
     openSettings();
-    void checkUpdates(true);
+    void updater.check(true);
   }
   async function disconnectAccount(id: string) {
     if (mutationBusy) return;
@@ -337,7 +280,7 @@
       .then((value) => {
         if (viewEpoch.current(ticket)) {
           acceptSnapshot(value);
-          if (native) void checkUpdates(true);
+          if (native) void updater.check(true);
         }
       })
       .catch((cause) => {
@@ -353,7 +296,7 @@
       else unsubscribe = stop;
     });
     const updateTimer = native
-      ? setInterval(() => void checkUpdates(true), 6 * 60 * 60 * 1000)
+      ? setInterval(() => void updater.check(true), 6 * 60 * 60 * 1000)
       : undefined;
     return () => {
       clearInterval(updateTimer);
@@ -943,12 +886,12 @@
           >{:else}<kbd>/</kbd>{/if}</label
       >
 
-      {#if updateInfo && !demo}<div
+      {#if updater.info && !demo}<div
           class="alert subtle notice-banner"
           role="status"
         >
           <Icon name="refresh" size={16} /><span
-            >RepoTray {updateInfo.version} verfügbar</span
+            >RepoTray {updater.info.version} verfügbar</span
           ><button class="text-button" onclick={openUpdateSettings}
             >Update ansehen</button
           >
@@ -1474,7 +1417,7 @@
                 aria-controls="settings-panel"
                 tabindex={settingsTab === item.id ? 0 : -1}
                 onclick={() => (settingsTab = item.id)}
-                >{item.label}{#if item.id === 'updates' && updateInfo}<span
+                >{item.label}{#if item.id === 'updates' && updater.info}<span
                     class="tab-update-dot"
                     aria-label="Update verfügbar"
                   ></span>{/if}</button
@@ -1700,14 +1643,14 @@
               <UpdatePanel
                 currentVersion={appVersion}
                 {native}
-                info={updateInfo}
-                phase={updatePhase}
-                progress={updateProgress}
-                error={updateMessage}
-                checkedAt={updateCheckedAt}
-                onCheck={() => checkUpdates()}
-                onDownload={downloadUpdate}
-                onInstall={installUpdate}
+                info={updater.info}
+                phase={updater.phase}
+                progress={updater.progress}
+                error={updater.message}
+                checkedAt={updater.checkedAt}
+                onCheck={() => updater.check()}
+                onDownload={updater.download}
+                onInstall={updater.install}
               />
             {/if}
           </div>
