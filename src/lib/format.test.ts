@@ -5,6 +5,7 @@ import {
   clockTime,
   errorMessage,
   FALLBACK_ERROR,
+  plural,
   repoLabel,
 } from './format';
 import { targetKey } from './model';
@@ -34,6 +35,18 @@ describe('errorMessage', () => {
   it('falls back for anything else', () => {
     expect(errorMessage({ code: 1 })).toBe(FALLBACK_ERROR);
     expect(errorMessage(undefined, 'Eigener Text.')).toBe('Eigener Text.');
+  });
+});
+
+describe('plural', () => {
+  it('uses the singular only for exactly one', () => {
+    expect(plural(1, 'Repository', 'Repositories')).toBe('1 Repository');
+    expect(plural(1, 'Konto', 'Konten')).toBe('1 Konto');
+  });
+  it('uses the plural for zero and several', () => {
+    expect(plural(0, 'Konto', 'Konten')).toBe('0 Konten');
+    expect(plural(2, 'Repository', 'Repositories')).toBe('2 Repositories');
+    expect(plural(12, 'Run', 'Runs')).toBe('12 Runs');
   });
 });
 

@@ -2,7 +2,8 @@ import { accountTitle } from './accountSelection';
 import { fullRepo } from './model';
 import type { Snapshot } from './types';
 
-export const FALLBACK_ERROR = 'Die Aktion konnte nicht abgeschlossen werden.';
+export const FALLBACK_ERROR =
+  'Der Vorgang konnte nicht abgeschlossen werden. Versuche es erneut.';
 
 /** User-facing text for a rejection: an Error's message, an IPC error string, or a fallback. */
 export function errorMessage(cause: unknown, fallback = FALLBACK_ERROR) {
@@ -11,6 +12,11 @@ export function errorMessage(cause: unknown, fallback = FALLBACK_ERROR) {
     : typeof cause === 'string'
       ? cause
       : fallback;
+}
+
+/** A count with its German noun form, e.g. `1 Repository` or `3 Repositories`. */
+export function plural(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
 /** Local wall-clock time as `HH:MM` (de-DE); defaults to now. */

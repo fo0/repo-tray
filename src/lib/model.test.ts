@@ -121,7 +121,7 @@ describe('activity model', () => {
     ]);
     expect(statusLabel(data.runs[1])).toBe('In Warteschlange');
     expect(statusLabel(data.runs[3])).toBe('Fehlgeschlagen');
-    expect(duration(data.runs[0])).toBe('1m 00s');
+    expect(duration(data.runs[0])).toBe('1:00 min');
     expect(fullRepo(data.repos[1])).toBe('example-org/runner-tools-demo');
   });
   it.each([
@@ -140,10 +140,11 @@ describe('activity model', () => {
     },
   );
   it.each([
-    [59, '59s'],
-    [0, '0s'],
-    [65, '1m 05s'],
-    [-30, '0s'], // updatedAt before createdAt (clock skew) clamps to zero
+    [59, '0:59 min'],
+    [0, '0:00 min'],
+    [65, '1:05 min'],
+    [725, '12:05 min'],
+    [-30, '0:00 min'], // updatedAt before createdAt (clock skew) clamps to zero
   ])('formats a run of %i seconds as %s', (seconds, label) => {
     const createdAt = '2026-10-31T09:00:00Z';
     const updatedAt = new Date(Date.parse(createdAt) + seconds * 1000);
@@ -189,8 +190,8 @@ describe('dispatch validation', () => {
     });
   });
   it.each([
-    [{ accountId: 'demo-work' }, /Account/],
-    [{ repoId: 'unknown' }, /Account/],
+    [{ accountId: 'demo-work' }, /Konto und Repository/],
+    [{ repoId: 'unknown' }, /Konto und Repository/],
     [{ workflowId: 102, inputs: {} }, /manuellen Start/],
     [{ workflowId: 201 }, /manuellen Start/],
     [{ ref: 'unlisted' }, /Branch oder Tag/],
@@ -205,7 +206,7 @@ describe('dispatch validation', () => {
     ],
     [
       { inputs: { target: 'windows-x64', version: '1', dry_run: 'true' } },
-      /Wahrheitswert/,
+      /muss Ja oder Nein sein/,
     ],
     [{ inputs: { target: 'windows-x64', version: 1, dry_run: true } }, /Text/],
     [
@@ -233,7 +234,7 @@ describe('dispatch validation', () => {
     expect(validateDispatch(data, request())).toMatch(/Einstellungen/);
     data.repos[0].selected = true;
     data.repos[0].permission = 'read';
-    expect(validateDispatch(data, request())).toMatch(/Schreibberechtigung/);
+    expect(validateDispatch(data, request())).toMatch(/Schreibzugriff/);
     data.repos[0].permission = 'write';
     data.workflows[0].refs = ['develop'];
     expect(validateDispatch(data, request({ ref: 'develop' }))).toMatch(
@@ -252,7 +253,7 @@ describe('dispatch validation', () => {
     for (const value of [Infinity, NaN, '3', false])
       expect(
         validateDispatch(data, { ...base, inputs: { attempts: value } }),
-      ).toMatch(/endliche Zahl/);
+      ).toMatch(/muss eine Zahl sein/);
     data.workflows[1].inputs = [
       {
         name: 'environment',

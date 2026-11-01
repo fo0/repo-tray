@@ -180,18 +180,18 @@ export function validateDispatch(
     !repo ||
     repo.accountId !== request.accountId
   )
-    return 'Account und Repository passen nicht zusammen.';
+    return 'Konto und Repository passen nicht zusammen.';
   if (!repo.selected)
     return 'Wähle dieses Repository zuerst in den Einstellungen aus.';
   if (repo.permission !== 'write')
-    return 'Für dieses Repository fehlt die Schreibberechtigung.';
+    return 'Für dieses Repository fehlt der Schreibzugriff.';
   const workflow = snapshot.workflows.find(
     (item) => item.id === request.workflowId && item.repoId === repo.id,
   );
   if (!workflow || !workflow.dispatch)
     return 'Dieser Workflow bietet keinen manuellen Start auf dem Standardbranch an.';
   if (!workflow.refs.includes(repo.defaultBranch))
-    return 'workflow_dispatch ist auf dem Standardbranch nicht verfügbar.';
+    return 'Auf dem Standardbranch ist kein manueller Start verfügbar.';
   if (!workflow.refs.includes(request.ref))
     return 'Dieser Branch oder Tag ist nicht verfügbar.';
   if (!request.requestId.trim())
@@ -209,12 +209,12 @@ export function validateDispatch(
     if (absent && input.required) return `${input.label} ist erforderlich.`;
     if (absent) continue;
     if (input.type === 'boolean' && typeof value !== 'boolean')
-      return `${input.label} muss ein Wahrheitswert sein.`;
+      return `${input.label} muss Ja oder Nein sein.`;
     if (
       input.type === 'number' &&
       (typeof value !== 'number' || !Number.isFinite(value))
     )
-      return `${input.label} muss eine endliche Zahl sein.`;
+      return `${input.label} muss eine Zahl sein.`;
     if (
       ['string', 'choice', 'environment'].includes(input.type) &&
       typeof value !== 'string'
@@ -236,9 +236,9 @@ export function safePin(snapshot: Snapshot, pin: Pin): Pin {
   });
   if (error) throw new Error(error);
   if (!pin.label.trim() || !pin.id.trim())
-    throw new Error('Die Vorlage benötigt einen Namen.');
+    throw new Error('Gib dem Favoriten einen Namen.');
   if (Object.keys(pin.inputs).some(isSecretName))
-    throw new Error('Geheime Eingaben werden nicht in Vorlagen gespeichert.');
+    throw new Error('Geheime Eingaben werden nicht in Favoriten gespeichert.');
   return {
     id: pin.id,
     label: pin.label.trim(),
@@ -274,14 +274,13 @@ export function safeGitHubUrl(value: string): string | null {
   }
 }
 
+/** Run time as `m:ss min` (German UI), e.g. `0:42 min` or `12:05 min`. */
 export function duration(run: Run): string {
   const seconds = Math.max(
     0,
     Math.round((Date.parse(run.updatedAt) - Date.parse(run.createdAt)) / 1000),
   );
-  return seconds >= 60
-    ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
-    : `${seconds}s`;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} min`;
 }
 
 /** Invalidate responses when their UI context has changed or a dialog has closed. */
