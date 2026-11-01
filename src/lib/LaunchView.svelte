@@ -39,7 +39,8 @@
     /** A start for this target is running; only that target is locked. */
     isStarting: (target: DispatchTarget) => boolean;
     busy: boolean;
-    blocked: boolean;
+    /** Why starts are off for every target (offline, forbidden); null otherwise. */
+    blocked: string | null;
     /** A non-blank search query is active. */
     searching: boolean;
     hasRepos: boolean;

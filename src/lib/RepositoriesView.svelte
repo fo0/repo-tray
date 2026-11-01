@@ -37,7 +37,8 @@
     isStarting: (target: DispatchTarget) => boolean;
     /** A pin change is running. */
     busy: boolean;
-    blocked: boolean;
+    /** Why starts are off for every target (offline, forbidden); null otherwise. */
+    blocked: string | null;
     needsAccount: boolean;
     hasAccounts: boolean;
     accountNotice: string;

@@ -3,6 +3,7 @@
   import { plural } from './format';
   import { fullRepo, statusLabel, type repositoryActivity } from './model';
   import { workflowTarget } from './pins';
+  import { START_REASONS, startReason } from './startReason';
   import type { DispatchTarget, Pin, Workflow } from './types';
 
   let {
@@ -21,7 +22,8 @@
     busy: boolean;
     /** A start for this target is running; only that target is locked. */
     isStarting: (target: DispatchTarget) => boolean;
-    blocked: boolean;
+    /** Why starts are off for every target (offline, forbidden); null otherwise. */
+    blocked: string | null;
   } = $props();
   let expanded = $state<Set<string>>(new Set());
   function toggle(id: string) {
@@ -71,6 +73,12 @@
           {@const starting = isStarting(workflowTarget(group.repo, workflow))}
           {@const unavailable =
             !workflow.dispatch || group.repo.permission !== 'write'}
+          {@const reason = startReason({
+            manual: !workflow.dispatch,
+            readOnly: group.repo.permission !== 'write',
+            blocked,
+            running: starting,
+          })}
           {@const detail = !workflow.dispatch
             ? 'Kein manueller Start'
             : group.repo.permission !== 'write'
@@ -81,6 +89,7 @@
               class="action-copy"
               onclick={() => onopen(workflow)}
               aria-label={`${workflow.name} · ${detail}`}
+              title={starting ? START_REASONS.running : undefined}
               disabled={starting}
             >
               <span class="action-dot"></span>
@@ -94,9 +103,11 @@
               aria-label={`${workflow.name} ${pin ? 'aus Favoriten entfernen' : 'als Favorit speichern'}`}
               title={unavailable
                 ? 'Favoriten brauchen einen manuell startbaren Workflow mit Schreibzugriff'
-                : pin
-                  ? `Favorit „${pin.label}“ entfernen`
-                  : 'Mit Standardwerten als Favorit speichern'}
+                : starting
+                  ? START_REASONS.running
+                  : pin
+                    ? `Favorit „${pin.label}“ entfernen`
+                    : 'Mit Standardwerten als Favorit speichern'}
               disabled={busy || starting || unavailable}
               onclick={() => onfavorite(workflow)}
             >
@@ -106,10 +117,8 @@
               class="action-start"
               onclick={() => onopen(workflow)}
               aria-label={`${workflow.name} starten…`}
-              title={unavailable
-                ? 'Dieser Workflow kann nicht manuell gestartet werden'
-                : 'Branch oder Tag und Eingaben wählen'}
-              disabled={unavailable || blocked || starting}
+              title={reason ?? 'Branch oder Tag und Eingaben wählen'}
+              disabled={!!reason}
             >
               <Icon name="play" size={12} />Starten…
             </button>

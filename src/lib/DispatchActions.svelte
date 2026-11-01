@@ -6,6 +6,7 @@
     starting,
     finished,
     canStart,
+    reason,
     onClose,
     onStart,
   }: {
@@ -15,6 +16,8 @@
     /** The dialog shows a start result. */
     finished: boolean;
     canStart: boolean;
+    /** Why the start button is disabled, shown as its tooltip. */
+    reason: string | null;
     onClose: () => void;
     onStart: () => void;
   } = $props();
@@ -42,6 +45,7 @@
     class="primary-button"
     onclick={() => onStart()}
     disabled={starting || !canStart}
+    title={starting || !canStart ? (reason ?? undefined) : undefined}
     >{starting
       ? demo
         ? 'Simuliert …'

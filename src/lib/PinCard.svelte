@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import UncertainStartHelp from './UncertainStartHelp.svelte';
+  import { startReason } from './startReason';
   import type { Pin } from './types';
 
   let {
@@ -27,11 +28,18 @@
     /** A start for this favorite's target is running. */
     starting: boolean;
     busy: boolean;
-    blocked: boolean;
+    /** Why starts are off for every target (offline, forbidden); null otherwise. */
+    blocked: string | null;
     onLaunch: () => void;
     onConfigure: () => void;
     onRemove: () => void;
   } = $props();
+  /** A quick start is refused for the same causes as a dialog start. */
+  const reason = $derived(
+    pin.quickStart
+      ? startReason({ blocked, running: starting, uncertain })
+      : startReason({ running: starting }),
+  );
 </script>
 
 <article class="pin-card">
@@ -64,7 +72,8 @@
     <button
       class="pin-start"
       onclick={() => onLaunch()}
-      disabled={starting || (pin.quickStart && (blocked || uncertain))}
+      disabled={!!reason}
+      title={reason ?? undefined}
       ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={13} />{pin.quickStart
         ? 'Schnellstart'
         : 'Starten…'}</button
@@ -72,7 +81,7 @@
     {#if pin.quickStart}<button
         class="icon-button pin-configure"
         aria-label={`Favorit ${pin.label} starten…`}
-        title="Starten…"
+        title={starting ? startReason({ running: true }) : 'Starten…'}
         onclick={() => onConfigure()}
         disabled={starting}><Icon name="settings" size={14} /></button
       >{/if}

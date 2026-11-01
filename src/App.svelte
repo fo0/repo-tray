@@ -25,6 +25,7 @@
     type ActivityFilter,
   } from './lib/model';
   import { Modals } from './lib/modals.svelte';
+  import { blockedReason } from './lib/startReason';
   import { Panel } from './lib/panel.svelte';
   import { createShortcuts } from './lib/shortcuts';
   import type { Pin, Snapshot, Workflow } from './lib/types';
@@ -235,7 +236,7 @@
           {accountName}
           isStarting={panel.starts.isRunning}
           busy={panel.pinsBusy}
-          blocked={panel.blocked}
+          blocked={blockedReason(snapshot)}
           needsAccount={panel.needsAccount}
           hasAccounts={!!snapshot.accounts.length}
           accountNotice={panel.accountNotice}
@@ -281,7 +282,7 @@
           {demo}
           isStarting={panel.starts.isRunning}
           busy={panel.pinsBusy}
-          blocked={panel.blocked}
+          blocked={blockedReason(snapshot)}
           {searching}
           hasRepos={repos.length > 0}
           needsAccount={panel.needsAccount}

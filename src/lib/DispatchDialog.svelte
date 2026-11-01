@@ -22,6 +22,7 @@
   import { DispatchForm } from './dispatchForm.svelte';
   import { accountLabel, errorMessage } from './format';
   import { RequestEpoch, targetKey } from './model';
+  import { blockedReason, startReason } from './startReason';
   import type { Panel } from './panel.svelte';
   import type { DispatchOutcome as Outcome } from './types';
 
@@ -94,6 +95,21 @@
   );
   const shownError = $derived(
     error || (followed && 'error' in followed ? followed.error : ''),
+  );
+  /** One reason why the start button is off, the most basic cause first. */
+  const reason = $derived(
+    startReason({
+      manual: form.workflow?.dispatch === false,
+      readOnly: !!form.repo && form.repo.permission !== 'write',
+      blocked: blockedReason(snapshot),
+      running: starting,
+      uncertain: uncertain || shownOutcome?.state === 'uncertain',
+    }) ??
+      (shownOutcome?.state === 'accepted'
+        ? 'Bereits gestartet – öffne den Dialog erneut für einen weiteren Start'
+        : panel.templateBusy
+          ? 'Favorit wird gespeichert …'
+          : form.validation),
   );
 
   async function start() {
@@ -242,12 +258,8 @@
       {demo}
       {starting}
       finished={!!shownOutcome}
-      canStart={!uncertain &&
-        !panel.templateBusy &&
-        !form.validation &&
-        !panel.blocked &&
-        shownOutcome?.state !== 'uncertain' &&
-        shownOutcome?.state !== 'accepted'}
+      canStart={!reason}
+      {reason}
       {onClose}
       onStart={() => void start()}
     />

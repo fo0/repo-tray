@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { plural } from './format';
+  import { START_REASONS, startReason } from './startReason';
   import type { DispatchTarget, Pin } from './types';
 
   let {
@@ -23,7 +24,8 @@
     /** A start for this target is running; only that target is locked. */
     isStarting: (target: DispatchTarget) => boolean;
     busy: boolean;
-    blocked: boolean;
+    /** Why starts are off for every target (offline, forbidden); null otherwise. */
+    blocked: string | null;
     onConfigure: (pin: Pin) => void;
     onRemove: (pinId: string) => void;
     onLaunch: (pin: Pin) => void;
@@ -40,12 +42,17 @@
       {#each pins as pin (pin.id)}
         {@const uncertain = isUncertain(pin)}
         {@const starting = isStarting(pin)}
+        {@const reason = pin.quickStart
+          ? startReason({ blocked, running: starting, uncertain })
+          : startReason({ running: starting })}
         <article class="pinned-action" class:uncertain>
           <button
             class="pinned-copy"
             onclick={() => onConfigure(pin)}
             aria-label={`Favorit ${pin.label} starten…`}
-            title={`${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
+            title={starting
+              ? START_REASONS.running
+              : `${pin.label} · ${repoName(pin.repoId)} · ${pin.ref} · ${accountName(pin.accountId)}`}
             disabled={starting}
           >
             <strong>{pin.label}</strong>
@@ -73,10 +80,11 @@
           <button
             class="action-start pinned-start"
             onclick={() => onLaunch(pin)}
-            disabled={starting || (pin.quickStart && (blocked || uncertain))}
-            title={pin.quickStart
-              ? 'Ohne Bestätigung mit den gespeicherten Eingaben starten'
-              : 'Gespeicherte Eingaben prüfen und starten'}
+            disabled={!!reason}
+            title={reason ??
+              (pin.quickStart
+                ? 'Ohne Bestätigung mit den gespeicherten Eingaben starten'
+                : 'Gespeicherte Eingaben prüfen und starten')}
           >
             <Icon
               name={pin.quickStart ? 'bolt' : 'play'}
