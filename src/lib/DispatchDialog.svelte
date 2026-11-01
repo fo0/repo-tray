@@ -64,6 +64,8 @@
   let notice = $state('');
   let noticeTone = $state<'subtle' | 'warning'>('subtle');
   let result = $state<ReturnType<typeof DispatchOutcome>>();
+  /** The start this dialog watches: its own or one running for its target. */
+  let watched = $state<number | null>(null);
   /** Bumped whenever the target changes; a stale ticket hands results to the banner. */
   const epoch = new RequestEpoch();
   let alive = true;
@@ -95,6 +97,21 @@
   const uncertain = $derived(panel.starts.isQuarantined(target));
   /** A start for this target is running, from this dialog or a quick start. */
   const starting = $derived(panel.starts.isRunning(target));
+  $effect.pre(() => {
+    const seq = panel.starts.runningSeq(target);
+    if (seq !== undefined) watched = seq;
+  });
+  /** Result of a watched start this dialog does not own, shown read-only. */
+  const followed = $derived.by(() => {
+    const last = watched === null ? undefined : panel.starts.settledFor(target);
+    return last && last.seq === watched ? last.result : null;
+  });
+  const shownOutcome = $derived(
+    outcome ?? (followed && 'outcome' in followed ? followed.outcome : null),
+  );
+  const shownError = $derived(
+    error || (followed && 'error' in followed ? followed.error : ''),
+  );
 
   function request(id: string): DispatchRequest {
     return { ...target, inputs: { ...inputs }, requestId: id };
@@ -103,6 +120,7 @@
     outcome = null;
     error = '';
     notice = '';
+    watched = null;
   }
   function selectWorkflow(value: number) {
     epoch.invalidate();
@@ -270,8 +288,8 @@
       />
       <DispatchOutcome
         bind:this={result}
-        {outcome}
-        {error}
+        outcome={shownOutcome}
+        error={shownError}
         {notice}
         {noticeTone}
         {uncertain}
@@ -286,13 +304,13 @@
     <DispatchActions
       {demo}
       {starting}
-      finished={!!outcome}
+      finished={!!shownOutcome}
       canStart={!uncertain &&
         !panel.templateBusy &&
         !validation &&
         !panel.blocked &&
-        outcome?.state !== 'uncertain' &&
-        outcome?.state !== 'accepted'}
+        shownOutcome?.state !== 'uncertain' &&
+        shownOutcome?.state !== 'accepted'}
       {onClose}
       onStart={() => void start()}
     />

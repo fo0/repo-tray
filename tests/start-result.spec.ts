@@ -58,7 +58,7 @@ for (const [name, close] of Object.entries(closers)) {
   });
 }
 
-test('a reopened start dialog keeps the running target locked until the start settles', async ({
+test('a reopened start dialog shows the result of the running start and stays locked', async ({
   page,
 }) => {
   await holdStarts(page);
@@ -80,9 +80,18 @@ test('a reopened start dialog keeps the running target locked until the start se
     dialog.getByRole('button', { name: 'Schließen', exact: true }),
   ).toBeVisible();
   await page.clock.runFor(400);
-  // The result belongs to the closed dialog, so it lands in the banner and
-  // never in this newer dialog.
+  // The reopened dialog watched the start: it shows the result read-only and
+  // keeps the same lock as the dialog that started it.
+  await expect(
+    dialog.getByText('Simulierter Start angenommen', { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByText(/Demo-Run #9001/)).toBeVisible();
   await expect(start).toHaveText(/Start simulieren/);
+  await expect(start).toBeDisabled();
+  await page.clock.runFor(400);
+  await expect(start).toBeDisabled();
+  // Only a different target frees the start button again.
+  await dialog.getByLabel('Branch oder Tag').selectOption('develop');
   await expect(start).toBeEnabled();
   await expect(
     dialog.getByText('Simulierter Start angenommen', { exact: true }),

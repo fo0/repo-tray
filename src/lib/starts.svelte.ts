@@ -5,6 +5,11 @@ import type { Panel } from './panel.svelte';
 import type { DispatchOutcome, DispatchRequest, DispatchTarget } from './types';
 
 export type StartResult = { outcome: DispatchOutcome } | { error: string };
+/** The last result of one target; `seq` identifies the start that produced it. */
+export interface SettledStart {
+  seq: number;
+  result: StartResult;
+}
 export interface StartOptions {
   /** Names the start in the banner, e.g. a template label. */
   label?: string;
@@ -20,11 +25,17 @@ export interface StartOptions {
 export class Starts {
   /** Targets whose start has an unknown outcome; never re-sent. */
   quarantined = $state.raw(new Set<string>());
-  /** Starts in flight by target key. */
-  running = $state.raw(new Set<string>());
+  /** Starts in flight: target key → sequence number of the start. */
+  running = $state.raw(new Map<string, number>());
+  /**
+   * Last settled result per target key. A dialog that watched a start shows
+   * it, even when another dialog or a quick start owned that start.
+   */
+  settled = $state.raw(new Map<string, SettledStart>());
   any = $derived(this.running.size > 0);
   #panel: Panel;
   #bridge: Bridge;
+  #seq = 0;
 
   constructor(panel: Panel, bridge: Bridge) {
     this.#panel = panel;
@@ -34,6 +45,9 @@ export class Starts {
   isQuarantined = (target: DispatchTarget) =>
     this.quarantined.has(targetKey(target));
   isRunning = (target: DispatchTarget) => this.running.has(targetKey(target));
+  /** Sequence number of the start running for this target, if any. */
+  runningSeq = (target: DispatchTarget) => this.running.get(targetKey(target));
+  settledFor = (target: DispatchTarget) => this.settled.get(targetKey(target));
 
   /** Demo reset only: the demo bridge drops its claims at the same time. */
   clearQuarantine() {
@@ -53,12 +67,13 @@ export class Starts {
     if (!panel.snapshot || this.running.has(key)) return null;
     const invalid = validateDispatch(panel.snapshot, payload);
     if (invalid) return this.#settle({ error: invalid }, payload, options);
-    this.running = new Set([...this.running, key]);
+    const seq = ++this.#seq;
+    this.running = new Map(this.running).set(key, seq);
     const viewTicket = panel.viewEpoch.next();
     panel.refreshing = false;
     panel.error = '';
     panel.notice = null;
-    let result: StartResult;
+    let result: StartResult = { error: 'Start abgebrochen.' };
     try {
       const outcome = await this.#bridge.dispatchWorkflow(payload);
       if (outcome.state === 'uncertain')
@@ -75,7 +90,10 @@ export class Starts {
     } catch (cause) {
       result = { error: errorMessage(cause) };
     } finally {
-      const rest = new Set(this.running);
+      // Record the result before freeing the target, so a watching dialog
+      // never sees a free target without its result.
+      this.settled = new Map(this.settled).set(key, { seq, result });
+      const rest = new Map(this.running);
       rest.delete(key);
       this.running = rest;
     }
