@@ -1,7 +1,7 @@
 /*
  * End-to-end review walk through the browser demo in both themes: overview,
  * Verlauf, account switch, failure details, favorites and the start dialog,
- * the picker, offline / missing rights / uncertain starts, an empty search,
+ * offline / missing rights / uncertain starts, an empty search,
  * the theme setting and the GitHub connection preview with the demo token.
  * Each step asserts its outcome before the screenshot;
  * docs/review/manifest.json records every step.
@@ -193,14 +193,6 @@ async function walk(theme) {
     'Diesen Run im Verlauf verfolgen',
     'Nach Abschluss Verlauf → Abgeschlossen → #9001 aufklappen.',
     'Der neue Demo-Run zeigt develop, den erreichten Zustand und das Konto. Weiterhin lokale Simulation.',
-  );
-
-  await openPage(page, 'picker');
-  await capture(
-    'repo-auswahl',
-    'Repositories im Panel hinzufügen und entfernen',
-    'Zurück → Repositories „+ Hinzufügen“.',
-    'Nach Konto gruppiert; voller Owner/Repo und Lese- beziehungsweise Schreibrecht. Änderungen gelten sofort.',
   );
 
   await scenario(page, 'offline');

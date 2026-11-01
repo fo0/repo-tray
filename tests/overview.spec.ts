@@ -17,6 +17,8 @@ const section = (page: Page, name: SectionName) =>
 const pageTitle = (page: Page, name: SectionName) =>
   page.getByRole('heading', { level: 2, name: PAGE_TITLES[name], exact: true });
 const more = (page: Page) => page.getByRole('button', { name: /weitere/ });
+const menuOf = (page: Page, name: string) =>
+  page.getByRole('button', { name: `Aktionen für ${name}`, exact: true });
 
 test.describe('demo overview', () => {
   test.beforeEach(async ({ page }) => {
@@ -36,7 +38,7 @@ test.describe('demo overview', () => {
     // Each section is a region named by its heading, with a spoken count.
     await expect(section(page, 'runs')).toContainText('3 Runs');
     await expect(section(page, 'favorites')).toContainText('1 Favorit');
-    await expect(section(page, 'repos')).toContainText('3 Repositories');
+    await expect(section(page, 'repos')).toContainText('12 Repositories');
     const live = section(page, 'runs').getByRole('listitem');
     await expect(live).toHaveCount(3);
     await expect(live.first()).toContainText('Checks');
@@ -44,8 +46,11 @@ test.describe('demo overview', () => {
     // The demo polls every second: the rows are no live region.
     await expect(section(page, 'runs').locator('[aria-live]')).toHaveCount(0);
     await expect(section(page, 'runs').getByRole('status')).toHaveCount(0);
-    // Nothing is capped at the demo's sizes.
-    await expect(more(page)).toHaveCount(0);
+    // Only the repositories exceed their cap at the demo's sizes.
+    await expect(more(page)).toHaveCount(1);
+    await expect(
+      section(page, 'repos').getByRole('button', { name: /weitere/ }),
+    ).toHaveText('+2 weitere');
     for (const [name, key] of [
       ['runs', 2],
       ['favorites', 3],
@@ -210,19 +215,30 @@ test.describe('demo overview', () => {
     );
   });
 
-  test('„Hinzufügen“ opens the repository picker, never the settings', async ({
+  test('the tray picks its repositories: 10 on the overview, no way to add one', async ({
     page,
   }) => {
-    const add = section(page, 'repos').getByRole('button', {
-      name: 'Repositories hinzufügen',
-      exact: true,
-    });
-    await add.click();
-    await expectPage(page, 'picker');
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByLabel('Repositories filtern')).toBeFocused();
-    await backButton(page).click();
-    await expectPage(page, 'overview');
-    await expect(add).toBeFocused();
+    const rows = page.locator('.repository-card');
+    await expect(
+      section(page, 'repos').locator('.repository-card'),
+    ).toHaveCount(10);
+    await expect(page.getByRole('button', { name: /Hinzufügen/ })).toHaveCount(
+      0,
+    );
+    // Each account's oldest pushes stay out of the tray.
+    for (const name of [
+      'team-demo/sandbox-demo',
+      'example-org/legacy-portal-demo',
+    ])
+      await expect(page.getByRole('region', { name, exact: true })).toHaveCount(
+        0,
+      );
+    await openPage(page, 'repos');
+    await expect(rows).toHaveCount(12);
+    await expect(page.getByRole('button', { name: /Hinzufügen/ })).toHaveCount(
+      0,
+    );
+    await menuOf(page, 'demo-dev/launch-kit-demo').click();
+    await expect(page.getByRole('menuitem', { name: /Tray/ })).toHaveCount(0);
   });
 });

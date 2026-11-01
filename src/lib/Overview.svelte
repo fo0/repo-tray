@@ -5,23 +5,21 @@
   export const CAPS: Record<SectionPage, number> = {
     runs: 3,
     favorites: 4,
-    repos: 6,
+    repos: 10,
   };
 </script>
 
 <script lang="ts">
-  import type { Snippet } from 'svelte';
   import EmptyState, { type NextStep } from './EmptyState.svelte';
   import FavoriteTiles from './FavoriteTiles.svelte';
   import Icon from './Icon.svelte';
   import LiveRuns from './LiveRuns.svelte';
-  import NotInTray from './NotInTray.svelte';
   import RepositoryList from './RepositoryList.svelte';
   import SectionHeader from './SectionHeader.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
   import type { repositoryActivity } from './runs';
-  import type { Pin, Repo, Run } from './types';
+  import type { Pin, Run } from './types';
   import type { PanelView } from './view.svelte';
 
   let {
@@ -35,9 +33,7 @@
     accountName,
     searching,
     setup,
-    candidates,
     onClearQuery,
-    add,
   }: {
     /** Starts, favorites and account state come from the panel. */
     panel: Panel;
@@ -52,13 +48,9 @@
     accountName: (accountId: string) => string;
     /** A non-blank search query is active; it lifts the caps. */
     searching: boolean;
-    /** The missing account or repository step, shown instead of the sections. */
+    /** The missing account step, shown instead of the sections. */
     setup: NextStep | null;
-    /** Search matches outside the tray: „Nicht im Tray“. */
-    candidates: Repo[];
     onClearQuery: () => void;
-    /** The „Hinzufügen“ button of the Repositories header. */
-    add: Snippet;
   } = $props();
 
   const capped = <T,>(items: T[], page: SectionPage) =>
@@ -78,22 +70,15 @@
     >{/if}
 {/snippet}
 
-{#snippet notInTray()}{#if candidates.length}<NotInTray
-      {panel}
-      repos={candidates}
-      {accountName}
-    />{/if}{/snippet}
-
 {#if setup}<EmptyState icon="tray" iconSize={25} {...setup} />
 {:else if searching && !live.length && !pins.length && !groups.length}
-  <!-- Nothing in the tray matches: only the matches outside it, if any. -->
-  {#if candidates.length}{@render notInTray()}{:else}<EmptyState
-      icon="search"
-      iconSize={25}
-      title="Keine Treffer"
-      text="Keine laufenden Runs, Favoriten oder Repositories passen. Versuche einen anderen Suchbegriff."
-      action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
-    />{/if}
+  <EmptyState
+    icon="search"
+    iconSize={25}
+    title="Keine Treffer"
+    text="Keine laufenden Runs, Favoriten oder Repositories passen. Versuche einen anderen Suchbegriff."
+    action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
+  />
 {:else}
   <section class="overview-section" aria-labelledby="section-runs">
     <SectionHeader
@@ -150,8 +135,8 @@
       title="Repositories"
       count={groups.length}
       unit={['Repository', 'Repositories']}
-      onMaximize={() => void view.open('repos')}>{@render add()}</SectionHeader
-    >
+      onMaximize={() => void view.open('repos')}
+    />
     {#if groups.length}<RepositoryList
         groups={shownGroups}
         onopen={(workflow) => modals.openDispatch(undefined, workflow)}
@@ -163,11 +148,12 @@
         onToggle={panel.toggleRepo}
         native={panel.native}
         demo={panel.demo}
-        busy={panel.selection.busy}
-        onRemove={(id) => void panel.selection.remove(id)}
         onNotice={(text, tone) => panel.showNotice(text, tone)}
-      />{:else}<p class="section-empty">Keine passenden Repositories.</p>{/if}
+      />{:else}<p class="section-empty">
+        {searching
+          ? 'Keine passenden Repositories.'
+          : 'Keine Repositories gefunden.'}
+      </p>{/if}
     {@render more('repos', groups.length - shownGroups.length, 'Repositories')}
   </section>
-  {@render notInTray()}
 {/if}

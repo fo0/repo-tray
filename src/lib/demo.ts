@@ -1,4 +1,5 @@
 import fixture from '../../fixtures/demo.json';
+import { autoSelect } from './autoRepos';
 import { safePin, targetKey, validateDispatch } from './model';
 import type {
   DemoScenario,
@@ -13,7 +14,6 @@ import type {
 export interface Bridge {
   snapshot(): Promise<Snapshot>;
   refreshSnapshot(): Promise<Snapshot>;
-  selectRepos(repoIds: string[]): Promise<Snapshot>;
   savePin(pin: Pin): Promise<Snapshot>;
   deletePin(pinId: string): Promise<Snapshot>;
   dispatchWorkflow(request: DispatchRequest): Promise<DispatchOutcome>;
@@ -38,11 +38,19 @@ const fingerprint = (request: DispatchRequest) =>
     Object.entries(request.inputs).sort(([a], [b]) => a.localeCompare(b)),
   ]);
 
+/** The fixture under the native rule: each account's newest repositories. */
+function initial(pins?: Pin[]): Snapshot {
+  const data = copy(fixture) as Snapshot;
+  if (pins) data.pins = pins;
+  data.repos = autoSelect(data.repos, data.pins);
+  return data;
+}
+
 export function createDemoBridge(
   storage?: PreferenceStorage,
   latency = 300,
 ): Bridge & DemoControls {
-  let data = copy(fixture) as Snapshot;
+  let data = initial();
   let scenario: DemoScenario = 'normal';
   let nextRun = 9000;
   let generation = 0;
@@ -55,36 +63,28 @@ export function createDemoBridge(
     new Promise<void>((resolve) => setTimeout(resolve, latency));
   try {
     const stored = JSON.parse(storage?.getItem(PREFERENCE_KEY) ?? 'null');
-    if (stored && Array.isArray(stored.repoIds))
-      data.repos.forEach((r) => {
-        r.selected = stored.repoIds.includes(r.id);
-      });
     if (stored && Array.isArray(stored.pins)) {
-      data.pins = stored.pins.flatMap((pin: Pin) => {
-        try {
-          // A saved pin may belong to a temporarily deselected repository.
-          const validation = copy(data);
-          validation.repos.forEach((r) => {
-            r.selected = true;
-          });
-          return [safePin(validation, pin)];
-        } catch {
-          return [];
-        }
+      // A saved pin may belong to any fixture repository; it keeps it shown.
+      const validation = copy(data);
+      validation.repos.forEach((r) => {
+        r.selected = true;
       });
+      data = initial(
+        stored.pins.flatMap((pin: Pin) => {
+          try {
+            return [safePin(validation, pin)];
+          } catch {
+            return [];
+          }
+        }),
+      );
     }
   } catch {
     /* Corrupt or unavailable preferences never prevent startup. */
   }
   const persist = () => {
     try {
-      storage?.setItem(
-        PREFERENCE_KEY,
-        JSON.stringify({
-          repoIds: data.repos.filter((r) => r.selected).map((r) => r.id),
-          pins: data.pins,
-        }),
-      );
+      storage?.setItem(PREFERENCE_KEY, JSON.stringify({ pins: data.pins }));
     } catch {
       /* An in-memory demo remains usable with storage disabled. */
     }
@@ -139,15 +139,6 @@ export function createDemoBridge(
     async refreshSnapshot() {
       await delay();
       if (scenario !== 'offline') data.updatedAt = new Date().toISOString();
-      return snapshot();
-    },
-    async selectRepos(repoIds) {
-      if (repoIds.some((id) => !data.repos.some((r) => r.id === id)))
-        throw new Error('Unbekanntes Repository.');
-      data.repos.forEach((r) => {
-        r.selected = repoIds.includes(r.id);
-      });
-      persist();
       return snapshot();
     },
     async savePin(pin) {
@@ -262,7 +253,7 @@ export function createDemoBridge(
     },
     async resetDemo() {
       generation++;
-      data = copy(fixture) as Snapshot;
+      data = initial();
       scenario = 'normal';
       nextRun = 9000;
       pending.clear();

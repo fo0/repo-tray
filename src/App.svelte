@@ -75,17 +75,18 @@
     if (modals.kind === 'dispatch') modals.close();
   }
   function connectedNative(value: Snapshot) {
+    const known = new Set(panel.snapshot?.accounts.map((item) => item.id));
     panel.viewEpoch.invalidate();
     panel.accept(value);
     // An explicit connection selects that entry; the service lists it last.
     const account = value.accounts.at(-1);
     changeAccount(account?.id ?? '');
-    // A new account starts without selected repositories: the picker is the
-    // next step. Its page is set before the dialog closes, so the dialog's
-    // focus return lands in it instead of on a vanished opener.
-    if (account && !panel.repos.length) {
-      void view.open('picker', { connected: account.login, opener: null });
+    // A new account shows its newest repositories at once: the overview, set
+    // before the dialog closes, so its focus return lands there.
+    if (account && !known.has(account.id)) {
+      view.home();
       modals.close();
+      panel.showNotice(`Konto ${account.login} verbunden.`);
     } else openSettings();
     void updater.check(true);
   }
@@ -100,11 +101,10 @@
     void tick().then(() => appBar?.focusAccount());
   }
 
-  /** Empty-state actions open the missing step: connect, account or repositories. */
+  /** Empty-state actions open the missing step: connect or account. */
   function openNextStep() {
     if (native && !snapshot?.accounts.length) modals.show('connect');
-    else if (panel.needsAccount) appBar?.openAccountMenu();
-    else void view.open('picker', { from: view.page });
+    else appBar?.openAccountMenu();
   }
   const shortcuts = createShortcuts({
     blocked: () => modals.kind !== null,

@@ -23,17 +23,27 @@ describe('activity model', () => {
     const data = snapshot();
     data.repos[3]!.selected = true;
     data.runs[3]!.updatedAt = '2026-10-31T10:00:00Z';
+    // Repositories without runs follow by name: example-org/…, then team-demo/….
+    const unused = [
+      ...[
+        'api',
+        'billing',
+        'ci',
+        'design',
+        'docs',
+        'infra',
+        'metrics',
+        'mobile',
+        'search',
+      ].map((name) => `demo-work-${name}`),
+      'demo-extra',
+    ];
     expect(repositoryActivity(data, '', '').map(({ repo }) => repo.id)).toEqual(
-      [
-        'demo-personal-site',
-        'demo-personal-kit',
-        'demo-team-tools',
-        'demo-extra',
-      ],
+      ['demo-personal-site', 'demo-personal-kit', 'demo-team-tools', ...unused],
     );
     expect(
       repositoryActivity(data, 'demo-work', '').map(({ repo }) => repo.id),
-    ).toEqual(['demo-team-tools', 'demo-extra']);
+    ).toEqual(['demo-team-tools', ...unused]);
     expect(
       repositoryActivity(data, '', 'desktop build').map(({ workflows }) =>
         workflows.map((w) => w.id),

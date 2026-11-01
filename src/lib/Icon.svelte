@@ -83,7 +83,6 @@
       line(12, 14, 12, 21),
     ],
     plus: [line(12, 4, 12, 20), line(4, 12, 20, 12)],
-    minus: [line(5, 12, 19, 12)],
     // Three dots: the actions menu of a row.
     more: [ring(5.5, 12, 1.2), ring(12, 12, 1.2), ring(18.5, 12, 1.2)],
     back: [line(20, 12, 4, 12), wire('10,6 4,12 10,18')],

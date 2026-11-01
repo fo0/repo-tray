@@ -62,19 +62,15 @@ describe('PanelView', () => {
     expect(view.from).toBe('overview');
   });
 
-  it('opens the picker over its opener page and names a fresh connection', async () => {
+  it('goes home to the overview from any page, forgetting the way back', async () => {
     const { view } = setup();
     await view.open('repos');
-    await view.open('picker', { from: 'repos', connected: 'fixture-new' });
-    expect(view.page).toBe('picker');
-    expect(view.connected).toBe('fixture-new');
-    expect(view.back()).toBe(true);
-    expect(view.page).toBe('repos');
-    expect(view.connected).toBe('');
-    // Opened without a connection, the picker names none.
-    await view.open('picker', { connected: 'fixture-new' });
-    await view.open('picker');
-    expect(view.connected).toBe('');
+    await view.open('favorites', { from: 'repos', opener: {} as HTMLElement });
+    view.home();
+    expect(view.page).toBe('overview');
+    expect(view.from).toBe('overview');
+    expect(view.opener).toBeNull();
+    expect(view.back()).toBe(false);
   });
 
   it('keeps the search and the filter across page switches', async () => {

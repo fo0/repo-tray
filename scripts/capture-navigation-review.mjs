@@ -1,5 +1,5 @@
 /*
- * Navigation review: the overview, every maximized page, the picker, the
+ * Navigation review: the overview, every maximized page, the
  * account menu and the settings App tab in both themes at 480×760, plus the
  * overview at the 360×560 minimum. NAVIGATION_REVIEW_DIR and
  * NAVIGATION_REVIEW_PREFIX redirect the files, e.g. into a step folder.
@@ -63,12 +63,6 @@ try {
 
     await openPage(page, 'repos');
     await capture('repositories');
-
-    await openPage(page, 'picker');
-    await expect(
-      page.getByRole('button', { name: /^Hinzufügen: / }).first(),
-    ).toBeVisible();
-    await capture('picker');
 
     await openPage(page, 'overview');
     await accountMenuButton(page).click();

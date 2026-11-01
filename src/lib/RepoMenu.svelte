@@ -12,7 +12,6 @@
     latest,
     native,
     demo,
-    onRemove,
     onNotice,
   }: {
     repo: Repo;
@@ -20,8 +19,6 @@
     latest: Run | undefined;
     native: boolean;
     demo: boolean;
-    /** Takes the repository out of the tray; „Rückgängig“ follows. */
-    onRemove: () => void;
     /** Panel banner for link results. */
     onNotice: (text: string, tone: NoticeTone) => void;
   } = $props();
@@ -154,7 +151,7 @@
     onkeydown={onTriggerKey}><Icon name="more" size={16} /></button
   >
   {#if open}
-    <!-- tabindex="-1": a press on the separator or padding focuses the menu
+    <!-- tabindex="-1": a press on the padding focuses the menu
          itself, so focusout does not close it. -->
     <div
       id={`${id}-menu`}
@@ -199,15 +196,6 @@
             : 'Für dieses Repository gibt es keinen gültigen GitHub-Link'}
         onclick={() => run(copy)}
         ><Icon name="copy" size={16} />Link kopieren</button
-      >
-      <div class="menu-separator" role="separator"></div>
-      <button
-        type="button"
-        class="menu-item danger"
-        role="menuitem"
-        tabindex="-1"
-        onclick={() => run(onRemove)}
-        ><Icon name="minus" size={16} />Aus Tray entfernen</button
       >
     </div>
   {/if}

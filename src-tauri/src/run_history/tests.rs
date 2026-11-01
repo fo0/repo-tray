@@ -103,6 +103,7 @@ fn repo() -> Repo {
         owner: "fixture-owner".into(),
         name: "fixture-name".into(),
         default_branch: "main".into(),
+        pushed_at: None,
         selected: true,
         permission: crate::models::Permission::Write,
     }

@@ -15,7 +15,8 @@ test('repository disclosures show actions and both row and start button open the
   page,
 }) => {
   const repos = page.locator('.repository-card');
-  await expect(repos).toHaveCount(3);
+  // The overview shows the 10 most active of the demo's 12 repositories.
+  await expect(repos).toHaveCount(10);
   await expect(repos.first()).toContainText('demo-dev/launch-kit-demo');
   const repo = repos.first();
   const toggle = repo.locator('.repository-toggle');
@@ -287,7 +288,7 @@ for (const width of [360, 480]) {
     expect(layout.tile.width).toBeLessThan(width / 2);
     expect(layout.tile.width).toBeGreaterThanOrEqual(150);
     expect(layout.tile.right).toBeLessThanOrEqual(width);
-    expect(layout.strips).toHaveLength(3);
+    expect(layout.strips).toHaveLength(10);
     for (const { row, copy, strip, menu, chevron } of layout.strips) {
       expect(strip.width).toBeGreaterThan(0);
       expect(strip.left).toBeGreaterThanOrEqual(copy.right);

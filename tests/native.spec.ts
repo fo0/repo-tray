@@ -95,7 +95,6 @@ test.beforeEach(async ({ page }) => {
             throw 'Installation konnte nicht gestartet werden.';
           return null;
         }
-        if (cmd === 'select_repos') return structuredClone(snapshot);
         if (cmd === 'disconnect_account') {
           snapshot = {
             ...snapshot,
@@ -140,14 +139,23 @@ async function login(page: import('@playwright/test').Page) {
     .getByRole('button', { name: 'Token prüfen und verbinden' })
     .click();
   await expect(dialog.getByLabel('GitHub-Token')).toHaveValue('');
+  await connectedOnOverview(page);
+}
+/** A new account closes every dialog and lands on the overview with one notice. */
+async function connectedOnOverview(page: import('@playwright/test').Page) {
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.tray')).toHaveAttribute('data-page', 'overview');
   await expect(
-    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
+    page.getByRole('status').filter({ hasText: 'Konto demo-dev verbunden.' }),
   ).toBeVisible();
 }
-test('native token flow clears input, labels live mode and returns to repository setup', async ({
+test('native token flow clears input, labels live mode and lands on the overview', async ({
   page,
 }) => {
   await login(page);
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
   await expect(
     page.getByText('1 Konto verbunden', { exact: true }),
   ).toBeVisible();
@@ -196,9 +204,7 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
   expect(calls.filter((cmd) => cmd === 'connect_token')).toHaveLength(1);
   expect(calls).not.toContain('cancel_connect');
   expect(calls).not.toContain('discover_local_auth');
-  await expect(
-    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
-  ).toBeVisible();
+  await connectedOnOverview(page);
 });
 test('public update downloads inside the app and installs only after a separate confirmation', async ({
   page,
@@ -345,6 +351,9 @@ test('native invalid token is rejected and disconnect removes the account view',
   await expect(page.getByLabel('GitHub-Token')).toHaveValue('');
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await login(page);
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
   await page.getByRole('button', { name: /^demo-dev.*trennen$/ }).click();
   await page
     .getByRole('group', { name: /^demo-dev · .+ trennen\?$/ })

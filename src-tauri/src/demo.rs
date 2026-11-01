@@ -1,9 +1,10 @@
 //! Entirely local simulation: no account, credential, URL opening, or HTTP calls.
 
+use crate::auto_repos::auto_select;
 use crate::models::*;
 use crate::workflow::{validate_inputs, validate_non_secret_inputs};
 use chrono::Utc;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 const FIXTURE: &str = include_str!("../../fixtures/demo.json");
@@ -38,8 +39,10 @@ impl Default for DemoStore {
 
 impl DemoStore {
     pub fn new() -> Self {
-        let snapshot: Snapshot = serde_json::from_str(FIXTURE)
+        let mut snapshot: Snapshot = serde_json::from_str(FIXTURE)
             .expect("bundled demo fixture must match the checked TypeScript contract");
+        // The same automatic rule as a live catalog listing.
+        auto_select(&mut snapshot.repos, &snapshot.pins);
         let started = Instant::now();
         let simulated_runs = snapshot
             .runs
@@ -146,20 +149,6 @@ impl DemoStore {
         self.snapshot()
     }
 
-    pub fn select_repos(&mut self, ids: Vec<String>) -> Result<Snapshot, String> {
-        let ids: BTreeSet<_> = ids.into_iter().collect();
-        if ids
-            .iter()
-            .any(|id| !self.snapshot.repos.iter().any(|repo| &repo.id == id))
-        {
-            return Err("An unknown repository cannot be selected.".into());
-        }
-        for repo in &mut self.snapshot.repos {
-            repo.selected = ids.contains(&repo.id);
-        }
-        Ok(self.snapshot())
-    }
-
     pub fn save_pin(&mut self, mut pin: Pin) -> Result<Snapshot, String> {
         validate_pin_fields(&pin)?;
         check_pin_room(&self.snapshot.pins, &pin.id)?;
@@ -263,7 +252,7 @@ impl DemoStore {
             .find(|repo| repo.id == request.repo_id && repo.account_id == request.account_id)
             .ok_or_else(|| "Repository does not belong to this account.".to_string())?;
         if !repo.selected {
-            return Err("Select this repository before starting a workflow.".into());
+            return Err("This repository is not shown in the tray.".into());
         }
         if repo.permission != Permission::Write {
             return Err("Repository write permission is required.".into());
@@ -380,6 +369,27 @@ mod tests {
         assert_eq!(json["pins"][0]["ref"], "main");
         let fixture: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
         assert_eq!(json, fixture);
+    }
+
+    #[test]
+    fn each_account_shows_its_ten_newest_repositories_and_its_favorites() {
+        let snapshot = DemoStore::new().snapshot();
+        let shown = |account: &str| {
+            snapshot
+                .repos
+                .iter()
+                .filter(|repo| repo.account_id == account && repo.selected)
+                .count()
+        };
+        assert_eq!(shown("demo-work"), crate::auto_repos::AUTO_REPOS);
+        assert_eq!(shown("demo-personal"), 2);
+        let hidden: Vec<_> = snapshot
+            .repos
+            .iter()
+            .filter(|repo| !repo.selected)
+            .map(|repo| repo.id.as_str())
+            .collect();
+        assert_eq!(hidden, ["demo-extra", "demo-work-legacy"]);
     }
 
     #[test]

@@ -49,10 +49,6 @@ async fn refresh_repositories(app: tauri::AppHandle) -> Result<Snapshot, String>
     work(app, |engine| Ok(engine.refresh_repositories())).await
 }
 #[tauri::command]
-async fn select_repos(app: tauri::AppHandle, repo_ids: Vec<String>) -> Result<Snapshot, String> {
-    work(app, |engine| engine.select_repos(repo_ids)).await
-}
-#[tauri::command]
 async fn save_pin(app: tauri::AppHandle, pin: Pin) -> Result<Snapshot, String> {
     work(app, |engine| engine.save_pin(pin)).await
 }
@@ -283,7 +279,6 @@ pub fn run() {
             snapshot,
             refresh_snapshot,
             refresh_repositories,
-            select_repos,
             save_pin,
             delete_pin,
             dispatch_workflow,

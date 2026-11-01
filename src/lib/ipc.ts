@@ -23,7 +23,6 @@ export interface Commands {
   snapshot: { args: undefined; result: Snapshot };
   refresh_snapshot: { args: undefined; result: Snapshot };
   refresh_repositories: { args: undefined; result: Snapshot };
-  select_repos: { args: { repoIds: string[] }; result: Snapshot };
   save_pin: { args: { pin: Pin }; result: Snapshot };
   delete_pin: { args: { pinId: string }; result: Snapshot };
   dispatch_workflow: {
@@ -72,7 +71,6 @@ const REGISTERED: Record<Command, true> = {
   snapshot: true,
   refresh_snapshot: true,
   refresh_repositories: true,
-  select_repos: true,
   save_pin: true,
   delete_pin: true,
   dispatch_workflow: true,

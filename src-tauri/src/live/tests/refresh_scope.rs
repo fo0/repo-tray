@@ -20,6 +20,7 @@ fn repo(account_id: &str, number: u64, selected: bool) -> Repo {
         owner: "fixture-owner".into(),
         name: format!("fixture-{number}"),
         default_branch: "main".into(),
+        pushed_at: None,
         selected,
         permission: Permission::Write,
     }
@@ -32,6 +33,7 @@ fn failing_account_keeps_its_repositories_while_others_refresh() {
         repo("github-1", 10, true),
         repo("github-1", 11, false),
         repo("github-2", 20, true),
+        repo("github-2", 21, false),
     ];
     let listings = BTreeMap::from([(
         "github-1".to_string(),
@@ -40,16 +42,17 @@ fn failing_account_keeps_its_repositories_while_others_refresh() {
             truncated: false,
         },
     )]);
-    let merged = merge_catalog(&previous, &accounts, listings);
+    let merged = merge_catalog(&previous, &accounts, listings, &[]);
     let ids: Vec<_> = merged.iter().map(|r| (r.id.as_str(), r.selected)).collect();
-    // github-1 refreshed: 11 left, 12 is new, 10 keeps its selection.
-    // github-2 failed: its last known repositories stay as they were.
+    // github-1 refreshed: 11 left, 12 is new, and both listed ones are selected.
+    // github-2 failed: its last known repositories and their selection stay as they were.
     assert_eq!(
         ids,
         vec![
             ("github-1:10", true),
-            ("github-1:12", false),
-            ("github-2:20", true)
+            ("github-1:12", true),
+            ("github-2:20", true),
+            ("github-2:21", false)
         ]
     );
 }
@@ -73,11 +76,11 @@ fn truncated_listing_keeps_selected_repositories_beyond_the_cut() {
     };
     let ids = |repos: Vec<Repo>| repos.into_iter().map(|r| r.id).collect::<Vec<_>>();
     assert_eq!(
-        ids(merge_catalog(&previous, &accounts, listing(true))),
+        ids(merge_catalog(&previous, &accounts, listing(true), &[])),
         vec!["github-1:10", "github-1:99"]
     );
     assert_eq!(
-        ids(merge_catalog(&previous, &accounts, listing(false))),
+        ids(merge_catalog(&previous, &accounts, listing(false), &[])),
         vec!["github-1:10"]
     );
 }

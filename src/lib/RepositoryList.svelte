@@ -21,8 +21,6 @@
     onToggle,
     native,
     demo,
-    busy,
-    onRemove,
     onNotice,
   }: {
     groups: ReturnType<typeof repositoryActivity>;
@@ -42,10 +40,6 @@
     onToggle: (repoId: string) => void;
     native: boolean;
     demo: boolean;
-    /** The repository's tray change is not confirmed yet. */
-    busy: (repoId: string) => boolean;
-    /** Takes a repository out of the tray („⋯“ menu). */
-    onRemove: (repoId: string) => void;
     onNotice: (text: string, tone: NoticeTone) => void;
   } = $props();
 </script>
@@ -68,14 +62,12 @@
     <section
       class="repository-card"
       class:open
-      class:busy={busy(group.repo.id)}
       aria-label={fullRepo(group.repo)}
-      aria-busy={busy(group.repo.id) || undefined}
       data-repo-id={group.repo.id}
     >
       <!-- The strip sits inside the toggle, so its summary is part of what
            the row reads when it takes focus; the „⋯“ menu is its sibling,
-           drawn in a slot before the chevron (20-repo-picker.css). -->
+           drawn in a slot before the chevron (20-repo-menu.css). -->
       <div class="repository-head">
         <button
           class="repository-toggle"
@@ -121,7 +113,6 @@
           latest={group.latest}
           {native}
           {demo}
-          onRemove={() => onRemove(group.repo.id)}
           {onNotice}
         />
       </div>

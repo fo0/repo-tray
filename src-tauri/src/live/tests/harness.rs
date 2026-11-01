@@ -62,6 +62,8 @@ pub(super) fn confirmation(repo: u64, id: u64) -> Result<ApiResponse, TransportE
 #[derive(Default)]
 pub(super) struct Remote {
     pub(super) repos: BTreeMap<String, Vec<u64>>,
+    /// `pushed_at` of a listed repository; unlisted ones carry none.
+    pub(super) pushed: BTreeMap<u64, String>,
     /// Status every request of an account is answered with (401: revoked).
     pub(super) account_status: BTreeMap<String, u16>,
     /// Accounts whose vault entry is gone: the transport fails before sending, as
@@ -242,7 +244,7 @@ impl Transport for Fake {
                     .cloned()
                     .unwrap_or_default()
                     .into_iter()
-                    .map(|n| serde_json::json!({"id": n, "name": format!("fixture-{n}"), "owner": {"login": "fixture-owner"}, "default_branch": "main", "permissions": {"push": true}}))
+                    .map(|n| serde_json::json!({"id": n, "name": format!("fixture-{n}"), "owner": {"login": "fixture-owner"}, "default_branch": "main", "pushed_at": remote.pushed.get(&n), "permissions": {"push": true}}))
                     .collect();
                 json(200, Value::Array(listed))
             }
@@ -291,6 +293,15 @@ impl NativeKeyring for Vault {
     }
 }
 
+/// The selected repository IDs in catalog order.
+pub(super) fn selected_ids(snapshot: &Snapshot) -> Vec<&str> {
+    snapshot
+        .repos
+        .iter()
+        .filter(|repo| repo.selected)
+        .map(|repo| repo.id.as_str())
+        .collect()
+}
 pub(super) fn account(id: &str) -> Account {
     Account {
         id: id.into(),
@@ -378,12 +389,11 @@ impl Harness {
     pub(super) fn restart(&self) -> LiveStore<Fake> {
         Self::open(&self.path, &self.remote, &self.vault)
     }
-    /// Lists the catalogs, selects these repositories and reads their metadata and runs.
-    pub(super) fn select(&mut self, ids: &[&str]) {
-        self.live.refresh();
-        self.live
-            .select_repos(ids.iter().map(|id| id.to_string()).collect())
-            .unwrap();
+    /// Lists the catalogs, which select their repositories automatically, and reads the
+    /// metadata and runs of the selected ones; asserts exactly these were selected.
+    pub(super) fn load(&mut self, selected: &[&str]) {
+        let snapshot = self.live.refresh();
+        assert_eq!(selected_ids(&snapshot), selected);
     }
     pub(super) fn remote(&self) -> MutexGuard<'_, Remote> {
         self.remote.lock().unwrap()

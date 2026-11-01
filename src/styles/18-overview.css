@@ -67,7 +67,7 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--run) 22%, transparent);
 }
 
-/* „+ Hinzufügen“ and „Workflow starten …“: a soft accent pill. */
+/* „Workflow starten …“: a soft accent pill. */
 .add-button {
   display: inline-flex;
   align-items: center;

@@ -1,5 +1,7 @@
 //! Unit tests of the native engine, by topic. Every name is a labelled fixture.
 
+/// The automatic selection of each account's newest repositories.
+mod auto_select;
 mod browser_permission;
 mod connect;
 /// The synthetic GitHub, vault and engine shared by the orchestration and connect tests.

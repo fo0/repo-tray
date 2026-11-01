@@ -5,8 +5,8 @@ import type { ActivityFilter } from './runs';
 
 /** A section of the overview, which can be maximized to fill the panel body. */
 export type SectionPage = 'runs' | 'favorites' | 'repos';
-/** The overview, a maximized section, or the repository picker. */
-export type Page = 'overview' | SectionPage | 'picker';
+/** The overview or a maximized section. */
+export type Page = 'overview' | SectionPage;
 /** Every page with its own header and way back. */
 export type SubPage = Exclude<Page, 'overview'>;
 
@@ -15,7 +15,6 @@ export const PAGE_TITLES: Record<SubPage, string> = {
   runs: 'Verlauf',
   favorites: 'Favoriten',
   repos: 'Repositories',
-  picker: 'Repositories im Tray',
 };
 
 /** The panel state „Im Verlauf anzeigen“ changes: expanded run and notices. */
@@ -67,8 +66,6 @@ export class PanelView {
   from = $state<Page>('overview');
   filter = $state<ActivityFilter>('all');
   query = $state('');
-  /** Login of a just-connected account, named by the picker as the next step. */
-  connected = $state('');
   /** Element that opened the current page; not reactive, focus only. */
   opener: HTMLElement | null = null;
   #openerKey: string | null = null;
@@ -78,19 +75,14 @@ export class PanelView {
     this.#panel = panel;
   }
 
-  /**
-   * Opens a page and moves focus to its landing: a section's title, the
-   * picker's search. `connected` names a fresh connection in the picker.
-   */
+  /** Opens a page and moves focus to its landing: the section's title. */
   open = async (
     page: SubPage,
     {
       from = 'overview',
       opener,
-      connected = '',
-    }: { from?: Page; opener?: HTMLElement | null; connected?: string } = {},
+    }: { from?: Page; opener?: HTMLElement | null } = {},
   ) => {
-    this.connected = connected;
     if (this.page !== page) {
       this.#remember(opener);
       this.from = from === page ? 'overview' : from;
@@ -128,10 +120,19 @@ export class PanelView {
     const [opener, key] = [this.opener, this.#openerKey];
     this.page = this.from;
     this.from = 'overview';
-    this.connected = '';
     this.#remember(null);
     if (hasDom()) void tick().then(() => focusBack(opener, key, left));
     return true;
+  };
+
+  /**
+   * Straight to the overview without moving focus, e.g. right before a
+   * closing dialog returns it.
+   */
+  home = () => {
+    this.page = 'overview';
+    this.from = 'overview';
+    this.#remember(null);
   };
 
   /**

@@ -10,6 +10,9 @@ export interface Repo {
   owner: string;
   name: string;
   defaultBranch: string;
+  /** GitHub's last push (ISO 8601); ranks the automatic selection. */
+  pushedAt: string | null;
+  /** One of the account's newest repositories or of a favorite: shown in the tray. */
   selected: boolean;
   permission: 'write' | 'read' | 'denied';
 }

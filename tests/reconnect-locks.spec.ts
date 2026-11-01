@@ -115,8 +115,11 @@ test('after an uncertain start, disconnecting and reconnecting the account unloc
   await connect
     .getByRole('button', { name: 'Token prüfen und verbinden' })
     .click();
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  // Connected again after its removal: a new account, so the overview follows.
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.notice-banner')).toContainText(
+    'Konto demo-dev verbunden.',
+  );
 
   await openPage(page, 'favorites');
   await expect(card.locator('.uncertain-start')).toHaveCount(0);

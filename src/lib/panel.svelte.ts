@@ -10,17 +10,11 @@ import { errorMessage } from './format';
 import { call } from './ipc';
 import { RequestEpoch } from './model';
 import { Notices, PANEL_NOTICE } from './notices.svelte';
-import { RepoSelection } from './repoSelection.svelte';
 import { Starts } from './starts.svelte';
 import type { DemoScenario, Pin, Snapshot } from './types';
 
 type BusyFlag =
-  | 'pinsBusy'
-  | 'templateBusy'
-  | 'selectionBusy'
-  | 'accountBusy'
-  | 'accessBusy'
-  | 'resetBusy';
+  'pinsBusy' | 'templateBusy' | 'accountBusy' | 'accessBusy' | 'resetBusy';
 /** With accounts left the user picks one; without any, connecting comes first. */
 const nextAccountStep = (value: Snapshot, pick: string) =>
   value.accounts.length ? pick : 'Verbinde ein GitHub-Konto, um fortzufahren.';
@@ -47,7 +41,6 @@ export class Panel {
   // Every operation owns its busy flag; closing a dialog clears none of them.
   pinsBusy = $state(false);
   templateBusy = $state(false);
-  selectionBusy = $state(false);
   accountBusy = $state(false);
   accessBusy = $state(false);
   resetBusy = $state(false);
@@ -55,7 +48,6 @@ export class Panel {
   readonly native: boolean;
   readonly starts: Starts;
   readonly favorites: Favorites;
-  readonly selection: RepoSelection;
   readonly notices = new Notices();
   readonly viewEpoch = new RequestEpoch();
   #bridge: PanelDeps['bridge'];
@@ -64,7 +56,7 @@ export class Panel {
 
   blocked = $derived(this.snapshot?.connectivity !== 'online');
   settingsBusy = $derived(
-    this.selectionBusy || this.accountBusy || this.accessBusy || this.resetBusy,
+    this.accountBusy || this.accessBusy || this.resetBusy,
   );
   /** A mutation could still change state; pushed snapshots wait meanwhile. */
   mutating = $derived(this.settingsBusy || this.pinsBusy || this.templateBusy);
@@ -76,9 +68,6 @@ export class Panel {
     this.starts = new Starts(this, bridge);
     this.favorites = new Favorites(this, bridge, (run) =>
       this.#mutation('pinsBusy', run),
-    );
-    this.selection = new RepoSelection(this, bridge, (run) =>
-      this.#mutation('selectionBusy', run),
     );
   }
 
@@ -204,7 +193,6 @@ export class Panel {
     this.notices.clear(PANEL_NOTICE);
     // „Rückgängig“ belongs to the previous account's view.
     this.favorites.clearUndo();
-    this.selection.clearUndo();
   }
 
   /** Resolves to null when the refresh failed or a newer view change won. */
@@ -276,9 +264,7 @@ export class Panel {
       this.accountId = '';
       this.scenario = 'normal';
       this.starts.clearQuarantine();
-      this.showNotice(
-        'Demo zurückgesetzt. Favoriten und Auswahl sind wieder im Ausgangszustand.',
-      );
+      this.showNotice('Demo zurückgesetzt.');
     });
 
   async #mutation<T>(

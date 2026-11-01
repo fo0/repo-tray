@@ -16,7 +16,6 @@ try {
 const nativeBridge: Bridge = {
   snapshot: () => call('snapshot'),
   refreshSnapshot: () => call('refresh_snapshot'),
-  selectRepos: (repoIds) => call('select_repos', { repoIds }),
   savePin: (pin) => call('save_pin', { pin }),
   deletePin: (pinId) => call('delete_pin', { pinId }),
   dispatchWorkflow: (request) => call('dispatch_workflow', { request }),
