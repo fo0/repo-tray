@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "vite build",
@@ -19,7 +22,7 @@
     "build:installer": "tauri build --features desktop --bundles nsis",
     "icons:generate": "node scripts/generate-icons.mjs",
     "icons:check": "node scripts/generate-icons.mjs --check",
-    "verify": "pnpm icons:check && pnpm check && pnpm test && pnpm release:test && pnpm lint && pnpm build",
+    "verify": "pnpm lint && pnpm icons:check && pnpm check && pnpm test && pnpm release:test && pnpm build",
     "release:test": "node --test scripts/release.test.mjs scripts/updater.test.mjs scripts/release-workflow.test.mjs",
     "prepare": "husky"
   },
@@ -42,6 +45,7 @@
     "vitest": "^3.2.0"
   },
   "lint-staged": {
-    "*": "prettier --write --ignore-unknown"
+    "*": "prettier --write --ignore-unknown",
+    "*.rs": "rustfmt --edition 2021"
   }
 }
