@@ -134,4 +134,16 @@ mod tests {
         assert!(selected(&repos).contains(&"a:old"));
         assert!(!selected(&repos).contains(&"a:other"));
     }
+
+    #[test]
+    fn a_cached_repository_from_before_push_times_still_loads() {
+        let cached = serde_json::json!({
+            "id": "a:old", "accountId": "a", "owner": "fixture-owner", "name": "old",
+            "defaultBranch": "main", "selected": true, "permission": "write"
+        });
+        let repo: Repo = serde_json::from_value(cached).unwrap();
+        assert_eq!(repo.pushed_at, None);
+        // The panel contract carries the field as `pushedAt: null`.
+        assert!(serde_json::to_value(&repo).unwrap()["pushedAt"].is_null());
+    }
 }
