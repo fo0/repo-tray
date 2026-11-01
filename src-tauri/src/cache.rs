@@ -95,10 +95,12 @@ impl Cache {
 
     fn from_connection(mut connection: Connection) -> Result<Self, CacheError> {
         connection.busy_timeout(Duration::from_secs(5))?;
-        // WAL with NORMAL sync stays consistent after a crash; at worst the last commit is lost.
+        // WAL needs FULL sync to make every commit durable: with NORMAL an OS crash or power
+        // loss may roll back the last commit, which can be the dispatch claim written right
+        // before the POST, so the start could be sent twice.
         connection
             .pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get::<_, String>(0))?;
-        connection.pragma_update(None, "synchronous", "NORMAL")?;
+        connection.pragma_update(None, "synchronous", "FULL")?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         migrate(&mut connection)?;
         Ok(Self {

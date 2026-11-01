@@ -453,3 +453,22 @@ fn deleting_one_accounts_pin_does_not_delete_another_accounts_same_id() {
     assert!(cache.load_pins("demo-personal").unwrap().is_empty());
     assert_eq!(cache.load_pins("demo-work").unwrap().len(), 1);
 }
+
+#[test]
+fn a_file_cache_uses_wal_with_full_sync_so_a_dispatch_claim_survives_power_loss() {
+    let path = temp_db("durability");
+    let cache = Cache::open(&path).unwrap();
+    let journal: String = cache
+        .connection
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .unwrap();
+    // 2 = FULL. WAL with NORMAL may roll back the claim committed right before the POST.
+    let synchronous: i64 = cache
+        .connection
+        .query_row("PRAGMA synchronous", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(journal, "wal");
+    assert_eq!(synchronous, 2);
+    drop(cache);
+    remove_db(&path);
+}
