@@ -1,4 +1,4 @@
-use crate::auth::AuthError;
+use crate::auth::{AuthError, SecretToken};
 use crate::live::*;
 
 /// Synthetic vault: holds nothing, so no test can read or write a real credential.

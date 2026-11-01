@@ -1,4 +1,9 @@
+use crate::github::{ApiRequest, ApiResponse, TransportError};
+use crate::live::catalog::{
+    account_repos, bounded_refs, merge_catalog, AccountRepos, RefListing, MAX_REFS, REPO_REF_BYTES,
+};
 use crate::live::*;
+use crate::run_history::{Cause, ScopeError};
 
 fn account(id: &str) -> Account {
     Account {

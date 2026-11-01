@@ -1,3 +1,4 @@
+use crate::live::catalog::browser_repository_permission;
 use crate::live::*;
 #[test]
 fn push_flag_does_not_imply_app_actions_write_and_missing_contents_blocks_dispatch() {
