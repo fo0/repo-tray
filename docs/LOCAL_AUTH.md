@@ -5,8 +5,10 @@ In the connection dialog you can explicitly bring an existing **GitHub CLI (`gh`
 ## Discover, connect and activate
 
 1. Open **Bestehende Anmeldung auf diesem PC verwenden** and click **Lokale Anmeldungen prüfen**. Opening the section alone does not access any local sign-in.
-2. Choose the gh account. **In gh erkannt · noch nicht mit RepoTray verbunden** means only the local source has been checked so far. The **in gh aktiv** marker is not the active RepoTray account.
-3. Confirm **Ich möchte dieses gh-Konto in RepoTray verwenden** and click **gh-Konto mit RepoTray verbinden**. Only then does gh read the selected token; RepoTray verifies the GitHub identity and stores its own copy in the operating system's credential vault.
+2. The gh accounts appear as a compact list, one line each. Choose one; gh's own active-account marker is not the active RepoTray account.
+3. Confirm the one consent line and click **Übernehmen**. Only then does gh read the selected token; RepoTray verifies the GitHub identity, stores its own copy in the operating system's credential vault, and the flow finishes by itself (no **Schließen**).
+
+The UI keeps this to labels and one consent line; the details below are documentation, not panel text (`agent_docs/ux_rules.md`).
 
 **Bereits in RepoTray verbunden** shows login, source and status in Settings and in the connection dialog: **Token hinterlegt**, **gh-Anmeldung übernommen** or a previously stored browser account. **Aktiv für RepoTray** and **Verbunden, nicht aktiv** are shown separately. **Verwenden** activates an existing connection without importing credentials again. Importing from gh again after a token rotation requires explicit consent again.
 
@@ -37,7 +39,7 @@ Windows discovery covers Program Files, LocalAppData/Programs, Scoop including c
 
 ## Credential ownership and process boundaries
 
-Local imports use the stable API user ID in their own namespace `github-gh-<id>`; PAT connections use `github-<id>`. A PAT therefore never overwrites a gh connection of the same GitHub user. Disconnecting (**Trennen** in the account card, confirmed there) removes only the RepoTray copy and that connection's cached activity, repository selection, favorites and uncertain-start locks, neither gh/GCM sign-ins nor their permissions; for an imported account the confirmation says that the gh CLI sign-in stays untouched. A later gh rotation does not update an already stored copy automatically.
+Local imports use the stable API user ID in their own namespace `github-gh-<id>`; PAT connections use `github-<id>`. A PAT therefore never overwrites a gh connection of the same GitHub user. Disconnecting (**Trennen** in the account card, confirmed there) removes only the RepoTray copy and that connection's cached activity, repositories, favorites and uncertain-start locks, neither gh/GCM sign-ins nor their permissions; for an imported account the confirmation says that the gh CLI sign-in stays untouched. A later gh rotation does not update an already stored copy automatically.
 
 Child processes get a minimal environment without GitHub token variables, alternative hosts, debug/trace configuration or askpass. The explicit gh configuration and proxy and CA trust settings are kept. Stdin is closed; stdout and stderr are each capped at 64 KiB and the run time at 20 seconds. Raw process output and token values never appear in the UI, IPC, logs or snapshots. Cancelling ends the check and discards late results.
 
