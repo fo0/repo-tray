@@ -24,10 +24,12 @@
   font-size: var(--font-size-meta);
   color: var(--muted-text);
   background: transparent;
-  padding: 0;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 32px;
+  margin: -10px -8px;
 }
 .desktop-footnote {
   display: flex;

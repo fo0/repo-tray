@@ -228,6 +228,12 @@
   padding: 6px 0 0;
   text-decoration: none;
   align-self: flex-start;
+  position: relative;
+}
+.detail-link::after {
+  content: '';
+  position: absolute;
+  inset: -7px -4px;
 }
 .detail-link:disabled {
   color: #85947a;

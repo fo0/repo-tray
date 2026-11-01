@@ -57,6 +57,7 @@
   color: #b4c2a6;
   padding: 14px 0 0;
   font-size: var(--font-size-meta);
+  min-height: 32px;
 }
 .reset-button > span {
   font-size: var(--font-size-meta);

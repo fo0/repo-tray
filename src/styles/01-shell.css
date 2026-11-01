@@ -113,7 +113,7 @@
 .toolbar {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  padding: 9px 20px;
+  padding: 7px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -149,6 +149,7 @@
   padding: 5px 16px 5px 0;
   max-width: 180px;
   outline-offset: 2px;
+  min-height: 32px;
 }
 .account-picker > svg {
   position: absolute;
@@ -174,8 +175,8 @@
   color: #909b8d;
   border-radius: 5px;
   padding: 5px;
-  min-width: 28px;
-  min-height: 28px;
+  min-width: 32px;
+  min-height: 32px;
   transition:
     background 0.15s,
     color 0.15s;
@@ -186,8 +187,8 @@
 }
 .icon-button.small {
   padding: 3px;
-  min-width: 24px;
-  min-height: 24px;
+  min-width: 32px;
+  min-height: 32px;
 }
 .tabs {
   display: flex;
