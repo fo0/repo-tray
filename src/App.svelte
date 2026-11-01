@@ -5,6 +5,7 @@
   import Icon from './lib/Icon.svelte';
   import RepositoryList from './lib/RepositoryList.svelte';
   import RunLink from './lib/RunLink.svelte';
+  import StatusBanners, { type NoticeTone } from './lib/StatusBanners.svelte';
   import appPackage from '../package.json';
   const appVersion = appPackage.version;
   import UncertainStartHelp from './lib/UncertainStartHelp.svelte';
@@ -85,7 +86,7 @@
   let dispatching = $state(false);
   let error = $state('');
   let notice = $state('');
-  let noticeTone = $state<'subtle' | 'warning' | 'danger'>('subtle');
+  let noticeTone = $state<NoticeTone>('subtle');
   let dialogError = $state('');
   let dialogNotice = $state('');
   let dialogNoticeTone = $state<'subtle' | 'warning'>('subtle');
@@ -238,10 +239,7 @@
   function accountName(id: string) {
     return accountLabel(snapshot, id, native);
   }
-  function showNotice(
-    value: string,
-    tone: 'subtle' | 'warning' | 'danger' = 'subtle',
-  ) {
+  function showNotice(value: string, tone: NoticeTone = 'subtle') {
     notice = value;
     noticeTone = tone;
   }
@@ -861,41 +859,16 @@
           >{:else}<kbd>/</kbd>{/if}</label
       >
 
-      {#if updater.info && !demo}<div
-          class="alert subtle notice-banner"
-          role="status"
-        >
-          <Icon name="refresh" size={16} /><span
-            >RepoTray {updater.info.version} verfügbar</span
-          ><button class="text-button" onclick={openUpdateSettings}
-            >Update ansehen</button
-          >
-        </div>{/if}
-      {#if snapshot?.stale || snapshot?.connectivity === 'forbidden'}<div
-          class="alert warning"
-          role="status"
-        >
-          <Icon name="warning" size={16} /><span
-            >{snapshot.message ?? 'Demo-Status nicht verfügbar.'}</span
-          >
-        </div>{/if}
-      {#if error}<div class="alert danger" role="alert">
-          <Icon name="warning" size={16} /><span>{error}</span>
-        </div>{/if}
-      {#if notice}<div
-          class={`alert ${noticeTone} notice-banner`}
-          role="status"
-        >
-          <Icon
-            name={noticeTone === 'subtle' ? 'check' : 'warning'}
-            size={16}
-          /><span>{notice}</span><button
-            class="icon-button small"
-            aria-label="Meldung schließen"
-            onclick={() => (notice = '')}
-            ><Icon name="close" size={13} /></button
-          >
-        </div>{/if}
+      <StatusBanners
+        update={updater.info}
+        {demo}
+        {snapshot}
+        {error}
+        {notice}
+        {noticeTone}
+        onShowUpdate={openUpdateSettings}
+        onDismissNotice={() => (notice = '')}
+      />
 
       {#if !snapshot}
         <div class="empty-state">
