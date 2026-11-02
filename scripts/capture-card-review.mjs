@@ -1,7 +1,7 @@
 /*
- * Favorite card review: the Favoriten page with one and two favorites, an
+ * Favorite row review: the Favoriten page with one and two favorites, an
  * uncertain start with its help, a quick-start favorite and the overview
- * tiles, in both themes, with layout metrics per shot. CARD_REVIEW_DIR
+ * rows, in both themes, with layout metrics per shot. CARD_REVIEW_DIR
  * redirects the files.
  */
 import { expect } from '@playwright/test';
@@ -33,7 +33,7 @@ const shots = [];
 /** @type {string[]} */
 const externalRequests = [];
 
-/** Layout of the shown panel: bars, favorite cards, tiles and the notice. */
+/** Layout of the shown panel: bars, favorite rows and the notice. */
 function measure() {
   /** @param {string} selector */
   const rect = (selector) => {
@@ -53,16 +53,12 @@ function measure() {
     appBar: rect('.app-bar'),
     search: rect('.search-field'),
     content: rect('.content'),
-    pinList: rect('.pin-list'),
-    cards: [...document.querySelectorAll('.pin-card')].map((card) => ({
-      title: card.querySelector('h3')?.textContent ?? '',
+    pinList: rect('.pin-rows'),
+    cards: [...document.querySelectorAll('.pin-row')].map((card) => ({
+      title: card.querySelector('.pin-label')?.textContent ?? '',
       height: card.getBoundingClientRect().height,
       width: card.getBoundingClientRect().width,
       warning: !!card.querySelector('.uncertain-start'),
-    })),
-    tiles: [...document.querySelectorAll('.tile')].map((tile) => ({
-      height: tile.getBoundingClientRect().height,
-      width: tile.getBoundingClientRect().width,
     })),
     overflow: document.documentElement.scrollWidth > innerWidth,
     notice: banner
@@ -104,7 +100,7 @@ try {
     await openPage(page, 'favorites');
     await capture(
       '04-favoriten',
-      'Favoriten: kompakte Karte mit Repository, Konto, Ref und Bestätigungsmodus.',
+      'Favoriten: kompakte Zeile mit Repository, Name, Ref, Start und Herz.',
     );
 
     let dialog = await openFavorite(page, 'Windows build');
@@ -126,7 +122,7 @@ try {
       .click();
     await capture(
       '07-favorit-gespeichert',
-      'Zwei Favoriten: direkte Aktionen, vollständige Repo-/Kontozuordnung und Branch je Zeile.',
+      'Zwei Favoriten: eine Zeile je Favorit, Repository vorn, Branch und Start rechts.',
     );
 
     await scenario(page, 'uncertain');
@@ -140,11 +136,11 @@ try {
       .click();
     await capture(
       '17-ungeklaert',
-      'Warnstatus in der vorhandenen Metazeile der Karte, keine zusätzliche Warnzeile.',
+      'Warnsymbol in der Zeile, keine zusätzliche Warnzeile.',
     );
     await page
       .getByRole('button', {
-        name: 'Startstatus ungeklärt: Windows build',
+        name: 'Startstatus ungeklärt: launch-kit-demo · Windows build',
         exact: true,
       })
       .click();
@@ -170,14 +166,14 @@ try {
       .click();
     await capture(
       '22-favoriten-schnellstart',
-      'Schnellstart-Favorit: Start, Konfigurieren und Entfernen bleiben unmittelbar erreichbar.',
+      'Schnellstart-Favorit: Blitz startet, Zeile öffnet den Dialog, Herz entfernt.',
     );
 
     await openPage(page, 'overview');
-    await expect(page.locator('.tile')).not.toHaveCount(0);
+    await expect(page.locator('.pin-row')).not.toHaveCount(0);
     await capture(
-      '25-favoriten-kacheln',
-      'Übersicht: Favoriten als Kacheln mit rundem Start und Herz zum Entfernen.',
+      '25-favoriten-zeilen',
+      'Übersicht: Favoriten als kompakte Zeilen mit rundem Start und Herz zum Entfernen.',
     );
     externalRequests.push(...demo.externalRequests);
     await demo.context.close();

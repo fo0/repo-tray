@@ -5,6 +5,7 @@ import {
   openLaunch,
   openPage,
   scenario,
+  templateCard,
 } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
@@ -131,12 +132,10 @@ test('an offline status check never claims a successful refresh of an uncertain 
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
   await scenario(page, 'offline');
-  const card = page
-    .locator('article')
-    .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
+  const card = templateCard(page, 'Windows build');
   await card
     .getByRole('button', {
-      name: 'Favorit Windows build starten…',
+      name: 'launch-kit-demo · Windows build starten…',
       exact: true,
     })
     .click();

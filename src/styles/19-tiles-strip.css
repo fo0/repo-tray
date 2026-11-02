@@ -1,6 +1,6 @@
 /*
  * Overview visuals („Ein Blick“): status colours by run tone, the status
- * icon tiles and status dots of the run rows, branch chips, favorite tiles
+ * icon tiles and status dots of the run rows, branch chips, favorite rows
  * and the run strip of each repository. Tokens from 00-tokens.css only.
  */
 
@@ -77,135 +77,138 @@
   white-space: nowrap;
 }
 
-/* Favorites: two tiles per row, the name on top, branch and start below. */
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+/* Favorites: one compact row each, like the repository rows. The
+   repository leads in bold, the favorite's name follows dimmed; branch,
+   marker, start and heart sit at the right end. */
+.pin-rows {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-.tile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 92px;
-  padding: 11px 12px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--raised);
-  transition: border-color 0.15s;
+  overflow: hidden;
 }
-.tile:hover {
-  border-color: var(--border-strong);
-}
-.tile.uncertain {
-  border-color: color-mix(in srgb, var(--wait) 45%, var(--border));
-}
-/* The name's hit area covers the tile; heart, marker and start sit above. */
-.tile-open {
+.pin-row {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 0 1px 0 12px;
+}
+.pin-row + .pin-row {
+  border-top: 1px solid var(--border);
+}
+.pin-row:hover {
+  background: var(--hover);
+}
+/* The name's hit area covers the row; marker, start and heart sit above. */
+.pin-open {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 7px;
+  flex: 1;
   min-width: 0;
-  padding: 0 24px 0 0;
+  padding: 0;
   background: transparent;
   color: var(--text);
   text-align: left;
+  white-space: nowrap;
 }
-.tile-open::after {
+.pin-open::after {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 9px;
 }
-.tile-open:focus-visible {
+.pin-open:focus-visible {
   outline: none;
 }
-.tile-open:focus-visible::after {
+.pin-open:focus-visible::after {
   outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline-offset: -2px;
 }
-.tile-title,
-.tile-repo {
+/* The name gives way first; the repository keeps its own up to three
+   quarters of the line. */
+.pin-repo,
+.pin-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.tile-title {
+.pin-repo {
+  flex: 0 0 auto;
+  max-width: 75%;
   font-size: 13.5px;
   font-weight: 620;
-  line-height: 19px;
+  line-height: 18px;
 }
-.tile-open:hover:not(:disabled) .tile-title {
-  color: var(--accent);
-}
-.tile-repo {
-  margin-top: 2px;
+.pin-label {
+  flex: 0 1 auto;
+  /* The repository's line height keeps both on one baseline. */
   color: var(--text-3);
   font-size: var(--font-size-meta);
-  line-height: 16px;
+  line-height: 18px;
 }
-.tile-heart,
-.tile-warning,
-.tile-start {
-  position: relative;
-  z-index: 1;
-}
-.tile-heart {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0;
+.pin-open:hover:not([aria-disabled='true']) .pin-repo {
   color: var(--accent);
 }
-.tile-heart svg {
-  fill: currentColor;
+.pin-row .branch-chip {
+  flex-shrink: 1;
+  max-width: 30%;
+  padding: 2px 5px;
 }
-.tile-foot {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: auto;
-  padding-top: 10px;
-}
-.tile-foot .branch-chip {
-  max-width: none;
-}
-.tile.uncertain .branch-chip {
+.pin-row.uncertain .branch-chip {
   border-color: color-mix(in srgb, var(--wait) 45%, var(--border));
   color: var(--wait);
 }
-.tile-warning {
-  display: inline-flex;
+.pin-warning,
+.pin-row .uncertain-start,
+.pin-start,
+.pin-heart {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
+}
+.pin-warning {
+  display: inline-flex;
   color: var(--wait);
 }
 /* The round start: a play to check the inputs, a bolt to start at once. */
-.tile-start {
+.pin-start {
   display: grid;
   place-items: center;
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
 }
-.tile-start svg {
+.pin-start svg {
   fill: currentColor;
 }
-.tile-start:not(.quick) svg {
+.pin-start:not(.quick) svg {
   margin-left: 2px;
 }
-.tile-start:hover:not([aria-disabled='true']) {
+.pin-start:hover:not([aria-disabled='true']) {
   background: color-mix(in srgb, var(--accent) 86%, var(--text));
+}
+.pin-row .pin-heart {
+  min-width: 28px;
+  color: var(--accent);
+}
+.pin-heart svg {
+  fill: currentColor;
+}
+/* The 360 px minimum: the branch chip drops its icon, so the favorite's
+   name keeps room next to the repository. */
+@media (max-width: 400px) {
+  .pin-row .branch-chip > svg {
+    display: none;
+  }
 }
 
 /* Run strip: the last runs of a repository, oldest left, newest right. */

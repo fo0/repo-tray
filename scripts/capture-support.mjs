@@ -77,8 +77,8 @@ export function assertLocalOnly(requests) {
 }
 
 /**
- * Shows a panel page the way a user gets there: back to the overview, then a
- * section's maximize button.
+ * Shows a panel page the way a user gets there: back to the overview (a
+ * section page's minimize button), then a section's maximize button.
  * @param {Page} page
  * @param {PanelPage} name
  */
@@ -88,7 +88,8 @@ export async function openPage(page, name) {
   if (current === name) return;
   if (current !== 'overview')
     await page
-      .getByRole('button', { name: 'Zurück zur Übersicht', exact: true })
+      .locator('.page-header')
+      .getByRole('button', { name: / verkleinern$/ })
       .click();
   const maximize = {
     runs: 'Läuft gerade maximieren',
@@ -151,7 +152,9 @@ export async function scenario(page, value) {
 export async function openFavorite(page, label) {
   await openPage(page, 'favorites');
   await page
-    .getByRole('button', { name: `Favorit ${label} starten…`, exact: true })
+    .locator('.pin-row')
+    .filter({ has: page.locator('.pin-label', { hasText: label }) })
+    .locator('.pin-open')
     .click();
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }

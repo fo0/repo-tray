@@ -78,7 +78,7 @@ test('a persisted claim locks the start after a restart until it is released exp
   const card = templateCard(page, 'Windows build');
   await expect(
     card.getByRole('button', {
-      name: 'Startstatus ungeklärt: Windows build',
+      name: 'Startstatus ungeklärt: launch-kit-demo · Windows build',
       exact: true,
     }),
   ).toBeVisible();
@@ -142,7 +142,7 @@ test('a persisted claim locks the start after a restart until it is released exp
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(
     card.getByRole('button', {
-      name: 'Startstatus ungeklärt: Windows build',
+      name: 'Startstatus ungeklärt: launch-kit-demo · Windows build',
       exact: true,
     }),
   ).toHaveCount(0);

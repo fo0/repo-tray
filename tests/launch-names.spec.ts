@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 
 /**
  * Accessible names of every visible „Starten…“ button and of the round start
- * buttons of favorite tiles; the generic „Workflow starten …“ of the
+ * buttons of favorite rows; the generic „Workflow starten …“ of the
  * Favoriten page reads differently.
  */
 function startNames(page: Page) {
@@ -19,7 +19,7 @@ function startNames(page: Page) {
       .filter(
         (button) =>
           (button.textContent?.trim() === 'Starten…' ||
-            button.classList.contains('tile-start')) &&
+            button.classList.contains('pin-start')) &&
           button.getBoundingClientRect().height > 0,
       )
       .map((button) => button.getAttribute('aria-label') ?? ''),
@@ -42,40 +42,42 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
   const repositories = await startNames(page);
   expect(repositories).toEqual(
     expect.arrayContaining([
-      'Favorit Windows build starten…',
+      'launch-kit-demo · Windows build starten…',
       'Desktop build starten…',
       'Runner health starten…',
     ]),
   );
   expect(new Set(repositories).size).toBe(repositories.length);
   expect(repositories).not.toContain('');
-  // The tile's name and its round start open the same dialog: one name, one
+  // The row's name and its round start open the same dialog: one name, one
   // control for assistive tech.
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await expect(
     pinned.getByRole('button', {
-      name: 'Favorit Windows build starten…',
+      name: 'launch-kit-demo · Windows build starten…',
       exact: true,
     }),
-  ).toHaveClass(/tile-open/);
+  ).toHaveClass(/pin-open/);
   await expect(pinned.getByRole('button', { name: /öffnen/ })).toHaveCount(0);
 
   await openPage(page, 'favorites');
   const favorites = await startNames(page);
-  expect(favorites).toEqual(['Favorit Windows build starten…']);
+  expect(favorites).toEqual(['launch-kit-demo · Windows build starten…']);
 });
 
 test('favorites use the heart icon in headings, empty state and save summary', async ({
   page,
 }) => {
   // The reference: the heart that removes a favorite on the overview.
-  const heart = await page.locator('.tile-heart svg').innerHTML();
+  const heart = await page.locator('.pin-heart svg').innerHTML();
   expect(await showsHeart(page, '#section-favorites', heart)).toBe(true);
   const dialog = await openLaunch(page);
   expect(await showsHeart(page, '.save-pin summary', heart)).toBe(true);
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page
-    .getByRole('button', { name: 'Favorit Windows build entfernen' })
+    .getByRole('button', {
+      name: 'launch-kit-demo · Windows build aus Favoriten entfernen',
+    })
     .click();
   expect(await showsHeart(page, '.empty-pins', heart)).toBe(true);
 });
@@ -141,7 +143,7 @@ test('two quick-start favorites name their quick start and their lock uniquely',
   }
   const quick = (label: string) =>
     page.getByRole('button', {
-      name: `Favorit ${label} schnellstarten`,
+      name: `launch-kit-demo · ${label} schnellstarten`,
       exact: true,
     });
   await expect(quick('Develop quick')).toBeVisible();
@@ -156,7 +158,7 @@ test('two quick-start favorites name their quick start and their lock uniquely',
   await quick('Main quick').click();
   const locked = (label: string) =>
     page.getByRole('button', {
-      name: `Startstatus ungeklärt: ${label}`,
+      name: `Startstatus ungeklärt: launch-kit-demo · ${label}`,
       exact: true,
     });
   await expect(locked('Main quick')).toBeVisible();
@@ -167,11 +169,13 @@ test('two quick-start favorites name their quick start and their lock uniquely',
   await openPage(page, 'overview');
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await expect(
-    pinned.getByRole('img', { name: 'Startstatus ungeklärt: Main quick' }),
+    pinned.getByRole('img', {
+      name: 'Startstatus ungeklärt: launch-kit-demo · Main quick',
+    }),
   ).toBeVisible();
   await expect(
     pinned.getByRole('button', {
-      name: 'Favorit Develop quick schnellstarten',
+      name: 'launch-kit-demo · Develop quick schnellstarten',
     }),
   ).toBeEnabled();
 });

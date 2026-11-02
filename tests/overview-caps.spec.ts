@@ -97,7 +97,7 @@ test.describe('capped overview', () => {
     page,
   }) => {
     await expect(section(page, 'runs').getByRole('listitem')).toHaveCount(3);
-    await expect(section(page, 'favorites').locator('.tile')).toHaveCount(4);
+    await expect(section(page, 'favorites').locator('.pin-row')).toHaveCount(4);
     await expect(
       section(page, 'repos').locator('.repository-card'),
     ).toHaveCount(10);
@@ -112,7 +112,7 @@ test.describe('capped overview', () => {
 
     for (const [name, label, count, rows] of [
       ['runs', '+2 weitere Runs anzeigen', 5, 'article.run'],
-      ['favorites', '+2 weitere Favoriten anzeigen', 6, '.pin-card'],
+      ['favorites', '+2 weitere Favoriten anzeigen', 6, '.pin-row'],
       ['repos', '+2 weitere Repositories anzeigen', 12, '.repository-card'],
     ] as const) {
       const button = section(page, name).getByRole('button', {
@@ -149,7 +149,7 @@ test.describe('capped overview', () => {
   test('a search lifts the caps', async ({ page }) => {
     await page.getByLabel('Übersicht durchsuchen').fill('cap');
     await expect(section(page, 'runs').getByRole('listitem')).toHaveCount(5);
-    await expect(section(page, 'favorites').locator('.tile')).toHaveCount(6);
+    await expect(section(page, 'favorites').locator('.pin-row')).toHaveCount(6);
     await expect(
       section(page, 'repos').locator('.repository-card'),
     ).toHaveCount(12);

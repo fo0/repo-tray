@@ -20,7 +20,10 @@
     onAction?: (() => void) | undefined;
     /** The action leads elsewhere (arrow icon) rather than acting in place. */
     navigates?: boolean;
-    /** Closes after this many milliseconds; paused while hovered or focused. */
+    /**
+     * Closes after this many milliseconds. A notice with an action waits
+     * while hovered or focused; a plain one closes regardless.
+     */
     timeout?: number | undefined;
     /** Holds the timeout, e.g. while a dialog hides the notice; restarts in full after. */
     paused?: boolean;
@@ -28,14 +31,24 @@
   } = $props();
   let hovered = $state(false);
   let focused = $state(false);
+  /** Only an action is worth holding the notice for. */
+  const holds = $derived(!!(actionLabel && onAction));
 
   $effect(() => {
-    if (!timeout || hovered || focused || paused) return;
-    // Starts over once the pointer and focus have left the notice and no
-    // dialog hides it any more.
+    if (!timeout || paused || (holds && (hovered || focused))) return;
+    // Starts over once the pointer and focus have left a notice with an
+    // action and no dialog hides it any more.
     const timer = setTimeout(() => onDismiss(), timeout);
     return () => clearTimeout(timer);
   });
+  /**
+   * The tray popup hides without a `pointerleave`: a hidden or unfocused
+   * window holds no notice, so none stays forever.
+   */
+  function release() {
+    hovered = false;
+    focused = false;
+  }
 
   /** Focus target if this notice closes while focused, kept while it is listed. */
   let neighbour: HTMLElement | null = null;
@@ -57,7 +70,9 @@
     // unless the action that closed it places focus itself.
     const focusOut = () =>
       queueMicrotask(() => {
-        if (node.isConnected) focused = node.contains(document.activeElement);
+        if (node.isConnected)
+          focused =
+            document.hasFocus() && node.contains(document.activeElement);
         else if (!actionOwnsFocus && focusLost()) focusAfterNotice(neighbour);
       });
     node.addEventListener('pointerenter', enter);
@@ -90,6 +105,9 @@
     onAction?.();
   }
 </script>
+
+<svelte:window onblur={release} />
+<svelte:document onvisibilitychange={() => document.hidden && release()} />
 
 <div
   class={`alert ${tone} notice-banner`}

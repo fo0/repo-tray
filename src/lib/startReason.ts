@@ -55,16 +55,20 @@ export function startReason(causes: StartCauses): string | null {
 }
 
 /**
- * Accessible names of a favorite's controls, one rule in every view: „…“
- * marks a control that opens the start dialog. Each names its favorite, so
- * two favorites never share a name.
+ * Accessible names of a favorite's controls, one rule in every view: they
+ * lead with the repository (its name without the owner), as the favorite's
+ * row does, and „…“ marks a control that opens the start dialog. Each names
+ * its favorite, so two favorites never share a name.
  */
-export const favoriteNames = (label: string) => ({
-  open: `Favorit ${label} starten…`,
-  quickStart: `Favorit ${label} schnellstarten`,
-  remove: `Favorit ${label} entfernen`,
-  uncertain: `Startstatus ungeklärt: ${label}`,
-});
+export const favoriteNames = (repo: string, label: string) => {
+  const name = `${repo} · ${label}`;
+  return {
+    open: `${name} starten…`,
+    quickStart: `${name} schnellstarten`,
+    remove: `${name} aus Favoriten entfernen`,
+    uncertain: `Startstatus ungeklärt: ${name}`,
+  };
+};
 
 /**
  * What a target's start control does:

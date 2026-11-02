@@ -5,8 +5,11 @@ const repoRow = (page: Page, name: string) =>
   page.getByRole('region', { name, exact: true });
 const favorites = (page: Page) =>
   page.getByRole('region', { name: 'Favoriten', exact: true });
-const tile = (page: Page, label: string) =>
-  favorites(page).locator('.tile').filter({ hasText: label });
+/** A favorite's row on the overview, by its exact label. */
+const row = (page: Page, label: string) =>
+  favorites(page)
+    .locator('.pin-row')
+    .filter({ has: page.locator('.pin-label', { hasText: label }) });
 /** The strip's cells from left to right, by tone. */
 const tones = (row: Locator) =>
   row
@@ -116,9 +119,9 @@ test.describe('run strip', () => {
   test('a new run enters on the right', async ({ page }) => {
     await saveFavorite(page, 'Quick build', true);
     const kit = repoRow(page, 'demo-dev/launch-kit-demo');
-    await tile(page, 'Quick build')
+    await row(page, 'Quick build')
       .getByRole('button', {
-        name: 'Favorit Quick build schnellstarten',
+        name: 'launch-kit-demo · Quick build schnellstarten',
         exact: true,
       })
       .click();
@@ -143,11 +146,11 @@ test.describe('run strip', () => {
   });
 });
 
-test.describe('favorite tiles', () => {
-  test('the name, anywhere on the tile, and the round start open the stored configuration', async ({
+test.describe('favorite rows', () => {
+  test('the repository leads, the name anywhere on the row and the round start open the stored configuration', async ({
     page,
   }) => {
-    const windows = tile(page, 'Windows build');
+    const windows = row(page, 'Windows build');
     const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
     const expectStored = async () => {
       await expect(dialog.getByLabel('Version', { exact: true })).toHaveValue(
@@ -159,67 +162,101 @@ test.describe('favorite tiles', () => {
         .click();
       await expect(dialog).toHaveCount(0);
     };
-    await expect(windows).toContainText('launch-kit-demo');
+    // The repository without its owner first and bold, the favorite's name
+    // small and dimmed after it on the same line.
+    const repo = windows.locator('.pin-repo');
+    const label = windows.locator('.pin-label');
+    await expect(repo).toHaveText('launch-kit-demo');
+    await expect(label).toHaveText('Windows build');
+    const style = await windows.evaluate((item) => {
+      const [first, second] = [
+        item.querySelector('.pin-repo')!,
+        item.querySelector('.pin-label')!,
+      ].map((node) => ({
+        box: node.getBoundingClientRect(),
+        css: getComputedStyle(node),
+      }));
+      return {
+        firstIsRepo: item
+          .querySelector('.pin-open')!
+          .firstElementChild!.classList.contains('pin-repo'),
+        oneLine: Math.abs(first!.box.bottom - second!.box.bottom) < 3,
+        repoWeight: Number(first!.css.fontWeight),
+        repoSize: parseFloat(first!.css.fontSize),
+        labelSize: parseFloat(second!.css.fontSize),
+      };
+    });
+    expect(style.firstIsRepo).toBe(true);
+    expect(style.oneLine).toBe(true);
+    expect(style.repoWeight).toBeGreaterThanOrEqual(600);
+    expect(style.labelSize).toBeLessThan(style.repoSize);
     await expect(windows.locator('.branch-chip')).toHaveText('main');
     await windows
-      .getByRole('button', { name: 'Favorit Windows build starten…' })
+      .getByRole('button', {
+        name: 'launch-kit-demo · Windows build starten…',
+        exact: true,
+      })
       .click();
     await expectStored();
-    // The name's hit area covers the tile, e.g. its branch chip.
+    // The name's hit area covers the row, e.g. its branch chip.
     const box = (await windows.boundingBox())!;
-    await windows.click({ position: { x: 24, y: box.height - 20 } });
+    const chip = (await windows.locator('.branch-chip').boundingBox())!;
+    await windows.click({
+      position: { x: chip.x - box.x + chip.width / 2, y: box.height / 2 },
+    });
     await expectStored();
     // Without quick start the round start is a second pointer target for
     // the same dialog, hidden from assistive tech and the tab order.
-    const start = windows.locator('.tile-start');
+    const start = windows.locator('.pin-start');
     await expect(start).toHaveAttribute('aria-hidden', 'true');
     await expect(start).toHaveAttribute('tabindex', '-1');
     await start.click();
     await expectStored();
   });
 
-  test('the heart removes a tile and „Rückgängig“ brings it back', async ({
+  test('the heart removes a row and „Rückgängig“ brings it back', async ({
     page,
   }) => {
-    await tile(page, 'Windows build')
-      .getByRole('button', { name: 'Favorit Windows build entfernen' })
-      .click();
-    await expect(tile(page, 'Windows build')).toHaveCount(0);
+    const remove = row(page, 'Windows build').getByRole('button', {
+      name: 'launch-kit-demo · Windows build aus Favoriten entfernen',
+      exact: true,
+    });
+    await expect(remove).toHaveAttribute('title', 'Favorit entfernen');
+    await remove.click();
+    await expect(row(page, 'Windows build')).toHaveCount(0);
     await expect(favorites(page)).toContainText('Noch keine Favoriten.');
     await page
       .getByRole('status')
       .filter({ hasText: 'Favorit „Windows build“ entfernt.' })
       .getByRole('button', { name: 'Rückgängig', exact: true })
       .click();
-    await expect(tile(page, 'Windows build')).toHaveCount(1);
-    await expect(
-      tile(page, 'Windows build').getByRole('button', {
-        name: 'Favorit Windows build entfernen',
-      }),
-    ).toBeVisible();
+    await expect(row(page, 'Windows build')).toHaveCount(1);
+    await expect(remove).toBeVisible();
   });
 
   for (const width of [480, 360]) {
-    test(`two tiles share a row at ${width}px; long names shorten and keep the full text in the tooltip`, async ({
+    test(`favorites are compact single-line rows at ${width}px; long names shorten and keep the full text in the tooltip`, async ({
       page,
     }) => {
       await page.setViewportSize({ width, height: 760 });
       const label = 'Nightly Windows x64 release build with symbols';
       await saveFavorite(page, label);
-      const tiles = favorites(page).locator('.tile');
-      await expect(tiles).toHaveCount(2);
-      const layout = await tiles.evaluateAll((items) =>
+      const rows = favorites(page).locator('.pin-row');
+      await expect(rows).toHaveCount(2);
+      const layout = await rows.evaluateAll((items) =>
         items.map((item) => {
           const r = item.getBoundingClientRect();
-          const title = item.querySelector('.tile-title')!;
+          const repo = item.querySelector('.pin-repo')!;
+          const name = item.querySelector('.pin-label')!;
           return {
             top: r.top,
+            bottom: r.bottom,
             left: r.left,
             right: r.right,
-            width: r.width,
             height: r.height,
-            clipped: title.scrollWidth > title.clientWidth,
-            tooltip: item.querySelector('.tile-open')!.getAttribute('title'),
+            repoClipped: repo.scrollWidth > repo.clientWidth,
+            nameClipped: name.scrollWidth > name.clientWidth,
+            tooltip: item.querySelector('.pin-open')!.getAttribute('title'),
           };
         }),
       );
@@ -227,22 +264,26 @@ test.describe('favorite tiles', () => {
         (typeof layout)[0],
         (typeof layout)[0],
       ];
-      expect(second.top).toBe(first.top);
-      expect(second.left).toBeGreaterThan(first.right);
-      expect(second.width).toBeCloseTo(first.width, 0);
-      // A long name stays on one line: the tile keeps its compact height.
-      expect(second.height).toBe(first.height);
-      expect(first.height).toBeLessThanOrEqual(110);
-      expect(second.right).toBeLessThanOrEqual(width);
+      // One row each, stacked, full width, as low as a repository row.
+      expect(second.top).toBeGreaterThanOrEqual(first.bottom);
+      expect(second.left).toBe(first.left);
+      expect(second.right).toBe(first.right);
+      for (const item of layout) {
+        expect(item.height).toBeGreaterThanOrEqual(32);
+        expect(item.height).toBeLessThanOrEqual(36);
+        expect(item.right).toBeLessThanOrEqual(width);
+        // The repository stays whole; the favorite's name gives way.
+        expect(item.repoClipped).toBe(false);
+      }
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth,
         ),
       ).toBe(false);
-      const long = layout.find((item) => item.tooltip?.startsWith(label))!;
-      expect(long.clipped).toBe(true);
+      const long = layout.find((item) => item.tooltip?.includes(label))!;
+      expect(long.nameClipped).toBe(true);
       expect(long.tooltip).toContain(
-        `${label} · demo-dev/launch-kit-demo · main · `,
+        `demo-dev/launch-kit-demo · ${label} · main · `,
       );
     });
   }

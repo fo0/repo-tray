@@ -58,7 +58,7 @@ try {
     await capture('verlauf');
 
     await openPage(page, 'favorites');
-    await expect(page.locator('article.pin-card')).toHaveCount(1);
+    await expect(page.locator('.pin-row')).toHaveCount(1);
     await capture('favoriten');
 
     await openPage(page, 'repos');
