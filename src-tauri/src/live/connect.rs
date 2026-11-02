@@ -198,6 +198,7 @@ impl<T: Transport> LiveStore<T> {
         self.data.workflows.retain(|w| ids.contains(&w.repo_id));
         self.poll_at.retain(|id, _| ids.contains(id));
         self.history_since.retain(|id, _| ids.contains(id));
+        self.browsed.retain(|id| ids.contains(id));
         self.tracked
             .retain(|_, tracker| tracker.account_id != account);
         Ok(self.snapshot())

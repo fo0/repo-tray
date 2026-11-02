@@ -119,10 +119,10 @@ test('heart favorites persist and remain scoped to their original account', asyn
     }),
   ).toHaveAttribute('aria-pressed', 'true');
   await openPage(page, 'favorites');
-  // The account is named in the row's tooltip.
+  // The account is named in the row's tooltip, before the last run.
   await expect(
     templateCard(page, 'Runner health').locator('.pin-open'),
-  ).toHaveAttribute('title', /· team-demo$/);
+  ).toHaveAttribute('title', /· team-demo · Läuft gerade · Letzter Run: /);
   await chooseAccount(page, 'demo-dev');
   await expect(templateCard(page, 'Runner health')).toHaveCount(0);
   await chooseAccount(page, 'team-demo');

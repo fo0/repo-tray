@@ -265,3 +265,15 @@
     padding: 0 10px 12px 46px;
   }
 }
+
+/* „Run abbrechen“ in an open run's details: armed, it turns to the fail tone
+   and asks once more. */
+.run-links .run-cancel:hover:not([aria-disabled='true']),
+.run-links .run-cancel.armed {
+  border-color: var(--fail-line);
+  background: var(--fail-soft);
+  color: var(--fail);
+}
+.run-links .run-cancel[aria-disabled='true'] {
+  cursor: progress;
+}

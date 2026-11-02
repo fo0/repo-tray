@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import Icon from './Icon.svelte';
   import RunLink, { copyLink } from './RunLink.svelte';
+  import { ArmedConfirm } from './armedConfirm.svelte';
   import { clockTime, runDuration, runMoment } from './format';
   import {
     isActive,
@@ -22,6 +24,9 @@
     demo,
     native,
     now,
+    canCancel = false,
+    cancelling = false,
+    onCancel,
     onToggle,
     onNotice,
   }: {
@@ -35,6 +40,11 @@
     native: boolean;
     /** Shared minute clock (ms) for relative times and running durations. */
     now: number;
+    /** Open, with write access: the details offer „Run abbrechen“. */
+    canCancel?: boolean;
+    /** A cancel request is pending or accepted; the run is still open. */
+    cancelling?: boolean;
+    onCancel?: () => void;
     onToggle: () => void;
     /** Panel banner for link results: copied, or why opening/copying failed. */
     onNotice: (text: string, tone: NoticeTone) => void;
@@ -61,6 +71,9 @@
   const runUrl = $derived(safeGitHubUrl(run.htmlUrl));
   const moment = $derived(runMoment(run, now, demo));
   const elapsed = $derived(runDuration(run, now, !demo));
+  /** „Run abbrechen“ asks once more before it cancels. */
+  const confirm = new ArmedConfirm<true>();
+  onDestroy(confirm.disarm);
 </script>
 
 <article class="run" class:expanded data-run={`${run.repoId}:${run.id}`}>
@@ -135,7 +148,22 @@
           title={runUrl ? undefined : noLink}
           onclick={() => void copy()}
           ><Icon name="copy" size={13} />Link kopieren</button
-        >
+        >{#if canCancel}<button
+            class="secondary-button compact run-cancel"
+            class:armed={confirm.is(true)}
+            aria-disabled={cancelling ? 'true' : undefined}
+            title={confirm.is(true)
+              ? 'Zum Abbrechen erneut klicken'
+              : undefined}
+            onclick={() =>
+              !cancelling && confirm.press(true, () => onCancel?.())}
+            onblur={confirm.disarm}
+            ><Icon name="stop" size={13} />{cancelling
+              ? 'Wird abgebrochen …'
+              : confirm.is(true)
+                ? 'Wirklich abbrechen?'
+                : 'Run abbrechen'}</button
+          >{/if}
         {#if !runUrl}<span class="run-link-note">{noLink}.</span>{/if}
       </div>
     </div>{/if}

@@ -129,6 +129,25 @@ impl ApiRequest {
         Self::new(account_id, Method::Post, url, Some(body))
     }
 
+    /// Asks GitHub to cancel one workflow run; the POST carries no body.
+    /// Source: https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2026-03-10#cancel-a-workflow-run
+    pub fn cancel_run(
+        account_id: &str,
+        owner: &str,
+        repo: &str,
+        run_id: u64,
+    ) -> Result<Self, ApiError> {
+        validate_segment(owner)?;
+        validate_segment(repo)?;
+        if run_id == 0 {
+            return Err(ApiError::Policy("Run-ID ungültig."));
+        }
+        let url = ApiUrl::parse(&format!(
+            "{API_ORIGIN}/repos/{owner}/{repo}/actions/runs/{run_id}/cancel"
+        ))?;
+        Self::new(account_id, Method::Post, url, None)
+    }
+
     fn new(
         account_id: &str,
         method: Method,

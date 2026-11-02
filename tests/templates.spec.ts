@@ -244,10 +244,13 @@ test('compact rows keep the repository, account context and click targets at 360
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   const card = templateCard(page, label);
   await expect(card.locator('.pin-repo')).toHaveText('runner-tools-demo');
-  // The full repository, the label and the account live in the tooltip.
+  // The full repository, the label, the account and the workflow's last run
+  // (its waiting run is open) live in the tooltip.
   await expect(card.locator('.pin-open')).toHaveAttribute(
     'title',
-    `example-org/runner-tools-demo · ${label} · main · team-demo`,
+    new RegExp(
+      `^example-org/runner-tools-demo · ${label} · main · team-demo · Läuft gerade · Letzter Run: \\d{2}\\.\\d{2}\\.\\d{4}, \\d{2}:\\d{2} · Demo-Zeit$`,
+    ),
   );
   await expect(card.getByText('main', { exact: true })).toBeVisible();
   const sizes = await card.evaluate((element) => {

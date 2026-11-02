@@ -20,6 +20,8 @@ const nativeBridge: Bridge = {
   deletePin: (pinId) => call('delete_pin', { pinId }),
   dispatchWorkflow: (request) => call('dispatch_workflow', { request }),
   releaseUncertainStart: (start) => call('release_uncertain_start', { start }),
+  cancelRun: (repoId, runId) => call('cancel_run', { repoId, runId }),
+  openRepository: (repoId) => call('open_repository', { repoId }),
 };
 
 export const bridge: Bridge & Partial<DemoControls> = native

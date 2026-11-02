@@ -130,7 +130,7 @@
   outline-offset: -2px;
 }
 /* The name gives way first; the repository keeps its own up to three
-   quarters of the line. */
+   quarters of the line and shortens only next to „läuft“. */
 .pin-repo,
 .pin-label {
   min-width: 0;
@@ -138,14 +138,14 @@
   text-overflow: ellipsis;
 }
 .pin-repo {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   max-width: 75%;
   font-size: 13.5px;
   font-weight: 620;
   line-height: 18px;
 }
 .pin-label {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   /* The repository's line height keeps both on one baseline. */
   color: var(--text-3);
   font-size: var(--font-size-meta);
@@ -202,6 +202,48 @@
 }
 .pin-heart svg {
   fill: currentColor;
+}
+/* The name and, while there is room, when the workflow last ran, right
+   aligned: the time drops out whole onto a clipped second line before the
+   name shortens to nothing. */
+.pin-rest {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 7px;
+  min-width: 0;
+  height: 18px;
+  overflow: hidden;
+}
+.pin-last,
+.pin-running {
+  flex-shrink: 0;
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+}
+.pin-last {
+  color: var(--text-3);
+}
+/* „läuft“ while one of the workflow's runs is open; it never drops out. */
+.pin-running {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+/* Running: the spinner turns, unless reduced motion keeps the still icon. */
+.pin-running .pin-spinner {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pin-running .pin-spinner {
+    display: block;
+    animation: spin 1.6s linear infinite;
+  }
+  .pin-running .pin-spinner + svg {
+    display: none;
+  }
 }
 /* The 360 px minimum: the branch chip drops its icon, so the favorite's
    name keeps room next to the repository. */

@@ -173,6 +173,56 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+/* A row with write access ends in its stop button; the row's own button
+   keeps the rest of the hit area. One click arms „Abbrechen?“, the second
+   cancels. */
+.live-row {
+  display: flex;
+  align-items: center;
+}
+.live-row > .live-run {
+  flex: 1;
+  min-width: 0;
+}
+.live-cancel {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  margin-right: 8px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.live-cancel:hover,
+.live-cancel.armed {
+  background: var(--fail-soft);
+  color: var(--fail);
+}
+.live-cancel.armed {
+  border-color: var(--fail-line);
+}
+.live-cancel[aria-disabled='true'] {
+  background: transparent;
+  color: var(--text-3);
+  cursor: progress;
+}
+.live-cancel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cancel-spinner {
+    animation: spin 1.6s linear infinite;
+  }
+}
 
 /* Header of a maximized section: it sits above the scrolling body, so the
    minimize button stays in reach on long lists. */

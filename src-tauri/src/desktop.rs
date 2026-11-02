@@ -71,6 +71,19 @@ async fn release_uncertain_start(
 ) -> Result<Snapshot, String> {
     work(app, |engine| engine.release_uncertain_start(start)).await
 }
+/// One POST per click; the next poll reports whether GitHub cancelled the run.
+#[tauri::command]
+async fn cancel_run(
+    app: tauri::AppHandle,
+    repo_id: String,
+    run_id: u64,
+) -> Result<Snapshot, String> {
+    work(app, move |engine| engine.cancel_run(repo_id, run_id)).await
+}
+#[tauri::command]
+async fn open_repository(app: tauri::AppHandle, repo_id: String) -> Result<Snapshot, String> {
+    work(app, |engine| engine.open_repository(repo_id)).await
+}
 #[tauri::command]
 fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
     crate::tray_popup::hide(&app)
@@ -283,6 +296,8 @@ pub fn run() {
             delete_pin,
             dispatch_workflow,
             release_uncertain_start,
+            cancel_run,
+            open_repository,
             crate::desktop_auth::connect_token,
             crate::desktop_auth::browser_auth_config,
             crate::desktop_auth::start_browser_auth,

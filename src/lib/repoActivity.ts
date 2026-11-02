@@ -1,0 +1,123 @@
+// Repository rows: activity, search reach and when each last ran.
+import { fullRepo } from './model';
+import { isActive, recentRuns, repositoryStatus } from './runs';
+import type { Run, Snapshot, Workflow } from './types';
+
+/**
+ * The repository browser includes selected repos even before their first
+ * run. A search also reaches the account's other repositories by
+ * `owner/name`, after every selected match and newest push first: they carry
+ * no workflows or runs until opened (`loaded: false`).
+ */
+export function repositoryActivity(
+  snapshot: Snapshot,
+  accountId: string,
+  query: string,
+) {
+  const needle = query.trim().toLocaleLowerCase();
+  const ofAccount = snapshot.repos.filter(
+    (repo) => !accountId || repo.accountId === accountId,
+  );
+  const loaded = ofAccount
+    .filter((repo) => repo.selected)
+    .map((repo) => {
+      const runs = snapshot.runs.filter((run) => run.repoId === repo.id);
+      const latest = [...runs].sort(
+        (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+      )[0];
+      const all = snapshot.workflows.filter(
+        (workflow) => workflow.repoId === repo.id,
+      );
+      const workflows = all.filter(
+        (workflow) =>
+          !needle ||
+          `${fullRepo(repo)} ${workflow.name}`
+            .toLocaleLowerCase()
+            .includes(needle),
+      );
+      return {
+        repo,
+        loaded: true,
+        runs,
+        workflows,
+        latest,
+        last: lastRun({ runs, workflows: all }, repo.id),
+        status: repositoryStatus(runs, latest),
+        recent: recentRuns({ runs }, repo.id),
+      };
+    })
+    .filter(
+      ({ repo, workflows }) =>
+        !needle ||
+        fullRepo(repo).toLocaleLowerCase().includes(needle) ||
+        workflows.length > 0,
+    )
+    .sort(
+      (a, b) =>
+        (b.latest ? Date.parse(b.latest.updatedAt) : 0) -
+          (a.latest ? Date.parse(a.latest.updatedAt) : 0) ||
+        fullRepo(a.repo).localeCompare(fullRepo(b.repo)),
+    );
+  if (!needle) return loaded;
+  const found = ofAccount
+    .filter(
+      (repo) =>
+        !repo.selected && fullRepo(repo).toLocaleLowerCase().includes(needle),
+    )
+    .sort(
+      (a, b) =>
+        (Date.parse(b.pushedAt ?? '') || 0) -
+          (Date.parse(a.pushedAt ?? '') || 0) ||
+        fullRepo(a).localeCompare(fullRepo(b)),
+    )
+    .map((repo) => ({
+      repo,
+      loaded: false,
+      runs: [] as Run[],
+      workflows: [] as Workflow[],
+      latest: undefined as Run | undefined,
+      last: null,
+      status: null,
+      recent: [] as (Run | null)[],
+    }));
+  return [...loaded, ...found];
+}
+
+/** When a repository or one workflow last ran, and whether it runs now. */
+export interface LastRun {
+  /** Start (ISO 8601) of the latest known run. */
+  at: string;
+  /** A run of this scope is open right now. */
+  active: boolean;
+}
+
+/**
+ * The latest run start of a repository, or of one of its workflows: the
+ * newer of the snapshot's runs and `Workflow.lastRunAt`, which the core
+ * looks up for workflows the run history no longer holds. Null while no run
+ * is known.
+ */
+export function lastRun(
+  snapshot: Pick<Snapshot, 'runs' | 'workflows'>,
+  repoId: string,
+  workflowId?: number,
+): LastRun | null {
+  const inScope = (itemRepo: string, itemWorkflow: number) =>
+    itemRepo === repoId &&
+    (workflowId === undefined || itemWorkflow === workflowId);
+  let at: string | null = null;
+  let newest = -Infinity;
+  let active = false;
+  const consider = (value: string | null | undefined) => {
+    const time = Date.parse(value ?? '');
+    if (time > newest) [newest, at] = [time, value!];
+  };
+  for (const run of snapshot.runs)
+    if (inScope(run.repoId, run.workflowId)) {
+      consider(run.createdAt);
+      active ||= isActive(run);
+    }
+  for (const workflow of snapshot.workflows)
+    if (inScope(workflow.repoId, workflow.id)) consider(workflow.lastRunAt);
+  return at === null ? null : { at, active };
+}

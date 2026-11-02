@@ -74,6 +74,19 @@ impl<T: Transport> ApiClient<T> {
         if request.method != Method::Get {
             return Err(ApiError::Policy("Nur GET-Anfragen sind hier erlaubt."));
         }
+        self.send_unthrottled(request, now)
+    }
+
+    /// A POST sent exactly once and never retried. Like `get`, a throttling answer surfaces
+    /// as `RateLimited`; every other status stays `Ok` for the caller to interpret.
+    pub fn post(&self, request: &ApiRequest, now: u64) -> Result<ApiResponse, ApiError> {
+        if request.method != Method::Post {
+            return Err(ApiError::Policy("Nur POST-Anfragen sind hier erlaubt."));
+        }
+        self.send_unthrottled(request, now)
+    }
+
+    fn send_unthrottled(&self, request: &ApiRequest, now: u64) -> Result<ApiResponse, ApiError> {
         let mut state = self.state.lock().map_err(|_| ApiError::QueueUnavailable)?;
         let response = send_once(&mut state, request, now)?;
         match throttled(&state, &request.account_id, response.status, now) {

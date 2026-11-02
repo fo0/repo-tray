@@ -99,6 +99,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* When the repository last ran, after status and tag: it takes the room
+   left and drops out whole, onto a clipped second line, when that is too
+   little — status and tag keep their space. */
+.repository-meta > .repository-last {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  min-width: 0;
+  height: 16px;
+  overflow: hidden;
+}
+/* An empty first line, so the time has a line to wrap away from. */
+.repository-last::before {
+  content: '';
+  height: 16px;
+}
+.repository-last > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 .repository-tag {
   padding: 0 7px;
   border-radius: 99px;
@@ -187,9 +209,19 @@
   line-height: 1.45;
 }
 .action-copy small {
-  flex: 0 100 auto;
+  /* Only the room the name leaves: the name shortens only on its own. */
+  flex: 1 1 0;
   font-size: var(--font-size-meta);
   color: var(--text-3);
+}
+/* „● läuft“ after the branch while one of the workflow's runs is open. */
+.action-copy .action-running {
+  gap: 4px;
+  font-weight: 600;
+}
+.action-copy .action-running::before {
+  width: 6px;
+  height: 6px;
 }
 .action-copy:hover:not(:disabled) strong {
   color: var(--accent);

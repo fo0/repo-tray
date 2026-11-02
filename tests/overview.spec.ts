@@ -3,9 +3,9 @@ import {
   PAGE_TITLES,
   SECTION_TITLES,
   accountMenuButton,
+  backButton,
   expectPage,
   maximizeButton,
-  minimizeButton,
   openPage,
 } from './support/demo';
 
@@ -24,6 +24,31 @@ test.describe('demo overview', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await expect(maximizeButton(page, 'runs')).toBeVisible();
+  });
+
+  test('the brand leads home: back to the overview, without a search', async ({
+    page,
+  }) => {
+    const brand = page
+      .getByRole('heading', { name: 'RepoTray', exact: true })
+      .getByRole('button', { name: 'RepoTray', exact: true });
+    await expect(brand).toHaveAttribute('title', 'Zur Übersicht');
+    const search = page.getByRole('textbox', { name: 'Übersicht durchsuchen' });
+    await maximizeButton(page, 'repos').click();
+    await expectPage(page, 'repos');
+    await page
+      .getByRole('textbox', { name: 'Repositories durchsuchen' })
+      .fill('kit');
+    await brand.click();
+    await expectPage(page, 'overview');
+    await expect(search).toHaveValue('');
+    // From the page, focus returns to the section it was opened from.
+    await expect(maximizeButton(page, 'repos')).toBeFocused();
+    // On the overview it clears the search and stays.
+    await search.fill('kit');
+    await brand.click();
+    await expectPage(page, 'overview');
+    await expect(search).toHaveValue('');
   });
 
   test('shows what runs, the favorites and the repositories, in that order', async ({
@@ -71,7 +96,7 @@ test.describe('demo overview', () => {
   });
 
   for (const name of SECTIONS) {
-    test(`maximizing ${name} focuses its page title; minimize and Esc return focus to the button`, async ({
+    test(`maximizing ${name} focuses its page title; the back arrow and Esc return focus to the button`, async ({
       page,
     }) => {
       const maximize = await maximizeButton(page, name).boundingBox();
@@ -82,12 +107,12 @@ test.describe('demo overview', () => {
         page.getByRole('region', { name: PAGE_TITLES[name], exact: true }),
       ).toBeVisible();
       await expect(section(page, 'runs')).toHaveCount(0);
-      // One toggle: the minimize button takes the maximize button's place
-      // and size; no back button on the left.
-      const minimize = minimizeButton(page, name);
-      await expect(minimize).toHaveAttribute('title', 'Verkleinern · Esc');
-      await expect(minimize).not.toHaveAttribute('data-maximize');
-      expect(await minimize.boundingBox()).toEqual({
+      // One toggle: the back arrow takes the maximize button's place and
+      // size; no second back button on the left.
+      const back = backButton(page, name);
+      await expect(back).toHaveAttribute('title', 'Zurück · Esc');
+      await expect(back).not.toHaveAttribute('data-maximize');
+      expect(await back.boundingBox()).toEqual({
         ...maximize!,
         y: expect.any(Number),
       });
@@ -100,7 +125,7 @@ test.describe('demo overview', () => {
           name
         ],
       );
-      await minimize.click();
+      await back.click();
       await expectPage(page, 'overview');
       await expect(maximizeButton(page, name)).toBeFocused();
 
@@ -206,7 +231,7 @@ test.describe('demo overview', () => {
     const run = page.locator('article.run').filter({ hasText: '#8403' });
     await expect(run.getByRole('button', { expanded: true })).toBeFocused();
     await expect(page.locator('article.run .run-details')).toHaveCount(1);
-    await minimizeButton(page, 'runs').click();
+    await backButton(page, 'runs').click();
     await expect(row).toBeFocused();
   });
 

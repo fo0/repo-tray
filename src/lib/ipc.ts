@@ -34,6 +34,10 @@ export interface Commands {
     args: { start: UncertainStart };
     result: Snapshot;
   };
+  /** Asks GitHub to cancel an open run once; the next poll reports the outcome. */
+  cancel_run: { args: { repoId: string; runId: number }; result: Snapshot };
+  /** Loads a repository found by the search, so its workflows can be used. */
+  open_repository: { args: { repoId: string }; result: Snapshot };
   connect_token: { args: { token: string }; result: Snapshot };
   browser_auth_config: { args: undefined; result: BrowserConfig };
   start_browser_auth: { args: undefined; result: BrowserReply };
@@ -74,6 +78,8 @@ const REGISTERED: Record<Command, true> = {
   delete_pin: true,
   dispatch_workflow: true,
   release_uncertain_start: true,
+  cancel_run: true,
+  open_repository: true,
   connect_token: true,
   browser_auth_config: true,
   start_browser_auth: true,

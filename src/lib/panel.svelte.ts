@@ -1,4 +1,5 @@
 import type { NoticeTone } from './StatusBanners.svelte';
+import { Actions } from './actions.svelte';
 import {
   readActiveAccount,
   rememberActiveAccount,
@@ -10,8 +11,9 @@ import { errorMessage } from './format';
 import { call } from './ipc';
 import { RequestEpoch } from './model';
 import { Notices, PANEL_NOTICE } from './notices.svelte';
+import { isActive } from './runs';
 import { Starts } from './starts.svelte';
-import type { DemoScenario, Pin, Snapshot } from './types';
+import type { DemoScenario, Pin, Run, Snapshot } from './types';
 
 type BusyFlag =
   'pinsBusy' | 'templateBusy' | 'accountBusy' | 'accessBusy' | 'resetBusy';
@@ -48,6 +50,8 @@ export class Panel {
   readonly native: boolean;
   readonly starts: Starts;
   readonly favorites: Favorites;
+  /** Run cancellation and repositories loaded from the search. */
+  readonly actions: Actions;
   readonly notices = new Notices();
   readonly viewEpoch = new RequestEpoch();
   #bridge: PanelDeps['bridge'];
@@ -69,6 +73,7 @@ export class Panel {
     this.favorites = new Favorites(this, bridge, (run) =>
       this.#mutation('pinsBusy', run),
     );
+    this.actions = new Actions(this, bridge);
   }
 
   /** Native is never labelled demo, not even before its first snapshot. */
@@ -91,6 +96,12 @@ export class Panel {
       ) ?? []
     );
   }
+  /** An open run of a repository with write access can be cancelled. */
+  canCancel = (run: Run) =>
+    isActive(run) &&
+    this.repos.some(
+      (repo) => repo.id === run.repoId && repo.permission === 'write',
+    );
   /** Expanded repositories; shared by the overview and the Repositories page. */
   expandedRepos = $state.raw(new Set<string>());
   toggleRepo = (repoId: string) => {
@@ -179,6 +190,7 @@ export class Panel {
     // The expanded run and open repositories belong to the previous view.
     this.expandedRun = null;
     this.expandedRepos = new Set();
+    this.actions.clear();
     this.accountId =
       this.native &&
       value &&

@@ -26,18 +26,17 @@ export function maximizeButton(page: Page, name: Section) {
 }
 
 /**
- * The minimize button of a maximized page, in the header where the overview
- * section has its maximize button.
+ * The back arrow of a maximized page, in the header where the overview
+ * section has its maximize button. Only the page named `name` has one.
  */
-export function minimizeButton(page: Page, name: Section) {
-  return page.getByRole('button', {
-    name: `${PAGE_TITLES[name]} verkleinern`,
-    exact: true,
-  });
+export function backButton(page: Page, name: Section) {
+  return page
+    .locator(`.tray[data-page="${name}"] .page-header`)
+    .getByRole('button', { name: 'Zurück zur Übersicht', exact: true });
 }
 
 /**
- * Shows `name` the way a user gets there: a page's minimize button returns
+ * Shows `name` the way a user gets there: a page's back arrow returns
  * to the overview, a section's maximize button opens its page. Nothing happens when
  * the page is already shown.
  */
@@ -46,7 +45,7 @@ export async function openPage(page: Page, name: PanelPage) {
   const current = await tray.getAttribute('data-page');
   if (current === name) return;
   if (current !== 'overview')
-    await minimizeButton(page, current as Section).click();
+    await backButton(page, current as Section).click();
   if (name !== 'overview') await maximizeButton(page, name).click();
   await expect(tray).toHaveAttribute('data-page', name);
 }

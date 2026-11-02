@@ -84,6 +84,15 @@ pub(super) struct Remote {
     /// Environment listings paginate without end, past the transport's page budget.
     pub(super) endless_environments: bool,
     pub(super) dispatches: VecDeque<Result<ApiResponse, TransportError>>,
+    /// Answers to run cancellations, in order; an unexpected one fails the test.
+    pub(super) cancels: VecDeque<Result<ApiResponse, TransportError>>,
+    /// Workflows listed after the startable fixture workflow (ID 9), as GitHub's JSON.
+    pub(super) extra_workflows: Vec<Value>,
+    /// Older runs per repository that only a workflow's run listing still shows: the
+    /// repository's run list no longer reaches them.
+    pub(super) archived: BTreeMap<u64, Vec<Value>>,
+    /// Status a workflow's run listing answers with, by workflow ID.
+    pub(super) workflow_runs_status: BTreeMap<u64, u16>,
     /// Every request as `(account, method, path?query)`.
     pub(super) requests: Vec<(String, Method, String)>,
     /// Claim rows in the cache file at the moment each dispatch POST left.
@@ -157,11 +166,44 @@ impl Remote {
             ),
             ["branches"] => json(200, names(&self.branches)),
             ["tags"] => json(200, names(&self.tags)),
-            ["actions", "workflows"] => json(
-                200,
-                serde_json::json!({"workflows": [{"id": 9, "name": "Fixture build", "path": ".github/workflows/build.yml", "state": "active"}]}),
-            ),
-            ["contents", ".github", "workflows", "build.yml"] => {
+            ["actions", "workflows"] => {
+                let mut listed = vec![
+                    serde_json::json!({"id": 9, "name": "Fixture build", "path": ".github/workflows/build.yml", "state": "active"}),
+                ];
+                listed.extend(self.extra_workflows.iter().cloned());
+                json(200, serde_json::json!({ "workflows": listed }))
+            }
+            ["actions", "workflows", id, "runs"] => {
+                let id: u64 = id.parse().unwrap();
+                if let Some(status) = self.workflow_runs_status.get(&id) {
+                    return json(*status, serde_json::json!({}));
+                }
+                let mut listed: Vec<_> = [&self.runs, &self.archived]
+                    .into_iter()
+                    .filter_map(|runs| runs.get(&repo))
+                    .flatten()
+                    .filter(|run| run["workflow_id"] == id)
+                    .cloned()
+                    .collect();
+                listed.sort_by(|a, b| b["created_at"].as_str().cmp(&a["created_at"].as_str()));
+                let per_page: usize = query
+                    .get("per_page")
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(30);
+                let mut headers = BTreeMap::new();
+                if listed.len() > per_page {
+                    let next = format!("<https://api.github.com/repos/fixture-owner/fixture-{repo}/actions/workflows/{id}/runs?per_page={per_page}&page=2>; rel=\"next\"");
+                    headers.insert("Link".to_string(), next);
+                }
+                listed.truncate(per_page);
+                Ok(ApiResponse {
+                    status: 200,
+                    headers,
+                    body: serde_json::to_vec(&serde_json::json!({ "workflow_runs": listed }))
+                        .unwrap(),
+                })
+            }
+            ["contents", ".github", "workflows", _] => {
                 let git_ref = query.get("ref").cloned().unwrap_or_default();
                 if self.branches.contains(&git_ref) || self.tags.contains(&git_ref) {
                     let source = self.workflow_source.unwrap_or("on: workflow_dispatch\n");
@@ -184,6 +226,10 @@ impl Remote {
                 self.dispatches
                     .pop_front()
                     .expect("unexpected dispatch POST")
+            }
+            ["actions", "runs", _, "cancel"] => {
+                assert_eq!(method, Method::Post);
+                self.cancels.pop_front().expect("unexpected cancel POST")
             }
             ["actions", "runs", ..] if self.runs_status.contains_key(&repo) => {
                 json(self.runs_status[&repo], serde_json::json!({}))

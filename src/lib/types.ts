@@ -34,6 +34,12 @@ export interface Workflow {
   dispatch: boolean;
   inputs: InputSpec[];
   refs: string[];
+  /**
+   * Start (ISO 8601) of the workflow's latest run as GitHub lists it, looked
+   * up for workflows without a run in `Snapshot.runs`; null or absent when
+   * unknown. The newest of both is what the panel shows.
+   */
+  lastRunAt?: string | null;
 }
 export interface Run {
   id: number;

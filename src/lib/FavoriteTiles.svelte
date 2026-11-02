@@ -1,6 +1,9 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import UncertainStartHelp from './UncertainStartHelp.svelte';
+  import { minuteClock } from './clock';
+  import { lastRunMoment } from './format';
+  import type { LastRun } from './repoActivity';
   import { favoriteNames, type StartGate } from './startReason';
   import type { Pin } from './types';
 
@@ -13,6 +16,7 @@
     onConfigure,
     onRemove,
     onLaunch,
+    lastRun = () => null,
     help = false,
     demo = true,
   }: {
@@ -27,6 +31,8 @@
     onConfigure: (pin: Pin) => void;
     onRemove: (pinId: string) => void;
     onLaunch: (pin: Pin) => void;
+    /** When the favorite's workflow last ran, on any ref, and whether it runs. */
+    lastRun?: (pin: Pin) => LastRun | null;
     /** The uncertain marker opens its help (Favoriten page), not just a tooltip. */
     help?: boolean;
     demo?: boolean;
@@ -43,20 +49,34 @@
     {@const repo = repoName(pin.repoId)}
     {@const short = repo.split('/').pop() ?? repo}
     {@const names = favoriteNames(short, pin.label)}
+    {@const last = lastRun(pin)}
+    {@const moment = last && lastRunMoment(last, $minuteClock, demo)}
     <!-- `data-pin-*` lets focus move to a neighbour or a restored row; the
          name comes first, so a restored row focuses it. Its start and name
          are off via aria-disabled: a start that locks them keeps focus. -->
     <li class="pin-row" class:uncertain data-pin-id={pin.id}>
+      <!-- The time of the last run drops out whole before the repository
+           shortens; „läuft“ stays. Both are in the tooltip, which is also
+           the description. -->
       <button
         class="pin-open"
         onclick={() => can.canOpen && onConfigure(pin)}
         aria-label={names.open}
         title={can.openReason ??
-          `${repo} · ${pin.label} · ${pin.ref} · ${accountName(pin.accountId)}`}
+          `${repo} · ${pin.label} · ${pin.ref} · ${accountName(pin.accountId)}${moment ? ` · ${moment.summary}` : ''}`}
         aria-disabled={can.canOpen ? undefined : 'true'}
-        ><strong class="pin-repo">{short}</strong><span class="pin-label"
-          >{pin.label}</span
-        ></button
+        ><strong class="pin-repo">{short}</strong><span class="pin-rest"
+          ><span class="pin-label">{pin.label}</span
+          >{#if moment && !last?.active}<time
+              class="pin-last"
+              datetime={moment.datetime}>{moment.relative}</time
+            >{/if}</span
+        >{#if last?.active}<span class="pin-running" data-tone="run"
+            ><Icon name="spinner" size={11} class="pin-spinner" /><Icon
+              name="activity"
+              size={11}
+            />läuft</span
+          >{/if}</button
       >
       <span class="branch-chip"
         ><Icon name="branch" size={11} /><span>{pin.ref}</span></span

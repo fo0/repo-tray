@@ -19,6 +19,10 @@ export interface Bridge {
   dispatchWorkflow(request: DispatchRequest): Promise<DispatchOutcome>;
   /** Explicit user action after checking GitHub; releases exactly this claim, never dispatches. */
   releaseUncertainStart(start: UncertainStart): Promise<Snapshot>;
+  /** Asks to cancel an open run; the outcome arrives with a later snapshot. */
+  cancelRun(repoId: string, runId: number): Promise<Snapshot>;
+  /** Loads a repository the search found outside the automatic set. */
+  openRepository(repoId: string): Promise<Snapshot>;
 }
 /** Demo-only controls; the native shell registers no matching command. */
 export interface DemoControls {
@@ -236,6 +240,35 @@ export function createDemoBridge(
       } finally {
         if (ticket === generation) pending.delete(key);
       }
+    },
+    async cancelRun(repoId, runId) {
+      await delay();
+      const run = data.runs.find((r) => r.id === runId && r.repoId === repoId);
+      const repo = data.repos.find((r) => r.id === repoId && r.selected);
+      if (!run || !repo) throw new Error('Run nicht gefunden.');
+      if (run.status === 'completed')
+        throw new Error('Run ist bereits beendet.');
+      if (repo.permission !== 'write')
+        throw new Error('Für dieses Repository fehlt der Schreibzugriff.');
+      if (scenario === 'offline')
+        throw new Error('Offline: Kein simulierter Abbruch möglich.');
+      if (scenario === 'forbidden')
+        throw new Error(
+          'Abbrechen nicht erlaubt – der Zugang braucht „Actions: Lesen und Schreiben“.',
+        );
+      simulated.delete(run.id);
+      run.status = 'completed';
+      run.conclusion = 'cancelled';
+      run.updatedAt = new Date().toISOString();
+      data.updatedAt = run.updatedAt;
+      return snapshot();
+    },
+    async openRepository(repoId) {
+      await delay();
+      const repo = data.repos.find((r) => r.id === repoId);
+      if (!repo) throw new Error('Repository nicht gefunden.');
+      repo.selected = true;
+      return snapshot();
     },
     async releaseUncertainStart(start) {
       const key = targetKey(start);

@@ -48,7 +48,8 @@
     onMaximize?: () => void;
     /**
      * Makes this the header of the maximized page: its title is the page's
-     * focus landing, and the button in the maximize button's place minimizes.
+     * focus landing, and the back arrow in the maximize button's place returns
+     * to the overview.
      */
     onMinimize?: (() => void) | undefined;
     /** Further header actions, left of the maximize button. */
@@ -73,15 +74,15 @@
       ></span
     >{/if}
   <!-- One toggle in one place: the overview's maximize button becomes the
-       page's minimize button. Only the overview's carries `data-maximize`,
-       where focus returns when a page closes. -->
+       page's back arrow. Only the overview's carries `data-maximize`, where
+       focus returns when a page closes. -->
   <span class="section-actions">
     {@render children?.()}{#if onMinimize}<button
         class="icon-button section-maximize"
-        aria-label={`${title} verkleinern`}
+        aria-label="Zurück zur Übersicht"
         aria-keyshortcuts={`Escape Control+${key}`}
-        title="Verkleinern · Esc"
-        onclick={() => onMinimize()}><Icon name="minimize" size={15} /></button
+        title="Zurück · Esc"
+        onclick={() => onMinimize()}><Icon name="back" size={15} /></button
       >{:else}<button
         class="icon-button section-maximize"
         data-maximize={page}

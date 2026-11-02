@@ -58,6 +58,10 @@ impl Schedule {
         self.metadata
             .insert(repo.to_owned(), now.saturating_add(delay));
     }
+    /// The repository reads its metadata on the next refresh.
+    pub(super) fn metadata_now(&mut self, repo: &str) {
+        self.metadata.remove(repo);
+    }
     pub(super) fn hold(&mut self, account: &str, error: ScopeError, now: u64) {
         let until = now.saturating_add(CATALOG_SECONDS);
         self.held.insert(account.to_owned(), (until, error));

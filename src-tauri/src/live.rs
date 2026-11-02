@@ -3,8 +3,9 @@
 //! `LiveStore` is the native engine; its behavior is split by concern:
 //! `transport` (HTTPS and vault-backed bearer tokens), `connect` (adding and removing
 //! accounts), `refresh` (catalog, metadata and run orchestration), `schedule` (per-scope
-//! refresh timers), `catalog` (repository and ref listings) and `dispatch` (claimed,
-//! exactly-once workflow starts).
+//! refresh timers), `catalog` (repository and ref listings), `last_run` (the latest run of
+//! workflows without known runs), `browse` (repositories opened from the panel search),
+//! `dispatch` (claimed, exactly-once workflow starts) and `cancel` (run cancellation).
 use crate::{
     auth::NativeKeyring,
     cache::{AppSettings, Cache, CacheError},
@@ -19,13 +20,17 @@ use std::{
     sync::Arc,
 };
 
+mod browse;
+mod cancel;
 mod catalog;
 mod connect;
 mod dispatch;
+mod last_run;
 mod refresh;
 mod schedule;
 mod transport;
 
+use browse::Browsed;
 use schedule::Schedule;
 pub use transport::HttpTransport;
 
@@ -113,6 +118,8 @@ pub struct LiveStore<T: Transport = HttpTransport> {
     schedule: Schedule,
     poll_at: BTreeMap<String, u64>,
     history_since: BTreeMap<String, u64>,
+    /// Repositories opened from the panel search this session; never persisted.
+    browsed: Browsed,
     tracked: BTreeMap<u64, crate::github::RunTracker>,
     outcomes: RecentOutcomes<String, (String, DispatchOutcome)>,
     /// Mirrors the persisted dispatch claims; kept outside `data` so no reset can hide one.
@@ -168,6 +175,7 @@ impl<T: Transport> LiveStore<T> {
             schedule: Schedule::default(),
             poll_at: BTreeMap::new(),
             history_since: BTreeMap::new(),
+            browsed: Browsed::default(),
             tracked: BTreeMap::new(),
             outcomes: RecentOutcomes::new(MAX_RECORDED_OUTCOMES),
             claims,

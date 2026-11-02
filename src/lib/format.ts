@@ -1,5 +1,6 @@
 import { accountTitle } from './accountSelection';
 import { fullRepo } from './model';
+import type { LastRun } from './repoActivity';
 import { duration, isActive } from './runs';
 import type { Run, Snapshot } from './types';
 
@@ -58,8 +59,9 @@ const dayStart = (time: number) => new Date(time).setHours(0, 0, 0, 0);
 /**
  * German relative time: „gerade eben“, „vor 3 Min.“, „vor 2 Std.“ (under a
  * day, or earlier the same calendar day: a 25-hour DST day reaches „vor 24
- * Std.“), „gestern“ (the previous calendar day), then the date. A time ahead
- * of `now` (clock skew, a stale tick) reads „gerade eben“.
+ * Std.“), „gestern“ (the previous calendar day), „vor 2 Tagen“ up to „vor 6
+ * Tagen“ (calendar days), then the date. A time ahead of `now` (clock skew,
+ * a stale tick) reads „gerade eben“.
  */
 export function relativeTime(
   value: string | number | Date,
@@ -72,9 +74,10 @@ export function relativeTime(
   if (elapsed < HOUR) return `vor ${Math.floor(elapsed / MINUTE)} Min.`;
   if (elapsed < DAY || dayStart(time) === dayStart(now))
     return `vor ${Math.floor(elapsed / HOUR)} Std.`;
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (dayStart(time) === dayStart(yesterday.getTime())) return 'gestern';
+  // Calendar days between both midnights; rounding absorbs a DST hour.
+  const days = Math.round((dayStart(now) - dayStart(time)) / DAY);
+  if (days <= 1) return 'gestern';
+  if (days <= 6) return `vor ${days} Tagen`;
   return new Date(time).toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
@@ -94,6 +97,21 @@ export function runMoment(run: Run, now: number, demo = false) {
     title: `${verb}: ${dateTime(at)}${demo ? ' · Demo-Zeit' : ''}`,
     /** For the row's accessible name, e.g. „gestartet vor 3 Min.“. */
     spoken: `${verb.toLowerCase()} ${/^\d/.test(relative) ? 'am ' : ''}${relative}`,
+  };
+}
+
+/**
+ * When a repository, workflow or favorite last ran, for a `<time>` element:
+ * the start of its latest run. `summary` ends a row's tooltip, which is also
+ * its accessible description, e.g. „Läuft gerade · Letzter Run: …“.
+ */
+export function lastRunMoment(last: LastRun, now: number, demo = false) {
+  const title = `Letzter Run: ${dateTime(last.at)}${demo ? ' · Demo-Zeit' : ''}`;
+  return {
+    datetime: last.at,
+    relative: relativeTime(last.at, now),
+    title,
+    summary: last.active ? `Läuft gerade · ${title}` : title,
   };
 }
 

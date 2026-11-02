@@ -4,6 +4,7 @@
   import Icon from './Icon.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
+  import { lastRun } from './repoActivity';
   import type { Pin } from './types';
 
   let {
@@ -30,6 +31,9 @@
     setup: NextStep | null;
     onClearQuery: () => void;
   } = $props();
+
+  const pinRun = (pin: Pin) =>
+    panel.snapshot ? lastRun(panel.snapshot, pin.repoId, pin.workflowId) : null;
 </script>
 
 {#if setup}<EmptyState icon="heart" iconSize={25} {...setup} />
@@ -42,6 +46,7 @@
     onConfigure={(pin) => modals.openDispatch(pin)}
     onRemove={panel.favorites.remove}
     onLaunch={modals.launchPin}
+    lastRun={pinRun}
     help
     demo={panel.demo}
   />
