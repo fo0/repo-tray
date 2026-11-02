@@ -198,6 +198,12 @@ impl Transport for Listing {
             .nth(1)
             .and_then(|page| page.parse().ok())
             .unwrap_or(1);
+        if page == 1 {
+            assert!(
+                url.ends_with("/user/repos?per_page=100&sort=pushed"),
+                "{url}"
+            );
+        }
         let next = format!(
             "<https://api.github.com/user/repos?per_page=100&page={}>; rel=\"next\"",
             page + 1
