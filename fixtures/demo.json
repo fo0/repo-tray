@@ -18,6 +18,7 @@
       "owner": "demo-dev",
       "name": "launch-kit-demo",
       "defaultBranch": "main",
+      "pushedAt": "2026-10-31T09:40:00Z",
       "selected": true,
       "permission": "write"
     },
@@ -27,6 +28,7 @@
       "owner": "example-org",
       "name": "runner-tools-demo",
       "defaultBranch": "main",
+      "pushedAt": "2026-10-31T08:15:00Z",
       "selected": true,
       "permission": "write"
     },
@@ -36,6 +38,7 @@
       "owner": "demo-dev",
       "name": "website-demo",
       "defaultBranch": "main",
+      "pushedAt": "2026-10-30T16:20:00Z",
       "selected": true,
       "permission": "read"
     },
@@ -45,8 +48,109 @@
       "owner": "team-demo",
       "name": "sandbox-demo",
       "defaultBranch": "main",
+      "pushedAt": "2026-08-12T11:00:00Z",
       "selected": false,
       "permission": "write"
+    },
+    {
+      "id": "demo-work-api",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "api-gateway-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-29T14:05:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-docs",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "docs-portal-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-28T10:30:00Z",
+      "selected": true,
+      "permission": "read"
+    },
+    {
+      "id": "demo-work-infra",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "infra-modules-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-27T17:45:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-mobile",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "mobile-app-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-26T09:10:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-billing",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "billing-service-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-24T13:00:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-search",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "search-index-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-22T15:40:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-design",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "design-tokens-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-20T08:25:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-ci",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "ci-templates-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-17T11:50:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-metrics",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "metrics-dashboard-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-10-14T16:35:00Z",
+      "selected": true,
+      "permission": "write"
+    },
+    {
+      "id": "demo-work-legacy",
+      "accountId": "demo-work",
+      "owner": "example-org",
+      "name": "legacy-portal-demo",
+      "defaultBranch": "main",
+      "pushedAt": "2026-09-03T07:30:00Z",
+      "selected": false,
+      "permission": "read"
     }
   ],
   "workflows": [

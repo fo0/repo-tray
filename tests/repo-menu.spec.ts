@@ -1,12 +1,6 @@
 import { expect, test, type Page } from './support/test';
-import { expectPage, openPage, SECTION_TITLES } from './support/demo';
-import {
-  menuButton,
-  notice,
-  openNative,
-  repoRow,
-  selections,
-} from './support/picker';
+import { expectPage, openPage } from './support/demo';
+import { menuButton, notice, openNative, repoRow } from './support/nativeRepos';
 import { readCalls } from './support/tauriMock';
 
 const KIT_RUN = 'https://github.com/demo-dev/launch-kit-demo/actions/runs/8402';
@@ -45,16 +39,16 @@ test.describe('native repository menu', () => {
     await page.keyboard.press('ArrowDown');
     await expect(item('Link kopieren')).toBeFocused();
     await page.keyboard.press('ArrowDown');
-    await expect(item('Aus Tray entfernen')).toBeFocused();
-    await page.keyboard.press('ArrowDown');
     await expect(item('Letzten Run auf GitHub öffnen')).toBeFocused();
+    // The menu only opens and copies; the tray picks its repositories itself.
+    await expect(menu.getByRole('menuitem')).toHaveCount(2);
     // Escape closes the menu only, not the page or the search.
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     await expect(trigger).toBeFocused();
     await expectPage(page, 'repos');
     await page.keyboard.press('ArrowUp');
-    await expect(item('Aus Tray entfernen')).toBeFocused();
+    await expect(item('Link kopieren')).toBeFocused();
     await page.keyboard.press('Home');
     await page.keyboard.press('Enter');
     await expect(menu).toHaveCount(0);
@@ -82,56 +76,23 @@ test.describe('native repository menu', () => {
       'https://github.com/demo-dev/website-demo',
     ]);
   });
-
-  test('„Aus Tray entfernen“ removes the row, keeps focus nearby and offers undo', async ({
-    page,
-  }) => {
-    await openNative(page);
-    const row = repoRow(page, 'demo-dev/website-demo');
-    await menuButton(page, 'demo-dev/website-demo').click();
-    await page
-      .getByRole('menuitem', { name: 'Aus Tray entfernen', exact: true })
-      .click();
-    await expect(row).toHaveCount(0);
-    expect(await selections(page)).toEqual([
-      ['demo-personal-kit', 'demo-team-tools'],
-    ]);
-    // Focus moves to the neighbouring row instead of dropping to the page.
-    await expect(
-      repoRow(page, 'demo-dev/launch-kit-demo').locator('.repository-toggle'),
-    ).toBeFocused();
-    await notice(page, 'website-demo aus dem Tray entfernt.')
-      .getByRole('button', { name: 'Rückgängig' })
-      .click();
-    await expect(row).toBeVisible();
-    await expect(
-      notice(page, 'website-demo ist wieder im Tray.'),
-    ).toBeVisible();
-    expect((await selections(page)).at(-1)).toEqual([
-      'demo-personal-kit',
-      'demo-team-tools',
-      'demo-personal-site',
-    ]);
-    await expect(
-      page.getByRole('region', { name: SECTION_TITLES.repos, exact: true }),
-    ).toContainText('2 Repositories');
-  });
 });
 
 test('a menu whose button scrolls away closes and leaves focus on the button', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 560 });
-  await page.goto('/');
+  // Enough rows to scroll: the last one shown on the overview is bulk-07.
+  await openNative(page, { more: 8 });
   const content = page.locator('.content');
   await content.evaluate((node) => (node.scrollTop = node.scrollHeight));
-  const trigger = menuButton(page, 'demo-dev/website-demo');
+  const trigger = menuButton(page, 'demo-dev/bulk-07-demo');
   await trigger.focus();
   await page.keyboard.press('Enter');
   const menu = page.getByRole('menu', {
-    name: 'Aktionen für demo-dev/website-demo',
+    name: 'Aktionen für demo-dev/bulk-07-demo',
   });
-  await expect(menu.getByRole('menuitem').last()).toBeFocused();
+  await expect(menu.getByRole('menuitem').first()).toBeFocused();
   await content.evaluate((node) => (node.scrollTop = 0));
   await expect(menu).toHaveCount(0);
   await expect(trigger).toBeFocused();

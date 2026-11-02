@@ -5,12 +5,10 @@
   import FavoritesPage from './FavoritesPage.svelte';
   import Icon from './Icon.svelte';
   import Overview from './Overview.svelte';
-  import RepoPicker from './RepoPicker.svelte';
   import ReposPage from './ReposPage.svelte';
   import SectionPage from './SectionPage.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
-  import { notInTray } from './repoSelection.svelte';
   import { historyRuns, repositoryActivity, visibleRuns } from './runs';
   import { PAGE_TITLES, type PanelView } from './view.svelte';
 
@@ -33,7 +31,7 @@
     repoAccountName: (repoId: string) => string;
     /** Empties the search and returns focus to the field. */
     onClearQuery: () => void;
-    /** Opens the missing step: connect, account or repositories. */
+    /** Opens the missing step: connect or account. */
     onNextStep: () => void;
     /** Search and notices: one instance above every page, never remounted. */
     top: Snippet;
@@ -68,42 +66,29 @@
   const groups = $derived(
     data ? repositoryActivity(data, accountId, query) : [],
   );
-  /** Search matches outside the tray, in the shown accounts' scope. */
-  const candidates = $derived(notInTray(data, panel.showsAccount, query));
-  /** The same next step on every page while an account or repositories are missing. */
+  /** The same next step on every page while no account is chosen. */
   const setup = $derived.by((): NextStep | null => {
     const hasAccounts = !!snapshot?.accounts.length;
-    if (panel.needsAccount)
-      return hasAccounts
-        ? {
-            title: 'Wähle ein aktives Konto',
-            text:
-              panel.accountNotice ||
-              'Wähle im Kontomenü oben, welches Konto RepoTray anzeigt.',
-            action: { label: 'Konto wählen', icon: 'down', run: onNextStep },
-          }
-        : {
-            title: 'Verbinde dein GitHub-Konto',
-            text:
-              panel.accountNotice ||
-              'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.',
-            action: {
-              label: 'GitHub-Konto verbinden',
-              icon: 'plus',
-              run: onNextStep,
-            },
-          };
-    if (panel.repos.length) return null;
-    return {
-      title: 'Noch keine Repositories ausgewählt',
-      text: 'Wähle die Repositories, die in deinem Tray erscheinen sollen.',
-      action: {
-        label: 'Repositories auswählen',
-        icon: 'arrow',
-        run: onNextStep,
-        focusKey: 'add:repos',
-      },
-    };
+    if (!panel.needsAccount) return null;
+    return hasAccounts
+      ? {
+          title: 'Wähle ein aktives Konto',
+          text:
+            panel.accountNotice ||
+            'Wähle im Kontomenü oben, welches Konto RepoTray anzeigt.',
+          action: { label: 'Konto wählen', icon: 'down', run: onNextStep },
+        }
+      : {
+          title: 'Verbinde dein GitHub-Konto',
+          text:
+            panel.accountNotice ||
+            'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.',
+          action: {
+            label: 'GitHub-Konto verbinden',
+            icon: 'plus',
+            run: onNextStep,
+          },
+        };
   });
 
   // A new page starts at its top; going back scrolls to the focused opener.
@@ -113,31 +98,17 @@
   });
 </script>
 
-<!-- Both „Hinzufügen“ (overview and Repositories page) share one focus key,
-     so the way back from the picker finds whichever is shown. -->
-{#snippet addRepos()}<button
-    class="add-button"
-    aria-label="Repositories hinzufügen"
-    title="Repositories zum Tray hinzufügen"
-    data-focus-key="add:repos"
-    onclick={() =>
-      void view.open('picker', {
-        from: view.page === 'repos' ? 'repos' : 'overview',
-      })}><Icon name="plus" size={13} />Hinzufügen</button
-  >{/snippet}
-
 <!-- Keyed by page: Ctrl+1/2/3 from one page to another focuses a new title,
      which assistive tech announces; a reused, already focused one is silent. -->
 {#if view.page !== 'overview'}{#key view.page}
     <SectionPage
       title={PAGE_TITLES[view.page]}
       onBack={view.back}
-      maximized={view.page !== 'picker'}
       backLabel={view.from === 'overview'
         ? 'Zurück zur Übersicht'
         : `Zurück zu ${PAGE_TITLES[view.from]}`}
     >
-      {#if view.page === 'repos'}{@render addRepos()}{:else if view.page === 'favorites'}<button
+      {#if view.page === 'favorites'}<button
           class="add-button"
           onclick={() => modals.openDispatch()}
           disabled={!panel.repos.length}
@@ -174,9 +145,7 @@
       {accountName}
       {searching}
       {setup}
-      {candidates}
       {onClearQuery}
-      add={addRepos}
     />
   {:else}
     <section class="page-body" aria-labelledby="page-title">
@@ -209,23 +178,13 @@
           {setup}
           {onClearQuery}
         />
-      {:else if view.page === 'repos'}
+      {:else}
         <ReposPage
           {panel}
           {modals}
           {groups}
-          {candidates}
-          {accountName}
+          {searching}
           {setup}
-          {onClearQuery}
-        />
-      {:else}
-        <RepoPicker
-          {panel}
-          connected={view.connected}
-          {query}
-          {accountName}
-          setup={snapshot.accounts.length ? null : setup}
           {onClearQuery}
         />
       {/if}

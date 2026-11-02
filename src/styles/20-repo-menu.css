@@ -1,0 +1,73 @@
+/*
+ * Repository rows: the „⋯“ menu and, for a GitHub App sign-in, its access
+ * actions. Tokens from 00-tokens.css only; no literal colours here.
+ */
+
+/*
+ * The row's toggle and its „⋯“ menu are siblings in one hoverable head. The
+ * toggle spans the head and keeps a slot before its chevron, where the menu
+ * sits on top of it: the chevron stays last, while Tab still reaches the row
+ * first and its menu second. No transform here, so the menu's fixed popup
+ * keeps the viewport as its containing block.
+ */
+.repository-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.repository-head:hover {
+  background: var(--hover);
+}
+.repository-head > .repository-toggle {
+  flex: 1;
+  min-width: 0;
+  padding-right: 6px;
+}
+.repository-head .repository-chevron {
+  /* The menu button's slot (28 px) and 2 px to the chevron. */
+  margin-left: 30px;
+}
+.repo-menu {
+  position: absolute;
+  /* Toggle padding (6 px), chevron (15 px) and the 2 px gap. */
+  right: 23px;
+  top: calc(50% - 16px);
+  display: flex;
+}
+.repo-menu-button {
+  min-width: 28px;
+  min-height: 32px;
+  padding: 4px 2px;
+  color: var(--text-3);
+}
+/* The 360 px minimum: the menu takes its room from the strip and the gaps,
+   so the status and the access tag stay readable. */
+@media (max-width: 400px) {
+  .repository-head > .repository-toggle {
+    gap: 6px;
+  }
+  .repository-head .strip-cell {
+    width: 6px;
+  }
+}
+.repo-menu-button.open {
+  background: var(--hover);
+  color: var(--text);
+}
+/* Fixed to the viewport (RepoMenu places it), so the list's clipping and the
+   scrolling body never cut it off. */
+.repo-actions-menu {
+  position: fixed;
+  min-width: 240px;
+}
+a.menu-item {
+  text-decoration: none;
+}
+
+/* A GitHub App sign-in's repository access, under the Repositories page. */
+.repository-access {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 12px;
+}

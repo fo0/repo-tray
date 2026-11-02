@@ -1,6 +1,7 @@
 //! Repository catalogs and the bounded ref listing offered per startable workflow.
 use super::{number, text, url};
 use crate::{
+    auto_repos::{auto_select, push_time},
     browser_auth,
     github::{ApiClient, Transport},
     models::*,
@@ -14,11 +15,11 @@ pub(super) const REF_PAGES: usize = 3;
 /// Refs offered per startable workflow, the default branch included; pinned refs come on top.
 pub(super) const MAX_REFS: usize = 100;
 /// Pinned refs a repository offers beyond its shared refs, all its workflows together; at
-/// most 255 bytes each (`valid_git_ref`), so 50 selected repositories stay far below the
-/// cache cap.
+/// most 255 bytes each (`valid_git_ref`), so the selected repositories (`AUTO_REPOS` per
+/// account plus those of favorites) stay far below the cache cap.
 pub(super) const MAX_PINNED_REFS: usize = 20;
 /// Every workflow carries its own copy of the repository's refs; all copies of one
-/// repository share this budget, so 50 selected repositories stay far below the cache cap.
+/// repository share this budget, so the selected repositories stay far below the cache cap.
 pub(super) const REPO_REF_BYTES: usize = 8 * 1024;
 
 /// A listing within `max_pages` (`usize::MAX`: the transport's whole page budget).
@@ -132,6 +133,11 @@ pub(super) fn account_repos<T: Transport>(
             owner: text(&value["owner"], "login")?.into(),
             name: text(&value, "name")?.into(),
             default_branch: value["default_branch"].as_str().unwrap_or("main").into(),
+            // Only a readable time is kept; it ranks the automatic selection.
+            pushed_at: value["pushed_at"]
+                .as_str()
+                .filter(|pushed| push_time(Some(pushed)).is_some())
+                .map(str::to_owned),
             selected: false,
             permission,
         });
@@ -139,34 +145,32 @@ pub(super) fn account_repos<T: Transport>(
     Ok(AccountRepos { repos, truncated })
 }
 
-/// Listed accounts take their fresh repositories (selection kept by ID); unlisted accounts
-/// keep their last known ones. A cut-off listing cannot prove that a selected repository
-/// went away, so a selected repository missing from it stays.
+/// Listed accounts take their fresh repositories and select them automatically
+/// (`auto_select`: the newest pushes plus the repositories of favorites); unlisted accounts
+/// keep their last known ones and their selection. A cut-off listing cannot prove that a
+/// selected repository went away, so a selected repository missing from it stays and is
+/// ranked with the listed ones by its last known push.
 pub(super) fn merge_catalog(
     previous: &[Repo],
     accounts: &[Account],
     mut listings: BTreeMap<String, AccountRepos>,
+    pins: &[Pin],
 ) -> Vec<Repo> {
-    let selected: BTreeSet<_> = previous
-        .iter()
-        .filter(|r| r.selected)
-        .map(|r| r.id.as_str())
-        .collect();
     let mut repos = vec![];
     for account in accounts {
         let known = previous.iter().filter(|r| r.account_id == account.id);
-        match listings.remove(&account.id) {
-            None => repos.extend(known.cloned()),
-            Some(listing) => {
-                for mut repo in listing.repos {
-                    repo.selected = selected.contains(repo.id.as_str());
-                    repos.push(repo);
-                }
-                if listing.truncated {
-                    repos.extend(known.filter(|r| r.selected).cloned());
-                }
-            }
+        let Some(listing) = listings.remove(&account.id) else {
+            repos.extend(known.cloned());
+            continue;
+        };
+        let mut fresh = listing.repos;
+        if listing.truncated {
+            fresh.extend(known.filter(|r| r.selected).cloned());
         }
+        let mut seen = BTreeSet::new();
+        fresh.retain(|repo| seen.insert(repo.id.clone()));
+        auto_select(&mut fresh, pins);
+        repos.extend(fresh);
     }
     let mut seen = BTreeSet::new();
     repos.retain(|repo| seen.insert(repo.id.clone()));

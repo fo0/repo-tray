@@ -10,7 +10,6 @@
     runs: ['Verlauf durchsuchen', 'Repository, Workflow oder Branch suchen …'],
     favorites: ['Favoriten durchsuchen', 'Favorit oder Repository suchen …'],
     repos: ['Repositories durchsuchen', 'Repository oder Workflow suchen …'],
-    picker: ['Repositories filtern', 'Name oder Organisation …'],
   };
 </script>
 
@@ -43,17 +42,15 @@
   }
 </script>
 
-<!-- On the overview and in the picker the field is where focus lands when
-     nothing better is left; a maximized section lands on its title instead. -->
+<!-- On the overview the field is where focus lands when nothing better is
+     left; a maximized section lands on its title instead. -->
 <label class="search-field"
   ><Icon name="search" size={17} /><input
     bind:this={input}
     aria-label={LABELS[page][0]}
     aria-keyshortcuts="/"
     placeholder={LABELS[page][1]}
-    data-focus-landing={page === 'overview' || page === 'picker'
-      ? true
-      : undefined}
+    data-focus-landing={page === 'overview' ? true : undefined}
     bind:value={query}
   />{#if query}<button
       class="icon-button small"

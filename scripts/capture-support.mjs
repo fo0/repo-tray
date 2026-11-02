@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 /** @typedef {import('@playwright/test').Page} Page */
 /** @typedef {'dark' | 'light'} Theme */
-/** @typedef {'overview' | 'runs' | 'favorites' | 'repos' | 'picker'} PanelPage */
+/** @typedef {'overview' | 'runs' | 'favorites' | 'repos'} PanelPage */
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export const baseUrl = process.env.REVIEW_BASE_URL ?? 'http://127.0.0.1:1420';
@@ -78,7 +78,7 @@ export function assertLocalOnly(requests) {
 
 /**
  * Shows a panel page the way a user gets there: back to the overview, then a
- * section's maximize button, or „Repositories hinzufügen“ for the picker.
+ * section's maximize button.
  * @param {Page} page
  * @param {PanelPage} name
  */
@@ -95,11 +95,7 @@ export async function openPage(page, name) {
     favorites: 'Favoriten maximieren',
     repos: 'Repositories maximieren',
   };
-  if (name === 'picker')
-    await page
-      .getByRole('button', { name: 'Repositories hinzufügen', exact: true })
-      .click();
-  else if (name !== 'overview')
+  if (name !== 'overview')
     await page
       .getByRole('button', { name: maximize[name], exact: true })
       .click();

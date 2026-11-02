@@ -62,16 +62,6 @@
     outline-offset: -2px;
   }
 
-  /* „Im Tray“ is a tinted row and a grey border: that toggle draws itself
-     like a selected tab instead (`.pick` outranks its later colours). */
-  .pick .pick-toggle.added,
-  .pick .pick-toggle.added .pick-icon {
-    forced-color-adjust: none;
-    background: Highlight;
-    border-color: Highlight;
-    color: HighlightText;
-  }
-
   /* Favourites are a filled heart, on workflow rows and on tiles. */
   .favorite-button[aria-pressed='true'] svg,
   .tile .tile-heart svg {

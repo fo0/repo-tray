@@ -31,6 +31,33 @@ const memory = (): PreferenceStorage => {
 };
 afterEach(() => vi.useRealTimers());
 
+describe('automatic repositories', () => {
+  it('shows each account its 10 newest repositories by pushedAt', async () => {
+    const { repos } = await createDemoBridge(undefined, 0).snapshot();
+    const shown = (accountId: string) =>
+      repos
+        .filter((repo) => repo.accountId === accountId && repo.selected)
+        .map((repo) => repo.id);
+    const work = repos
+      .filter((repo) => repo.accountId === 'demo-work')
+      .sort((a, b) => Date.parse(b.pushedAt!) - Date.parse(a.pushedAt!));
+    expect(work.length).toBeGreaterThan(10);
+    expect(shown('demo-work').sort()).toEqual(
+      work
+        .slice(0, 10)
+        .map((repo) => repo.id)
+        .sort(),
+    );
+    expect(shown('demo-personal')).toEqual([
+      'demo-personal-kit',
+      'demo-personal-site',
+    ]);
+    expect(
+      repos.filter((repo) => !repo.selected).map((repo) => repo.id),
+    ).toEqual(['demo-extra', 'demo-work-legacy']);
+  });
+});
+
 describe('local demo bridge safety', () => {
   it('keeps snapshot reads isolated from caller mutations', async () => {
     const bridge = createDemoBridge(undefined, 0);
@@ -99,15 +126,6 @@ describe('local demo bridge safety', () => {
     await original;
     expect((await bridge.dispatchWorkflow(changed)).state).toBe('rejected');
     expect((await bridge.snapshot()).runs).toHaveLength(6);
-  });
-  it('revalidates selected repository after an asynchronous response', async () => {
-    vi.useFakeTimers();
-    const bridge = createDemoBridge(undefined, 200);
-    const pending = bridge.dispatchWorkflow(request());
-    await bridge.selectRepos(['demo-team-tools']);
-    await vi.advanceTimersByTimeAsync(200);
-    expect((await pending).state).toBe('rejected');
-    expect((await bridge.snapshot()).runs).toHaveLength(5);
   });
   it('latches uncertain outcomes across refresh/scenario changes and changed inputs', async () => {
     const bridge = createDemoBridge(undefined, 0);
@@ -220,26 +238,30 @@ describe('non-secret preference persistence', () => {
       quickStart: true,
     };
     await bridge.savePin(pin);
-    await bridge.selectRepos(['demo-team-tools']);
     const saved = JSON.parse(storage.getItem(PREFERENCE_KEY)!);
-    expect(Object.keys(saved).sort()).toEqual(['pins', 'repoIds']);
+    expect(Object.keys(saved)).toEqual(['pins']);
     expect(saved.pins.find((item: Pin) => item.id === pin.id)).toEqual(pin);
     expect(
       (await createDemoBridge(storage, 0).snapshot()).pins.find(
         (item) => item.id === pin.id,
       ),
     ).toEqual(pin);
-    expect(
-      (await createDemoBridge(storage, 0).snapshot()).repos
-        .filter((item) => item.selected)
-        .map((item) => item.id),
-    ).toEqual(['demo-team-tools']);
     await bridge.deletePin(pin.id);
     expect(
       (await createDemoBridge(storage, 0).snapshot()).pins.some(
         (item) => item.id === pin.id,
       ),
     ).toBe(false);
+  });
+  it('ignores a manual selection stored by an earlier version', async () => {
+    const storage = memory();
+    const fresh = await createDemoBridge(undefined, 0).snapshot();
+    storage.setItem(
+      PREFERENCE_KEY,
+      JSON.stringify({ repoIds: ['demo-extra'], pins: fresh.pins }),
+    );
+    const { repos } = await createDemoBridge(storage, 0).snapshot();
+    expect(repos).toEqual(fresh.repos);
   });
   it('handles corrupt storage and ignores forged credential fields', async () => {
     const storage = memory();

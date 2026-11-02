@@ -1,19 +1,6 @@
 import { expect, test, type Page } from './support/test';
 import { openPage } from './support/demo';
 
-/** The demo picker with one repository in the tray and one outside it. */
-async function pickerToggles(page: Page) {
-  await page.goto('/');
-  await openPage(page, 'picker');
-  const toggle = (name: string) =>
-    page.getByRole('button', { name, exact: true });
-  const inTray = toggle('Im Tray: demo-dev/launch-kit-demo');
-  const outside = toggle('Hinzufügen: team-demo/sandbox-demo');
-  await expect(inTray).toBeVisible();
-  await expect(outside).toBeVisible();
-  return { inTray, outside };
-}
-
 /** Resolves a CSS system color in the page, e.g. `Canvas`. */
 const systemColor = (page: Page, color: string) =>
   page.evaluate((color) => {
@@ -25,41 +12,6 @@ const systemColor = (page: Page, color: string) =>
     probe.remove();
     return value;
   }, color);
-
-test('a repository in the tray keeps its „Im Tray“ toggle visible in forced colors', async ({
-  page,
-}) => {
-  await page.emulateMedia({ forcedColors: 'active' });
-  const { inTray, outside } = await pickerToggles(page);
-  const paint = (locator: typeof inTray) =>
-    locator.evaluate((node) => {
-      const computed = getComputedStyle(node);
-      return {
-        background: computed.backgroundColor,
-        color: computed.color,
-        icon: getComputedStyle(node.querySelector('.pick-icon')!).color,
-      };
-    });
-  const added = await paint(inTray);
-  const addable = await paint(outside);
-  // Drawn like a selected tab: the tinted row and grey border would vanish.
-  expect(added.background).toBe(await systemColor(page, 'Highlight'));
-  expect(added.color).toBe(await systemColor(page, 'HighlightText'));
-  expect(added.icon).toBe(added.color);
-  expect(addable.background).not.toBe(added.background);
-});
-
-test('without forced colors the „Im Tray“ toggle keeps the success check', async ({
-  page,
-}) => {
-  const { inTray, outside } = await pickerToggles(page);
-  // The check reads the status token --ok (#4ade80); adding reads the accent.
-  await expect(inTray.locator('.pick-icon')).toHaveCSS(
-    'color',
-    'rgb(74, 222, 128)',
-  );
-  await expect(outside).toHaveCSS('color', 'rgb(181, 227, 122)');
-});
 
 test('run strip cells stay apart in forced colors', async ({ page }) => {
   await page.emulateMedia({ forcedColors: 'active' });

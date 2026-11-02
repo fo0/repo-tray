@@ -33,6 +33,7 @@ const repo: Repo = {
   owner: 'demo-dev',
   name: 'sample-demo',
   defaultBranch: 'main',
+  pushedAt: null,
   selected: true,
   permission: 'write',
 };

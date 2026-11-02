@@ -46,7 +46,7 @@ export function validateDispatch(
     repo.accountId !== request.accountId
   )
     return 'Konto und Repository passen nicht zusammen.';
-  if (!repo.selected) return 'Füge dieses Repository zuerst zum Tray hinzu.';
+  if (!repo.selected) return 'Repository nicht im Tray.';
   if (repo.permission !== 'write')
     return 'Für dieses Repository fehlt der Schreibzugriff.';
   const workflow = snapshot.workflows.find(

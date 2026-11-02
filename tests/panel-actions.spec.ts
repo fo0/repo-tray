@@ -77,12 +77,7 @@ test('demo reset restores templates, scenario and account selection', async ({
     .click();
   await page.getByRole('button', { name: /^Demo zurücksetzen/ }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(
-    notice(
-      page,
-      'Demo zurückgesetzt. Favoriten und Auswahl sind wieder im Ausgangszustand.',
-    ),
-  ).toBeVisible();
+  await expect(notice(page, 'Demo zurückgesetzt.')).toBeVisible();
   await expect(connection).not.toContainText('Offline');
   await expect(accountMenuButton(page)).toHaveAccessibleName(
     'Konto: Alle Konten – Konto wechseln',

@@ -60,12 +60,7 @@ async function setup(page: Page, saved: string | null = null) {
       );
       return async (cmd, args) => {
         if (
-          [
-            'snapshot',
-            'refresh_snapshot',
-            'select_repos',
-            'refresh_repositories',
-          ].includes(cmd)
+          ['snapshot', 'refresh_snapshot', 'refresh_repositories'].includes(cmd)
         )
           return structuredClone(snapshot);
         if (cmd === 'browser_auth_config') return { configured: true };
