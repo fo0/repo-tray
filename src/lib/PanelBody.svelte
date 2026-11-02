@@ -9,7 +9,8 @@
   import SectionPage from './SectionPage.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
-  import { historyRuns, repositoryActivity, visibleRuns } from './runs';
+  import { repositoryActivity } from './repoActivity';
+  import { historyRuns, visibleRuns } from './runs';
   import { PAGE_TITLES, type PanelView } from './view.svelte';
 
   let {
@@ -161,6 +162,9 @@
           {searching}
           {repoName}
           {repoAccountName}
+          canCancel={panel.canCancel}
+          isCancelling={panel.actions.isCancelling}
+          onCancel={(run) => void panel.actions.cancelRun(run)}
           onFilter={(next) => (view.filter = next)}
           onToggle={panel.toggleRun}
           {onClearQuery}

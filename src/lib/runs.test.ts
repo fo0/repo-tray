@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../../fixtures/demo.json';
 import { fullRepo } from './model';
+import { repositoryActivity } from './repoActivity';
 import {
   duration,
   historyRuns,
@@ -8,7 +9,6 @@ import {
   isActive,
   recentRuns,
   recentSummary,
-  repositoryActivity,
   repositoryStatus,
   runLabel,
   runTone,

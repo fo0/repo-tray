@@ -3,10 +3,12 @@
   import RepoMenu from './RepoMenu.svelte';
   import RunStrip from './RunStrip.svelte';
   import type { NoticeTone } from './StatusBanners.svelte';
-  import { plural } from './format';
+  import { minuteClock } from './clock';
+  import { dateTime, lastRunMoment, plural, relativeTime } from './format';
   import { fullRepo } from './model';
   import { workflowTarget } from './pins';
-  import { TONE_ICON, type repositoryActivity } from './runs';
+  import { lastRun, type repositoryActivity } from './repoActivity';
+  import { TONE_ICON } from './runs';
   import type { StartGate } from './startReason';
   import type { DispatchTarget, Pin, Workflow } from './types';
 
@@ -19,6 +21,8 @@
     uncertainRefs,
     expanded,
     onToggle,
+    onOpen,
+    opening,
     native,
     demo,
     onNotice,
@@ -38,6 +42,10 @@
     /** Expanded repository IDs; owned by the panel so they survive view switches. */
     expanded: Set<string>;
     onToggle: (repoId: string) => void;
+    /** Expands a repository the search found and loads its workflows. */
+    onOpen: (repoId: string) => void;
+    /** Repositories whose workflows are loading. */
+    opening: Set<string>;
     native: boolean;
     demo: boolean;
     onNotice: (text: string, tone: NoticeTone) => void;
@@ -51,9 +59,23 @@
     title={label}><Icon name="warning" size={12} /></span
   >{/snippet}
 
+{#snippet dot()}<span class="meta-dot" aria-hidden="true">·</span>{/snippet}
+
+{#snippet when(at: string, label: string, prefix = '')}<time
+    class="repository-when"
+    datetime={at}
+    title={`${label}: ${dateTime(at)}${demo ? ' · Demo-Zeit' : ''}`}
+    >{prefix}{relativeTime(at, $minuteClock)}</time
+  >{/snippet}
+
+<!-- A repository the search found outside the automatic ones shows its
+     name and last push only; its toggle loads its workflows, then it is a
+     regular row. -->
 <div class="repository-list">
   {#each groups as group (group.repo.id)}
-    {@const open = expanded.has(group.repo.id)}
+    {@const id = group.repo.id}
+    {@const loading = opening.has(id)}
+    {@const open = expanded.has(id) && (group.loaded || loading)}
     {@const repoLocked = uncertainRefs({
       accountId: group.repo.accountId,
       repoId: group.repo.id,
@@ -73,7 +95,7 @@
           class="repository-toggle"
           aria-expanded={open}
           aria-controls={`actions-${group.repo.id}`}
-          onclick={() => onToggle(group.repo.id)}
+          onclick={() => (group.loaded || loading ? onToggle(id) : onOpen(id))}
         >
           <span class="repository-copy">
             <span class="repository-title"
@@ -86,26 +108,44 @@
                 )}{/if}</span
             >
             <small class="repository-meta"
-              ><span class="repository-count"
-                >{plural(group.workflows.length, 'Workflow', 'Workflows')}</span
-              ><span class="meta-dot" aria-hidden="true">·</span
-              >{#if status}<span
-                  class="repository-status"
-                  data-tone={status.tone}
-                  ><Icon name={TONE_ICON[status.tone]} size={12} /><span
-                    >{status.label}</span
-                  ></span
-                >{:else}<span class="repository-status"
-                  ><span>Noch keine Runs</span></span
-                >{/if}{#if group.repo.permission !== 'write'}<span
-                  class="repository-tag"
-                  >{group.repo.permission === 'read'
-                    ? 'Nur Lesen'
-                    : 'Kein Zugriff'}</span
-                >{/if}</small
+              >{#if !group.loaded}{#if group.repo.pushedAt}{@render when(
+                    group.repo.pushedAt,
+                    'Letzter Push',
+                    'Push ',
+                  )}{/if}{:else}<!-- With a last run the count goes to assistive tech only: the
+                     time is what the row is for, and the expanded card
+                     lists the workflows. --><span
+                  class="repository-count"
+                  class:sr-only={!!group.last}
+                  >{plural(
+                    group.workflows.length,
+                    'Workflow',
+                    'Workflows',
+                  )}</span
+                >{#if status}{#if !group.last}{@render dot()}{/if}<span
+                    class="repository-status"
+                    data-tone={status.tone}
+                    ><Icon name={TONE_ICON[status.tone]} size={12} /><span
+                      >{status.label}</span
+                    ></span
+                  >{:else if !group.last}{@render dot()}<span
+                    class="repository-status"><span>Noch keine Runs</span></span
+                  >{/if}{#if group.repo.permission !== 'write'}<span
+                    class="repository-tag"
+                    >{group.repo.permission === 'read'
+                      ? 'Nur Lesen'
+                      : 'Kein Zugriff'}</span
+                  >{/if}{#if group.last}<span class="repository-last"
+                    ><span
+                      >{@render dot()}{@render when(
+                        group.last.at,
+                        'Letzter Run',
+                      )}</span
+                    ></span
+                  >{/if}{/if}</small
             >
           </span>
-          <RunStrip cells={group.recent} />
+          {#if group.loaded}<RunStrip cells={group.recent} />{/if}
           <Icon name="chevron" size={15} class="repository-chevron" />
         </button>
         <RepoMenu
@@ -120,67 +160,80 @@
         id={`actions-${group.repo.id}`}
         class="repository-actions"
         hidden={!open}
+        aria-busy={loading || undefined}
       >
-        {#each group.workflows as workflow (workflow.id)}
-          {@const pin = favorite(workflow)}
-          {@const locked = uncertainRefs({
-            accountId: group.repo.accountId,
-            repoId: group.repo.id,
-            workflowId: workflow.id,
-          })}
-          {@const can = gate(workflowTarget(group.repo, workflow))}
-          {@const unavailable =
-            !workflow.dispatch || group.repo.permission !== 'write'}
-          {@const detail = !workflow.dispatch
-            ? 'Kein manueller Start'
-            : group.repo.permission !== 'write'
-              ? 'Nur Lesen'
-              : group.repo.defaultBranch}
-          <div class="repository-action">
-            <button
-              class="action-copy"
-              onclick={() => onopen(workflow)}
-              aria-label={`${workflow.name} · ${detail}${locked.length ? ` · Startstatus ungeklärt (${locked.join(', ')})` : ''}`}
-              title={can.openReason ?? `${workflow.name} · ${detail}`}
-              disabled={!can.canOpen}
-            >
-              <span class="action-dot"></span>
-              <span
-                ><strong
-                  >{workflow.name}{#if locked.length}{@render warning(
-                      `Startstatus ungeklärt · ${locked.join(', ')}`,
-                    )}{/if}</strong
-                ><small>{detail}</small></span
+        {#if !group.loaded}<p class="repository-no-actions">
+            Workflows werden geladen …
+          </p>{:else}{#each group.workflows as workflow (workflow.id)}
+            {@const pin = favorite(workflow)}
+            {@const locked = uncertainRefs({
+              accountId: group.repo.accountId,
+              repoId: group.repo.id,
+              workflowId: workflow.id,
+            })}
+            {@const can = gate(workflowTarget(group.repo, workflow))}
+            {@const unavailable =
+              !workflow.dispatch || group.repo.permission !== 'write'}
+            {@const detail = !workflow.dispatch
+              ? 'Kein manueller Start'
+              : group.repo.permission !== 'write'
+                ? 'Nur Lesen'
+                : group.repo.defaultBranch}
+            {@const last = lastRun(group, id, workflow.id)}
+            {@const moment = last && lastRunMoment(last, $minuteClock, demo)}
+            <div class="repository-action">
+              <button
+                class="action-copy"
+                onclick={() => onopen(workflow)}
+                aria-label={`${workflow.name} · ${detail}${locked.length ? ` · Startstatus ungeklärt (${locked.join(', ')})` : ''}`}
+                title={can.openReason ??
+                  `${workflow.name} · ${detail}${moment ? ` · ${moment.summary}` : ''}`}
+                disabled={!can.canOpen}
               >
-            </button>
-            <button
-              class="icon-button favorite-button"
-              aria-pressed={!!pin}
-              aria-label={`${workflow.name} ${pin ? 'aus Favoriten entfernen' : 'als Favorit speichern'}`}
-              title={unavailable
-                ? 'Favoriten brauchen einen manuell startbaren Workflow mit Schreibzugriff'
-                : (can.openReason ??
-                  (pin
-                    ? `Favorit „${pin.label}“ entfernen`
-                    : 'Mit Standardwerten als Favorit speichern'))}
-              disabled={!can.canRemove || unavailable}
-              onclick={() => onfavorite(workflow)}
-            >
-              <Icon name="heart" size={17} />
-            </button>
-            <button
-              class="action-start"
-              onclick={() => onopen(workflow)}
-              aria-label={`${workflow.name} starten…`}
-              title={can.reason ?? 'Branch oder Tag und Eingaben wählen'}
-              disabled={!can.canStart}
-            >
-              <Icon name="play" size={12} />Starten…
-            </button>
-          </div>
-        {:else}<p class="repository-no-actions">
-            Keine passenden Workflows.
-          </p>{/each}
+                <span class="action-dot"></span>
+                <span
+                  ><strong
+                    >{workflow.name}{#if locked.length}{@render warning(
+                        `Startstatus ungeklärt · ${locked.join(', ')}`,
+                      )}{/if}</strong
+                  ><small
+                    >{detail}{#if last && moment}&nbsp;·&nbsp;{#if last.active}<span
+                          class="tone-dot action-running"
+                          data-tone="run">läuft</span
+                        >{:else}<time datetime={moment.datetime}
+                          >{moment.relative}</time
+                        >{/if}{/if}</small
+                  ></span
+                >
+              </button>
+              <button
+                class="icon-button favorite-button"
+                aria-pressed={!!pin}
+                aria-label={`${workflow.name} ${pin ? 'aus Favoriten entfernen' : 'als Favorit speichern'}`}
+                title={unavailable
+                  ? 'Favoriten brauchen einen manuell startbaren Workflow mit Schreibzugriff'
+                  : (can.openReason ??
+                    (pin
+                      ? `Favorit „${pin.label}“ entfernen`
+                      : 'Mit Standardwerten als Favorit speichern'))}
+                disabled={!can.canRemove || unavailable}
+                onclick={() => onfavorite(workflow)}
+              >
+                <Icon name="heart" size={17} />
+              </button>
+              <button
+                class="action-start"
+                onclick={() => onopen(workflow)}
+                aria-label={`${workflow.name} starten…`}
+                title={can.reason ?? 'Branch oder Tag und Eingaben wählen'}
+                disabled={!can.canStart}
+              >
+                <Icon name="play" size={12} />Starten…
+              </button>
+            </div>
+          {:else}<p class="repository-no-actions">
+              Keine passenden Workflows.
+            </p>{/each}{/if}
       </div>
     </section>
   {/each}

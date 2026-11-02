@@ -18,7 +18,7 @@
   import SectionHeader from './SectionHeader.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
-  import type { repositoryActivity } from './runs';
+  import { lastRun, type repositoryActivity } from './repoActivity';
   import type { Pin, Run } from './types';
   import type { PanelView } from './view.svelte';
 
@@ -58,6 +58,8 @@
   const shownLive = $derived(capped(live, 'runs'));
   const shownPins = $derived(capped(pins, 'favorites'));
   const shownGroups = $derived(capped(groups, 'repos'));
+  const pinRun = (pin: Pin) =>
+    panel.snapshot ? lastRun(panel.snapshot, pin.repoId, pin.workflowId) : null;
 </script>
 
 {#snippet more(page: SectionPage, hidden: number, noun: string)}
@@ -94,6 +96,9 @@
         runs={shownLive}
         demo={panel.demo}
         {repoName}
+        canCancel={panel.canCancel}
+        isCancelling={panel.actions.isCancelling}
+        onCancel={(run) => void panel.actions.cancelRun(run)}
         onShow={(id) => void view.showRun(id)}
       />{:else}<p class="section-empty">
         {searching ? 'Keine passenden laufenden Runs.' : 'Gerade läuft nichts.'}
@@ -120,6 +125,8 @@
         onConfigure={(pin) => modals.openDispatch(pin)}
         onRemove={panel.favorites.remove}
         onLaunch={modals.launchPin}
+        lastRun={pinRun}
+        demo={panel.demo}
       />{:else}<p class="section-empty">
         {searching ? 'Keine passenden Favoriten.' : 'Noch keine Favoriten.'}
       </p>{/if}
@@ -144,6 +151,8 @@
         uncertainRefs={panel.starts.uncertainRefs}
         expanded={panel.expandedRepos}
         onToggle={panel.toggleRepo}
+        onOpen={(repoId) => void panel.actions.openRepository(repoId)}
+        opening={panel.actions.opening}
         native={panel.native}
         demo={panel.demo}
         onNotice={(text, tone) => panel.showNotice(text, tone)}

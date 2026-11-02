@@ -18,6 +18,7 @@ import {
   errorMessage,
   FALLBACK_ERROR,
   ipcErrorMessage,
+  lastRunMoment,
   plural,
   relativeTime,
   repoLabel,
@@ -146,14 +147,23 @@ describe('relative run times', () => {
     vi.advanceTimersByTime(60_000);
     expect(relativeTime(started)).toBe('gestern');
   });
-  it('says „gestern“ for the previous calendar day, then the date', () => {
+  it('says „gestern“ for the previous calendar day, then days, then the date', () => {
     expect(relativeTime(at(16, 13))).toBe('vor 23 Std.');
     expect(relativeTime(at(16, 11))).toBe('gestern');
     expect(relativeTime(at(16, 0, 5))).toBe('gestern');
-    expect(relativeTime(at(15, 23, 59))).toBe('15.06.2026');
+    expect(relativeTime(at(15, 23, 59))).toBe('vor 2 Tagen');
+    expect(relativeTime(at(14, 12))).toBe('vor 3 Tagen');
+    expect(relativeTime(at(11, 0, 1))).toBe('vor 6 Tagen');
+    expect(relativeTime(at(10, 23, 59))).toBe('10.06.2026');
     vi.setSystemTime(new Date(2026, 5, 17, 0, 30));
     expect(relativeTime(at(16, 0, 10))).toBe('gestern');
-    expect(relativeTime(at(15, 23))).toBe('15.06.2026');
+    expect(relativeTime(at(15, 23))).toBe('vor 2 Tagen');
+    expect(relativeTime(at(11, 0))).toBe('vor 6 Tagen');
+    expect(relativeTime(at(10, 23, 59))).toBe('10.06.2026');
+    // Calendar days, not 24-hour spans: late yesterday and early today.
+    vi.setSystemTime(new Date(2026, 5, 17, 23, 59));
+    expect(relativeTime(at(15, 0, 1))).toBe('vor 2 Tagen');
+    expect(relativeTime(at(10, 23, 59))).toBe('10.06.2026');
   });
   it('reads future times as „gerade eben“ and invalid ones as empty', () => {
     expect(relativeTime(at(17, 12, 5))).toBe('gerade eben');
@@ -191,9 +201,38 @@ describe('relative run times', () => {
     });
     expect(runMoment(done, Date.now(), true)).toEqual({
       datetime: at(15, 9),
-      relative: '15.06.2026',
+      relative: 'vor 2 Tagen',
       title: 'Beendet: 15.06.2026, 09:00 · Demo-Zeit',
-      spoken: 'beendet am 15.06.2026',
+      spoken: 'beendet vor 2 Tagen',
+    });
+    const old = run({
+      status: 'completed',
+      conclusion: 'success',
+      createdAt: at(8, 8),
+      updatedAt: at(8, 9),
+    });
+    expect(runMoment(old, Date.now()).spoken).toBe('beendet am 08.06.2026');
+  });
+  it('says when a scope last ran, or that it runs right now', () => {
+    expect(
+      lastRunMoment({ at: at(14, 9, 30), active: false }, Date.now()),
+    ).toEqual({
+      datetime: at(14, 9, 30),
+      relative: 'vor 3 Tagen',
+      title: 'Letzter Run: 14.06.2026, 09:30',
+      summary: 'Letzter Run: 14.06.2026, 09:30',
+    });
+    expect(
+      lastRunMoment({ at: at(1, 8), active: false }, Date.now(), true),
+    ).toMatchObject({
+      relative: '01.06.2026',
+      title: 'Letzter Run: 01.06.2026, 08:00 · Demo-Zeit',
+    });
+    expect(
+      lastRunMoment({ at: at(17, 11, 57), active: true }, Date.now()),
+    ).toMatchObject({
+      relative: 'vor 3 Min.',
+      summary: 'Läuft gerade · Letzter Run: 17.06.2026, 11:57',
     });
   });
   it('counts open runs in whole minutes and lets only live ones run on', () => {
@@ -289,6 +328,18 @@ describe('relative run times across a daylight-saving switch', () => {
     expect(relativeTime('2026-03-28T23:10:00Z', now)).toBe('vor 22 Std.');
     // 28.03. 00:10 CET: 46 h 20 min ago, still the previous calendar day.
     expect(relativeTime('2026-03-27T23:10:00Z', now)).toBe('gestern');
-    expect(relativeTime('2026-03-27T22:50:00Z', now)).toBe('27.03.2026');
+    expect(relativeTime('2026-03-27T22:50:00Z', now)).toBe('vor 2 Tagen');
+  });
+  it('counts calendar days across both switches', () => {
+    // 30.03.2026 00:30 CEST; 24.03. 00:10 CET is six calendar days back,
+    // although the 23-hour day makes it 5 days 23 h 20 min.
+    const spring = Date.parse('2026-03-29T22:30:00Z');
+    expect(relativeTime('2026-03-23T23:10:00Z', spring)).toBe('vor 6 Tagen');
+    expect(relativeTime('2026-03-23T22:50:00Z', spring)).toBe('23.03.2026');
+    // 31.10.2026 23:30 CET; 25.10. 00:10 CEST is six calendar days back,
+    // although the 25-hour day makes it 7 days 20 min.
+    const autumn = Date.parse('2026-10-31T22:30:00Z');
+    expect(relativeTime('2026-10-24T22:10:00Z', autumn)).toBe('vor 6 Tagen');
+    expect(relativeTime('2026-10-24T21:50:00Z', autumn)).toBe('24.10.2026');
   });
 });

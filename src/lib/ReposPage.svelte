@@ -5,7 +5,7 @@
   import { errorMessage } from './format';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
-  import type { repositoryActivity } from './runs';
+  import type { repositoryActivity } from './repoActivity';
 
   let {
     panel,
@@ -19,7 +19,10 @@
     panel: Panel;
     /** Opens the start dialog for a workflow. */
     modals: Modals;
-    /** Every selected repository matching the search, latest activity first. */
+    /**
+     * Every selected repository matching the search, latest activity first,
+     * then the account's other repositories the search found.
+     */
     groups: ReturnType<typeof repositoryActivity>;
     /** A non-blank search query is active. */
     searching: boolean;
@@ -55,6 +58,8 @@
     uncertainRefs={panel.starts.uncertainRefs}
     expanded={panel.expandedRepos}
     onToggle={panel.toggleRepo}
+    onOpen={(repoId) => void panel.actions.openRepository(repoId)}
+    opening={panel.actions.opening}
     native={panel.native}
     demo={panel.demo}
     onNotice={(text, tone) => panel.showNotice(text, tone)}
