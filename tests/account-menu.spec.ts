@@ -351,7 +351,9 @@ test.describe('native', () => {
     await action(page, 'Konto verbinden …').click();
     const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByLabel('GitHub-Token')).toBeVisible();
+    await expect(
+      dialog.getByRole('heading', { name: 'Anmeldeart wählen' }),
+    ).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(accountMenuButton(page)).toBeFocused();

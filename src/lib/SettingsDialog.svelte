@@ -14,7 +14,9 @@
   import StartupSettings from './StartupSettings.svelte';
   import ThemeSetting from './ThemeSetting.svelte';
   import UpdatePanel from './UpdatePanel.svelte';
+  import { Autostart } from './autostart.svelte';
   import { errorMessage } from './format';
+  import { appliedTheme, applyTheme, rememberTheme } from './theme';
   import type { DemoScenario, Snapshot } from './types';
   import type { Updater } from './updater.svelte';
 
@@ -49,9 +51,11 @@
     /** A settings mutation is running. */
     busy: boolean;
     returnFocus?: (() => HTMLElement | null | undefined) | undefined;
+    /** Closes without applying: „Abbrechen“, Escape and the close button. */
     onClose: () => void;
-    /** Replaces this dialog with the connection dialog. */
+    /** Replaces this dialog with the connection dialog; staged changes are dropped. */
     onConnect: () => void;
+    /** Applied by „Speichern“ only. */
     onChangeAccount: (id: string) => void;
     // Mutations reject with a user-facing error; the dialog shows it.
     onScenario: (value: DemoScenario) => Promise<unknown>;
@@ -59,11 +63,43 @@
     onDisconnect: (id: string) => Promise<unknown>;
   } = $props();
 
-  // Every setting applies at once; repositories are chosen in the panel.
+  // Simple settings are staged and applied together by „Speichern“; account
+  // actions („Konto hinzufügen“, „Trennen“) and updates act at once.
   let tab = $state<SettingsTab>(untrack(() => initialTab));
   let error = $state('');
+  let saving = $state(false);
   let alive = true;
-  onDestroy(() => (alive = false));
+  /** null: untouched, the setting in effect shows. */
+  let accountChoice = $state<string | null>(null);
+  let scenarioChoice = $state<DemoScenario | null>(null);
+  // main.ts applied the saved theme; the choice only previews until saved.
+  let savedTheme = $state(appliedTheme());
+  /** Plain copy for the teardown, which reads state as it was before close. */
+  let keptTheme = untrack(() => savedTheme);
+  let theme = $state(untrack(() => savedTheme));
+  const autostart = new Autostart(untrack(() => native));
+  onDestroy(() => {
+    alive = false;
+    autostart.dispose();
+    // Closing without „Speichern“ drops the preview.
+    if (appliedTheme() !== keptTheme) applyTheme(keptTheme);
+  });
+  /** A staged account that was disconnected meanwhile falls back. */
+  const account = $derived(
+    accountChoice !== null &&
+      snapshot?.accounts.some((item) => item.id === accountChoice)
+      ? accountChoice
+      : accountId,
+  );
+  const draftScenario = $derived(scenarioChoice ?? scenario);
+  const changed = $derived({
+    account: native && account !== accountId,
+    scenario: demo && draftScenario !== scenario,
+    theme: theme !== savedTheme,
+    autostart: autostart.pending !== null,
+  });
+  const dirty = $derived(Object.values(changed).some(Boolean));
+  const saveBlocked = $derived(!dirty || saving || busy);
   /** Tab states: a dot whose text is part of the tab's name, like the activity count. */
   const badges = $derived<Partial<Record<SettingsTab, string>>>({
     ...(updater.info && { updates: 'Update verfügbar' }),
@@ -84,6 +120,44 @@
       if (alive) onClose();
     });
   const disconnect = (id: string) => attempt(() => onDisconnect(id));
+
+  /**
+   * Applies every staged change in turn and closes. A change that applied
+   * becomes the new baseline; the first failure keeps the dialog open with
+   * its error, and the remaining changes stay staged.
+   */
+  async function save() {
+    if (saveBlocked) return;
+    const pending = changed;
+    saving = true;
+    error = '';
+    try {
+      if (pending.scenario) {
+        await onScenario(draftScenario);
+        scenarioChoice = null;
+      }
+      if (pending.account) {
+        onChangeAccount(account);
+        accountChoice = null;
+        // The choice holds for this session, but could not be remembered.
+        if (accountNotice) throw new Error(accountNotice);
+      }
+      if (pending.theme) {
+        const value = theme;
+        savedTheme = keptTheme = value;
+        if (!rememberTheme(value))
+          throw new Error(
+            'Darstellung ließ sich nicht speichern und gilt bis zum nächsten Start.',
+          );
+      }
+      if (pending.autostart) await autostart.apply();
+      if (alive) onClose();
+    } catch (cause) {
+      if (alive) error = errorMessage(cause);
+    } finally {
+      if (alive) saving = false;
+    }
+  }
 
   function tabKey(event: KeyboardEvent & { currentTarget: HTMLElement }) {
     const direction =
@@ -112,7 +186,7 @@
   eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
   wide
   {returnFocus}
-  {onClose}
+  onClose={() => !saving && onClose()}
 >
   <div
     class="settings-tabs"
@@ -150,18 +224,19 @@
         {native}
         {demo}
         {accountId}
-        {accountNotice}
-        {scenario}
-        {busy}
-        {onChangeAccount}
+        choice={account}
+        accountNotice={accountNotice === error ? '' : accountNotice}
+        scenario={draftScenario}
+        busy={busy || saving}
+        onChoose={(id) => (accountChoice = id)}
         {onConnect}
-        onScenario={(value) => attempt(() => onScenario(value))}
+        onScenario={(value) => (scenarioChoice = value)}
         onReset={reset}
         onDisconnect={disconnect}
       />
     {:else if tab === 'app'}
-      <ThemeSetting />
-      <StartupSettings {native} />
+      <ThemeSetting bind:value={theme} />
+      <StartupSettings {native} {autostart} />
     {:else}
       <UpdatePanel
         currentVersion={appVersion}
@@ -181,7 +256,18 @@
       {error}
     </div>{/if}
   <div class="modal-actions">
-    <button class="secondary-button" onclick={() => onClose()}>Schließen</button
+    <button
+      type="button"
+      class="secondary-button"
+      disabled={saving}
+      onclick={() => onClose()}>Abbrechen</button
+    ><!-- Off via aria-disabled: it keeps focus while saving. --><button
+      type="button"
+      class="primary-button"
+      aria-disabled={saveBlocked ? 'true' : undefined}
+      title={dirty || saving ? undefined : 'Keine Änderungen'}
+      onclick={() => void save()}
+      >{saving ? 'Wird gespeichert …' : 'Speichern'}</button
     >
   </div>
 </Modal>

@@ -1,4 +1,5 @@
 import { expect, test } from './support/test';
+import { connectDialog, connectToken } from './support/connect';
 import { openPage } from './support/demo';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import {
@@ -131,30 +132,24 @@ async function login(page: import('@playwright/test').Page) {
   await page
     .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
-  const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
+  const dialog = connectDialog(page);
   await expect(
-    dialog.getByRole('button', { name: /Mit GitHub anmelden/ }),
+    dialog.getByRole('radio', { name: /^Mit GitHub anmelden/ }),
   ).toBeDisabled();
-  await dialog.getByLabel('GitHub-Token').fill('synthetic-test-token');
-  await dialog
-    .getByRole('button', { name: 'Token prüfen und verbinden' })
-    .click();
-  await expect(dialog.getByLabel('GitHub-Token')).toHaveValue('');
+  await connectToken(page, 'synthetic-test-token');
+  // Success closes the dialog by itself; the panel confirms it.
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
-    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
+    page.getByRole('status').filter({ hasText: 'demo-dev ist verbunden.' }),
   ).toBeVisible();
 }
-test('native token flow clears input, labels live mode and returns to repository setup', async ({
+test('native token flow clears input, closes by itself and labels live mode', async ({
   page,
 }) => {
   await login(page);
-  await expect(
-    page.getByText('1 Konto verbunden', { exact: true }),
-  ).toBeVisible();
   expect(
     await page.evaluate(() => JSON.stringify({ ...localStorage })),
   ).not.toContain('synthetic-test-token');
-  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
   await expect(
     page.getByRole('status', { name: 'Verbindungsstatus' }),
   ).toContainText('GitHub');
@@ -172,7 +167,7 @@ test('native token flow clears input, labels live mode and returns to repository
     page.getByText('Echter GitHub-Workflow-Start · Konto und Ziel prüfen'),
   ).toBeVisible();
 });
-test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled by its cleanup', async ({
+test('a delayed PAT login keeps focus on its busy button and is never cancelled by itself', async ({
   page,
 }) => {
   await mock.configure({ tokenDelay: 600 });
@@ -182,22 +177,21 @@ test('a delayed PAT login keeps idle local auth mounted and cannot be cancelled 
   await page
     .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
-  await page
-    .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
-    .click();
-  const scan = page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' });
-  await expect(scan).toBeEnabled();
-  await page.getByLabel('GitHub-Token').fill('synthetic-test-token');
-  await page
-    .getByRole('button', { name: 'Token prüfen und verbinden' })
-    .click();
-  await expect(scan).toBeDisabled();
+  await connectToken(page, 'synthetic-test-token');
+  const busy = connectDialog(page).getByRole('button', {
+    name: 'Wird geprüft …',
+    exact: true,
+  });
+  await expect(busy).toBeDisabled();
+  await expect(busy).toBeFocused();
+  await expect(connectDialog(page).getByLabel('GitHub-Token')).toHaveValue('');
   const calls = await readCommands(page);
   expect(calls.filter((cmd) => cmd === 'connect_token')).toHaveLength(1);
   expect(calls).not.toContain('cancel_connect');
   expect(calls).not.toContain('discover_local_auth');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
-    page.getByRole('heading', { name: 'Einstellungen', exact: true }),
+    page.getByRole('status').filter({ hasText: 'demo-dev ist verbunden.' }),
   ).toBeVisible();
 });
 test('public update downloads inside the app and installs only after a separate confirmation', async ({
@@ -337,14 +331,16 @@ test('native invalid token is rejected and disconnect removes the account view',
   await page
     .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
-  await page.getByLabel('GitHub-Token').fill('invalid-synthetic-token');
-  await page
-    .getByRole('button', { name: 'Token prüfen und verbinden' })
-    .click();
+  await connectToken(page, 'invalid-synthetic-token');
   await expect(page.getByRole('alert')).toContainText('Token nicht bestätigt');
   await expect(page.getByLabel('GitHub-Token')).toHaveValue('');
+  // The failed step stays open; „Zurück“ and „Abbrechen“ leave it.
+  await page.getByRole('button', { name: 'Zurück', exact: true }).click();
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await login(page);
+  await page
+    .getByRole('button', { name: 'Einstellungen', exact: true })
+    .click();
   await page.getByRole('button', { name: /^demo-dev.*trennen$/ }).click();
   await page
     .getByRole('group', { name: /^demo-dev · .+ trennen\?$/ })

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from './support/test';
+import { connectToken } from './support/connect';
 import {
   PAGE_TITLES,
   accountMenuButton,
@@ -167,14 +168,8 @@ test('pressing / on a run row moves focus into the search field', async ({
 test('finishing the demo token connect focuses the account menu button', async ({
   page,
 }) => {
-  const dialog = await openConnection(page);
-  await dialog
-    .getByText('Alternativ: Token hinterlegen', { exact: true })
-    .click();
-  await dialog.getByLabel('Beispiel-Token').fill('demo-token');
-  await dialog
-    .getByRole('button', { name: 'Token prüfen und verbinden' })
-    .click();
+  await openConnection(page);
+  await connectToken(page, 'demo-token', 'Beispiel-Token');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(accountMenuButton(page)).toBeFocused();
 });

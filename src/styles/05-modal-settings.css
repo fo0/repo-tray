@@ -112,6 +112,9 @@
 .settings-section {
   margin-top: 21px;
 }
+.settings-section:first-child {
+  margin-top: 0;
+}
 .settings-section > h3 {
   font-size: var(--font-size-meta);
   font-weight: 550;

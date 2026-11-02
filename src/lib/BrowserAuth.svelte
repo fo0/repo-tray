@@ -126,7 +126,7 @@
     } catch {
       if (active)
         message =
-          'Abbruch konnte nicht bestätigt werden. Schließe dieses Fenster vor einem neuen Versuch.';
+          'Abbruch nicht bestätigt. Dialog vor neuem Versuch schließen.';
       return;
     }
     if (active) setBusy(false);
@@ -168,10 +168,7 @@
     >
   {:else if status.state === 'awaitingAuthorization'}
     <h4>Im Browser bestätigen</h4>
-    <p>
-      Prüfe auf <strong>github.com/login/device</strong> dein Konto und gib diesen
-      Code ein:
-    </p>
+    <p>Code auf <strong>github.com/login/device</strong> eingeben:</p>
     <div class="auth-code">
       <span>GitHub-Bestätigungscode</span><code>{status.userCode}</code>
       <button type="button" class="text-button" onclick={copyCode}
@@ -186,10 +183,7 @@
         })}</small
       >
     </div>
-    <p class="field-help">
-      Warte auf GitHub … Die Verbindung wird automatisch erkannt. App
-      autorisieren und Repository-Zugriff sind getrennte Freigaben.
-    </p>
+    <p class="field-help">Warte auf GitHub …</p>
     <div class="browser-actions">
       <button type="button" class="secondary-button" onclick={openBrowser}
         >GitHub erneut öffnen<Icon name="external" size={14} /></button
@@ -200,13 +194,11 @@
     </div>
   {:else}
     {#if status.state === 'cancelled'}<p role="status">
-        Anmeldung abgebrochen. Dieser Versuch wird nicht mehr übernommen.
+        Anmeldung abgebrochen.
       </p>
-    {:else if status.state === 'expired'}<p role="status">
-        Code abgelaufen. Starte die Anmeldung für einen neuen Code erneut.
-      </p>
+    {:else if status.state === 'expired'}<p role="status">Code abgelaufen.</p>
     {:else if status.state === 'denied'}<p role="status">
-        Freigabe bei GitHub abgelehnt. Es wurde kein Konto verbunden.
+        Freigabe bei GitHub abgelehnt.
       </p>{/if}
     <button
       type="button"
@@ -224,8 +216,8 @@
     </button>
     <p class="field-help">
       {configured
-        ? 'GitHub öffnet sich im Systembrowser. Bestätige dort den kurzen Code; RepoTray erkennt die Anmeldung automatisch.'
-        : 'Für diese App-Version fehlen noch Client-ID und Gerätecode-Freigabe der Herausgeber-App. Token und lokale Anmeldung sind verfügbar.'}
+        ? 'Öffnet GitHub im Browser.'
+        : 'In dieser Version nicht eingerichtet.'}
     </p>
     {#if configured}
       <button
@@ -238,12 +230,6 @@
           size={14}
         /></button
       >
-      <p class="field-help">
-        Installiere die App auf deinem Konto oder deiner Organisation und wähle
-        einzelne oder alle Repositories. Organisationen können eine Freigabe
-        oder aktive SSO-Sitzung verlangen. Danach die Repository-Liste
-        aktualisieren.
-      </p>
     {/if}
   {/if}
   {#if message}<div class="alert warning" role="alert">{message}</div>{/if}

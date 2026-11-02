@@ -1,80 +1,91 @@
-.auth-preview {
+/* Connection dialog: one step at a time, one primary action in the footer. */
+.connect-step {
   text-align: left;
 }
-.auth-symbol {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: 11px;
-  color: var(--accent);
-  margin-bottom: 12px;
-}
-.auth-preview > p {
-  margin-top: 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  clear: both;
-}
-.auth-preview h3 {
-  font-size: 16px;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-}
-.auth-preview .full-width {
-  margin-top: 16px;
-  min-height: 36px;
-}
-.auth-preview .auth-disclosure {
-  color: var(--text-3);
-  font-size: var(--font-size-meta);
-  line-height: 1.5;
-}
-.token-path {
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
-}
-.token-path summary {
-  cursor: pointer;
+.connect-step h3 {
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text);
+  outline: none;
+}
+.connect-step .step-line {
   font-size: 12px;
-  min-height: 32px;
-}
-/* The token disclosure brings its own chevron icon. Nested disclosures
-   ("Weitere lokale Quellen", the gh help) keep the native marker, which a
-   flex summary would hide, so their open/closed state stays visible. */
-.token-path > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.token-path[open] > summary > svg {
-  transform: rotate(180deg);
-}
-.token-path details > summary {
-  display: list-item;
-  padding: 7px 0;
-}
-.token-path details > summary::marker {
-  color: var(--accent);
-}
-.token-path form {
-  margin-top: 12px;
-}
-.token-path p {
-  font-size: var(--font-size-meta);
   line-height: 1.6;
   color: var(--text-2);
-  margin-bottom: 12px;
 }
-.token-path .secondary-button {
-  align-self: flex-start;
-  margin-top: 8px;
+.connect-step .text-button.rescan {
+  margin-top: 12px;
 }
+
+/* Radio cards: connection methods and found local accounts. */
+.choice-list {
+  display: grid;
+  gap: 8px;
+}
+.choice-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+}
+.choice-card.compact {
+  min-height: 44px;
+  padding-block: 8px;
+}
+.choice-card:hover:not(:has(input:disabled)) {
+  background: var(--hover);
+}
+.choice-card:has(input:checked) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.choice-card:has(input:disabled) {
+  cursor: default;
+  color: var(--text-3);
+}
+.choice-card:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.choice-card input {
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+.choice-card > svg {
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+.choice-card > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.choice-card strong {
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.choice-card small {
+  font-size: var(--font-size-meta);
+  color: var(--text-3);
+}
+/* The one consent line right above „Übernehmen“. */
+.consent-line {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
 .auth-code {
   padding: 13px;
   border: 1px solid var(--accent-line);
@@ -97,12 +108,4 @@
     monospace;
   letter-spacing: 3px;
   color: var(--text);
-}
-
-.auth-preview .auth-symbol {
-  float: left;
-  width: 34px;
-  height: 34px;
-  margin: 0 10px 10px 0;
-  border-radius: 9px;
 }

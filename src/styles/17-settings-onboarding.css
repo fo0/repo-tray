@@ -56,9 +56,8 @@
   color: inherit;
   font-size: inherit;
 }
+/* The second half of the one consequence sentence, e.g. a released lock. */
 .inline-confirm p .inline-confirm-warning {
-  display: block;
-  margin-top: 6px;
   color: var(--wait);
   font-weight: 600;
 }
@@ -91,6 +90,11 @@
   .danger-button,
   .inline-confirm {
     border-color: CanvasText;
+  }
+  /* Checked radio cards keep a frame where tints vanish. */
+  .choice-card:has(input:checked),
+  .connected-auth-card.active {
+    border: 2px solid Highlight;
   }
   .text-button.danger-text {
     color: LinkText;
@@ -139,30 +143,26 @@
   margin-top: 4px;
 }
 
-/* Token permissions in the connect dialogs. */
+/* Token permissions in one line of text: „Benötigte Rechte“ and three items. */
 .token-permissions {
-  text-align: left;
-}
-.token-permissions ul {
-  display: grid;
-  gap: 6px;
-  margin: 0 0 12px;
-  padding: 0;
-  list-style: none;
-}
-.token-permissions li {
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--raised);
+  margin-top: -6px;
   font-size: var(--font-size-meta);
-  line-height: 1.5;
-}
-.token-permissions li strong {
-  display: block;
-  color: var(--text);
-  font-weight: 600;
-}
-.token-permissions li span {
+  line-height: 1.6;
   color: var(--text-3);
+}
+.token-permissions ul,
+.token-permissions li {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+.token-permissions > span::after {
+  content: ': ';
+}
+.token-permissions li:not(:last-child)::after {
+  content: ' · ';
+}
+.token-permissions strong {
+  color: var(--text-2);
+  font-weight: 600;
 }

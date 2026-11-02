@@ -2,8 +2,6 @@
   import { tick } from 'svelte';
   import ConnectedAccounts from './ConnectedAccounts.svelte';
   import Icon from './Icon.svelte';
-  import { accountTitle } from './accountSelection';
-  import { plural } from './format';
   import type { DemoScenario, Snapshot } from './types';
 
   const scenarios: { value: DemoScenario; label: string }[] = [
@@ -18,10 +16,11 @@
     native,
     demo,
     accountId,
+    choice,
     accountNotice,
     scenario,
     busy,
-    onChangeAccount,
+    onChoose,
     onConnect,
     onScenario,
     onReset,
@@ -30,13 +29,17 @@
     snapshot: Snapshot | null;
     native: boolean;
     demo: boolean;
+    /** The account in effect. */
     accountId: string;
+    /** The staged account choice; „Speichern“ applies it. */
+    choice: string;
     /** Why the active account had to be chosen again, if it had to. */
     accountNotice: string;
+    /** The staged demo scenario. */
     scenario: DemoScenario;
     /** An account or demo mutation is running. */
     busy: boolean;
-    onChangeAccount: (id: string) => void;
+    onChoose: (id: string) => void;
     onConnect: () => void;
     onScenario: (value: DemoScenario) => void;
     onReset: () => void;
@@ -44,7 +47,7 @@
     onDisconnect: (id: string) => Promise<unknown>;
   } = $props();
   const accounts = $derived(snapshot?.accounts ?? []);
-  let picker = $state<HTMLSelectElement>();
+  let list = $state<ReturnType<typeof ConnectedAccounts>>();
   let connectButton = $state<HTMLButtonElement>();
 
   /** After a removed card, focus goes to the next decision: pick or connect. */
@@ -52,7 +55,8 @@
     await onDisconnect(id);
     if (accounts.some((account) => account.id === id)) return;
     await tick();
-    (accounts.length ? picker : connectButton)?.focus();
+    if (accounts.length) list?.focusChoice();
+    else connectButton?.focus();
   }
 
   function chooseScenario(value: string) {
@@ -65,10 +69,7 @@
   <section class="account-empty" aria-labelledby="account-empty-heading">
     <span class="account-empty-icon"><Icon name="github" size={24} /></span>
     <h3 id="account-empty-heading">Noch kein Konto verbunden</h3>
-    <p>
-      Verbinde dein GitHub-Konto mit einem Token oder übernimm deine Anmeldung
-      aus der GitHub CLI. Zugangsdaten bleiben im Betriebssystem-Tresor.
-    </p>
+    <p>Zugangsdaten bleiben im Windows-Tresor.</p>
     <button
       class="primary-button"
       bind:this={connectButton}
@@ -76,92 +77,59 @@
       >GitHub-Konto verbinden<Icon name="plus" size={14} /></button
     >
   </section>
-{:else}
-  {#if native}
-    <section
-      class="active-account-settings"
-      aria-labelledby="active-account-heading"
+{:else if native}
+  <section
+    class="active-account-settings"
+    aria-labelledby="active-account-heading"
+  >
+    <h3 id="active-account-heading">Aktives Konto</h3>
+    {#if accountNotice}<p class="account-selection-notice" role="status">
+        {accountNotice}
+      </p>{/if}
+    <ConnectedAccounts
+      bind:this={list}
+      {accounts}
+      activeAccountId={accountId}
+      {choice}
+      uncertainStarts={snapshot?.uncertainStarts}
+      disabled={busy}
+      {onChoose}
+      onDisconnect={disconnect}
+    />
+    <button class="secondary-button add-account" onclick={() => onConnect()}
+      ><Icon name="plus" size={14} />Konto hinzufügen</button
     >
-      <h3 id="active-account-heading">Aktives Konto</h3>
-      <p>
-        Für Ansicht und neue Starts. Deine Kontoauswahl gilt sofort und wird
-        gemerkt.
-      </p>
-      <label class="field">
-        <span>Login und Anmeldequelle</span>
-        <select
-          bind:this={picker}
-          aria-label="Aktives Konto auswählen"
-          value={accountId}
-          disabled={busy}
-          onchange={(event) => onChangeAccount(event.currentTarget.value)}
-        >
-          <option value="" disabled>Aktives Konto auswählen</option>
-          {#each accounts as account (account.id)}<option value={account.id}
-              >{accountTitle(account)}</option
-            >{/each}
-        </select>
-      </label>
-      {#if accountNotice}<p class="account-selection-notice" role="status">
-          {accountNotice}
-        </p>{/if}
-      <ConnectedAccounts
-        {accounts}
-        activeAccountId={accountId}
-        uncertainStarts={snapshot?.uncertainStarts}
-        disabled={busy}
-        onUse={onChangeAccount}
-        onDisconnect={disconnect}
-      />
-    </section>
-  {/if}
+  </section>
+{/if}
+{#if demo}
   <div class="settings-section">
     <h3>Verbindung</h3>
     <div class="connection-card">
       <Icon name="github" size={22} />
       <div>
-        <strong
-          >{demo
-            ? 'Du bist im Demo-Modus'
-            : `${plural(accounts.length, 'Konto', 'Konten')} verbunden`}</strong
-        >
-        <p>
-          {demo
-            ? 'Kein Konto verbunden. Starts sind nur simuliert.'
-            : 'Tokens bleiben im Betriebssystem-Tresor.'}
-        </p>
+        <strong>Demo-Modus</strong>
+        <p>Starts sind nur simuliert.</p>
       </div>
       <button class="text-button" onclick={() => onConnect()}
         >Konto hinzufügen<Icon name="chevron" size={13} /></button
       >
     </div>
   </div>
-  {#if demo}<div class="settings-section">
-      <label class="field"
-        ><span>Demo-Szenario</span><select
-          aria-label="Demo-Szenario"
-          value={scenario}
-          onchange={(event) => chooseScenario(event.currentTarget.value)}
-          >{#each scenarios as item (item.value)}<option value={item.value}
-              >{item.label}</option
-            >{/each}</select
-        ></label
-      >
-      <p class="field-help">
-        Szenarien verwenden ausschließlich lokale Demo-Daten.
-      </p>
-      <button class="reset-button" onclick={() => onReset()} disabled={busy}
-        ><Icon name="refresh" size={13} />Demo zurücksetzen<span
-          >Setzt auch Favoriten und Auswahl zurück</span
-        ></button
-      >
-    </div>
-  {/if}
-  {#if !demo}
-    <p class="field-help account-semantics">
-      Das aktive Konto steuert Ansicht und neue Starts. Andere Konten bleiben
-      verbunden; ihre ausgewählten Repositories werden weiter beobachtet. Ein
-      fehlgeschlagener Zugriff wechselt nicht automatisch das Konto.
-    </p>
-  {/if}
+  <div class="settings-section">
+    <label class="field"
+      ><span>Demo-Szenario</span><select
+        aria-label="Demo-Szenario"
+        value={scenario}
+        onchange={(event) => chooseScenario(event.currentTarget.value)}
+        >{#each scenarios as item (item.value)}<option value={item.value}
+            >{item.label}</option
+          >{/each}</select
+      ></label
+    >
+    <button class="reset-button" onclick={() => onReset()} disabled={busy}
+      ><Icon name="refresh" size={13} />Demo zurücksetzen<span
+        >Setzt auch Favoriten und Auswahl zurück</span
+      ></button
+    >
+  </div>
 {/if}

@@ -42,20 +42,19 @@ test('the settings dialog traps Tab and Shift+Tab and closes with Escape', async
   });
   const first = dialog.getByRole('button', { name: 'Dialog schließen' });
   await expect(first).toBeFocused();
+  // „Speichern“ waits for a change (aria-disabled) but stays focusable.
+  const save = dialog.getByRole('button', { name: 'Speichern', exact: true });
   await page.keyboard.press('Shift+Tab');
-  await expect(
-    dialog.getByRole('button', { name: 'Schließen', exact: true }),
-  ).toBeFocused();
+  await expect(save).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(first).toBeFocused();
-  // The loop holds on every tab: „Schließen“ stays the last element.
+  // The loop holds on every tab: „Speichern“ stays the last element.
   await dialog.getByRole('tab', { name: 'Updates', exact: true }).click();
-  const close = dialog.getByRole('button', { name: 'Schließen', exact: true });
-  await close.focus();
+  await save.focus();
   await page.keyboard.press('Tab');
   await expect(first).toBeFocused();
   await page.keyboard.press('Shift+Tab');
-  await expect(close).toBeFocused();
+  await expect(save).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
 });
@@ -103,7 +102,7 @@ test('a chained dialog returns focus to the opener of the first dialog', async (
   await expect(opener).toBeFocused({ timeout: 1000 });
 });
 
-test('settings offer Konten, App and Updates; repositories are chosen in the panel', async ({
+test('every settings tab ends in the same footer: Abbrechen and Speichern', async ({
   page,
 }) => {
   await page.goto('/');
@@ -121,19 +120,16 @@ test('settings offer Konten, App and Updates; repositories are chosen in the pan
   ]);
   for (const name of ['Konten', 'App', 'Updates']) {
     await dialog.getByRole('tab', { name, exact: true }).click();
+    const actions = dialog.locator('.modal-actions').getByRole('button');
+    await expect(actions).toHaveText(['Abbrechen', 'Speichern']);
+    // Nothing staged yet: „Speichern“ says why it is off.
+    await expect(actions.last()).toBeDisabled();
+    await expect(actions.last()).toHaveAttribute('title', 'Keine Änderungen');
     await expect(
       dialog.getByRole('button', { name: 'Schließen', exact: true }),
-    ).toBeVisible();
-    await expect(
-      dialog.getByRole('button', { name: 'Abbrechen', exact: true }),
-    ).toHaveCount(0);
-    // Every setting applies at once: nothing to save, no selection here.
-    await expect(
-      dialog.getByRole('button', { name: /speichern/i }),
     ).toHaveCount(0);
     await expect(dialog.getByLabel('Repositories filtern')).toHaveCount(0);
   }
-  // Closing never asks: there is nothing unsaved to lose.
-  await page.keyboard.press('Escape');
+  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(dialog).toHaveCount(0);
 });

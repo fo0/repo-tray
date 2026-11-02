@@ -1,6 +1,7 @@
 import { expect, test } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCalls } from './support/tauriMock';
+import { connectToken } from './support/connect';
 import { openPage, templateCard } from './support/demo';
 
 /**
@@ -110,12 +111,8 @@ test('after an uncertain start, disconnecting and reconnecting the account unloc
   await settings
     .getByRole('button', { name: 'Konto hinzufügen', exact: true })
     .click();
-  const connect = page.getByRole('dialog', { name: 'GitHub verbinden' });
-  await connect.getByLabel('GitHub-Token').fill('synthetic-test-token');
-  await connect
-    .getByRole('button', { name: 'Token prüfen und verbinden' })
-    .click();
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  await connectToken(page, 'synthetic-test-token');
+  // A successful connection closes the dialog by itself.
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await openPage(page, 'favorites');

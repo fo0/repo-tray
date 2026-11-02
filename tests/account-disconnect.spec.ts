@@ -100,11 +100,17 @@ async function setup(page: Page, uncertainFor?: string) {
   return { dialog, mock };
 }
 
+const accounts = (page: Page) =>
+  page.getByRole('radiogroup', { name: 'Aktives Konto', exact: true });
 const card = (page: Page, source: string) =>
-  page
-    .getByRole('region', { name: 'Verbundene Anmeldungen' })
+  accounts(page)
     .locator('.connected-auth-card')
     .filter({ hasText: `fixture-user · ${source}` });
+const radio = (page: Page, source: string) =>
+  accounts(page).getByRole('radio', {
+    name: `fixture-user · ${source}`,
+    exact: true,
+  });
 
 test('disconnect sits in the account card and asks first; Abbrechen keeps everything', async ({
   page,
@@ -121,11 +127,12 @@ test('disconnect sits in the account card and asks first; Abbrechen keeps everyt
     name: 'fixture-user · Token trennen?',
     exact: true,
   });
+  // One sentence: what goes.
   await expect(confirm).toHaveAccessibleDescription(
-    'Gespeicherter Zugang, Repository-Auswahl und Favoriten dieses Kontos werden gelöscht.',
+    'Zugang, Repository-Auswahl und Favoriten werden gelöscht.',
   );
   // A token connection has no gh CLI access to reassure about.
-  await expect(confirm).not.toContainText('gh-CLI-Zugang');
+  await expect(confirm).not.toContainText('gh bleibt angemeldet');
   // No locked start for this account, so nothing to warn about.
   await expect(confirm).not.toContainText('ungeklärte Starts');
   await expect(
@@ -147,13 +154,11 @@ test('disconnect sits in the account card and asks first; Abbrechen keeps everyt
   expect(await readCalls(page, 'disconnect_account')).toHaveLength(0);
 });
 
-test('an imported gh account confirms that the gh CLI stays untouched and focus moves to the account picker', async ({
+test('an imported gh account confirms that the gh CLI stays untouched and focus moves to the account choice', async ({
   page,
 }) => {
   await setup(page);
-  await expect(
-    page.getByText('2 Konten verbunden', { exact: true }),
-  ).toBeVisible();
+  await expect(accounts(page).getByRole('radio')).toHaveCount(2);
   const gh = card(page, 'gh CLI (Kopie)');
   await gh
     .getByRole('button', {
@@ -166,19 +171,17 @@ test('an imported gh account confirms that the gh CLI stays untouched and focus 
     exact: true,
   });
   await expect(confirm).toHaveAccessibleDescription(
-    'Gespeicherter Zugang, Repository-Auswahl und Favoriten dieses Kontos werden gelöscht. Der gh-CLI-Zugang selbst bleibt unberührt.',
+    'Zugang, Repository-Auswahl und Favoriten werden gelöscht, gh bleibt angemeldet.',
   );
   await confirm.getByRole('button', { name: 'Trennen', exact: true }).click();
   await expect(gh).toHaveCount(0);
-  await expect(
-    page.getByText('1 Konto verbunden', { exact: true }),
-  ).toBeVisible();
+  await expect(accounts(page).getByRole('radio')).toHaveCount(1);
   expect((await readCalls(page, 'disconnect_account'))[0]?.args).toEqual({
     accountId: 'github-gh-42',
   });
-  const picker = page.getByLabel('Aktives Konto auswählen', { exact: true });
-  await expect(picker).toBeFocused();
-  await expect(picker).toHaveValue('github-42');
+  // Focus lands on the account in effect, which is still checked.
+  await expect(radio(page, 'Token')).toBeFocused();
+  await expect(radio(page, 'Token')).toBeChecked();
 });
 
 test('removing the last account focuses the connect action; a failed disconnect keeps the card', async ({
@@ -220,9 +223,9 @@ test('removing the active account while another remains never picks a replacemen
     .click();
   await token.getByRole('button', { name: 'Trennen', exact: true }).click();
   await expect(token).toHaveCount(0);
-  const picker = page.getByLabel('Aktives Konto auswählen', { exact: true });
-  await expect(picker).toBeFocused();
-  await expect(picker).toHaveValue('');
+  // Focus moves to the remaining account, which stays unchecked.
+  await expect(radio(page, 'gh CLI (Kopie)')).toBeFocused();
+  await expect(radio(page, 'gh CLI (Kopie)')).not.toBeChecked();
   await expect(
     page
       .getByRole('tabpanel', { name: 'Konten' })
@@ -248,8 +251,9 @@ test('an account with locked starts warns that disconnecting releases the lock',
     name: 'fixture-user · gh CLI (Kopie) trennen?',
     exact: true,
   });
+  // Still one sentence, its second half the released lock.
   await expect(confirm).toHaveAccessibleDescription(
-    'Gespeicherter Zugang, Repository-Auswahl und Favoriten dieses Kontos werden gelöscht. Der gh-CLI-Zugang selbst bleibt unberührt. Achtung: Für dieses Konto gibt es ungeklärte Starts. Nach dem Trennen sind sie nicht mehr gesperrt – prüfe die Runs auf GitHub vorher.',
+    'Zugang, Repository-Auswahl und Favoriten werden gelöscht, gh bleibt angemeldet; ungeklärte Starts sind danach nicht mehr gesperrt.',
   );
   await confirm.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   // The other connection of the same user has no locked start.
@@ -294,8 +298,6 @@ test('a running disconnect keeps focus in its confirmation; Abbrechen and Escape
   await expect(confirm).toBeVisible();
   await mock.configure({ holdDisconnect: false });
   await expect(token).toHaveCount(0);
-  await expect(
-    page.getByLabel('Aktives Konto auswählen', { exact: true }),
-  ).toBeFocused();
+  await expect(radio(page, 'gh CLI (Kopie)')).toBeFocused();
   expect(await readCalls(page, 'disconnect_account')).toHaveLength(1);
 });

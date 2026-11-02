@@ -1,4 +1,5 @@
 import { expect, test } from './support/test';
+import { connectToken } from './support/connect';
 import {
   backButton,
   chooseAccount,
@@ -132,11 +133,7 @@ test.describe('native picker', () => {
     await openNative(page);
     await page.getByRole('button', { name: / – Konto wechseln$/ }).click();
     await page.getByRole('menuitem', { name: 'Konto verbinden …' }).click();
-    const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
-    await dialog.getByLabel('GitHub-Token').fill('synthetic-test-token');
-    await dialog
-      .getByRole('button', { name: 'Token prüfen und verbinden' })
-      .click();
+    await connectToken(page, 'synthetic-test-token');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expectPage(page, 'picker');
     await expect(page.getByLabel('Repositories filtern')).toBeFocused();
