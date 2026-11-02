@@ -96,7 +96,7 @@ test.describe('demo overview', () => {
       await expect(
         page.locator('.page-header .section-count .sr-only'),
       ).toHaveText(
-        { runs: '5 Runs', favorites: '1 Favorit', repos: '3 Repositories' }[
+        { runs: '5 Runs', favorites: '1 Favorit', repos: '12 Repositories' }[
           name
         ],
       );
