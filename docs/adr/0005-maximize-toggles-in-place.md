@@ -12,7 +12,7 @@ ADR-0002 put a maximized section under a header with **Zurück zur Übersicht**.
 
 ## Decision
 
-We will keep the section header where it is when a section is maximized: its maximize button turns into a minimize button at the same spot, and minimizing returns to the overview. The separate **Zurück zur Übersicht** header goes. **Esc** and the section's **Ctrl+1/2/3** key still return; everything else in ADR-0002 (one overview, caps lifted by search, focus rules, Verlauf with the run expanded) stays.
+We will keep the section header where it is when a section is maximized: the maximized page shows the section's own header (`SectionHeader` with `onMinimize`, the only thing `SectionPage` renders), whose minimize button („<Titel> verkleinern“, tooltip „Verkleinern · Esc“) sits exactly where the maximize button is; minimizing returns to the overview. The separate **Zurück zur Übersicht** header goes; there is no back button at all. **Esc** and the section's **Ctrl+1/2/3** key still return; everything else in ADR-0002 (one overview, caps lifted by search, focus rules, Verlauf with the run expanded) stays.
 
 ## Consequences
 
@@ -36,3 +36,4 @@ We will keep the section header where it is when a section is maximized: its max
 ## References
 
 - #18, `agent_docs/ux_rules.md`, [ADR-0002](0002-single-overview-with-maximizable-sections.md)
+- `src/lib/SectionHeader.svelte`, `src/lib/SectionPage.svelte`, `tests/overview.spec.ts`, `tests/support/demo.ts` (`minimizeButton`)

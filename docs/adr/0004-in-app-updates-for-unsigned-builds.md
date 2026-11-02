@@ -11,13 +11,13 @@ The standard _Release_ Action publishes an unsigned NSIS EXE without updater art
 
 ## Decision
 
-We will install updates in the app for unsigned standard builds. The check reads `https://api.github.com/repos/fo0/repo-tray/releases/latest` unauthenticated, accepts only a canonical stable `vX.Y.Z` newer than the running version, and requires the asset `RepoTray_<version>_x64-setup.exe` with GitHub's `sha256` digest and its size. „Update verfügbar“ shows at most 5 changelog bullets; „Installieren“ downloads the asset unauthenticated over HTTPS (redirects only to GitHub hosts) with a progress bar, verifies size and SHA-256, runs the NSIS installer passively (`/P /R /UPDATE`, current-user install) and exits; the installer restarts the app. There is no release-page link. Builds compiled with an updater public key keep the signed Tauri updater path.
+We will install updates in the app for unsigned standard builds. The check reads `https://api.github.com/repos/fo0/repo-tray/releases/latest` unauthenticated, accepts only a canonical stable `vX.Y.Z` newer than the running version, and requires the asset `RepoTray_<version>_x64-setup.exe` with GitHub's `sha256` digest and its size. A banner „Update <v> verfügbar“ (with „Ansehen“ and „Hinweis schließen“) leads to the Updates tab, which shows „Version <v> verfügbar“ with at most 5 changelog bullets. „Installieren“ calls one native command, `install_update`, which downloads the asset unauthenticated over HTTPS (redirects only to GitHub hosts) with progress, verifies size and SHA-256, writes the EXE to `%TEMP%\RepoTray-update-<version>\`, runs the NSIS installer passively (`/P /R /UPDATE`, current-user install, no `/ARGS`) and exits; the installer restarts the app without launch arguments. There is no release-page link. Builds compiled with an updater public key keep the signed Tauri updater path behind the same command.
 
 ## Consequences
 
 ### Positive
 
-- One click from „Update verfügbar“ to the restarted new version; no browser, no manual download.
+- One click on „Installieren“ from the offer to the restarted new version; no browser, no manual download.
 - A truncated or corrupted download, or one that differs from the published asset, is rejected before anything runs.
 - No signing key, certificate or workflow change is needed.
 
@@ -25,10 +25,13 @@ We will install updates in the app for unsigned standard builds. The check reads
 
 - **Trust is GitHub's TLS plus the release asset digest of `fo0/repo-tray` — the same trust as a manual download from the Releases page, and no more.** There is no publisher signature: whoever can publish a release in that repository (a compromised account or token included) can ship an installer the app will run after „Installieren“. The digest proves that the bytes are the ones GitHub stores for that asset, not who built them.
 - The EXE carries no Authenticode signature, so Windows shows no verified publisher for the installer.
+- The relaunch carries no `--autostart`: after an update the panel opens even when the app had started from login.
+- Older `%TEMP%\RepoTray-update-<version>\` folders are not removed (BACKLOG #30); release notes still say to install the EXE manually (BACKLOG #31).
 
 ### Neutral
 
 - The update check needs no account or token and is independent of the active account.
+- A fork changes the repository-bound constants: `LATEST_RELEASE_API`, `validate_download_url` and `ENDPOINT` in `updates.rs`, `file_name` in `updates/installer.rs` (`docs/DISTRIBUTION.md`).
 
 ## Alternatives Considered
 
@@ -38,4 +41,5 @@ We will install updates in the app for unsigned standard builds. The check reads
 ## References
 
 - #18 (owner feedback), `agent_docs/ux_rules.md`, `docs/RELEASES.md`
-- `src-tauri/src/updates.rs`, `src-tauri/src/desktop_updates.rs`, `src-tauri/tauri.release.conf.json`
+- `src-tauri/src/updates.rs`, `src-tauri/src/updates/installer.rs`, `src-tauri/src/desktop_updates.rs`, `src-tauri/tauri.release.conf.json`
+- `src/lib/updater.svelte.ts`, `src/lib/UpdatePanel.svelte`, `src/lib/StatusBanners.svelte`, `tests/update-install.spec.ts`

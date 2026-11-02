@@ -9,14 +9,14 @@ Binding rules: [owner UX rules](../agent_docs/ux_rules.md). This page lists the 
 - 360–480 px wide. App bar: brand (icon only below 400 px), account menu, refresh, settings. Footer: connection status and data time.
 - One overview, no tabs ([ADR-0002](adr/0002-single-overview-with-maximizable-sections.md)): **Läuft gerade**, **Favoriten**, **Repositories** — each a region named by its heading, with a count and a maximize toggle (**Strg+1/2/3** in its tooltip).
 - Overview caps: 3 runs, 4 favorites, 10 repositories. **+N weitere** opens the maximized page; a search lifts the caps and filters every section.
-- Maximized: the maximize button turns into minimize at the same spot ([ADR-0005](adr/0005-maximize-toggles-in-place.md)); **Esc** and the section's Ctrl key also return. Opening focuses the page title; returning focuses the opener, else the section's toggle. Disclosures stay open.
+- Maximized: the section header stays; its maximize button turns into minimize at the same spot (**<Titel> verkleinern**, tooltip **Verkleinern · Esc**), there is no back button ([ADR-0005](adr/0005-maximize-toggles-in-place.md)); **Esc** and the section's Ctrl key also return. Opening focuses the page title; returning focuses the opener, else the section's toggle. Disclosures stay open.
 - Empty overview: only the next step — **GitHub-Konto verbinden** or **Konto wählen** (opens the account menu).
 
-**Läuft gerade** — running, queued and waiting runs as single-line rows (status icon, workflow, repository, branch, elapsed time); **Gerade läuft nichts.** when idle. A click opens the run in the **Verlauf**. No live region: the demo refreshes every second.
+**Läuft gerade** — running, queued and waiting runs as single-line rows: status icon, repository in bold (owner in the tooltip), **· workflow #run ID**, branch, elapsed time; **Gerade läuft nichts.** when idle. A click opens the run in the **Verlauf**. No live region: the demo refreshes every second.
 
-**Favoriten** — compact single-line rows: repository name first, the favorite's workflow name small beside it, branch, start button, heart. Long names shorten, the full name in the tooltip. The name opens the stored configuration; the heart removes, and **Rückgängig** restores label, inputs and quick-start mode; favorites persist per account.
+**Favoriten** — one row list for the overview and the Favoriten page (`FavoriteTiles`), 34 px single-line rows: repository name first, the favorite's name small beside it, branch, start button, heart. The mode shows only by the start icon (bolt: quick start at once, play: opens the start dialog); the account appears only in the tooltip (repository · name · branch · account). Long names shorten. The name opens the stored configuration; the heart removes, and **Rückgängig** (8 s) restores label, inputs and quick-start mode; favorites persist per account.
 
-**Repositories** — automatic ([ADR-0003](adr/0003-automatic-repositories.md)): per account the 10 latest pushed plus the favorites' repositories, refreshed with each catalog refresh; no picker, no add or remove. Natively the active account's repositories are shown.
+**Repositories** — automatic ([ADR-0003](adr/0003-automatic-repositories.md)): per account the 10 newest by `pushed_at` (missing push time last, ties by owner/name) plus the favorites' repositories, recomputed when that account's listing arrives; no picker, no add or remove. Natively the active account's repositories are shown. Demo: `demo-work` has 12 repositories, 10 of them shown; with `demo-personal` the all-accounts overview counts 12 and shows 10 with **+2 weitere**. While a browser (`github-device-*`) account is connected, the Repositories page ends with **Repository-Freigabe auf GitHub ändern** and **Repository-Liste aktualisieren**.
 
 - One row each, sorted by latest activity: `owner/` dimmed, workflow count, status icon and text (**2 aktiv** while several runs are open), **Nur Lesen** or **Kein Zugriff** where starts are not allowed, a strip of the last 8 runs (newest right, empty cells when fewer, a running cell pulses unless reduced motion). The strip is an image with a summarizing accessible name.
 - A disclosure lists the workflows: configure, start, heart.
@@ -25,7 +25,7 @@ Binding rules: [owner UX rules](../agent_docs/ux_rules.md). This page lists the 
 **Verlauf**
 
 - Groups **Jetzt** and **Abgeschlossen** with counts; info button **Hinweis zum Verlauf** in the first head. Chips **Alle**, **Aktiv**, **Fehlgeschlagen**, **Abgeschlossen**.
-- A row is one toggle: status tile (spinner unless reduced motion), workflow with run number, repository without owner (owner in the tooltip), branch chip, status text and time. One line at 360 px.
+- A row is one toggle: status tile (spinner unless reduced motion), repository without owner first (owner in the tooltip), then workflow with **#run ID**, branch chip and, once completed, the duration; status text and time on the right. One line at 360 px.
 - Open runs count up (**seit 3 min**); completed runs read relative (**gerade eben**, **vor 3 Min.**, **vor 2 Std.**, **gestern**, then the date) with their duration; one shared minute clock; exact time in the tooltip.
 - Expanded: account, update time, status, **Auf GitHub öffnen**, **Link kopieren** (both disabled in the demo).
 - Every „show run“ path opens the Verlauf unfiltered with that run expanded and focused; a focused run that completes keeps focus as it moves to **Abgeschlossen**.
@@ -36,11 +36,13 @@ Binding rules: [owner UX rules](../agent_docs/ux_rules.md). This page lists the 
 
 **Starts** — a disabled start button names its one reason in the tooltip and accessible description: **Kein manueller Start**, **Kein Schreibzugriff auf dieses Repository**, **Offline – Starts sind deaktiviert**, **Zugriff verweigert – Starts sind deaktiviert**, **Start läuft …**, **Startstatus ungeklärt – prüfe die Runs auf GitHub**. A running start locks only its own target. An uncertain start stays locked across reopen and restart; its help opens on hover, focus or touch and closes with Escape or an outside click without enabling a start. Only **Sperre aufheben…** with the confirmation **Ich habe die Runs auf GitHub geprüft – Sperre aufheben** releases exactly the lock shown, and releasing never starts anything. Saving a template during a dispatch, or Enter in a template name, never starts another run.
 
-**Notices** — success notices close after 3 s; only warnings and errors stay until closed.
+**Notices** — plain success notices close after 3 s, hovered or not. A notice with an action keeps its own timeout (**Rückgängig** 8 s, **Im Verlauf anzeigen** 3 s) and pauses while hovered or focused; window blur or a hidden window ends the pause. While a dialog is open no notice closes; the timeout restarts in full afterwards. Warnings and errors stay until closed. The update banner has no timeout; **Hinweis schließen** hides it for that version.
 
-**Settings** — tabs Konten, App, Updates. Changes are staged: one primary **Speichern** bottom right plus **Abbrechen**; immediate actions such as connecting, **Trennen**, **Nach Updates suchen** and **Installieren** are explicit buttons. A completed flow closes or returns by itself.
+**Settings** — tabs Konten, App, Updates; every tab ends in **Abbrechen** and **Speichern** (off with tooltip **Keine Änderungen** while nothing is staged). Staged: the active account (radio cards under **Aktives Konto**, **Aktiv** tag), the demo scenario, **Darstellung** (live preview, reverted unless saved) and **Mit Windows starten**. Immediate: **Konto hinzufügen**, **Trennen**, **Demo zurücksetzen**, **Nach Updates suchen**, **Installieren**. **Speichern** closes on success and keeps the dialog open with one error line on failure.
 
-**Updates** — **Nach Updates suchen** → **Update verfügbar** with at most 5 changelog bullets → **Installieren** → progress bar → the app installs and restarts itself ([ADR-0004](adr/0004-in-app-updates-for-unsigned-builds.md)). No release-page link.
+**Connection dialog** — one step at a time: **Anmeldeart wählen** (local sign-in, token, disabled **Mit GitHub anmelden**) → local: **Lokale Anmeldung prüfen**, the found accounts (login with **GitHub CLI**, **· bereits verbunden** or **· nicht übernehmbar**), one consent line naming the account, **Übernehmen**; token: field, one line **Benötigte Rechte**, **Verbinden**. **Zurück** returns to the first step. Success closes the dialog with **Konto <login> verbunden.**; a new account lands on the overview.
+
+**Updates** — banner **Update <v> verfügbar** · **Ansehen** (opens the Updates tab) · close **Hinweis schließen** (hidden for that version this session). Updates tab: **Nach Updates suchen** → **Version <v> verfügbar** with at most 5 changelog bullets → **Installieren** → progress bar, **Wird geprüft …**, **Wird installiert – RepoTray startet neu …** → the app installs and restarts with its panel open ([ADR-0004](adr/0004-in-app-updates-for-unsigned-builds.md)). A failure offers **Erneut versuchen**; no update reads **Aktuell.** No release-page link.
 
 **Styling**
 
@@ -53,22 +55,22 @@ Binding rules: [owner UX rules](../agent_docs/ux_rules.md). This page lists the 
 
 Playwright specs (`tests/<name>.spec.ts`) run against the browser demo and, where noted, a labelled native IPC mock (`tests/support/tauriMock.ts`). The mocks perform no real authorization, download or installation.
 
-| Area                   | Specs                                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| Layout at 360/480 px   | `panel`, `repositories`, `run-actions`, `uncertain-help`, `demo-connection`, `templates`               |
-| Overview, maximize     | `overview`, `overview-caps`, `overview-visuals`                                                        |
-| Repositories           | `repositories`, `repo-menu`, `repository-access`                                                       |
-| Favorites              | `templates`, `favorite-undo`, `launch-names`                                                           |
-| Verlauf                | `activity`, `run-actions`, `forced-colors`                                                             |
-| Starts and locks       | `launch`, `start-result`, `start-locks`, `start-reasons`, `uncertain-help`, `uncertain-release`        |
-| Keyboard and focus     | `shortcuts`, `settings`, `favorite-undo`, `account-menu`                                               |
-| Notices and refresh    | `notices`, `panel-actions`, `refresh-recovery`                                                         |
-| Accounts (native mock) | `account-menu`, `onboarding`, `account-selection`, `account-disconnect`, `native`, `token-permissions` |
-| Sign-in                | `local-auth*`, `browser-auth`, `demo-connection`                                                       |
-| Settings               | `settings`, `startup`, `theme`                                                                         |
-| Updates (native mock)  | `update-install`, `native`                                                                             |
+| Area                   | Specs                                                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Layout at 360/480 px   | `panel`, `repositories`, `run-actions`, `uncertain-help`, `demo-connection`, `templates`                                         |
+| Overview, maximize     | `overview`, `overview-caps`, `overview-visuals`                                                                                  |
+| Repositories           | `repositories`, `repo-menu`, `repository-access`                                                                                 |
+| Favorites              | `templates`, `favorite-undo`, `launch-names`                                                                                     |
+| Verlauf                | `activity`, `run-actions`, `forced-colors`                                                                                       |
+| Starts and locks       | `launch`, `start-result`, `start-locks`, `start-reasons`, `uncertain-help`, `uncertain-release`, `reconnect-locks`, `input-note` |
+| Keyboard and focus     | `shortcuts`, `settings`, `favorite-undo`, `account-menu`, `focus-keep`                                                           |
+| Notices and refresh    | `notices`, `panel-actions`, `refresh-recovery`                                                                                   |
+| Accounts (native mock) | `account-menu`, `onboarding`, `account-selection`, `account-disconnect`, `native`, `token-permissions`                           |
+| Sign-in                | `local-auth*`, `browser-auth`, `demo-connection`                                                                                 |
+| Settings               | `settings`, `settings-save`, `startup`, `theme`                                                                                  |
+| Updates (native mock)  | `update-install`, `native`                                                                                                       |
 
-Unit tests (`src/lib/*.test.ts`) cover the model, run lists, formatting, account selection, the panel controller, the page state (`view`), starts and start reasons, favorites, notices, shortcut and menu keys, the demo, the run-link parser (`fixtures/run-links.json`) and repository link check, the IPC contract, the theme preference and the design tokens.
+Unit tests (`src/lib/*.test.ts`) cover the model, run lists, formatting, account selection, the panel controller, the page state (`view`), starts and start reasons, favorites, notices, shortcut and menu keys, the demo, the run-link parser (`fixtures/run-links.json`) and repository link check, the IPC contract, the automatic repository rule (`autoRepos`), staged autostart (`autostart`), the update flow and changelog summary (`updates`), the theme preference and the design tokens.
 
 ## Screenshots
 

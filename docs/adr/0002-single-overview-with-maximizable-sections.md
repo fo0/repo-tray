@@ -33,21 +33,21 @@ The same revamp also decides:
 
 - A page switch rebuilds the overview, so focus return needs `data-focus-key` on openers that live in it.
 - The overview shows only capped lists; seeing everything takes one click (**+N weitere**) or a search.
-- Without an account or selected repositories the overview shows only that next step, so the maximize buttons appear once there is data; the shortcuts still reach every page.
+- Without an account or selected repositories _(repositories: superseded by ADR-0003)_ the overview shows only that next step, so the maximize buttons appear once there is data; the shortcuts still reach every page.
 
 ### Neutral
 
-- The `ViewTabs`, `LaunchView`, `WorkflowList` and `RepositoriesView` components are gone; `PanelBody`, `Overview`, `SectionHeader`, `SectionPage`, `LiveRuns`, `FavoritesPage` and `ReposPage` replace them. `AppHeader` and `Toolbar` merged into `AppBar` with `AccountMenu`, `PinnedFavorites` gave way to `FavoriteTiles`, and `ReposTab` to `RepoPicker`, `NotInTray` and `RepoMenu` on `RepoSelection` (`src/lib/repoSelection.svelte.ts`).
+- The `ViewTabs`, `LaunchView`, `WorkflowList` and `RepositoriesView` components are gone; `PanelBody`, `Overview`, `SectionHeader`, `SectionPage`, `LiveRuns`, `FavoritesPage` and `ReposPage` replace them. `AppHeader` and `Toolbar` merged into `AppBar` with `AccountMenu`, `PinnedFavorites` gave way to `FavoriteTiles`, and `ReposTab` to `RepoPicker`, `NotInTray` and `RepoMenu` on `RepoSelection` (`src/lib/repoSelection.svelte.ts`) _(`RepoPicker`, `NotInTray` and `RepoSelection` superseded by ADR-0003; `RepoMenu` stays)_.
 
 ## Alternatives Considered
 
 - **Keep the three tabs with a new skin (V1)** — rejected: it keeps the tab switch for the most common look and the duplicated favorites.
 - **Two tabs, Übersicht and Verlauf (V2)** — rejected: still a switch to see history, and no answer for favorites and repositories at full size.
-- **Collapsible sections instead of maximized pages** — rejected: a long section pushes the others out of the 560 px window; a page with its own header and back button keeps the overview stable.
+- **Collapsible sections instead of maximized pages** — rejected: a long section pushes the others out of the 560 px window; a page with its own header and back button _(back button superseded by ADR-0005)_ keeps the overview stable.
 
 ## References
 
 - Issue #14 (UI revamp), plan `docs/review/ui-revamp/plan.md` (local, ignored)
-- `src/lib/view.svelte.ts`, `src/lib/PanelBody.svelte`, `src/lib/Overview.svelte`, `src/lib/shortcuts.ts`, `src/lib/focus.ts`, `src/lib/repoSelection.svelte.ts`, `src/lib/RepoPicker.svelte`, `src/lib/theme.ts`, `src/styles/00-tokens.css`
-- `tests/overview.spec.ts`, `tests/repo-picker.spec.ts`, `tests/repo-picker-native.spec.ts`, `tests/repo-menu.spec.ts`, `tests/theme.spec.ts`, `src/lib/view.test.ts`, `src/lib/repoSelection.test.ts`, `src/lib/theme.test.ts`, `src/lib/tokens.test.ts`
+- `src/lib/view.svelte.ts`, `src/lib/PanelBody.svelte`, `src/lib/Overview.svelte`, `src/lib/shortcuts.ts`, `src/lib/focus.ts`, `src/lib/repoSelection.svelte.ts` _(superseded by ADR-0003)_, `src/lib/RepoPicker.svelte` _(superseded by ADR-0003)_, `src/lib/theme.ts`, `src/styles/00-tokens.css`
+- `tests/overview.spec.ts`, `tests/repo-picker.spec.ts` _(superseded by ADR-0003)_, `tests/repo-picker-native.spec.ts` _(superseded by ADR-0003)_, `tests/repo-menu.spec.ts`, `tests/theme.spec.ts`, `src/lib/view.test.ts`, `src/lib/repoSelection.test.ts` _(superseded by ADR-0003)_, `src/lib/theme.test.ts`, `src/lib/tokens.test.ts`
 - BACKLOG #24 (`open_repo`)

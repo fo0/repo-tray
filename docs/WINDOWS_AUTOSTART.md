@@ -1,7 +1,8 @@
 # Windows login and tray startup
 
 In **Einstellungen → App → Mit Windows starten**, explicitly enable login startup
-for the current Windows user. A fresh installation does not register anything.
+for the current Windows user and press **Speichern**; **Abbrechen** drops the
+change. A fresh installation does not register anything.
 After the next **user login**, RepoTray creates its tray icon and keeps the main
 window hidden. This is not a service and does not run before login. Windows may
 delay startup. There is no separate “start minimized” preference: login launches
@@ -23,9 +24,11 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 
 There is no SQLite/localStorage preference copy and no registration during app
 setup, rendering, status reads or upgrades. Opening the App tab, returning focus
-to it, or choosing **Status prüfen** reads the OS state. Every mutation reads it
-again before reporting success. Failed reads/writes leave the UI explicitly
-unknown until another read succeeds.
+to the window, or **Status prüfen** (shown while the state is unknown, blocked or
+in conflict) reads the OS state. The switch only stages a choice; **Speichern**
+writes it and reads it back before the dialog closes, and a failed write keeps
+the dialog open with its error. Failed reads/writes leave the UI explicitly
+unknown (**Status unbekannt.**) until another read succeeds.
 
 Only the dedicated value whose **complete command matches this executable and
 argument** can be removed. Other values, whole keys, machine-wide startup entries,
@@ -42,10 +45,10 @@ contract**. RepoTray never writes/deletes it, and cannot guarantee detection of
 every future Windows format or enterprise startup policy. A visible Run entry
 is not a guarantee that Windows will execute it.
 
-When Windows blocks the entry, the switch stays off and explains the reason.
-**Windows-Autostart öffnen** opens the fixed Windows Settings page, where the
-user can grant permission again. **Autostarteintrag entfernen** can still remove
-RepoTray's own Run value. Windows may retain its veto even after removal, so
+When Windows blocks the entry, the switch is locked and one line names the
+reason. **Windows-Autostart öffnen** opens the fixed Windows Settings page, where
+the user can grant permission again. **Autostarteintrag entfernen** can still
+remove RepoTray's own Run value. Both act at once, without **Speichern**. Windows may retain its veto even after removal, so
 re-enabling the app may also require re-enabling it in Windows Settings.
 
 The official [Tauri autostart plugin](https://v2.tauri.app/plugin/autostart/) was
@@ -64,9 +67,11 @@ Enable startup from the installed Windows executable at a stable location, not
 from `desktop:dev` or a temporary build directory. The setting registers the
 currently running path. In-place NSIS upgrades keep that path and registration;
 neither unsigned public installers nor signed-updater configuration opt users in.
-The locked Tauri updater preserves launch arguments on Windows: an app originally
-launched with `--autostart` restarts hidden after an explicitly installed update.
-A later manual launch still opens its panel.
+The standard in-app update runs the installer with `/P /R /UPDATE` and no `/ARGS`,
+so the installer relaunches RepoTray without `--autostart`: after an update the
+panel opens, even when the app had started from login. Signed builds using the
+Tauri updater pass the launch arguments on (`/ARGS`) and restart hidden after an
+`--autostart` launch. The next login launch starts in the tray again.
 
 Moving the executable or changing installation directory requires disabling
 startup from the old installation, then enabling it from the new one. The new
@@ -83,8 +88,9 @@ particular user's computer currently has installed.
   idempotent registration/removal, OS readback, failures, Windows vetoes and
   conflicting/relocated commands.
 - Browser tests use a **native IPC mock**, without GitHub, credentials or Windows
-  changes. They cover opt-in/off, pending writes, reopen/focus refresh, read/write
-  failures, conflicts, unknown approval and the 360px layout. Review screenshots
+  changes (`tests/startup.spec.ts`). They cover the staged switch (**Speichern**
+  writes once and reads back, **Abbrechen** writes nothing), reopen/focus refresh,
+  read/write failures, conflicts, unknown approval and the 360px layout. Review screenshots
   are captures of this mock UI, not Windows login evidence.
 - Checks CI compiles the Windows desktop shell and runs a real registry roundtrip
   against a unique **test subkey**. It verifies adjacent values and Windows veto

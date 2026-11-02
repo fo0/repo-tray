@@ -14,7 +14,7 @@ Stable project knowledge. **Read at session start.**
 ### Unsigned builds update in the app
 
 - **Date:** 2026-11-01
-- **Decision:** Owner reversed notify-only („Release-Seite öffnen“): unsigned builds download the release EXE, verify size + SHA-256 against GitHub's asset digest and run the NSIS installer, which restarts the app. Trust trade-off and detail: [ADR-0004](docs/adr/0004-in-app-updates-for-unsigned-builds.md).
+- **Decision:** Owner reversed notify-only („Release-Seite öffnen“): unsigned builds download the release EXE, verify size + SHA-256 against GitHub's asset digest and run the NSIS installer (`/P /R /UPDATE`, no `/ARGS`), which restarts the app without `--autostart`. Trust trade-off and detail: [ADR-0004](docs/adr/0004-in-app-updates-for-unsigned-builds.md).
 
 ### Uncertain starts are released only by an explicit confirmation
 

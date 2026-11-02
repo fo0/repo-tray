@@ -52,7 +52,7 @@ PC is needed. Keep the published installer/release unchanged.
    Confirm that the preferred size returns and controls remain reachable.
 5. Edit an unsaved form, use selects, keyboard navigation and an owned native
    dialog. Internal interactions must not dismiss the panel. Click outside,
-   reopen and confirm the draft remains. Test the integrated browser-login flow; hiding must not cancel it.
+   reopen and confirm the draft remains. Start a token or local sign-in check in the connection dialog; hiding must not cancel it (browser sign-in is paused).
 6. Disconnect/reconnect a display or restart Explorer, then reopen from the
    recreated tray icon. Confirm placement uses the new icon/monitor geometry.
 7. Drag the panel by its header, then double-click the header: the panel moves,

@@ -1,18 +1,18 @@
 # GitHub connection
 
-The **native desktop app** uses real GitHub REST requests through a Rust-owned request queue. It starts with no demo accounts. On first launch, **GitHub-Konto verbinden** (in the panel's empty state and in **Einstellungen → Konten** while no account exists) opens the connection dialog directly; with an account connected, **Einstellungen → Konten → Konto hinzufügen** opens it. Enter an existing GitHub token in the masked field. The field clears immediately, the native service verifies `/user`, then stores the token under the stable numeric account ID in Windows Credential Manager, macOS Keychain or Linux Secret Service. Missing/locked credential storage fails closed; there is no plaintext fallback. Disconnect removes that account's stored credential copy, cached activity and metadata, repositories, favorites and uncertain-start locks (see [account selection](ACCOUNT_SELECTION.md#disconnecting-an-account)). Automated tests use synthetic tokens only.
+The **native desktop app** uses real GitHub REST requests through a Rust-owned request queue. It starts with no demo accounts. On first launch, **GitHub-Konto verbinden** (in the panel's empty state and in **Einstellungen → Konten** while no account exists) opens the connection dialog directly; with an account connected, **Einstellungen → Konten → Konto hinzufügen** opens it. In **Anmeldeart wählen**, choose **Mit Token verbinden** → **Weiter**, enter an existing GitHub token in the masked field and click **Verbinden**. The field clears immediately, the native service verifies `/user`, then stores the token under the stable numeric account ID in Windows Credential Manager, macOS Keychain or Linux Secret Service. Missing/locked credential storage fails closed; there is no plaintext fallback. Success closes the dialog by itself (**Konto <login> verbunden.**) and makes that account active. Disconnect removes that account's stored credential copy, cached activity and metadata, repositories, favorites and uncertain-start locks (see [account selection](ACCOUNT_SELECTION.md#disconnecting-an-account)). Automated tests use synthetic tokens only.
 
 The **browser preview** uses local fixtures and an explicitly labelled token sign-in simulation; browser sign-in is temporarily disabled. Its only accepted example is `demo-token`. It does not connect to GitHub. Browser tests of the native UI use an explicit IPC mock, not real credentials or OS-store operations.
 
 ## Token permissions
 
-Use a fine-grained token restricted to intended repositories and an appropriate expiration. RepoTray does not create or broaden it. The connection dialog lists the same permissions, in the same order, next to the token field (`src/lib/TokenPermissions.svelte`).
+Use a fine-grained token restricted to intended repositories and an appropriate expiration. RepoTray does not create or broaden it. The token step lists the same permissions, in the same order, in one line **Benötigte Rechte** below the field (`src/lib/TokenPermissions.svelte`).
 
-| Permission          | Panel label                      | Use                                          |
-| ------------------- | -------------------------------- | -------------------------------------------- |
-| Actions: read/write | **Actions: Lesen und Schreiben** | Observe runs and dispatch eligible workflows |
-| Contents: read      | **Contents: Lesen**              | Read workflow YAML and list branches/tags    |
-| Metadata: read      | **Metadata: Lesen**              | Identify accessible repositories             |
+| Permission          | Panel label                 | Use                                          |
+| ------------------- | --------------------------- | -------------------------------------------- |
+| Actions: read/write | **Actions** Lesen/Schreiben | Observe runs and dispatch eligible workflows |
+| Contents: read      | **Contents** Lesen          | Read workflow YAML and list branches/tags    |
+| Metadata: read      | **Metadata** Lesen          | Identify accessible repositories             |
 
 The update check needs no token or account: it reads public release metadata of `fo0/repo-tray` unauthenticated (see [release process](RELEASES.md)). Repository workflow permissions remain account-specific. Organization approval/SSO may be necessary. Repository write access alone does not prove a token has Actions write; GitHub's dispatch response is authoritative.
 
