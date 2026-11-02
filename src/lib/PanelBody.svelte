@@ -130,7 +130,13 @@
      which assistive tech announces; a reused, already focused one is silent. -->
 {#if view.page !== 'overview'}{#key view.page}
     <SectionPage
+      page={view.page}
       title={PAGE_TITLES[view.page]}
+      count={view.page === 'runs'
+        ? runs.length
+        : view.page === 'favorites'
+          ? pins.length
+          : groups.length}
       onBack={view.back}
       maximized={view.page !== 'picker'}
       backLabel={view.from === 'overview'

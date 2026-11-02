@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './support/test';
-import { openPage } from './support/demo';
+import { openPage, templateCard } from './support/demo';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
 const key = 'repotray.activeAccount.v1';
@@ -208,19 +208,11 @@ test('source-specific settings selection survives restart and pins remain tied t
   ).toHaveValue('github-device-42');
   await closeSettings(page);
   await openPage(page, 'favorites');
-  await expect(
-    page.getByRole('heading', { name: 'Browser Vorlage', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Token Vorlage', exact: true }),
-  ).toHaveCount(0);
+  await expect(templateCard(page, 'Browser Vorlage')).toBeVisible();
+  await expect(templateCard(page, 'Token Vorlage')).toHaveCount(0);
   await chooseAccount(page, 'github-42');
-  await expect(
-    page.getByRole('heading', { name: 'Token Vorlage', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Browser Vorlage', exact: true }),
-  ).toHaveCount(0);
+  await expect(templateCard(page, 'Token Vorlage')).toBeVisible();
+  await expect(templateCard(page, 'Browser Vorlage')).toHaveCount(0);
   expect(await readCommands(page)).not.toContain('dispatch_workflow');
 });
 

@@ -166,8 +166,9 @@
   white-space: nowrap;
 }
 
-/* Header of a maximized page: the way back, the title, page actions. It sits
-   above the scrolling body, so it stays in reach on long lists. */
+/* Header of a page: it sits above the scrolling body, so the way back
+   stays in reach on long lists. The picker's has a back button and a large
+   title; a maximized section repeats its overview header instead. */
 .page-header {
   display: flex;
   align-items: center;
@@ -181,7 +182,7 @@
 .page-back {
   color: var(--text-2);
 }
-.page-title {
+.page-header > .page-title {
   flex: 1;
   min-width: 0;
   margin: 0;
@@ -206,7 +207,30 @@
   gap: 6px;
   flex-shrink: 0;
 }
-.page-body > .pin-list,
+/* A maximized section: the header keeps the content's inset, so its
+   minimize button sits exactly where the section's maximize button sits.
+   Both reserve the same thin scrollbar's gutter, so a scrollbar in the
+   body never moves one of them. */
+.page-header.maximized {
+  padding: 4px 18px;
+  overflow: hidden;
+  scrollbar-width: thin;
+}
+.page-header.maximized,
+.content {
+  scrollbar-gutter: stable;
+}
+.page-header.maximized > .section-header {
+  flex: 1;
+  min-width: 0;
+  margin: 0 2px;
+}
+@media (max-width: 370px) {
+  .page-header.maximized {
+    padding-inline: 11px;
+  }
+}
+.page-body > .pin-rows,
 .page-body > .empty-pins,
 .page-body > .repository-list {
   margin-top: 12px;

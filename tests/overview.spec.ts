@@ -6,6 +6,7 @@ import {
   backButton,
   expectPage,
   maximizeButton,
+  minimizeButton,
   openPage,
 } from './support/demo';
 
@@ -62,9 +63,10 @@ test.describe('demo overview', () => {
   });
 
   for (const name of SECTIONS) {
-    test(`maximizing ${name} focuses its page title; back and Esc return focus to the button`, async ({
+    test(`maximizing ${name} focuses its page title; minimize and Esc return focus to the button`, async ({
       page,
     }) => {
+      const maximize = await maximizeButton(page, name).boundingBox();
       await maximizeButton(page, name).click();
       await expectPage(page, name);
       await expect(pageTitle(page, name)).toBeFocused();
@@ -72,11 +74,25 @@ test.describe('demo overview', () => {
         page.getByRole('region', { name: PAGE_TITLES[name], exact: true }),
       ).toBeVisible();
       await expect(section(page, 'runs')).toHaveCount(0);
-      await expect(backButton(page)).toHaveAttribute(
-        'title',
-        'Verkleinern · Esc',
+      // One toggle: the minimize button takes the maximize button's place
+      // and size; no back button on the left.
+      const minimize = minimizeButton(page, name);
+      await expect(minimize).toHaveAttribute('title', 'Verkleinern · Esc');
+      await expect(minimize).not.toHaveAttribute('data-maximize');
+      expect(await minimize.boundingBox()).toEqual({
+        ...maximize!,
+        y: expect.any(Number),
+      });
+      await expect(page.locator('.page-back')).toHaveCount(0);
+      // The page header reads like the section header, count included.
+      await expect(
+        page.locator('.page-header .section-count .sr-only'),
+      ).toHaveText(
+        { runs: '5 Runs', favorites: '1 Favorit', repos: '3 Repositories' }[
+          name
+        ],
       );
-      await backButton(page).click();
+      await minimize.click();
       await expectPage(page, 'overview');
       await expect(maximizeButton(page, name)).toBeFocused();
 
@@ -182,7 +198,7 @@ test.describe('demo overview', () => {
     const run = page.locator('article.run').filter({ hasText: '#8403' });
     await expect(run.getByRole('button', { expanded: true })).toBeFocused();
     await expect(page.locator('article.run .run-details')).toHaveCount(1);
-    await backButton(page).click();
+    await minimizeButton(page, 'runs').click();
     await expect(row).toBeFocused();
   });
 

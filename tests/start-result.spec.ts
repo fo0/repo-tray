@@ -70,13 +70,14 @@ test('closing the start dialog while its opener is locked moves focus to the ove
 }) => {
   await openPage(page, 'overview');
   await holdStarts(page);
-  // The tile's name opens the dialog and is disabled while its target starts.
-  await page
-    .getByRole('region', { name: 'Favoriten', exact: true })
-    .getByRole('button', {
-      name: 'Favorit Windows build starten…',
-      exact: true,
-    })
+  // A workflow row opens the dialog and is disabled while its target starts.
+  const kit = page.getByRole('region', {
+    name: 'demo-dev/launch-kit-demo',
+    exact: true,
+  });
+  await kit.locator('.repository-toggle').click();
+  await kit
+    .getByRole('button', { name: 'Desktop build · main', exact: true })
     .click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog.getByRole('button', { name: 'Start simulieren' }).click();
@@ -234,13 +235,13 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   const card = templateCard(page, 'Quick build');
   await card
     .getByRole('button', {
-      name: 'Favorit Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build schnellstarten',
       exact: true,
     })
     .click();
   await expect(
     card.getByRole('button', {
-      name: 'Favorit Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build schnellstarten',
       exact: true,
     }),
   ).toBeDisabled();
@@ -252,7 +253,7 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   // Still running after the settings dialog closed: no second start possible.
   await expect(
     card.getByRole('button', {
-      name: 'Favorit Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build schnellstarten',
       exact: true,
     }),
   ).toBeDisabled();
@@ -260,7 +261,7 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   await expect(page.getByText(/Quick build: .*Demo-Run #9001/)).toBeVisible();
   await expect(
     card.getByRole('button', {
-      name: 'Favorit Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build schnellstarten',
       exact: true,
     }),
   ).toBeEnabled();

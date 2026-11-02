@@ -26,7 +26,18 @@ export function maximizeButton(page: Page, name: Section) {
   });
 }
 
-/** The back button of a maximized page. */
+/**
+ * The minimize button of a maximized page, in the header where the overview
+ * section has its maximize button.
+ */
+export function minimizeButton(page: Page, name: Section) {
+  return page.getByRole('button', {
+    name: `${PAGE_TITLES[name]} verkleinern`,
+    exact: true,
+  });
+}
+
+/** The back button of the repository picker, opened from the overview. */
 export function backButton(page: Page) {
   return page.getByRole('button', {
     name: 'Zurück zur Übersicht',
@@ -35,16 +46,18 @@ export function backButton(page: Page) {
 }
 
 /**
- * Shows `name` the way a user gets there: the back button returns to the
- * overview, a section's maximize button opens its page, the Repositories
- * section's „Hinzufügen“ opens the picker. Nothing happens when the page is
- * already shown.
+ * Shows `name` the way a user gets there: a page's minimize or back button
+ * returns to the overview, a section's maximize button opens its page, the
+ * Repositories section's „Hinzufügen“ opens the picker. Nothing happens when
+ * the page is already shown.
  */
 export async function openPage(page: Page, name: PanelPage) {
   const tray = page.locator('.tray');
   const current = await tray.getAttribute('data-page');
   if (current === name) return;
-  if (current !== 'overview') await backButton(page).click();
+  if (current === 'picker') await backButton(page).click();
+  else if (current !== 'overview')
+    await minimizeButton(page, current as Section).click();
   if (name === 'picker')
     await page
       .getByRole('button', { name: 'Repositories hinzufügen', exact: true })
@@ -115,10 +128,11 @@ export async function openConnection(page: Page) {
   return page.getByRole('dialog', { name: 'GitHub verbinden' });
 }
 
-/** A saved template card on the Favoriten page, found by its heading. */
+/** A favorite's row, on the overview or the Favoriten page, by its label. */
 export function templateCard(page: Page, name: string) {
-  return page.getByRole('article').filter({
-    has: page.getByRole('heading', { name, exact: true }),
+  const exact = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  return page.locator('.pin-row').filter({
+    has: page.locator('.pin-label', { hasText: exact }),
   });
 }
 

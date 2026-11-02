@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './support/test';
-import { openLaunch, scenario } from './support/demo';
+import { openLaunch, scenario, templateCard } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -21,28 +21,77 @@ async function refreshNotice(page: Page) {
   return notice;
 }
 
-test('success notices close after a few seconds unless hovered or focused', async ({
+test('plain success notices close after 3 s, hovered or focused alike', async ({
   page,
 }) => {
   let notice = await refreshNotice(page);
-  await page.clock.runFor(5000);
+  await page.clock.runFor(2500);
   await expect(notice).toBeVisible();
-  await page.clock.runFor(1200);
+  await page.clock.runFor(600);
   await expect(notice).toHaveCount(0);
 
   notice = await refreshNotice(page);
   await notice.hover();
-  await page.clock.runFor(10_000);
-  await expect(notice).toBeVisible();
-  await notice.getByRole('button', { name: 'Meldung schließen' }).focus();
-  await page.getByRole('heading', { name: /^RepoTray/ }).hover();
-  await page.clock.runFor(10_000);
-  await expect(notice).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Aktualisieren', exact: true })
-    .focus();
-  await page.clock.runFor(6200);
+  await page.clock.runFor(3100);
   await expect(notice).toHaveCount(0);
+
+  notice = await refreshNotice(page);
+  await notice.getByRole('button', { name: 'Meldung schließen' }).focus();
+  await page.clock.runFor(3100);
+  await expect(notice).toHaveCount(0);
+  // Focus is not dropped to the page with it.
+  await expect(page.getByLabel('Übersicht durchsuchen')).toBeFocused();
+});
+
+/** Removes the demo favorite: a notice with „Rückgängig“ and its own timeout. */
+async function undoNotice(page: Page) {
+  await page
+    .getByRole('region', { name: 'Favoriten', exact: true })
+    .getByRole('button', {
+      name: 'launch-kit-demo · Windows build aus Favoriten entfernen',
+    })
+    .click();
+  const notice = page
+    .getByRole('status')
+    .filter({ hasText: 'Favorit „Windows build“ entfernt.' });
+  await expect(notice).toBeVisible();
+  return notice;
+}
+
+test('a notice with an action waits while hovered or focused, but never once the window hides', async ({
+  page,
+}) => {
+  const notice = await undoNotice(page);
+  await notice.hover();
+  await page.clock.runFor(20_000);
+  await expect(notice).toBeVisible();
+  // The tray popup hides without a pointerleave: the window's blur ends
+  // the hold, and the notice's own timeout runs out.
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await page.clock.runFor(8100);
+  await expect(notice).toHaveCount(0);
+
+  // A start result held by focus on „Im Verlauf anzeigen“ closes once the
+  // document is hidden, after the default 3 s.
+  const dialog = await openLaunch(page);
+  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+  await page.keyboard.press('Escape');
+  await page.clock.runFor(400);
+  const result = page.getByRole('status').filter({ hasText: /Demo-Run #9001/ });
+  await result
+    .getByRole('button', { name: 'Im Verlauf anzeigen', exact: true })
+    .focus();
+  await page.clock.runFor(20_000);
+  await expect(result).toBeVisible();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      get: () => true,
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.runFor(3100);
+  await expect(result).toHaveCount(0);
 });
 
 test('warnings stay until they are closed', async ({ page }) => {
@@ -101,11 +150,9 @@ test('a notice that arrives behind a dialog waits there and times out only after
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  await page
-    .getByRole('article')
-    .filter({ has: page.getByRole('heading', { name: 'Quick build' }) })
+  await templateCard(page, 'Quick build')
     .getByRole('button', {
-      name: 'Favorit Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build schnellstarten',
       exact: true,
     })
     .click();
@@ -128,9 +175,9 @@ test('a notice that arrives behind a dialog waits there and times out only after
   await page
     .getByRole('button', { name: 'Aktualisieren', exact: true })
     .focus();
-  await page.clock.runFor(5000);
+  await page.clock.runFor(2500);
   await expect(notice).toBeVisible();
-  await page.clock.runFor(1200);
+  await page.clock.runFor(600);
   await expect(notice).toHaveCount(0);
 });
 

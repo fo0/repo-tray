@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Notices } from './notices.svelte';
+import { Notices, SUCCESS_TIMEOUT } from './notices.svelte';
 
 describe('Notices', () => {
   it('evicts the oldest success first and keeps warnings and errors', () => {
@@ -38,6 +38,21 @@ describe('Notices', () => {
       'Warnung d',
       'Fehler',
       'Neuer Erfolg',
+    ]);
+  });
+
+  it('closes successes after 3 s unless they bring their own timeout; warnings and errors stay', () => {
+    const notices = new Notices();
+    expect(SUCCESS_TIMEOUT).toBe(3000);
+    notices.show({ key: 'a', text: 'Aktualisiert', tone: 'subtle' });
+    notices.show({ key: 'b', text: 'Entfernt', tone: 'subtle', timeout: 8000 });
+    notices.show({ key: 'c', text: 'Warnung', tone: 'warning', timeout: 8000 });
+    notices.show({ key: 'd', text: 'Fehler', tone: 'danger' });
+    expect(notices.items.map((item) => item.timeout)).toEqual([
+      3000,
+      8000,
+      undefined,
+      undefined,
     ]);
   });
 });

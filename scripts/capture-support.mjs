@@ -77,7 +77,8 @@ export function assertLocalOnly(requests) {
 }
 
 /**
- * Shows a panel page the way a user gets there: back to the overview, then a
+ * Shows a panel page the way a user gets there: back to the overview (a
+ * section page's minimize button, the picker's back button), then a
  * section's maximize button, or „Repositories hinzufügen“ for the picker.
  * @param {Page} page
  * @param {PanelPage} name
@@ -86,9 +87,14 @@ export async function openPage(page, name) {
   const tray = page.locator('.tray');
   const current = await tray.getAttribute('data-page');
   if (current === name) return;
-  if (current !== 'overview')
+  if (current === 'picker')
     await page
       .getByRole('button', { name: 'Zurück zur Übersicht', exact: true })
+      .click();
+  else if (current !== 'overview')
+    await page
+      .locator('.page-header')
+      .getByRole('button', { name: / verkleinern$/ })
       .click();
   const maximize = {
     runs: 'Läuft gerade maximieren',
@@ -155,7 +161,9 @@ export async function scenario(page, value) {
 export async function openFavorite(page, label) {
   await openPage(page, 'favorites');
   await page
-    .getByRole('button', { name: `Favorit ${label} starten…`, exact: true })
+    .locator('.pin-row')
+    .filter({ has: page.locator('.pin-label', { hasText: label }) })
+    .locator('.pin-open')
     .click();
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }

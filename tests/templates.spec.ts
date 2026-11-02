@@ -14,7 +14,10 @@ test.beforeEach(async ({ page }) => {
 
 /** The favorite card's button that opens it in the start dialog. */
 const opener = (card: Locator, label: string) =>
-  card.getByRole('button', { name: `Favorit ${label} starten…`, exact: true });
+  card.getByRole('button', {
+    name: `launch-kit-demo · ${label} starten…`,
+    exact: true,
+  });
 
 test('pins persist and keep quick launch disabled until explicitly enabled', async ({
   page,
@@ -33,12 +36,9 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page.reload();
   await openPage(page, 'favorites');
-  const card = page
-    .locator('article')
-    .filter({ has: page.getByRole('heading', { name: 'My saved build' }) });
-  await expect(
-    card.getByText('Mit Bestätigung', { exact: false }),
-  ).toBeVisible();
+  const card = templateCard(page, 'My saved build');
+  // With confirmation: the round start shows a play, not the quick bolt.
+  await expect(card.locator('.pin-start')).not.toHaveClass(/quick/);
   await opener(card, 'My saved build').click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Branch oder Tag')).toHaveValue('main');
@@ -61,12 +61,10 @@ test('explicitly enabled quick launch dispatches from a saved template', async (
     }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  const card = page
-    .locator('article')
-    .filter({ has: page.getByRole('heading', { name: 'Quick build' }) });
+  const card = templateCard(page, 'Quick build');
   await card
     .getByRole('button', {
-      name: 'Favorit Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build schnellstarten',
       exact: true,
     })
     .click();
@@ -131,9 +129,7 @@ test('offline still allows opening and editing a saved template', async ({
 }) => {
   await scenario(page, 'offline');
   await openPage(page, 'favorites');
-  const card = page
-    .locator('article')
-    .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
+  const card = templateCard(page, 'Windows build');
   await expect(opener(card, 'Windows build')).toBeEnabled();
   await opener(card, 'Windows build').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
@@ -152,20 +148,16 @@ test('an empty favorites search hides every card and offers a clear action', asy
     has: page.getByRole('heading', { name: 'Keine passenden Favoriten' }),
   });
   await expect(state).toBeVisible();
-  await expect(page.locator('.pin-card')).toHaveCount(0);
+  await expect(page.locator('.pin-row')).toHaveCount(0);
   await state.getByRole('button', { name: 'Suche leeren' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Windows build' }),
-  ).toBeVisible();
+  await expect(templateCard(page, 'Windows build')).toBeVisible();
 });
 
 test('copying an existing template keeps the original and its values', async ({
   page,
 }) => {
   await openPage(page, 'favorites');
-  const original = page
-    .locator('article')
-    .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
+  const original = templateCard(page, 'Windows build');
   await opener(original, 'Windows build').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog.getByLabel('Branch oder Tag').selectOption('develop');
@@ -183,9 +175,7 @@ test('copying an existing template keeps the original and its values', async ({
     }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Develop copy', exact: true }),
-  ).toBeVisible();
+  await expect(templateCard(page, 'Develop copy')).toBeVisible();
   await opener(original, 'Windows build').click();
   await expect(
     page.getByRole('dialog').getByLabel('Branch oder Tag'),
@@ -209,12 +199,10 @@ test('compact saved templates keep quick-start configuration and removal reachab
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   const card = templateCard(page, 'Compact quick build');
-  await expect(
-    card.getByText('Schnellstart aktiv', { exact: true }),
-  ).toBeVisible();
+  await expect(card.locator('.pin-start')).toHaveClass(/quick/);
   await expect(
     card.getByRole('button', {
-      name: 'Favorit Compact quick build schnellstarten',
+      name: 'launch-kit-demo · Compact quick build schnellstarten',
       exact: true,
     }),
   ).toBeVisible();
@@ -226,17 +214,15 @@ test('compact saved templates keep quick-start configuration and removal reachab
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await card
     .getByRole('button', {
-      name: 'Favorit Compact quick build entfernen',
+      name: 'launch-kit-demo · Compact quick build aus Favoriten entfernen',
       exact: true,
     })
     .click();
   await expect(card).toHaveCount(0);
-  await expect(
-    page.getByRole('heading', { name: 'Windows build', exact: true }),
-  ).toBeVisible();
+  await expect(templateCard(page, 'Windows build')).toBeVisible();
 });
 
-test('compact cards preserve long labels, account context and click targets at 360px', async ({
+test('compact rows keep the repository, account context and click targets at 360px', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 760 });
@@ -257,20 +243,24 @@ test('compact cards preserve long labels, account context and click targets at 3
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   const card = templateCard(page, label);
-  await expect(card).toContainText('example-org/runner-tools-demo');
-  await expect(card).toContainText('team-demo');
+  await expect(card.locator('.pin-repo')).toHaveText('runner-tools-demo');
+  // The full repository, the label and the account live in the tooltip.
+  await expect(card.locator('.pin-open')).toHaveAttribute(
+    'title',
+    `example-org/runner-tools-demo · ${label} · main · team-demo`,
+  );
   await expect(card.getByText('main', { exact: true })).toBeVisible();
   const sizes = await card.evaluate((element) => {
     const cardBounds = element.getBoundingClientRect();
-    const account = element.querySelector('.pin-account')!;
+    const repo = element.querySelector('.pin-repo')!;
     return {
       overflow: element.scrollWidth > element.clientWidth,
-      // The repository name may shorten; the account context is never cut.
-      accountClipped:
-        account.scrollWidth > account.clientWidth ||
-        account.getBoundingClientRect().right >
-          element.querySelector('.pin-repo')!.getBoundingClientRect().right,
-      font: parseFloat(getComputedStyle(element.querySelector('h3')!).fontSize),
+      height: cardBounds.height,
+      // The favorite's name gives way; the repository is never cut.
+      repoClipped: repo.scrollWidth > repo.clientWidth,
+      font: parseFloat(
+        getComputedStyle(element.querySelector('.pin-label')!).fontSize,
+      ),
       targets: [...element.querySelectorAll('button')].map((button) => {
         const r = button.getBoundingClientRect();
         return {
@@ -282,7 +272,8 @@ test('compact cards preserve long labels, account context and click targets at 3
     };
   });
   expect(sizes.overflow).toBe(false);
-  expect(sizes.accountClipped).toBe(false);
+  expect(sizes.height).toBeLessThanOrEqual(36);
+  expect(sizes.repoClipped).toBe(false);
   expect(sizes.font).toBeGreaterThanOrEqual(12);
   for (const target of sizes.targets) {
     expect(target.width).toBeGreaterThanOrEqual(24);

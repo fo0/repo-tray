@@ -123,6 +123,9 @@ test('a menu whose button scrolls away closes and leaves focus on the button', a
 }) => {
   await page.setViewportSize({ width: 360, height: 560 });
   await page.goto('/');
+  // An open repository makes the compact overview long enough to scroll
+  // the last row's button out of view.
+  await page.locator('.repository-toggle').first().click();
   const content = page.locator('.content');
   await content.evaluate((node) => (node.scrollTop = node.scrollHeight));
   const trigger = menuButton(page, 'demo-dev/website-demo');

@@ -148,20 +148,20 @@ test('Verlauf status tiles and dots stay apart in forced colors', async ({
   await expect(info).toHaveCSS('outline-style', 'solid');
 });
 
-test('favorite tiles keep their heart filled and their start outlined in forced colors', async ({
+test('favorite rows keep their heart filled and their start outlined in forced colors', async ({
   page,
 }) => {
   await page.emulateMedia({ forcedColors: 'active' });
   await page.goto('/');
-  const tile = page
+  const row = page
     .getByRole('region', { name: 'Favoriten', exact: true })
-    .locator('.tile')
+    .locator('.pin-row')
     .first();
-  const heart = await tile
-    .locator('.tile-heart svg')
+  const heart = await row
+    .locator('.pin-heart svg')
     .evaluate((node) => getComputedStyle(node).fill);
   expect(heart).toBe(await systemColor(page, 'ButtonText'));
-  await expect(tile.locator('.tile-start')).toHaveCSS(
+  await expect(row.locator('.pin-start')).toHaveCSS(
     'border-top-color',
     await systemColor(page, 'ButtonText'),
   );
