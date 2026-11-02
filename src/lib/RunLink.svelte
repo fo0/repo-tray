@@ -19,6 +19,19 @@
     );
   }
 
+  /**
+   * A middle click takes the same way as a click: natively the webview would
+   * otherwise open the `target=_blank` link itself.
+   */
+  export function openRunLinkAux(
+    event: MouseEvent,
+    url: string,
+    native: boolean,
+    onError: (message: string) => void,
+  ) {
+    if (event.button === 1) openRunLink(event, url, native, onError);
+  }
+
   /** Copies a checked link and reports in the panel banner either way. */
   export async function copyLink(
     url: string,
@@ -55,18 +68,22 @@
   } = $props();
 
   const open = (event: MouseEvent) => openRunLink(event, url, native, onError);
+  const openAux = (event: MouseEvent) =>
+    openRunLinkAux(event, url, native, onError);
 </script>
 
 {#if button}<a
     class="secondary-button compact"
     href={url}
     onclick={open}
+    onauxclick={openAux}
     target="_blank"
     rel="noopener noreferrer"><Icon name="external" size={13} />{label}</a
   >{:else}<a
     class="detail-link"
     href={url}
     onclick={open}
+    onauxclick={openAux}
     target="_blank"
     rel="noopener noreferrer">{label}<Icon name="external" size={13} /></a
   >{/if}
