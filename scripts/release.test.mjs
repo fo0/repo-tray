@@ -173,6 +173,9 @@ test('automatic changelog retains generated content and source provenance', () =
   assert.match(notes, /2026-10-31 16:33/);
   assert.match(notes, /Improve workflow search \(#4\)/);
   assert.ok(notes.includes(sourceSha));
+  // In-app updates (ADR-0004): the notes never send users to a manual install.
+  assert.match(notes, /Installed builds update in the app/);
+  assert.doesNotMatch(notes, /install it manually/);
   assert.match(
     releaseNotes(plan, '  '),
     /No additional release notes were generated/,

@@ -196,7 +196,7 @@ export function releaseNotes(plan, generatedNotes) {
   validatePlan(plan);
   const changelog =
     generatedNotes.trim() || 'No additional release notes were generated.';
-  return `${plan.title}\n\nVersion: ${plan.version}\nSource: ${plan.source_sha}\n\n${changelog}\n\nWindows installer: not Authenticode signed. Download the EXE and install it manually. This release does not include signed Tauri updater artifacts.\n`;
+  return `${plan.title}\n\nVersion: ${plan.version}\nSource: ${plan.source_sha}\n\n${changelog}\n\nWindows installer: not Authenticode signed. Installed builds update in the app; for a first install, download and run the EXE. This release does not include signed Tauri updater artifacts.\n`;
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, ...args] = process.argv.slice(2);

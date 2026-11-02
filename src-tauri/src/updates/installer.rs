@@ -31,6 +31,8 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 const DOWNLOAD_FAILED: &str = "Download fehlgeschlagen – nichts installiert.";
 const VERIFY_FAILED: &str = "Datei passt nicht zum Release – nichts installiert.";
 const STAGE_FAILED: &str = "Installer konnte nicht gespeichert werden.";
+/// Staged update folders under the temp directory: `RepoTray-update-<version>`.
+const STAGE_PREFIX: &str = "RepoTray-update-";
 
 /// The exact installer asset of a validated release.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -189,8 +191,21 @@ pub fn download(installer: &Installer, progress: impl FnMut(u64)) -> Result<Vec<
 
 /// Writes verified installer bytes into a fresh `<root>/RepoTray-update-<version>/`,
 /// replacing a leftover directory of an earlier attempt, and returns the EXE path.
+/// Folders of other versions are earlier updates whose installers have finished; they
+/// are removed on a best-effort basis, so at most the current one stays behind.
 pub fn stage(root: &Path, installer: &Installer, bytes: &[u8]) -> Result<PathBuf, String> {
-    let dir = root.join(format!("RepoTray-update-{}", installer.version));
+    let name = format!("{STAGE_PREFIX}{}", installer.version);
+    for entry in std::fs::read_dir(root).into_iter().flatten().flatten() {
+        let other = entry
+            .file_name()
+            .to_str()
+            .is_some_and(|n| n.starts_with(STAGE_PREFIX) && n != name);
+        // `file_type` does not follow links: only real directories are removed.
+        if other && entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+    let dir = root.join(name);
     match std::fs::remove_dir_all(&dir) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
@@ -208,7 +223,10 @@ mod tests {
 
     const VERSION: &str = "2026.1101.905";
     fn url() -> String {
-        format!("https://github.com/fo0/repo-tray/releases/download/v{VERSION}/RepoTray_{VERSION}_x64-setup.exe")
+        url_for(VERSION)
+    }
+    fn url_for(version: &str) -> String {
+        format!("https://github.com/fo0/repo-tray/releases/download/v{version}/RepoTray_{version}_x64-setup.exe")
     }
     fn sha(bytes: &[u8]) -> [u8; 32] {
         Sha256::digest(bytes).into()
@@ -408,6 +426,19 @@ mod tests {
         assert_eq!(std::fs::read(&path).unwrap(), b"new");
         let entries: Vec<_> = std::fs::read_dir(&leftover).unwrap().collect();
         assert_eq!(entries.len(), 1);
+        // The next update removes this one; unrelated entries stay.
+        let unrelated = root.join("RepoTray-other");
+        let next_version = "2099.1231.2359";
+        std::fs::create_dir_all(&unrelated).unwrap();
+        std::fs::write(root.join("RepoTray-update-file"), b"file").unwrap();
+        let next = Installer::new(next_version, &url_for(next_version), 3, &digest(b"new"));
+        stage(&root, &next.unwrap(), b"new").unwrap();
+        assert!(!leftover.exists());
+        assert!(unrelated.exists());
+        assert!(root.join("RepoTray-update-file").exists());
+        assert!(root
+            .join(format!("RepoTray-update-{next_version}"))
+            .is_dir());
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

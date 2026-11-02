@@ -171,6 +171,10 @@
             rel="noopener noreferrer"
             onclick={(event) =>
               run(() => openRunLink(event, runUrl, native, linkError))}
+            onauxclick={(event) => {
+              if (event.button === 1)
+                run(() => openRunLink(event, runUrl, native, linkError));
+            }}
             ><Icon name="external" size={16} />Letzten Run auf GitHub öffnen</a
           >{:else}<button
             type="button"

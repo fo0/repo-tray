@@ -32,8 +32,22 @@ pub(super) fn list_values<T: Transport>(
     max_pages: usize,
     now: u64,
 ) -> Result<(Vec<Value>, bool), ScopeError> {
-    let pages =
-        client.get_pages_limited(account, url(path, &[("per_page", "100")])?, now, max_pages)?;
+    list_sorted(client, account, path, &[], key, max_pages, now)
+}
+
+/// `list_values` with extra query pairs, such as an order that puts the entries a cut-off
+/// listing must keep on its first pages.
+fn list_sorted<T: Transport>(
+    client: &ApiClient<T>,
+    account: &str,
+    path: &[&str],
+    order: &[(&str, &str)],
+    key: Option<&str>,
+    max_pages: usize,
+    now: u64,
+) -> Result<(Vec<Value>, bool), ScopeError> {
+    let query: Vec<_> = [("per_page", "100")].iter().chain(order).copied().collect();
+    let pages = client.get_pages_limited(account, url(path, &query)?, now, max_pages)?;
     let mut all = vec![];
     for body in &pages.bodies {
         let page: Value = serde_json::from_slice(body).map_err(|_| "GitHub-Antwort ungültig.")?;
@@ -107,10 +121,13 @@ pub(super) fn account_repos<T: Transport>(
             }
         }
     } else {
-        let (repositories, cut) = list_values(
+        // Newest pushes first (GitHub sorts `pushed` descending), so a listing cut at the
+        // page budget still holds the repositories `auto_select` ranks highest.
+        let (repositories, cut) = list_sorted(
             client,
             &account.id,
             &["user", "repos"],
+            &[("sort", "pushed")],
             None,
             usize::MAX,
             now,

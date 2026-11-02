@@ -69,6 +69,12 @@ test('a collapsed row has no actions; the expanded one opens through the shell a
   expect(await copied(page)).toEqual([RUN_URL]);
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect(page.context().pages()).toHaveLength(1);
+  // A middle click takes the same way instead of a webview window.
+  await open.click({ button: 'middle' });
+  await expect
+    .poll(async () => (await readCalls(page, 'open_run')).length)
+    .toBe(2);
+  expect(page.context().pages()).toHaveLength(1);
 
   await mock.configure({
     openError: 'Browser konnte nicht geöffnet werden.',
