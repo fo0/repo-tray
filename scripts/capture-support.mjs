@@ -134,14 +134,21 @@ export async function openSettings(page, tab = 'Konten') {
 }
 
 /**
- * Switches the demo scenario in settings and closes the dialog again.
+ * Switches the demo scenario in settings and saves, which closes the dialog.
  * @param {Page} page
  * @param {string} value
  */
 export async function scenario(page, value) {
-  await openSettings(page);
-  await page.getByLabel('Demo-Szenario').selectOption(value);
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  const dialog = await openSettings(page);
+  await dialog.getByLabel('Demo-Szenario').selectOption(value);
+  const save = dialog.getByRole('button', { name: 'Speichern', exact: true });
+  // The scenario in effect stages nothing; then there is nothing to save.
+  if (await save.isEnabled()) await save.click();
+  else
+    await dialog
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+  await expect(dialog).toHaveCount(0);
 }
 
 /**

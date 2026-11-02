@@ -49,7 +49,8 @@ try {
       });
     };
 
-    await expect(page.locator('.repository-card')).toHaveCount(3);
+    // The overview shows at most 10 repositories; the rest wait under „+N weitere“.
+    await expect(page.locator('.repository-card')).toHaveCount(10);
     await capture('overview');
 
     await openPage(page, 'runs');

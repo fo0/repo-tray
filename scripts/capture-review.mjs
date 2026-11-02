@@ -87,25 +87,28 @@ async function walk(theme) {
     'verlauf',
     'Alle Repositories im Verlauf',
     '„Läuft gerade“ maximieren.',
-    'Run-Verlauf mit vollem Owner, Workflow-Status und Branch; Filter Alle.',
+    'Run-Verlauf: Repository zuerst, dann Workflow mit Run-ID, Branch und Status; Filter Alle.',
   );
 
   await chooseAccount(page, 'team-demo');
+  // Rows show the repository without its owner; the name keeps it.
   await expect(
-    page.getByText('example-org/runner-tools-demo', { exact: true }).first(),
+    page
+      .getByRole('button', { name: /^example-org\/runner-tools-demo · / })
+      .first(),
   ).toBeVisible();
   await capture(
     'konto-wechsel',
     'Arbeitskonto gezielt ansehen',
     'Kontomenü → team-demo.',
-    'Es erscheinen nur die Repositories dieses Demo-Kontos; Owner example-org bleibt erkennbar.',
+    'Es erscheinen nur die Repositories dieses Demo-Kontos; der Owner steht im Tooltip.',
   );
 
   await chooseAccount(page, 'demo-dev');
   await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
   await page
     .getByRole('button', {
-      name: /^Preview site #\d+ · demo-dev\/website-demo/,
+      name: /^demo-dev\/website-demo · Preview site #\d+/,
     })
     .click();
   await capture(
@@ -119,7 +122,7 @@ async function walk(theme) {
   await capture(
     'favoriten',
     'Häufige Starts als Favoriten',
-    'Zurück → „Favoriten“ maximieren.',
+    'Verkleinern → „Favoriten“ maximieren.',
     'Windows build ist gespeichert. Starten… führt zur Bestätigung; Schnellstart ist standardmäßig aus.',
   );
 
@@ -286,36 +289,30 @@ async function walk(theme) {
     .click();
   dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   await expect(
-    dialog.getByRole('button', { name: /Mit GitHub anmelden/ }),
+    dialog.getByRole('radio', { name: /Mit GitHub anmelden/ }),
   ).toBeDisabled();
   await capture(
     'github-verbinden',
     'GitHub verbinden',
     'Einstellungen → Konto hinzufügen.',
-    'Die Browser-Anmeldung ist sichtbar pausiert; der Token-Weg bleibt. Alles ist als lokale Vorschau gekennzeichnet.',
+    'Erst die Anmeldeart: Browser-Anmeldung pausiert, lokale Anmeldung nur in der Desktop-App, Token vorausgewählt.',
   );
-  await dialog
-    .getByText('Alternativ: Token hinterlegen', { exact: true })
-    .click();
+  await dialog.getByRole('button', { name: 'Weiter', exact: true }).click();
   await dialog.getByLabel('Beispiel-Token').fill('demo-token');
   await capture(
     'token-alternative',
-    'Ein Token als Alternative',
-    'Alternativ: Token hinterlegen → ausschließlich demo-token eingeben.',
-    'Maskiertes Eingabefeld und Hinweis auf den Betriebssystem-Tresor; der Beispielwert wird nur geprüft und verworfen.',
+    'Mit Token verbinden',
+    'Weiter → ausschließlich demo-token eingeben.',
+    'Maskiertes Eingabefeld und die benötigten Rechte in einer Zeile; der Beispielwert wird nur geprüft und verworfen.',
   );
-  await dialog
-    .getByRole('button', { name: 'Token prüfen und verbinden' })
-    .click();
+  await dialog.getByRole('button', { name: 'Verbinden', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(
-    page.getByText(/Demo-Token geprüft und verworfen/),
-  ).toBeVisible();
+  await expect(page.getByText(/demo-dev simuliert verbunden/)).toBeVisible();
   await capture(
     'token-verworfen',
     'Der Beispiel-Token wird nicht gespeichert',
-    'Token prüfen und verbinden.',
-    'Der Dialog schließt; die Meldung bestätigt, dass der Beispielwert geprüft und verworfen wurde.',
+    'Verbinden.',
+    'Der Dialog schließt von selbst; die Meldung bestätigt die simulierte Verbindung.',
   );
 
   externalRequests.push(...demo.externalRequests);
