@@ -1,96 +1,66 @@
-<script lang="ts">
-  import Icon from './Icon.svelte';
-  import type { Account, LocalAccount } from './types';
+<script module lang="ts">
+  import type { LocalAccount } from './types';
 
-  let {
-    account,
-    imported,
-    activeAccountId,
-    busy,
-    disabled,
-    importing,
-    consent = $bindable(),
-    onConnect,
-    onUseAccount,
-  }: {
-    /** The chosen, usable gh account. */
-    account: LocalAccount;
-    /** Its RepoTray copy when it was connected before. */
-    imported: Account | undefined;
-    activeAccountId: string;
-    busy: boolean;
-    disabled: boolean;
-    importing: boolean;
-    consent: boolean;
-    onConnect: () => void;
-    onUseAccount: (id: string) => void;
-  } = $props();
+  /** One radio value per found entry; gh and GCM may share a login. */
+  export const localKey = (account: LocalAccount) =>
+    `${account.source}:${account.login}`;
+  /** Only gh entries carry an API sign-in RepoTray can import. */
+  export const importable = (account: LocalAccount) =>
+    account.source === 'gh' && account.usable;
 </script>
 
-<p class="local-source-status" role="status">
-  <Icon name="check" size={15} />{imported
-    ? imported.id === activeAccountId
-      ? 'In RepoTray verbunden · aktives Konto'
-      : 'In RepoTray verbunden · noch nicht aktiv'
-    : 'In gh erkannt · noch nicht mit RepoTray verbunden'}
-</p>
-{#if imported && imported.id !== activeAccountId}<button
-    type="button"
-    class="secondary-button"
-    disabled={busy || disabled}
-    onclick={() => onUseAccount(imported.id)}
-    >Als aktives Konto verwenden</button
-  >{/if}
-<p>
-  <strong>{account.login} · {account.host} · gh CLI</strong><br
-  />{account.detail}
-</p>
-<p class="field-help">
-  {account.actionsRead}<br />{account.actionsWrite}
-</p>
-<label class="import-consent"
-  ><input
-    type="checkbox"
-    bind:checked={consent}
-    disabled={busy || disabled}
-  />Ich möchte dieses gh-Konto in RepoTray verwenden</label
->
-<p class="field-help">
-  RepoTray speichert dafür eine eigene Token-Kopie im Betriebssystem-Tresor.
-  Deine gh-Anmeldung bleibt erhalten. Erst Verbinden übernimmt das Konto in
-  RepoTray; Trennen entfernt nur diese Kopie.
-</p>
-<button
-  type="button"
-  class="primary-button full-width"
-  disabled={busy || disabled || !consent}
-  onclick={onConnect}
-  >{importing && busy
-    ? 'Konto wird verbunden …'
-    : imported
-      ? 'gh-Konto erneut übernehmen'
-      : 'gh-Konto mit RepoTray verbinden'}</button
->
+<script lang="ts">
+  import type { Account } from './types';
 
-<style>
-  .local-source-status {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 9px;
-    border: 1px solid var(--accent-line);
-    border-radius: 6px;
-    background: var(--accent-soft);
-    color: var(--text);
-  }
-  .import-consent {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    font-size: var(--font-size-meta);
-  }
-  .import-consent input {
-    margin-top: 0.2rem;
-    flex-shrink: 0;
-  }
-</style>
+  let {
+    accounts,
+    connected,
+    selected = $bindable(),
+    disabled,
+  }: {
+    /** Every entry the discovery found, importable or not. */
+    accounts: LocalAccount[];
+    /** gh accounts RepoTray already holds a copy of. */
+    connected: Account[];
+    /** `localKey` of the chosen entry, or ''. */
+    selected: string;
+    disabled: boolean;
+  } = $props();
+  const chosen = $derived(
+    accounts.find((a) => importable(a) && localKey(a) === selected),
+  );
+  const known = (account: LocalAccount) =>
+    connected.some(
+      (item) => item.login.toLowerCase() === account.login.toLowerCase(),
+    );
+  const source = (account: LocalAccount) =>
+    `${account.source === 'gcm' ? 'Git Credential Manager' : 'GitHub CLI'}${
+      !importable(account)
+        ? ' · nicht übernehmbar'
+        : known(account)
+          ? ' · bereits verbunden'
+          : ''
+    }`;
+</script>
+
+<div class="choice-list" role="radiogroup" aria-label="Gefundene Konten">
+  {#each accounts as account, index (index)}
+    <label class="choice-card compact">
+      <input
+        type="radio"
+        name="local-account"
+        value={localKey(account)}
+        disabled={disabled || !importable(account)}
+        bind:group={selected}
+      />
+      <span
+        ><strong>{account.login}</strong><small>{source(account)}</small></span
+      >
+    </label>
+  {/each}
+</div>
+<!-- Consent: only the click on „Übernehmen“ right below imports this token. -->
+{#if chosen}<p class="consent-line" id="local-consent">
+    Das Token von <strong>{chosen.login}</strong> wird aus der GitHub CLI übernommen
+    und im Windows-Tresor gespeichert.
+  </p>{/if}

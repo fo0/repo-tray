@@ -1,35 +1,58 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
-  import Icon from './Icon.svelte';
+  import { onDestroy, tick } from 'svelte';
+  import ConnectMethods, { type ConnectMethod } from './ConnectMethods.svelte';
+  import LocalAuth from './LocalAuth.svelte';
+  import TokenPermissions from './TokenPermissions.svelte';
   import { ipcErrorMessage } from './format';
   import { call } from './ipc';
-  import LocalAuth from './LocalAuth.svelte';
-  import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
-  import ConnectedAccounts from './ConnectedAccounts.svelte';
-  import TokenPermissions from './TokenPermissions.svelte';
   import type { Account, Snapshot } from './types';
+
   let {
     onConnected,
     onClose,
     accounts = [],
-    activeAccountId = '',
-    onSelectAccount,
   }: {
+    /** A connection succeeded; the caller closes this dialog. */
     onConnected: (snapshot: Snapshot) => void;
     onClose: () => void;
+    /** Connected accounts; marks gh logins that RepoTray already holds. */
     accounts?: Account[];
-    activeAccountId?: string;
-    onSelectAccount: (id: string) => void;
   } = $props();
+
+  // One step at a time: choose a method, then exactly one form for it.
+  let step = $state<'choose' | ConnectMethod>('choose');
+  let method = $state<ConnectMethod>('local');
+  let heading = $state<HTMLHeadingElement>();
   let input = $state<HTMLInputElement>();
   let busy = $state(false);
-  let localBusy = $state(false);
   let hasToken = $state(false);
   let error = $state('');
   let active = true;
+  let generation = 0;
+
+  // Each step announces itself: its heading takes focus.
+  $effect(() => {
+    const current = step;
+    void tick().then(() => {
+      if (step === current) heading?.focus();
+    });
+  });
+
+  function back() {
+    if (busy) {
+      generation++;
+      busy = false;
+      void call('cancel_connect').catch(() => {});
+    }
+    if (input) input.value = '';
+    hasToken = false;
+    error = '';
+    step = 'choose';
+  }
   async function connect(event: SubmitEvent) {
     event.preventDefault();
-    if (busy || localBusy || !hasToken) return;
+    if (busy || !hasToken) return;
+    const ticket = ++generation;
     busy = true;
     error = '';
     const token = input?.value ?? '';
@@ -37,15 +60,15 @@
     hasToken = false;
     try {
       const snapshot = await call('connect_token', { token });
-      if (active) onConnected(snapshot);
+      if (active && ticket === generation) onConnected(snapshot);
     } catch (cause) {
-      if (active)
+      if (active && ticket === generation)
         error = ipcErrorMessage(
           cause,
-          'Verbindung fehlgeschlagen. Prüfe Token und Netzwerk und versuche es erneut.',
+          'Verbindung fehlgeschlagen. Token und Netzwerk prüfen.',
         );
     } finally {
-      if (active) busy = false;
+      if (active && ticket === generation) busy = false;
     }
   }
   onDestroy(() => {
@@ -55,70 +78,63 @@
   });
 </script>
 
-<form onsubmit={connect}>
-  <div class="modal-body auth-preview">
-    <div class="auth-symbol"><Icon name="github" size={28} /></div>
-    <h3>Dein GitHub-Konto verbinden</h3>
-    <ConnectedAccounts
-      {accounts}
-      {activeAccountId}
-      disabled={busy || localBusy}
-      onUse={(id) => {
-        onSelectAccount(id);
-        onClose();
-      }}
-    />
-    <BrowserSignInUnavailable />
-    <LocalAuth
-      {onConnected}
-      disabled={busy}
-      onBusy={(value) => (localBusy = value)}
-      connectedAccounts={accounts}
-      {activeAccountId}
-      onUseAccount={(id) => {
-        onSelectAccount(id);
-        onClose();
-      }}
-    />
-    <div class="token-path">
-      <h4>
-        {accounts.length
-          ? 'Weiteres Konto per Token verbinden'
-          : 'Mit einem GitHub-Token verbinden'}
-      </h4>
-      <label class="field"
-        ><span>GitHub-Token</span><input
-          type="password"
-          aria-label="GitHub-Token"
-          bind:this={input}
-          autocomplete="off"
-          spellcheck="false"
-          maxlength="2048"
-          required
-          disabled={busy || localBusy}
-          oninput={(event) =>
-            (hasToken = event.currentTarget.value.trim().length > 0)}
-        /></label
-      >
-      <p>
-        Wird nur im Betriebssystem-Tresor gespeichert und hier nie angezeigt.
-      </p>
-      <TokenPermissions />
-      {#if error}<div class="alert danger" role="alert">{error}</div>{/if}
-      <button
-        type="submit"
-        class="primary-button full-width"
-        disabled={busy || localBusy || !hasToken}
-        >{busy ? 'Konto wird geprüft …' : 'Token prüfen und verbinden'}<Icon
-          name="check"
-          size={15}
-        /></button
-      >
-    </div>
+{#if step === 'choose'}
+  <div class="modal-body connect-step">
+    <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
+      Anmeldeart wählen
+    </h3>
+    <ConnectMethods bind:value={method} />
   </div>
   <div class="modal-actions">
     <button type="button" class="secondary-button" onclick={onClose}
       >Abbrechen</button
     >
+    <button type="button" class="primary-button" onclick={() => (step = method)}
+      >{method === 'local' ? 'Lokale Anmeldung prüfen' : 'Weiter'}</button
+    >
   </div>
-</form>
+{:else if step === 'local'}
+  <LocalAuth
+    connectedAccounts={accounts}
+    {onConnected}
+    onBack={back}
+    bind:heading
+  />
+{:else}
+  <form onsubmit={connect}>
+    <div class="modal-body connect-step">
+      <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
+        Mit Token verbinden
+      </h3>
+      <label class="field"
+        ><span>GitHub-Token</span><input
+          type="password"
+          aria-label="GitHub-Token"
+          aria-describedby="token-permissions"
+          bind:this={input}
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="2048"
+          readonly={busy}
+          oninput={(event) =>
+            (hasToken = event.currentTarget.value.trim().length > 0)}
+        /></label
+      >
+      <TokenPermissions />
+      {#if error}<div class="alert danger" role="alert">{error}</div>{/if}
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="secondary-button" onclick={back}
+        >Zurück</button
+      >
+      <!-- Off via aria-disabled: a running check keeps focus here. -->
+      <button
+        type="submit"
+        class="primary-button"
+        aria-disabled={busy || !hasToken ? 'true' : undefined}
+        title={busy || hasToken ? undefined : 'Token eingeben'}
+        >{busy ? 'Wird geprüft …' : 'Verbinden'}</button
+      >
+    </div>
+  </form>
+{/if}

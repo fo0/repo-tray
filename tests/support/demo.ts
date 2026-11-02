@@ -89,13 +89,21 @@ export async function chooseAccount(page: Page, name: string) {
   await expect(page.getByRole('menu')).toHaveCount(0);
 }
 
-/** Switches the demo scenario in settings and closes the dialog again. */
+/** Switches the demo scenario in settings and saves, which closes the dialog. */
 export async function scenario(page: Page, value: string) {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByLabel('Demo-Szenario').selectOption(value);
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+  await dialog.getByLabel('Demo-Szenario').selectOption(value);
+  const save = dialog.getByRole('button', { name: 'Speichern', exact: true });
+  // The scenario in effect stages nothing; then there is nothing to save.
+  if (await save.isEnabled()) await save.click();
+  else
+    await dialog
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+  await expect(dialog).toHaveCount(0);
 }
 
 /** Opens the demo connection dialog via settings. */

@@ -1,8 +1,14 @@
 import { expect, test } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { checkLocal, connectDialog } from './support/connect';
 import { installTauriMock, type TauriMock } from './support/tauriMock';
 
-type GuidanceMock = { scanError: string; importError: string; empty: boolean };
+type GuidanceMock = {
+  scanError: string;
+  importError: string;
+  empty: boolean;
+  missing: boolean;
+};
 let mock: TauriMock<GuidanceMock>;
 
 /** Native connect dialog without accounts; discovery and import fail on demand. */
@@ -45,6 +51,14 @@ test.beforeEach(async ({ page }) => {
           };
         if (cmd === 'discover_local_auth') {
           if (state.scanError) throw state.scanError;
+          // The service names a missing gh in a fixed notice.
+          if (state.missing)
+            return {
+              accounts: [],
+              notices: [
+                'gh CLI nicht gefunden. Installiere GitHub CLI (gh), starte RepoTray danach neu und prüfe im Terminal gh auth status. Git allein reicht nicht.',
+              ],
+            };
           return { accounts: state.empty ? [] : accounts, notices: [] };
         }
         if (cmd === 'connect_local_auth') throw state.importError;
@@ -53,7 +67,7 @@ test.beforeEach(async ({ page }) => {
     },
     {
       arg: { fixture },
-      state: { scanError: '', importError: '', empty: false },
+      state: { scanError: '', importError: '', empty: false, missing: false },
     },
   );
   await page.goto('/');
@@ -63,61 +77,58 @@ test.beforeEach(async ({ page }) => {
   await page
     .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();
-  await page
-    .getByRole('button', {
-      name: 'Bestehende Anmeldung auf diesem PC verwenden',
-    })
-    .click();
 });
 
-test('every local result names the next step: failures, empty results and accounts RepoTray cannot import', async ({
+test('every local result is one short line with one next action: failure, gh missing, nothing found, import error', async ({
   page,
 }) => {
-  const scan = page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' });
+  const dialog = connectDialog(page);
+  const body = dialog.locator('.modal-body');
+  const rescan = dialog.getByRole('button', {
+    name: 'Erneut prüfen',
+    exact: true,
+  });
   await mock.configure({
     scanError:
       'Mock: gh CLI konnte nicht geprüft werden. Prüfe im Terminal mit gh auth status, ob du angemeldet bist.',
   });
-  await scan.click();
-  await expect(page.getByRole('alert')).toContainText(
+  await checkLocal(page);
+  await expect(dialog.getByRole('alert')).toContainText(
     'Prüfe im Terminal mit gh auth status',
   );
-  await expect(scan).toBeEnabled();
-  await mock.configure({ scanError: '', empty: true });
-  await scan.click();
-  await expect(
-    page.getByText(
-      'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut. Alternativ verbindest du dich unten mit einem Token.',
-    ),
-  ).toBeVisible();
+  // The footer's one primary action is the retry; „Zurück“ is the other way.
+  await expect(dialog.locator('.modal-actions').getByRole('button')).toHaveText(
+    ['Zurück', 'Erneut prüfen'],
+  );
+  await mock.configure({ scanError: '', missing: true });
+  await rescan.click();
+  await expect(body).toContainText(
+    'GitHub CLI (gh) nicht gefunden. Nach der Installation RepoTray neu starten.',
+  );
+  await expect(body).not.toContainText('Git allein reicht nicht');
+  await mock.configure({ missing: false, empty: true });
+  await rescan.click();
+  await expect(body).toContainText(
+    'Keine gh-Anmeldung gefunden. Im Terminal mit „gh auth login“ anmelden.',
+  );
   await mock.configure({
     empty: false,
     importError:
       'Mock: Gewählte lokale Anmeldung ist nicht mehr verfügbar. Prüfe die lokalen Anmeldungen erneut.',
   });
-  await page.getByRole('button', { name: 'Erneut prüfen' }).click();
-  // The credential-manager entry stays listed, with what to do instead.
-  await expect(
-    page.getByText('Diese Anmeldungen kann RepoTray nicht übernehmen.'),
-  ).toContainText('verbinde dich unten mit einem Token');
-  await expect(page.getByLabel('Lokales Konto · gh CLI')).toHaveValue(
-    'fixture-sam',
-  );
-  await page
-    .getByRole('checkbox', {
-      name: 'Ich möchte dieses gh-Konto in RepoTray verwenden',
-    })
-    .check();
-  await page
-    .getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' })
-    .click();
-  await expect(page.getByRole('alert')).toContainText(
+  await rescan.click();
+  // A single importable account is preselected; the GCM entry stays listed, off.
+  const list = dialog.getByRole('radiogroup', { name: 'Gefundene Konten' });
+  await expect(list.getByRole('radio', { name: /fixture-sam/ })).toBeChecked();
+  await expect(list.getByRole('radio', { name: /fixture-gcm/ })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Übernehmen', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText(
     'Prüfe die lokalen Anmeldungen erneut.',
   );
+  await expect(dialog).toBeVisible();
+  // „Übernehmen“ stays the primary action; the check can be repeated in place.
   await expect(
-    page.getByRole('dialog', { name: 'GitHub verbinden' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Erneut prüfen' }),
+    dialog.getByRole('button', { name: 'Übernehmen', exact: true }),
   ).toBeEnabled();
+  await expect(rescan).toBeEnabled();
 });

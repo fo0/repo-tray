@@ -87,7 +87,11 @@
       view.home();
       modals.close();
       panel.showNotice(`Konto ${account.login} verbunden.`);
-    } else openSettings();
+    } else {
+      // Success closes the dialog by itself; the notice confirms it.
+      modals.close();
+      if (account) panel.showNotice(`Konto ${account.login} verbunden.`);
+    }
     void updater.check(true);
   }
   function connectedDemo(method: 'browser' | 'token') {
@@ -219,14 +223,11 @@
   >
     {#if native}<NativeConnect
         accounts={snapshot?.accounts ?? []}
-        activeAccountId={accountId}
-        onSelectAccount={changeAccount}
         onConnected={connectedNative}
         onClose={modals.close}
       />{:else}<ConnectPanel
         onConnected={connectedDemo}
         onClose={modals.close}
-        onSettings={() => openSettings()}
       />{/if}
   </Modal>
 {:else if modals.kind === 'dispatch'}

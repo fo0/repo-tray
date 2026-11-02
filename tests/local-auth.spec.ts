@@ -1,5 +1,6 @@
-import { expect, test } from './support/test';
+import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { checkLocal, connectDialog } from './support/connect';
 import {
   type TauriMock,
   installTauriMock,
@@ -110,38 +111,46 @@ test.beforeEach(async ({ page }) => {
     .click();
 });
 
-test('local account access requires a click, explicit choice and consent before secret import', async ({
+const found = (page: Page) =>
+  connectDialog(page).getByRole('radiogroup', { name: 'Gefundene Konten' });
+const take = (page: Page) =>
+  connectDialog(page).getByRole('button', { name: 'Übernehmen', exact: true });
+const CONSENT =
+  'Das Token von fixture-sam wird aus der GitHub CLI übernommen und im Windows-Tresor gespeichert.';
+
+test('local account access needs the check, an explicit choice and „Übernehmen“ before any secret import', async ({
   page,
 }) => {
   const calls = () => readCalls(page);
-  expect((await calls()).some((c) => c.cmd.includes('local_auth'))).toBe(false);
-  await page
-    .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
-    .click();
-  expect((await calls()).some((c) => c.cmd.includes('local_auth'))).toBe(false);
-  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
-  const select = page.getByLabel('Lokales Konto · gh CLI');
-  await expect(select).toHaveValue('');
-  await expect(select.locator('option')).toHaveCount(3);
-  await select.selectOption('fixture-sam');
-  await expect(page.getByText('Scopes nicht auslesbar.')).toBeVisible();
+  const dialog = connectDialog(page);
+  // The method step reads nothing local, even with the local method chosen.
   await expect(
-    page.getByText(/Actions starten: pro Repository ungeprüft\./),
-  ).toBeVisible();
-  const connect = page.getByRole('button', {
-    name: 'gh-Konto mit RepoTray verbinden',
-  });
-  await expect(connect).toBeDisabled();
+    dialog.getByRole('radio', {
+      name: /^Bestehende Anmeldung auf diesem PC verwenden/,
+    }),
+  ).toBeChecked();
+  expect((await calls()).some((c) => c.cmd.includes('local_auth'))).toBe(false);
+  await checkLocal(page);
+  // Two importable accounts: nothing is preselected; GCM is listed but off.
+  const list = found(page);
+  await expect(list.getByRole('radio')).toHaveCount(3);
+  await expect(list.getByRole('radio', { checked: true })).toHaveCount(0);
+  await expect(list.getByRole('radio', { name: /fixture-gcm/ })).toBeDisabled();
+  await expect(list).toContainText(
+    'Git Credential Manager · nicht übernehmbar',
+  );
+  await expect(take(page)).toBeDisabled();
+  await expect(take(page)).toHaveAttribute('title', 'Konto auswählen');
+  await expect(dialog.locator('#local-consent')).toHaveCount(0);
+  await list.getByRole('radio', { name: /fixture-sam/ }).check();
+  // Exactly one consent line, naming the account and where its token goes.
+  await expect(dialog.locator('#local-consent')).toHaveText(CONSENT);
+  await expect(take(page)).toHaveAccessibleDescription(CONSENT);
   expect((await calls()).some((c) => c.cmd === 'connect_local_auth')).toBe(
     false,
   );
-  await page
-    .getByRole('checkbox', {
-      name: 'Ich möchte dieses gh-Konto in RepoTray verwenden',
-    })
-    .check();
-  await connect.click();
-  // A new account lands on the overview with one short notice.
+  await take(page).click();
+  // Success closes the dialog by itself; a new account lands on the overview.
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.tray')).toHaveAttribute('data-page', 'overview');
   await expect(
@@ -162,67 +171,48 @@ test('local account access requires a click, explicit choice and consent before 
   ).toBe(false);
 });
 
-test('unavailable sources stay unavailable and cancellation discards late process results', async ({
+test('„Zurück“ cancels a running check and discards its late result; an empty result is one line with „Erneut prüfen“', async ({
   page,
 }) => {
   await mock.configure({ scanDelay: 400 });
-  await page
-    .getByText('Bestehende Anmeldung auf diesem PC verwenden', { exact: true })
-    .click();
-  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
-  await page
-    .getByRole('button', { name: 'Prüfung abbrechen', exact: true })
-    .click();
+  await checkLocal(page);
+  const dialog = connectDialog(page);
+  await expect(
+    dialog.getByRole('button', { name: 'Wird geprüft …', exact: true }),
+  ).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Zurück', exact: true }).click();
+  await expect(
+    dialog.getByRole('heading', { name: 'Anmeldeart wählen' }),
+  ).toBeFocused();
+  expect((await readCalls(page, 'cancel_connect')).length).toBeGreaterThan(0);
   // The absence check proves nothing until the late result was delivered.
   await expect.poll(() => mock.read('scansSettled')).toBe(1);
-  await expect(page.getByLabel('Lokales Konto · gh CLI')).toHaveCount(0);
+  await expect(found(page)).toHaveCount(0);
   await mock.configure({ scanDelay: 0, empty: true });
-  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
+  await checkLocal(page);
+  await expect(dialog.locator('.modal-body')).toContainText(
+    'Keine gh-Anmeldung gefunden. Im Terminal mit „gh auth login“ anmelden.',
+  );
+  await expect(take(page)).toHaveCount(0);
+  // Discovery notes stay out of the dialog: no help walls.
   await expect(
-    page.getByText(
-      'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut.',
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', {
-      name: 'gh-Konto mit RepoTray verbinden',
-    }),
+    dialog.getByText('Git erkannt; keine API-Anmeldung belegt.'),
   ).toHaveCount(0);
-  await page.getByText('Weitere lokale Quellen', { exact: true }).click();
-  await expect(
-    page.getByText('Git erkannt; keine API-Anmeldung belegt.'),
-  ).toBeVisible();
+  await mock.configure({ empty: false });
+  await dialog
+    .getByRole('button', { name: 'Erneut prüfen', exact: true })
+    .click();
+  await expect(found(page).getByRole('radio')).toHaveCount(3);
 });
 
-test('discovery shows recognized rather than connected until consent, then retains active source feedback', async ({
+test('a gh login RepoTray already holds is marked, and taking it over again needs the same explicit „Übernehmen“', async ({
   page,
 }, testInfo) => {
-  await expect(
-    page.getByText('Noch kein gh-Konto in RepoTray verbunden'),
-  ).toBeVisible();
-  await page
-    .getByRole('button', {
-      name: 'Bestehende Anmeldung auf diesem PC verwenden',
-    })
-    .click();
-  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
-  await page.getByLabel('Lokales Konto · gh CLI').selectOption('fixture-sam');
-  await expect(
-    page
-      .getByRole('status')
-      .filter({ hasText: 'In gh erkannt · noch nicht mit RepoTray verbunden' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' }),
-  ).toBeDisabled();
-  await page
-    .getByRole('checkbox', {
-      name: 'Ich möchte dieses gh-Konto in RepoTray verwenden',
-    })
+  await checkLocal(page);
+  await found(page)
+    .getByRole('radio', { name: /fixture-sam/ })
     .check();
-  await page
-    .getByRole('button', { name: 'gh-Konto mit RepoTray verbinden' })
-    .click();
+  await take(page).click();
   // A new account lands on the overview with one short notice.
   await expect(page.locator('.tray')).toHaveAttribute('data-page', 'overview');
   await expect(
@@ -233,39 +223,35 @@ test('discovery shows recognized rather than connected until consent, then retai
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
+  const accounts = page
+    .getByRole('dialog', { name: 'Einstellungen' })
+    .getByRole('radiogroup', { name: 'Aktives Konto' });
   await expect(
-    page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
-  ).toContainText('gh-Anmeldung übernommen · Aktiv für RepoTray');
+    accounts.getByRole('radio', {
+      name: 'fixture-sam · gh CLI (Kopie)',
+      exact: true,
+    }),
+  ).toBeChecked();
+  await expect(accounts.locator('.account-tag')).toHaveText('Aktiv');
   await page
     .getByRole('button', { name: 'Konto hinzufügen', exact: true })
     .click();
-  const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
-  await expect(
-    dialog.getByRole('region', { name: 'Verbundene Anmeldungen' }),
-  ).toContainText('fixture-sam · gh CLI (Kopie)');
-  await expect(
-    dialog.getByText('1 gh-Konto in RepoTray verbunden'),
-  ).toBeVisible();
-  await page
-    .getByRole('button', {
-      name: 'Bestehende Anmeldung auf diesem PC verwenden',
-    })
-    .click();
-  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
-  await page.getByLabel('Lokales Konto · gh CLI').selectOption('fixture-sam');
-  await expect(
-    page
-      .getByRole('status')
-      .filter({ hasText: 'In RepoTray verbunden · aktives Konto' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'gh-Konto erneut übernehmen' }),
-  ).toBeDisabled();
+  await checkLocal(page);
+  const sam = found(page).locator('label').filter({ hasText: 'fixture-sam' });
+  await expect(sam).toContainText('GitHub CLI · bereits verbunden');
+  await expect(take(page)).toBeDisabled();
+  await sam.getByRole('radio').check();
+  await expect(connectDialog(page).locator('#local-consent')).toHaveText(
+    CONSENT,
+  );
+  await expect(take(page)).toBeEnabled();
   await page.setViewportSize({ width: 360, height: 840 });
   expect(
-    await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    await connectDialog(page).evaluate(
+      (node) => node.scrollWidth <= node.clientWidth,
+    ),
   ).toBe(true);
-  await dialog.screenshot({
+  await connectDialog(page).screenshot({
     path: testInfo.outputPath('connected-gh-feedback-360.png'),
   });
 });

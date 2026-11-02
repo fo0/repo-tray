@@ -248,7 +248,7 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
   dialog = page.getByRole('dialog', { name: 'Einstellungen' });
-  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   // Still running after the settings dialog closed: no second start possible.
   await expect(
     card.getByRole('button', {

@@ -24,9 +24,7 @@ test('closing the launch dialog and cancelling connection create no runs', async
     .click();
   await page.getByRole('button', { name: 'Konto hinzufügen' }).click();
   await expect(
-    page.getByRole('button', {
-      name: 'Mit GitHub anmelden',
-    }),
+    page.getByRole('radio', { name: /^Mit GitHub anmelden/ }),
   ).toBeDisabled();
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);

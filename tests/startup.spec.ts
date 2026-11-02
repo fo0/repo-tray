@@ -83,7 +83,10 @@ async function capture(page: Page, filename: string) {
   });
 }
 
-test('explicit opt-in, persisted OS readback, disable and pending-write guard', async ({
+const save = (page: Page) =>
+  page.getByRole('button', { name: 'Speichern', exact: true });
+
+test('the switch is staged: „Speichern“ writes it once, reads it back and closes; „Abbrechen“ writes nothing', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 480, height: 760 });
@@ -91,26 +94,38 @@ test('explicit opt-in, persisted OS readback, disable and pending-write guard', 
   const checkbox = page.getByRole('checkbox', { name: 'Mit Windows starten' });
   await expect(checkbox).not.toBeChecked();
   expect(await mutations(page)).toBe(0);
-  await expect(
-    page.getByText('Aus · RepoTray startet nicht automatisch.'),
-  ).toBeVisible();
   await capture(page, '01-windows-autostart-aus.png');
+  // Staged and dropped: Windows is never touched.
+  await checkbox.click();
+  await expect(checkbox).toBeChecked();
+  await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  expect(await mutations(page)).toBe(0);
+  await openAppSettings(page);
+  await expect(checkbox).not.toBeChecked();
   await mock.configure({ delay: 350 });
   await checkbox.click();
-  await expect(checkbox).toBeDisabled();
-  await expect(checkbox).not.toBeChecked();
   await expect(checkbox).toBeChecked();
-  await expect(page.getByText('Gespeichert.')).toBeVisible();
+  expect(await mutations(page)).toBe(0);
+  await capture(page, '02-windows-autostart-vorgemerkt.png');
+  await save(page).click();
+  // A second click while the write runs never writes twice.
+  await expect(
+    page.getByRole('button', { name: 'Wird gespeichert …', exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await mutations(page)).toBe(1);
-  await capture(page, '02-windows-autostart-aktiv.png');
-  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
   await openAppSettings(page);
   await expect(checkbox).toBeChecked();
-  expect(await mutations(page)).toBe(1);
+  await expect(save(page)).toBeDisabled();
   await checkbox.click();
-  await expect(checkbox).toBeEnabled();
   await expect(checkbox).not.toBeChecked();
+  await save(page).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await mutations(page)).toBe(2);
+  expect((await readCalls(page, 'set_autostart')).map((c) => c.args)).toEqual([
+    { enabled: true },
+    { enabled: false },
+  ]);
   const calls = await readCommands(page);
   expect(calls.some((cmd) => /auth|connect|dispatch/.test(cmd))).toBe(false);
 });
@@ -167,14 +182,21 @@ test('read/write failures stay uncertain until a fresh OS read succeeds', async 
 }) => {
   const mock = await setup(page);
   const checkbox = page.getByRole('checkbox', { name: 'Mit Windows starten' });
+  const panel = page.locator('.startup-panel');
   await mock.configure({ writeError: true });
   await checkbox.click();
-  await expect(page.getByRole('alert')).toContainText('konnte nicht geändert');
+  await save(page).click();
+  // The dialog stays open with one error line; nothing optimistic is kept.
+  await expect(page.locator('.dialog-alert')).toHaveText(
+    'Windows-Autostart konnte nicht geändert werden.',
+  );
+  await expect(page.getByRole('dialog')).toBeVisible();
   await expect(checkbox).not.toBeChecked();
   await expect(checkbox).toBeDisabled();
+  await expect(panel).toContainText('Status unbekannt.');
   await mock.configure({ readError: true });
   await page.getByRole('button', { name: 'Status prüfen' }).click();
-  await expect(page.getByRole('alert')).toContainText('konnte nicht gelesen');
+  await expect(panel.getByRole('alert')).toContainText('konnte nicht gelesen');
   await mock.configure({
     readError: false,
     writeError: false,
@@ -183,7 +205,7 @@ test('read/write failures stay uncertain until a fresh OS read succeeds', async 
   });
   await page.getByRole('button', { name: 'Status prüfen' }).click();
   await expect(checkbox).toBeChecked();
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(panel.getByRole('alert')).toHaveCount(0);
 });
 
 test('foreign registrations cannot be edited; future Windows formats stay unknown', async ({

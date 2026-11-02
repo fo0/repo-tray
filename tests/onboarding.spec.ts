@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { connectToken as connectWith } from './support/connect';
 import { SECTION_TITLES, expectPage } from './support/demo';
 import {
   installTauriMock,
@@ -69,12 +70,7 @@ const settings = (page: Page) =>
 const connect = (page: Page) =>
   page.getByRole('dialog', { name: 'GitHub verbinden', exact: true });
 
-async function connectToken(page: Page) {
-  await connect(page).getByLabel('GitHub-Token').fill('synthetic-test-token');
-  await connect(page)
-    .getByRole('button', { name: 'Token prüfen und verbinden' })
-    .click();
-}
+const connectToken = (page: Page) => connectWith(page, 'synthetic-test-token');
 
 test('the first-launch action opens the connect dialog directly and a first connect lands on the overview', async ({
   page,
@@ -122,7 +118,7 @@ test('settings without an account show one empty state with one action', async (
   await expect(dialog.getByText(/Noch kein Konto/)).toHaveCount(1);
   await expect(dialog.getByText('0 Konten verbunden')).toHaveCount(0);
   await expect(
-    dialog.getByLabel('Aktives Konto auswählen', { exact: true }),
+    dialog.getByRole('radiogroup', { name: 'Aktives Konto' }),
   ).toHaveCount(0);
   await expect(
     dialog.getByRole('button', { name: 'Konto hinzufügen' }),
@@ -177,7 +173,7 @@ test('an account without repositories says so in one line, and removing the last
     settings(page).getByRole('heading', { name: 'Noch kein Konto verbunden' }),
   ).toBeVisible();
   await settings(page)
-    .getByRole('button', { name: 'Schließen', exact: true })
+    .getByRole('button', { name: 'Abbrechen', exact: true })
     .click();
   await expect(
     page.getByText(
