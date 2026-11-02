@@ -141,7 +141,7 @@
               class="action-copy"
               onclick={() => onopen(workflow)}
               aria-label={`${workflow.name} · ${detail}${locked.length ? ` · Startstatus ungeklärt (${locked.join(', ')})` : ''}`}
-              title={can.openReason ?? undefined}
+              title={can.openReason ?? `${workflow.name} · ${detail}`}
               disabled={!can.canOpen}
             >
               <span class="action-dot"></span>
