@@ -8,7 +8,7 @@ Set by the owner (#18). They override every older UI statement in `README.md`, `
 4. **No manual configuration the app can infer.** Repositories come automatically: the 10 most recently active (latest push) per account plus the repositories of favorites. No picker, no add or remove ([ADR-0003](../docs/adr/0003-automatic-repositories.md)).
 5. **Settings are staged.** Changes apply with one primary „Speichern“ next to „Abbrechen“. Immediate actions are explicit buttons.
 6. **One primary action per form or flow, bottom right.** A completed flow closes or returns by itself — the user never has to press „Schließen“ after success.
-7. **Feedback goes away.** Success notices close after 3 s. Only warnings and errors persist. Nothing may get stuck on screen.
+7. **Feedback goes away.** Success notices close after 3 s (an undo offer stays 8 s). Only warnings and errors persist. Nothing may get stuck on screen.
 8. **Toggles stay in place.** Maximize turns into minimize at the same spot; no separate back button ([ADR-0005](../docs/adr/0005-maximize-toggles-in-place.md)).
 9. **Updates install in the app.** „Nach Updates suchen“ → „Update verfügbar“ with at most 5 changelog bullets → „Installieren“ → progress bar → the app installs and restarts itself. Never send the user to a web page to update ([ADR-0004](../docs/adr/0004-in-app-updates-for-unsigned-builds.md)).
 10. **Honest evidence.** Screenshots or previews shown to the owner come from the exact build being delivered. Never present a mock-up as the result.
