@@ -12,7 +12,7 @@ ADR-0003 limits the tray to the 10 most recently pushed repositories per account
 
 ## Decision
 
-We will let a non-blank search also list the account's repositories outside the automatic set whose `owner/name` matches, after the matching ones of the set, newest push first. Such a card shows only its last push. Expanding it calls the native command `open_repository`, which keeps the repository in a session-only list of at most 5 opened repositories, selects it and loads its workflows and runs at once; from then on it is a normal card (start, favorite, run strip) until the app restarts or it drops out of the 5. A favorite keeps it for good, as before. Still no picker, no add and no remove (rule 4 stands): the search finds, expanding loads.
+We will let a non-blank search also list the account's repositories outside the automatic set whose `owner/name` matches, after the matching ones of the set, newest push first. Such a card shows only its last push. Expanding it calls the native command `open_repository`, which keeps the repository in a session-only list of at most 5 opened repositories (the oldest opened goes first), selects it and loads its workflows and runs at once; from then on it is a normal card (start, favorite, run strip) until the app restarts or it drops out of the 5. A favorite keeps it for good, as before. Still no picker, no add and no remove (rule 4 stands): the search finds, expanding loads.
 
 ## Consequences
 
@@ -28,7 +28,7 @@ We will let a non-blank search also list the account's repositories outside the 
 
 ### Neutral
 
-- The browser demo applies the same rule in `src/lib/demo.ts` (`openRepository`): `demo-extra` and `demo-work-legacy` are outside `demo-work`'s 10.
+- The browser demo simplifies it: `openRepository` in `src/lib/demo.ts` selects the repository, without the cap of 5. `demo-extra` (`team-demo/sandbox-demo`) and `demo-work-legacy` are outside `demo-work`'s 10.
 
 ## Alternatives Considered
 
@@ -38,4 +38,4 @@ We will let a non-blank search also list the account's repositories outside the 
 ## References
 
 - #23, `agent_docs/ux_rules.md` (rules 4 and 11), [ADR-0003](0003-automatic-repositories.md)
-- `src/lib/runs.ts` (`repositoryActivity`), `src/lib/RepositoryList.svelte`, `src/lib/actions.svelte.ts`, `src-tauri/src/live/` (`open_repository`)
+- `src/lib/repoActivity.ts` (`repositoryActivity`, `lastRun`), `src/lib/RepositoryList.svelte`, `src/lib/actions.svelte.ts`, `src-tauri/src/live/` (`open_repository`)

@@ -91,6 +91,45 @@ describe('Run cancellation', () => {
   });
 });
 
+describe('Actions and a refresh in flight', () => {
+  it('a cancel answer frees the refresh button, so the next refresh runs', async () => {
+    let finish: () => void = () => {};
+    const { panel, bridge } = await setup();
+    const read = bridge.refreshSnapshot;
+    bridge.refreshSnapshot = async () => {
+      await new Promise<void>((done) => (finish = done));
+      return read();
+    };
+    const refreshing = panel.refresh();
+    expect(panel.refreshing).toBe(true);
+    await panel.actions.cancelRun(run(panel, 8401));
+    expect(panel.refreshing).toBe(false);
+    finish();
+    // The older read lost to the cancel answer and leaves nothing behind.
+    expect(await refreshing).toBeNull();
+    expect(panel.refreshing).toBe(false);
+    bridge.refreshSnapshot = read;
+    expect(await panel.refresh()).not.toBeNull();
+  });
+
+  it('a refusal for the previous account stays out of the new view', async () => {
+    let fail: (cause: Error) => void = () => {};
+    const { panel } = await setup({
+      cancelRun: () => new Promise((_, reject) => (fail = reject)),
+      openRepository: () => new Promise((_, reject) => (fail = reject)),
+    });
+    const cancel = panel.actions.cancelRun(run(panel, 8401));
+    panel.changeAccount('demo-work');
+    fail(new Error('Abbrechen nicht erlaubt.'));
+    await cancel;
+    const open = panel.actions.openRepository('demo-extra');
+    panel.changeAccount('demo-personal');
+    fail(new Error('Repository nicht gefunden.'));
+    await open;
+    expect(texts(panel)).toEqual([]);
+  });
+});
+
 describe('Repositories from the search', () => {
   it('expands at once, loads the repository and keeps it open', async () => {
     const { panel } = await setup();

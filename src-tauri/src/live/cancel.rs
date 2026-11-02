@@ -64,12 +64,13 @@ impl<T: Transport> LiveStore<T> {
 }
 
 /// A rate limit (throttling 403/429 or an armed backoff) keeps the client's German text, as
-/// does a credential the vault cannot give; a request whose answer never arrived may still
-/// have reached GitHub.
+/// do a credential the vault cannot give and a request that never left (`BeforeSend`: „GitHub
+/// nicht erreichbar“); only a request whose answer never arrived may still have reached GitHub.
 fn cancel_failed(error: ApiError) -> String {
     match error {
-        ApiError::Transport(TransportError::BeforeSend | TransportError::OutcomeUnknown)
-        | ApiError::InvalidResponse => CANCEL_UNCONFIRMED.into(),
+        ApiError::Transport(TransportError::OutcomeUnknown) | ApiError::InvalidResponse => {
+            CANCEL_UNCONFIRMED.into()
+        }
         other => other.to_string(),
     }
 }

@@ -96,41 +96,79 @@ fn a_failed_lookup_never_fails_the_metadata_and_stops_the_lookups_of_that_pass()
     assert_eq!(last_run(&snapshot, 13), Some("2026-09-15T08:00:00Z"));
 }
 
-#[test]
-fn lookups_are_capped_per_repository_and_the_rest_keep_their_last_value() {
+fn capped_harness(name: &str) -> Harness {
     let mut remote = Remote::new();
-    let extra: Vec<u64> = (100..112).collect();
-    for id in &extra {
+    for id in 100..112 {
         remote
             .extra_workflows
-            .push(workflow(*id, &format!("job-{id}")));
+            .push(workflow(id, &format!("job-{id}")));
     }
-    let mut h = Harness::new("last-run-cap", remote, &["github-1"]);
+    Harness::new(name, remote, &["github-1"])
+}
+/// Workflows whose latest run was looked up in the last refresh.
+fn looked_up(h: &Harness) -> Vec<u64> {
+    let mut ids: Vec<u64> = std::iter::once(9)
+        .chain(100..112)
+        .filter(|id| lookups(h, *id) > 0)
+        .collect();
+    ids.sort();
+    ids
+}
+
+#[test]
+fn lookups_are_capped_per_repository_take_turns_and_the_rest_keep_their_last_value() {
+    let mut h = capped_harness("last-run-cap");
     h.load(&["github-1:1"]);
-    let total = |h: &Harness| {
-        h.remote()
-            .requests
-            .iter()
-            .filter(|(_, _, target)| target.ends_with("/runs?per_page=1"))
-            .count()
-    };
-    assert_eq!(total(&h), MAX_RUN_LOOKUPS);
-    // Workflow 9 and the first nine extras are looked up; the last three are past the cap.
-    let past: Vec<u64> = extra[MAX_RUN_LOOKUPS - 1..].to_vec();
-    assert_eq!(past, [109, 110, 111]);
+    // Workflow 9 and twelve extras have no run in the history: 13 candidates, 10 per read.
+    let first = looked_up(&h);
+    assert_eq!(first.len(), MAX_RUN_LOOKUPS);
     for workflow in &mut h.live.data.workflows {
         workflow.last_run_at = Some("2026-01-01T00:00:00Z".into());
     }
     advance(CATALOG_SECONDS);
     h.remote().requests.clear();
     let snapshot = h.live.refresh();
-    assert_eq!(total(&h), MAX_RUN_LOOKUPS);
-    for id in [9, 100, 108] {
-        assert_eq!(last_run(&snapshot, id), None, "{id} was looked up");
+    let second = looked_up(&h);
+    assert_eq!(second.len(), MAX_RUN_LOOKUPS);
+    // The window moved on: two reads reach every workflow.
+    let mut both: Vec<u64> = first.iter().chain(&second).copied().collect();
+    both.sort();
+    both.dedup();
+    assert_eq!(both.len(), 13, "{first:?} then {second:?}");
+    for id in std::iter::once(9).chain(100..112) {
+        let expected = if second.contains(&id) {
+            None
+        } else {
+            Some("2026-01-01T00:00:00Z")
+        };
+        assert_eq!(last_run(&snapshot, id), expected, "{id}");
     }
-    for id in past {
-        assert_eq!(lookups(&h, id), 0);
-        assert_eq!(last_run(&snapshot, id), Some("2026-01-01T00:00:00Z"));
+}
+
+#[test]
+fn a_favorite_workflow_is_looked_up_before_the_others() {
+    let mut h = capped_harness("last-run-favorite");
+    h.live.data.pins.push(Pin {
+        id: "pin-111".into(),
+        label: "Fixture".into(),
+        account_id: "github-1".into(),
+        repo_id: "github-1:1".into(),
+        workflow_id: 111,
+        git_ref: "main".into(),
+        inputs: Inputs::new(),
+        quick_start: false,
+    });
+    for turn in 0..3 {
+        if turn > 0 {
+            advance(CATALOG_SECONDS);
+        }
+        h.remote().requests.clear();
+        if turn == 0 {
+            h.load(&["github-1:1"]);
+        } else {
+            h.live.refresh();
+        }
+        assert!(looked_up(&h).contains(&111), "read {turn}");
     }
 }
 

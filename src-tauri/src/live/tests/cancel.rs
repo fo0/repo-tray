@@ -126,6 +126,16 @@ fn a_throttled_or_unanswered_cancel_says_so() {
         "Abbruch nicht bestätigt – prüfe den Run auf GitHub."
     );
     assert_eq!(h.remote().posts(), 1);
+
+    // Nothing left the machine: no reason to check GitHub, the connection is the problem.
+    let mut h = with_open_run("cancel-offline");
+    h.remote()
+        .cancels
+        .push_back(Err(TransportError::BeforeSend));
+    assert_eq!(
+        h.live.cancel_run(REPO.into(), 30).unwrap_err(),
+        "GitHub nicht erreichbar – prüfe deine Verbindung."
+    );
 }
 
 #[test]

@@ -37,7 +37,8 @@ impl Browsed {
 impl<T: Transport> LiveStore<T> {
     /// Selects a listed repository the panel search found, so its workflows and runs load
     /// at once. An already selected one is only refreshed; one opened before moves to the
-    /// newest place of the session's opened repositories.
+    /// newest place of the session's opened repositories. The panel calls this only for a
+    /// repository that is not selected, so in practice the 5 places go in first-open order.
     pub fn open_repository(&mut self, repo_id: String) -> Result<Snapshot, String> {
         let accounts: BTreeSet<_> = self.data.accounts.iter().map(|a| a.id.as_str()).collect();
         let repo = self
