@@ -28,9 +28,8 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const STALL_TIMEOUT: Duration = Duration::from_secs(60);
 const DOWNLOAD_DEADLINE: Duration = Duration::from_secs(10 * 60);
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
-const DOWNLOAD_FAILED: &str = "Download fehlgeschlagen. Es wurde nichts installiert.";
-const VERIFY_FAILED: &str =
-    "Prüfung fehlgeschlagen: Die Datei passt nicht zum Release. Es wurde nichts installiert.";
+const DOWNLOAD_FAILED: &str = "Download fehlgeschlagen – nichts installiert.";
+const VERIFY_FAILED: &str = "Datei passt nicht zum Release – nichts installiert.";
 const STAGE_FAILED: &str = "Installer konnte nicht gespeichert werden.";
 
 /// The exact installer asset of a validated release.

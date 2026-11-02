@@ -60,9 +60,7 @@ test('cancelling a pending token preview invalidates its late confirmation', asy
   await expect(
     dialog.getByRole('button', { name: 'Erneut versuchen', exact: true }),
   ).toBeVisible();
-  await expect(page.getByText(/Demo-Token geprüft und verworfen/)).toHaveCount(
-    0,
-  );
+  await expect(page.getByText(/demo-dev simuliert verbunden/)).toHaveCount(0);
 });
 
 test('token preview clears its masked input and never persists user input', async ({
@@ -89,9 +87,7 @@ test('token preview clears its masked input and never persists user input', asyn
   await connect.click();
   // Success closes the dialog by itself.
   await expect(dialog).toHaveCount(0);
-  await expect(
-    page.getByText(/Demo-Token geprüft und verworfen/),
-  ).toBeVisible();
+  await expect(page.getByText(/demo-dev simuliert verbunden/)).toBeVisible();
   expect(
     await page.evaluate(() => JSON.stringify({ ...localStorage })),
   ).not.toContain('demo-token');
@@ -111,9 +107,7 @@ test('confirmation notice centers text, icon and close target at narrow and stan
   await dialog.getByLabel('Beispiel-Token').fill('demo-token');
   await dialog.getByRole('button', { name: 'Verbinden', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(
-    page.getByText(/Demo-Token geprüft und verworfen/),
-  ).toBeVisible();
+  await expect(page.getByText(/demo-dev simuliert verbunden/)).toBeVisible();
   for (const width of [480, 360]) {
     await page.setViewportSize({ width, height: 760 });
     const geometry = await page.locator('.notice-banner').evaluate((banner) => {

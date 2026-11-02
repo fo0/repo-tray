@@ -83,25 +83,16 @@
     changeAccount(account?.id ?? '');
     // A new account shows its newest repositories at once: the overview, set
     // before the dialog closes, so its focus return lands there.
-    if (account && !known.has(account.id)) {
-      view.home();
-      modals.close();
-      panel.showNotice(`Konto ${account.login} verbunden.`);
-    } else {
-      // Success closes the dialog by itself; the notice confirms it.
-      modals.close();
-      if (account) panel.showNotice(`Konto ${account.login} verbunden.`);
-    }
+    if (account && !known.has(account.id)) view.home();
+    // Success closes the dialog by itself; the notice confirms it.
+    modals.close();
+    if (account) panel.showNotice(`Konto ${account.login} verbunden.`);
     void updater.check(true);
   }
-  function connectedDemo(method: 'browser' | 'token') {
+  function connectedDemo() {
     demoAccountConnected = true;
     modals.close();
-    panel.showNotice(
-      method === 'token'
-        ? 'Demo-Token geprüft und verworfen · demo-dev ist nur simuliert verbunden.'
-        : 'Demo-Anmeldung bestätigt · demo-dev ist nur simuliert verbunden.',
-    );
+    panel.showNotice('demo-dev simuliert verbunden.');
     void tick().then(() => appBar?.focusAccount());
   }
 

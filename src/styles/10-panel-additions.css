@@ -30,8 +30,3 @@
 .active-account-settings .account-selection-notice {
   color: var(--wait);
 }
-
-.account-semantics {
-  margin: 12px 0;
-  line-height: 1.6;
-}

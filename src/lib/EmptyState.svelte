@@ -5,10 +5,8 @@
     label: string;
     icon: IconName;
     run: () => void;
-    /** Finds the button again after a page closed (`PanelView.back`). */
-    focusKey?: string;
   }
-  /** The missing setup step every page names alike: account or repositories. */
+  /** The missing setup step every page names alike: connect or pick an account. */
   export interface NextStep {
     title: string;
     text: string;
@@ -43,10 +41,7 @@
     >{:else}<Icon name={icon} size={iconSize} />{/if}
   <h2>{title}</h2>
   <p>{text}</p>
-  {#if action}<button
-      class="text-button"
-      data-focus-key={action.focusKey}
-      onclick={() => action.run()}
+  {#if action}<button class="text-button" onclick={() => action.run()}
       >{action.label}<Icon name={action.icon} size={14} /></button
     >{/if}
 </div>

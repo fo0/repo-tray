@@ -78,9 +78,7 @@ test('the first-launch action opens the connect dialog directly and a first conn
   const empty = page.locator('.empty-state').filter({
     has: page.getByRole('heading', { name: 'Verbinde dein GitHub-Konto' }),
   });
-  await expect(empty).toContainText(
-    'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.',
-  );
+  await expect(empty).toContainText('Per Token oder gh-Anmeldung.');
   await empty
     .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
     .click();

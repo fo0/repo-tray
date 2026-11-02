@@ -62,8 +62,6 @@ function focusBack(
  */
 export class PanelView {
   page = $state<Page>('overview');
-  /** Where `back()` returns: one level, the overview unless a page opened another. */
-  from = $state<Page>('overview');
   filter = $state<ActivityFilter>('all');
   query = $state('');
   /** Element that opened the current page; not reactive, focus only. */
@@ -78,14 +76,10 @@ export class PanelView {
   /** Opens a page and moves focus to its landing: the section's title. */
   open = async (
     page: SubPage,
-    {
-      from = 'overview',
-      opener,
-    }: { from?: Page; opener?: HTMLElement | null } = {},
+    { opener }: { opener?: HTMLElement | null } = {},
   ) => {
     if (this.page !== page) {
       this.#remember(opener);
-      this.from = from === page ? 'overview' : from;
       this.page = page;
     }
     if (!hasDom()) return;
@@ -113,13 +107,12 @@ export class PanelView {
     else void this.open(page);
   };
 
-  /** Leaves the page; false when there is nothing to go back from (Esc chain). */
+  /** Returns to the overview; false when it is already shown (Esc chain). */
   back = () => {
     if (this.page === 'overview') return false;
     const left = this.page;
     const [opener, key] = [this.opener, this.#openerKey];
-    this.page = this.from;
-    this.from = 'overview';
+    this.page = 'overview';
     this.#remember(null);
     if (hasDom()) void tick().then(() => focusBack(opener, key, left));
     return true;
@@ -131,7 +124,6 @@ export class PanelView {
    */
   home = () => {
     this.page = 'overview';
-    this.from = 'overview';
     this.#remember(null);
   };
 
@@ -146,7 +138,6 @@ export class PanelView {
     this.#panel.expandedRun = runId;
     if (this.page !== 'runs') {
       this.#remember(opener);
-      this.from = 'overview';
       this.page = 'runs';
     }
     if (!hasDom()) return;

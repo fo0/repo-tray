@@ -55,7 +55,7 @@ test.beforeEach(async ({ page }) => {
           return structuredClone(snapshot);
         if (cmd === 'check_update') {
           if (state.checkFail)
-            throw 'Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.';
+            throw 'Update-Prüfung fehlgeschlagen – Verbindung prüfen.';
           return state.current
             ? null
             : { version: state.version, notes, date: '2026-11-01T09:05:00Z' };
@@ -77,7 +77,7 @@ test.beforeEach(async ({ page }) => {
           });
           await wait();
           if (state.installFail)
-            throw 'Prüfung fehlgeschlagen: Die Datei passt nicht zum Release. Es wurde nichts installiert.';
+            throw 'Datei passt nicht zum Release – nichts installiert.';
           progress.onmessage({
             downloaded: 0,
             total: null,
@@ -178,7 +178,7 @@ test('a failed install keeps the update and offers „Erneut versuchen“', asyn
   await expect(bar).toBeVisible();
   await expect(bar).not.toHaveAttribute('value');
   await expect(panel.getByRole('alert')).toHaveText(
-    'Prüfung fehlgeschlagen: Die Datei passt nicht zum Release. Es wurde nichts installiert.',
+    'Datei passt nicht zum Release – nichts installiert.',
   );
   await expect(
     panel.getByText(`Version ${VERSION} verfügbar`, { exact: true }),
@@ -220,7 +220,7 @@ test('a failed check shows one alert line and installs nothing', async ({
   await mock.configure({ checkFail: true });
   await panel.getByRole('button', { name: 'Nach Updates suchen' }).click();
   await expect(panel.getByRole('alert')).toHaveText(
-    'Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.',
+    'Update-Prüfung fehlgeschlagen – Verbindung prüfen.',
   );
   await expect(panel.getByRole('button', { name: 'Installieren' })).toHaveCount(
     0,

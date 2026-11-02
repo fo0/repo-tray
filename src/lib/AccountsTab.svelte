@@ -128,7 +128,7 @@
     >
     <button class="reset-button" onclick={() => onReset()} disabled={busy}
       ><Icon name="refresh" size={13} />Demo zurücksetzen<span
-        >Setzt auch Favoriten und Auswahl zurück</span
+        >Setzt auch Favoriten zurück</span
       ></button
     >
   </div>

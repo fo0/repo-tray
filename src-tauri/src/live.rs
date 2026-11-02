@@ -73,7 +73,9 @@ pub fn empty_snapshot() -> Snapshot {
 const CACHE_NOTICE: &str = "Lokaler Zwischenspeicher konnte nicht aktualisiert werden.";
 const ACCOUNT_SAVE_FAILED: &str =
     "Konto konnte nicht lokal gespeichert werden. Es wurde nichts verbunden; versuche es erneut.";
-const BROWSER_SETUP_NOTICE: &str = "GitHub-Konto verbunden. Richte in den Einstellungen die App-Installation und Repository-Freigabe ein; Organisationsfreigabe oder SSO können erforderlich sein.";
+/// The controls it names sit at the end of the Repositories page (`ReposPage.svelte`).
+const BROWSER_SETUP_NOTICE: &str =
+    "Keine Repositories freigegeben – unter Repositories die Freigabe auf GitHub ändern.";
 
 const PIN_CREDENTIAL_REFUSED: &str =
     "Namen oder Werte, die wie Zugangsdaten aussehen, werden nicht gespeichert.";

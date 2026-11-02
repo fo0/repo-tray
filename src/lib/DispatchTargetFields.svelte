@@ -38,7 +38,7 @@
     value={repoId}
     onchange={(event) => onRepo(event.currentTarget.value)}
     {disabled}
-    >{#if !repos.length}<option value="">Keine Repositories ausgewählt</option
+    >{#if !repos.length}<option value="">Keine Repositories</option
       >{/if}{#each repos as repo (repo.id)}<option value={repo.id}
         >{fullRepo(repo)} · {accountName(repo.accountId)}</option
       >{/each}</select

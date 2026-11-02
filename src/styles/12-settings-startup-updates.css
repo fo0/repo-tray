@@ -47,16 +47,10 @@
   line-height: 1.6;
   margin: 14px 0;
 }
-.startup-saved {
-  color: var(--ok);
-}
 .startup-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-.startup-help {
-  margin-top: 20px;
 }
 .settings-tabs button {
   flex: 1;
@@ -205,7 +199,4 @@
   margin: 0;
   flex-shrink: 0;
   accent-color: var(--accent);
-}
-.theme-setting .theme-help {
-  margin-top: 10px;
 }

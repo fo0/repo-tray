@@ -36,7 +36,7 @@
     uncertainStarts.some((start) => start.accountId === account.id);
   /** One sentence: what the vault and cache delete, and a released lock. */
   const consequence = (account: Account) =>
-    `Zugang, Repository-Auswahl und Favoriten werden gelöscht${imported(account) ? ', gh bleibt angemeldet' : ''}${locked(account) ? ';' : '.'}`;
+    `Zugang und Favoriten werden gelöscht${imported(account) ? ', gh bleibt angemeldet' : ''}${locked(account) ? ';' : '.'}`;
 
   /** Focuses the checked account, else the first one. */
   export function focusChoice() {

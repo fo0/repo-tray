@@ -76,7 +76,7 @@
     icon="search"
     iconSize={25}
     title="Keine Treffer"
-    text="Keine laufenden Runs, Favoriten oder Repositories passen. Versuche einen anderen Suchbegriff."
+    text="Versuche einen anderen Suchbegriff."
     action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
   />
 {:else}
@@ -121,9 +121,7 @@
         onRemove={panel.favorites.remove}
         onLaunch={modals.launchPin}
       />{:else}<p class="section-empty">
-        {searching
-          ? 'Keine passenden Favoriten.'
-          : 'Noch keine Favoriten. Speichere Workflows mit dem Herz.'}
+        {searching ? 'Keine passenden Favoriten.' : 'Noch keine Favoriten.'}
       </p>{/if}
     {@render more('favorites', pins.length - shownPins.length, 'Favoriten')}
   </section>

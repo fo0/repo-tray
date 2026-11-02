@@ -129,7 +129,7 @@ test('disconnect sits in the account card and asks first; Abbrechen keeps everyt
   });
   // One sentence: what goes.
   await expect(confirm).toHaveAccessibleDescription(
-    'Zugang, Repository-Auswahl und Favoriten werden gelöscht.',
+    'Zugang und Favoriten werden gelöscht.',
   );
   // A token connection has no gh CLI access to reassure about.
   await expect(confirm).not.toContainText('gh bleibt angemeldet');
@@ -171,7 +171,7 @@ test('an imported gh account confirms that the gh CLI stays untouched and focus 
     exact: true,
   });
   await expect(confirm).toHaveAccessibleDescription(
-    'Zugang, Repository-Auswahl und Favoriten werden gelöscht, gh bleibt angemeldet.',
+    'Zugang und Favoriten werden gelöscht, gh bleibt angemeldet.',
   );
   await confirm.getByRole('button', { name: 'Trennen', exact: true }).click();
   await expect(gh).toHaveCount(0);
@@ -253,7 +253,7 @@ test('an account with locked starts warns that disconnecting releases the lock',
   });
   // Still one sentence, its second half the released lock.
   await expect(confirm).toHaveAccessibleDescription(
-    'Zugang, Repository-Auswahl und Favoriten werden gelöscht, gh bleibt angemeldet; ungeklärte Starts sind danach nicht mehr gesperrt.',
+    'Zugang und Favoriten werden gelöscht, gh bleibt angemeldet; ungeklärte Starts sind danach nicht mehr gesperrt.',
   );
   await confirm.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   // The other connection of the same user has no locked start.

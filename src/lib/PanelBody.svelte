@@ -73,16 +73,12 @@
     return hasAccounts
       ? {
           title: 'Wähle ein aktives Konto',
-          text:
-            panel.accountNotice ||
-            'Wähle im Kontomenü oben, welches Konto RepoTray anzeigt.',
+          text: panel.accountNotice || 'Im Kontomenü oben.',
           action: { label: 'Konto wählen', icon: 'down', run: onNextStep },
         }
       : {
           title: 'Verbinde dein GitHub-Konto',
-          text:
-            panel.accountNotice ||
-            'Verbinde dein GitHub-Konto mit einem Token oder übernimm deine gh-Anmeldung.',
+          text: panel.accountNotice || 'Per Token oder gh-Anmeldung.',
           action: {
             label: 'GitHub-Konto verbinden',
             icon: 'plus',

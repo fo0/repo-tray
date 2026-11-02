@@ -23,8 +23,8 @@ pub const LATEST_RELEASE_API: &str = "https://api.github.com/repos/fo0/repo-tray
 const MAX_RELEASE_BYTES: usize = 1024 * 1024;
 const MAX_NOTES_CHARS: usize = 4000;
 const MAX_VERSION_CHARS: usize = 48;
-const CHECK_FAILED: &str =
-    "Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.";
+/// Shown for a failed check, here and by the desktop shell.
+pub const CHECK_FAILED: &str = "Update-Prüfung fehlgeschlagen – Verbindung prüfen.";
 const RATE_LIMITED: &str = "GitHub begrenzt gerade die Update-Prüfung. Versuche es später erneut.";
 const INVALID_RELEASE: &str = "Die Angaben zur neuesten Version konnten nicht gelesen werden.";
 const NO_INSTALLER: &str = "Für diese Version fehlt ein prüfbarer Windows-Installer.";

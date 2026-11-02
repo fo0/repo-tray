@@ -9,7 +9,7 @@
     onConnected,
     onClose,
   }: {
-    onConnected: (method: 'browser' | 'token') => void;
+    onConnected: () => void;
     onClose: () => void;
   } = $props();
   let step = $state<'choose' | 'token' | 'checking' | 'cancelled'>('choose');
@@ -45,7 +45,7 @@
     step = 'checking';
     const ticket = generation;
     timer = setTimeout(() => {
-      if (ticket === generation && step === 'checking') onConnected('token');
+      if (ticket === generation && step === 'checking') onConnected();
     }, 400);
   }
   function back() {
@@ -126,11 +126,6 @@
     <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
       {step === 'checking' ? 'Wird geprüft …' : 'Anmeldung abgebrochen'}
     </h3>
-    <p class="step-line">
-      {step === 'checking'
-        ? 'Nur lokal, ohne GitHub-Zugriff.'
-        : 'Eine späte Antwort wird verworfen.'}
-    </p>
   </div>
   <div class="modal-actions">
     <button

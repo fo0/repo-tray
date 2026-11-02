@@ -13,7 +13,6 @@ describe('PanelView', () => {
   it('starts on the overview with an unfiltered, empty search', () => {
     const { view } = setup();
     expect(view.page).toBe('overview');
-    expect(view.from).toBe('overview');
     expect(view.filter).toBe('all');
     expect(view.query).toBe('');
     expect(view.back()).toBe(false);
@@ -23,7 +22,6 @@ describe('PanelView', () => {
     const { view } = setup();
     await view.open('favorites');
     expect(view.page).toBe('favorites');
-    expect(view.from).toBe('overview');
     expect(view.back()).toBe(true);
     expect(view.page).toBe('overview');
     expect(view.back()).toBe(false);
@@ -49,26 +47,20 @@ describe('PanelView', () => {
     expect(view.page).toBe('overview');
   });
 
-  it('returns one level to the page it was opened from', async () => {
+  it('returns to the overview from a page opened on another page', async () => {
     const { view } = setup();
     await view.open('repos');
-    await view.open('favorites', { from: 'repos' });
-    expect(view.back()).toBe(true);
-    expect(view.page).toBe('repos');
+    await view.open('favorites');
     expect(view.back()).toBe(true);
     expect(view.page).toBe('overview');
-    // A page never returns to itself.
-    await view.open('runs', { from: 'runs' });
-    expect(view.from).toBe('overview');
+    expect(view.back()).toBe(false);
   });
 
-  it('goes home to the overview from any page, forgetting the way back', async () => {
+  it('goes home to the overview from any page, forgetting the opener', async () => {
     const { view } = setup();
-    await view.open('repos');
-    await view.open('favorites', { from: 'repos', opener: {} as HTMLElement });
+    await view.open('favorites', { opener: {} as HTMLElement });
     view.home();
     expect(view.page).toBe('overview');
-    expect(view.from).toBe('overview');
     expect(view.opener).toBeNull();
     expect(view.back()).toBe(false);
   });

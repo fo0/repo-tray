@@ -2,7 +2,7 @@
 //! the release's NSIS EXE after verifying its published size and SHA-256; builds with a
 //! compiled-in updater key install Tauri-signed packages instead. Either way one
 //! `install_update` call downloads, verifies and starts the installer, then RepoTray exits.
-use repotray_core::updates::{self, installer, Installer, UpdateInfo};
+use repotray_core::updates::{self, installer, Installer, UpdateInfo, CHECK_FAILED};
 use serde::Serialize;
 use std::{
     process::{Command, Stdio},
@@ -67,9 +67,8 @@ impl DownloadProgress {
     }
 }
 
-const CHECK_FAILED: &str =
-    "Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.";
 const SERVICE_UNAVAILABLE: &str = "Update-Dienst nicht verfügbar.";
+const START_FAILED: &str = "Installation konnte nicht gestartet werden.";
 
 fn supported() -> Result<(), String> {
     if cfg!(all(windows, target_arch = "x86_64")) {
@@ -140,7 +139,7 @@ async fn check_signed(
         env!("CARGO_PKG_VERSION"),
     )?;
     if update.signature.trim().is_empty() {
-        return Err("Für dieses Update fehlt die Signatur. Es wird nicht installiert.".into());
+        return Err("Signatur fehlt – Update wird nicht installiert.".into());
     }
     update.timeout = Some(Duration::from_secs(300));
     let info = UpdateInfo {
@@ -204,12 +203,10 @@ async fn install_release(
             .stderr(Stdio::null())
             .spawn()
             .map(drop)
-            .map_err(|_| {
-                "Installation konnte nicht gestartet werden. Versuche es erneut.".to_string()
-            })
+            .map_err(|_| START_FAILED.to_string())
     })
     .await
-    .map_err(|_| "Installation konnte nicht gestartet werden.".to_string())??;
+    .map_err(|_| START_FAILED.to_string())??;
     // Nothing prevents `ExitRequested`, so this ends the process and frees the EXE; the
     // passive installer would otherwise close the running app itself.
     app.exit(0);
@@ -242,13 +239,13 @@ async fn install_signed(
         )
         .await
         .map_err(|_| {
-            "Download oder Signaturprüfung fehlgeschlagen. Es wurde nichts installiert.".to_string()
+            "Download oder Signaturprüfung fehlgeschlagen – nichts installiert.".to_string()
         })?;
     // download() verifies the complete package before returning installable bytes.
     let _ = on_progress.send(DownloadProgress::stage("installing"));
     // On Windows the plugin starts the installer and exits the process itself.
     tauri::async_runtime::spawn_blocking(move || update.install(bytes))
         .await
-        .map_err(|_| "Installation konnte nicht gestartet werden.")?
-        .map_err(|_| "Installation konnte nicht gestartet werden. Versuche es erneut.".to_string())
+        .map_err(|_| START_FAILED)?
+        .map_err(|_| START_FAILED.to_string())
 }
