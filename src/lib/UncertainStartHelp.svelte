@@ -127,7 +127,7 @@
   }}
   onclick={toggle}
 >
-  <Icon name="warning" size={12} /><span>Startstatus ungeklärt</span>
+  <Icon name="warning" size={13} />
 </button>
 <div
   class="uncertain-start-tip"
@@ -147,9 +147,8 @@
     Ein erneuter Start für diesen Workflow und Branch bleibt gesperrt.
   </p>
   <p>
-    {quickStart
-      ? 'Wähle das Zahnrad „Starten…“, dann „Status prüfen“ oder nach der Prüfung auf GitHub „Sperre aufheben…“.'
-      : 'Wähle „Starten…“, dann „Status prüfen“ oder nach der Prüfung auf GitHub „Sperre aufheben…“.'}
+    Wähle den Favoriten, dann „Status prüfen“ oder nach der Prüfung auf GitHub
+    „Sperre aufheben…“.
   </p>
   <p class="tip-mode">
     Favorit: {quickStart ? 'Schnellstart aktiviert' : 'mit Bestätigung'}. {demo
@@ -159,32 +158,18 @@
 </div>
 
 <style>
+  /* The marker alone; its name and the tooltip say what it means. */
   .uncertain-start {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 24px;
-    max-width: 100%;
-    min-width: 0;
-    margin: -5px 0;
-    padding: 5px 0;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     border: 0;
+    border-radius: 6px;
     background: transparent;
     color: var(--wait);
-    font: inherit;
-    font-size: var(--font-size-meta);
-    line-height: 14px;
-    text-align: left;
     cursor: help;
-  }
-  .uncertain-start > span {
-    overflow-wrap: anywhere;
-  }
-  .uncertain-start :global(svg) {
-    flex-shrink: 0;
-  }
-  .uncertain-start:hover {
-    text-decoration: underline;
   }
   .uncertain-start:focus-visible {
     outline: 2px solid var(--wait);

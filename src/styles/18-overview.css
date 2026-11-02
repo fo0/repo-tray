@@ -67,7 +67,7 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--run) 22%, transparent);
 }
 
-/* „+ Hinzufügen“ and „Workflow starten …“: a soft accent pill. */
+/* „Workflow starten …“: a soft accent pill. */
 .add-button {
   display: inline-flex;
   align-items: center;
@@ -151,12 +151,20 @@
   white-space: nowrap;
   font-size: 13.5px;
 }
+/* The repository leads in bold; workflow and run number follow, smaller and
+   dimmed, and are cut first when the line runs short. */
 .live-title strong {
   font-weight: 620;
 }
-.live-repo {
+.live-workflow {
+  margin-left: 4px;
+  color: var(--text-2);
+  font-size: var(--font-size-meta);
+}
+.live-number {
   margin-left: 4px;
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .live-elapsed {
   flex-shrink: 0;
@@ -166,8 +174,8 @@
   white-space: nowrap;
 }
 
-/* Header of a maximized page: the way back, the title, page actions. It sits
-   above the scrolling body, so it stays in reach on long lists. */
+/* Header of a maximized section: it sits above the scrolling body, so the
+   minimize button stays in reach on long lists. */
 .page-header {
   display: flex;
   align-items: center;
@@ -178,20 +186,6 @@
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
-.page-back {
-  color: var(--text-2);
-}
-.page-title {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 16px;
-  font-weight: 650;
-  color: var(--text);
-}
 .page-title:focus {
   outline: none;
 }
@@ -200,13 +194,30 @@
   outline-offset: 2px;
   border-radius: 4px;
 }
-.page-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+/* A maximized section: the header keeps the content's inset, so its
+   minimize button sits exactly where the section's maximize button sits.
+   Both reserve the same thin scrollbar's gutter, so a scrollbar in the
+   body never moves one of them. */
+.page-header.maximized {
+  padding: 4px 18px;
+  overflow: hidden;
+  scrollbar-width: thin;
 }
-.page-body > .pin-list,
+.page-header.maximized,
+.content {
+  scrollbar-gutter: stable;
+}
+.page-header.maximized > .section-header {
+  flex: 1;
+  min-width: 0;
+  margin: 0 2px;
+}
+@media (max-width: 370px) {
+  .page-header.maximized {
+    padding-inline: 11px;
+  }
+}
+.page-body > .pin-rows,
 .page-body > .empty-pins,
 .page-body > .repository-list {
   margin-top: 12px;

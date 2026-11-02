@@ -2,7 +2,14 @@
   import Icon from './Icon.svelte';
   import RunLink, { copyLink } from './RunLink.svelte';
   import { clockTime, runDuration, runMoment } from './format';
-  import { isActive, runTone, statusLabel, TONE_ICON } from './runs';
+  import {
+    isActive,
+    runLabel,
+    runTone,
+    shortRepo,
+    statusLabel,
+    TONE_ICON,
+  } from './runs';
   import { safeGitHubUrl } from './safeGitHubUrl';
   import type { NoticeTone } from './StatusBanners.svelte';
   import type { Run } from './types';
@@ -60,7 +67,7 @@
   <button
     class="run-button"
     aria-expanded={expanded}
-    aria-label={`${run.name} #${run.id} · ${repo} · ${statusLabel(run)} · ${moment.spoken}`}
+    aria-label={`${runLabel(run, repo)} · ${statusLabel(run)} · ${moment.spoken}`}
     onclick={() => onToggle()}
   >
     <!-- A running run turns a spinner, or shows the still icon when reduced
@@ -72,13 +79,14 @@
           class="tile-spinner"
         />{/if}<Icon name={TONE_ICON[tone]} size={15} /></span
     >
+    <!-- The repository leads, since every repository may name its workflow
+         „Release“; workflow and run number open the meta line. -->
     <span class="run-body"
-      ><span class="run-name"
-        >{run.name}<span class="run-number">#{run.id}</span></span
-      ><span class="run-meta"
-        ><span class="run-repo" title={repo}>{repo.split('/').pop()}</span><span
-          class="branch-chip"
-          title={run.branch}
+      ><span class="run-repo" title={repo}>{shortRepo(repo)}</span><span
+        class="run-meta"
+        ><span class="run-workflow" title={run.name}
+          >{run.name}<span class="run-number">#{run.id}</span></span
+        ><span class="branch-chip" title={run.branch}
           ><Icon name="branch" size={11} /><span>{run.branch}</span></span
         >{#if !open}<span class="run-took"
             ><span class="meta-dot" aria-hidden="true">·</span><span

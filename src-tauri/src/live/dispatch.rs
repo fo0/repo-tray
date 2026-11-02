@@ -55,7 +55,7 @@ impl<T: Transport> LiveStore<T> {
                 .find(|r| {
                     r.id == request.repo_id && r.account_id == request.account_id && r.selected
                 })
-                .ok_or("Repository nicht ausgewählt.")?
+                .ok_or("Repository nicht im Tray.")?
                 .clone();
             if repo.permission != Permission::Write {
                 return Err("Repository hat keinen Schreibzugriff.".into());

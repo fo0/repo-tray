@@ -4,6 +4,7 @@ import {
   expectPage,
   openPage,
   settleTransitions,
+  templateCard,
 } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
@@ -15,7 +16,8 @@ test('repository disclosures show actions and both row and start button open the
   page,
 }) => {
   const repos = page.locator('.repository-card');
-  await expect(repos).toHaveCount(3);
+  // The overview shows the 10 most active of the demo's 12 repositories.
+  await expect(repos).toHaveCount(10);
   await expect(repos.first()).toContainText('demo-dev/launch-kit-demo');
   const repo = repos.first();
   const toggle = repo.locator('.repository-toggle');
@@ -91,7 +93,7 @@ test('heart favorites persist and remain scoped to their original account', asyn
   });
   await expect(
     pinned.getByRole('button', {
-      name: 'Favorit Runner health starten…',
+      name: 'runner-tools-demo · Runner health starten…',
       exact: true,
     }),
   ).toBeVisible();
@@ -117,17 +119,12 @@ test('heart favorites persist and remain scoped to their original account', asyn
     }),
   ).toHaveAttribute('aria-pressed', 'true');
   await openPage(page, 'favorites');
+  // The account is named in the row's tooltip.
   await expect(
-    page.locator('.pin-card').filter({
-      has: page.getByRole('heading', { name: 'Runner health', exact: true }),
-    }),
-  ).toContainText('team-demo');
+    templateCard(page, 'Runner health').locator('.pin-open'),
+  ).toHaveAttribute('title', /· team-demo$/);
   await chooseAccount(page, 'demo-dev');
-  await expect(
-    page.locator('.pin-card').filter({
-      has: page.getByRole('heading', { name: 'Runner health', exact: true }),
-    }),
-  ).toHaveCount(0);
+  await expect(templateCard(page, 'Runner health')).toHaveCount(0);
   await chooseAccount(page, 'team-demo');
   await openPage(page, 'overview');
   await repo.locator('.repository-toggle').click();
@@ -143,7 +140,7 @@ test('heart favorites persist and remain scoped to their original account', asyn
       exact: true,
     }),
   ).toHaveAttribute('aria-pressed', 'false');
-  await expect(pinned.locator('.tile')).toHaveCount(0);
+  await expect(pinned.locator('.pin-row')).toHaveCount(0);
 });
 
 test('pinned favorites open the stored configuration and unpin from both views', async ({
@@ -155,7 +152,7 @@ test('pinned favorites open the stored configuration and unpin from both views',
   });
   await pinned
     .getByRole('button', {
-      name: 'Favorit Windows build starten…',
+      name: 'launch-kit-demo · Windows build starten…',
       exact: true,
     })
     .click();
@@ -167,12 +164,12 @@ test('pinned favorites open the stored configuration and unpin from both views',
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await pinned
     .getByRole('button', {
-      name: 'Favorit Windows build entfernen',
+      name: 'launch-kit-demo · Windows build aus Favoriten entfernen',
       exact: true,
     })
     .click();
   // The section stays, with its maximize button and a hint instead of rows.
-  await expect(pinned.locator('.tile')).toHaveCount(0);
+  await expect(pinned.locator('.pin-row')).toHaveCount(0);
   await expect(pinned).toContainText('Noch keine Favoriten.');
   await page.locator('.repository-toggle').first().click();
   await expect(
@@ -182,10 +179,10 @@ test('pinned favorites open the stored configuration and unpin from both views',
     }),
   ).toHaveAttribute('aria-pressed', 'false');
   await openPage(page, 'favorites');
-  await expect(page.locator('.pin-card')).toHaveCount(0);
+  await expect(page.locator('.pin-row')).toHaveCount(0);
   await page.reload();
   await expect(pinned).toContainText('Noch keine Favoriten.');
-  await expect(pinned.locator('.tile')).toHaveCount(0);
+  await expect(pinned.locator('.pin-row')).toHaveCount(0);
   await openPage(page, 'runs');
   await expect(page.getByText('#9001', { exact: true })).toHaveCount(0);
 });
@@ -260,7 +257,7 @@ for (const width of [360, 480]) {
         overflow: document.documentElement.scrollWidth > innerWidth,
         repoHeight: box(document.querySelector('.repository-toggle')!).height,
         actionHeight: box(document.querySelector('.repository-action')!).height,
-        tile: box(document.querySelector('.tile')!),
+        favorite: box(document.querySelector('.pin-row')!),
         // Every row: text, strip, „⋯“ menu, chevron last.
         strips: [...document.querySelectorAll('.repository-toggle')].map(
           (row) => ({
@@ -273,7 +270,7 @@ for (const width of [360, 480]) {
         ),
         buttons: [
           ...document.querySelectorAll(
-            '.repository-action button, .tile button',
+            '.repository-action button, .pin-row button',
           ),
         ]
           .filter((el) => el.getBoundingClientRect().height > 0)
@@ -283,11 +280,11 @@ for (const width of [360, 480]) {
     expect(layout.overflow).toBe(false);
     expect(layout.repoHeight).toBeLessThanOrEqual(50);
     expect(layout.actionHeight).toBeLessThanOrEqual(38);
-    // Two tiles per row, each inside the panel.
-    expect(layout.tile.width).toBeLessThan(width / 2);
-    expect(layout.tile.width).toBeGreaterThanOrEqual(150);
-    expect(layout.tile.right).toBeLessThanOrEqual(width);
-    expect(layout.strips).toHaveLength(3);
+    // A favorite is one compact row across the section, inside the panel.
+    expect(layout.favorite.width).toBeGreaterThan(width * 0.8);
+    expect(layout.favorite.height).toBeLessThanOrEqual(36);
+    expect(layout.favorite.right).toBeLessThanOrEqual(width);
+    expect(layout.strips).toHaveLength(10);
     for (const { row, copy, strip, menu, chevron } of layout.strips) {
       expect(strip.width).toBeGreaterThan(0);
       expect(strip.left).toBeGreaterThanOrEqual(copy.right);

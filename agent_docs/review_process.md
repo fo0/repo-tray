@@ -183,7 +183,20 @@ Rules:
 
 ## UI Review (only when UI code changed)
 
-Three axes, in this priority order: **accessibility** → **responsiveness** → **consistency with the project's existing patterns**. Apply current standards for each; findings take the severity the definitions above give them (an unreachable control is a bug, not a nit).
+**First the owner UX rules** (`agent_docs/ux_rules.md`, binding) — check every changed screen against each item; a violation is at least P1:
+
+- [ ] Compact: single-line rows, no new cards, decorative headings, badges or step lists
+- [ ] Text: labels only, at most one short help line per form, no paragraph, nothing that narrates the obvious; details in tooltips
+- [ ] Identity: repository name first, workflow or favorite name second
+- [ ] Nothing configured by hand that the app can infer; repositories stay automatic
+- [ ] Settings staged behind „Speichern“ / „Abbrechen“; one primary action bottom right per form; a finished flow closes or returns by itself
+- [ ] Success notices close after 3 s; only warnings and errors persist
+- [ ] Toggles keep their spot (maximize ↔ minimize)
+- [ ] Updates install in the app; no web page as the update path
+- [ ] Screenshots or previews come from the exact build being delivered, never a mock-up
+- [ ] A doc or ADR that contradicts the change is superseded in the same change
+
+**Then three axes:** **accessibility** (names, keyboard, focus, contrast — added invisibly, never as visible prose) → **responsiveness** (360–480 px) → **consistency with existing patterns that comply with the owner UX rules** (a pattern that violates them is no precedent). Findings take the severity the definitions above give them (an unreachable control is a bug, not a nit).
 
 ## Subagent Delegation
 

@@ -1,29 +1,29 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
-  import Icon from './Icon.svelte';
-  import BrowserSignInUnavailable from './BrowserSignInUnavailable.svelte';
+  import ConnectMethods, { type ConnectMethod } from './ConnectMethods.svelte';
   import TokenPermissions from './TokenPermissions.svelte';
 
+  // Browser demo: the same steps as the desktop app, with an example token
+  // that is checked locally and never stored.
   let {
     onConnected,
     onClose,
-    onSettings,
   }: {
-    onConnected: (method: 'browser' | 'token') => void;
+    onConnected: () => void;
     onClose: () => void;
-    onSettings: () => void;
   } = $props();
-  let step = $state<'intro' | 'checking' | 'cancelled'>('intro');
+  let step = $state<'choose' | 'token' | 'checking' | 'cancelled'>('choose');
+  let method = $state<ConnectMethod>('token');
   let tokenError = $state('');
   let tokenInput = $state<HTMLInputElement>();
-  let stepHeading = $state<HTMLHeadingElement>();
+  let heading = $state<HTMLHeadingElement>();
   let hasToken = $state(false);
   let generation = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const current = step;
     void tick().then(() => {
-      if (step === current) stepHeading?.focus();
+      if (step === current) heading?.focus();
     });
   });
   function stop() {
@@ -32,13 +32,12 @@
   }
   function submitExampleToken(event: SubmitEvent) {
     event.preventDefault();
-    if (step !== 'intro' || !hasToken) return;
+    if (step !== 'token' || !hasToken) return;
     const isExample = tokenInput?.value === 'demo-token';
     if (tokenInput) tokenInput.value = '';
     hasToken = false;
     if (!isExample) {
-      tokenError =
-        'Hier funktioniert nur der Beispielwert „demo-token“. Es wurde nichts gespeichert.';
+      tokenError = 'Nur „demo-token“ funktioniert hier. Nichts gespeichert.';
       return;
     }
     tokenError = '';
@@ -46,8 +45,13 @@
     step = 'checking';
     const ticket = generation;
     timer = setTimeout(() => {
-      if (ticket === generation && step === 'checking') onConnected('token');
+      if (ticket === generation && step === 'checking') onConnected();
     }, 400);
+  }
+  function back() {
+    tokenError = '';
+    hasToken = false;
+    step = 'choose';
   }
   function cancel() {
     stop();
@@ -59,83 +63,84 @@
   });
 </script>
 
-<div class="modal-body connect-body auth-preview">
-  {#if step === 'intro'}
-    <div class="auth-symbol"><Icon name="github" size={28} /></div>
-    <h3 tabindex="-1" bind:this={stepHeading}>Dein GitHub-Konto verbinden</h3>
-    <BrowserSignInUnavailable demo />
-    <p class="auth-disclosure">
-      Diese Vorschau verwendet lokale Demo-Konten. Echte Anmeldungen erfolgen
-      nur in der Desktop-App.
-    </p>
-    <details class="token-path">
-      <summary
-        >Alternativ: Token hinterlegen<Icon name="down" size={13} /></summary
-      >
-      <form onsubmit={submitExampleToken}>
-        <p>
-          Im normalen Betrieb wird der Token nach der Prüfung sicher im
-          Betriebssystem-Tresor gespeichert.
-        </p>
-        <TokenPermissions />
-        <label class="field"
-          ><span>Beispiel-Token</span><input
-            type="password"
-            aria-label="Beispiel-Token"
-            bind:this={tokenInput}
-            autocomplete="off"
-            spellcheck="false"
-            maxlength="4096"
-            placeholder="demo-token"
-            oninput={(event) =>
-              (hasToken = event.currentTarget.value.trim().length > 0)}
-          /></label
-        >
-        <p class="field-help">
-          Nur <code>demo-token</code> verwenden. Echte Tokens werden hier weder benötigt
-          noch gespeichert.
-        </p>
-        {#if tokenError}<div class="alert warning" role="alert">
-            {tokenError}
-          </div>{/if}
-        <button type="submit" class="secondary-button" disabled={!hasToken}
-          >Token prüfen und verbinden</button
-        >
-      </form>
-    </details>
-  {:else if step === 'checking'}
-    <div class="auth-symbol"><Icon name="refresh" size={27} /></div>
-    <h3 tabindex="-1" bind:this={stepHeading}>Anmeldung wird bestätigt …</h3>
-    <p>
-      Das Beispielkonto wird lokal geprüft. Es findet kein GitHub-Zugriff statt.
-    </p>
-  {:else}
-    <div class="auth-symbol"><Icon name="warning" size={28} /></div>
-    <h3 tabindex="-1" bind:this={stepHeading}>Anmeldung abgebrochen</h3>
-    <p>
-      Der Anmeldeversuch wurde beendet. Eine spätere Antwort kann ihn nicht
-      wieder aktivieren.
-    </p>
-    <button
-      class="primary-button full-width"
-      onclick={() => {
-        step = 'intro';
-        tokenError = '';
-      }}>Erneut versuchen<Icon name="refresh" size={15} /></button
+{#if step === 'choose'}
+  <div class="modal-body connect-step">
+    <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
+      Anmeldeart wählen
+    </h3>
+    <ConnectMethods
+      bind:value={method}
+      localDisabled
+      localHint="Nur in der Desktop-App"
+    />
+  </div>
+  <div class="modal-actions">
+    <button type="button" class="secondary-button" onclick={onClose}
+      >Abbrechen</button
     >
-  {/if}
-</div>
-<div class="modal-actions">
-  <button
-    class="secondary-button"
-    onclick={() => (step === 'checking' ? cancel() : onClose())}
-    >{step === 'checking'
-      ? 'Anmeldung abbrechen'
-      : step === 'intro'
-        ? 'Abbrechen'
-        : 'Schließen'}</button
-  >
-  <button class="text-button" onclick={onSettings}
-    >Einstellungen<Icon name="arrow" size={14} /></button
-  >
-</div>
+    <button
+      type="button"
+      class="primary-button"
+      onclick={() => (step = 'token')}>Weiter</button
+    >
+  </div>
+{:else if step === 'token'}
+  <form onsubmit={submitExampleToken}>
+    <div class="modal-body connect-step">
+      <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
+        Mit Token verbinden
+      </h3>
+      <label class="field"
+        ><span>Beispiel-Token</span><input
+          type="password"
+          aria-label="Beispiel-Token"
+          aria-describedby="token-permissions"
+          bind:this={tokenInput}
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="4096"
+          placeholder="demo-token"
+          oninput={(event) =>
+            (hasToken = event.currentTarget.value.trim().length > 0)}
+        /></label
+      >
+      <TokenPermissions />
+      {#if tokenError}<div class="alert warning" role="alert">
+          {tokenError}
+        </div>{/if}
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="secondary-button" onclick={back}
+        >Zurück</button
+      >
+      <button
+        type="submit"
+        class="primary-button"
+        aria-disabled={hasToken ? undefined : 'true'}
+        title={hasToken ? undefined : 'Token eingeben'}>Verbinden</button
+      >
+    </div>
+  </form>
+{:else}
+  <div class="modal-body connect-step">
+    <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
+      {step === 'checking' ? 'Wird geprüft …' : 'Anmeldung abgebrochen'}
+    </h3>
+  </div>
+  <div class="modal-actions">
+    <button
+      type="button"
+      class="secondary-button"
+      onclick={() => (step === 'checking' ? cancel() : onClose())}
+      >Abbrechen</button
+    >
+    <button
+      type="button"
+      class="primary-button"
+      aria-disabled={step === 'checking' ? 'true' : undefined}
+      onclick={() => {
+        if (step === 'cancelled') step = 'token';
+      }}>{step === 'checking' ? 'Wird geprüft …' : 'Erneut versuchen'}</button
+    >
+  </div>
+{/if}

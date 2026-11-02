@@ -66,6 +66,18 @@ export function historyRuns(
   );
 }
 
+/** A repository's name without its owner, as run rows show it. */
+export const shortRepo = (repo: string) =>
+  repo.slice(repo.lastIndexOf('/') + 1);
+
+/**
+ * How a run row is named, repository first: every repository may call its
+ * workflow „Release“, so the repository tells the rows apart, e.g.
+ * `example-org/runner-tools-demo · Runner health #8403`.
+ */
+export const runLabel = (run: Run, repo: string) =>
+  `${repo} · ${run.name} #${run.id}`;
+
 export function statusLabel(run: Run): string {
   if (run.status === 'in_progress') return 'Läuft';
   if (run.status === 'queued') return 'In Warteschlange';

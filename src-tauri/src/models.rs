@@ -41,6 +41,9 @@ pub struct Repo {
     pub owner: String,
     pub name: String,
     pub default_branch: String,
+    /// GitHub's last push (RFC 3339); ranks the automatic selection. Older cache rows lack it.
+    #[serde(default)]
+    pub pushed_at: Option<String>,
     pub selected: bool,
     pub permission: Permission,
 }

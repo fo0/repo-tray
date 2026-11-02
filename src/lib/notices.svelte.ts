@@ -3,7 +3,7 @@ import type { NoticeTone } from './StatusBanners.svelte';
 /** Key of the one general panel notice (refresh, settings, links). */
 export const PANEL_NOTICE = 'panel';
 /** Subtle success notices close on their own after this many milliseconds. */
-export const SUCCESS_TIMEOUT = 6000;
+export const SUCCESS_TIMEOUT = 3000;
 const LIMIT = 4;
 
 export interface Notice {
@@ -22,8 +22,9 @@ export interface Notice {
   /** One follow-up action, e.g. „Rückgängig“. */
   action?: { label: string; run: () => void };
   /**
-   * Closes after this many milliseconds while neither hovered nor focused;
-   * subtle notices default to `SUCCESS_TIMEOUT`. Warnings and errors stay.
+   * Closes after this many milliseconds; subtle notices default to
+   * `SUCCESS_TIMEOUT`. Only a notice with an action waits while hovered or
+   * focused. Warnings and errors stay until they are closed.
    */
   timeout?: number | undefined;
 }

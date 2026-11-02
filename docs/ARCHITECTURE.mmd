@@ -5,12 +5,12 @@ flowchart TD
         StartsTs["starts.svelte.ts per-target starts"]
         NoticesTs["notices.svelte.ts banner notices"]
         FavoritesTs["favorites.svelte.ts hearts and undo"]
-        RepoSelectionTs["repoSelection.svelte.ts tray repositories and undo"]
         ModalsTs["modals.svelte.ts dialog and focus return"]
         ViewTs["view.svelte.ts page, search and way back"]
         DispatchFormTs["dispatchForm.svelte.ts start form state"]
         UpdaterTs["updater.svelte.ts and updates.ts"]
-        Components["lib Svelte components: overview, section pages, repository picker, dialogs"]
+        AutostartTs["autostart.svelte.ts staged autostart"]
+        Components["lib Svelte components: overview, section pages, dialogs"]
         FocusTs["focus.ts focus trap and landing"]
         Styles["src/styles ordered CSS, dark and light tokens"]
         ThemeTs["theme.ts theme preference"]
@@ -20,6 +20,7 @@ flowchart TD
         ShortcutsTs["shortcuts.ts keyboard shortcuts"]
         SafeUrlTs["safeGitHubUrl.ts run link check"]
         DemoTs["demo.ts browser demo"]
+        AutoReposTs["autoRepos.ts demo copy of the repository rule"]
         ModelTs["model.ts and types.ts contract"]
         AccountSel["accountSelection.ts"]
         DemoFixture[("fixtures/demo.json")]
@@ -42,6 +43,7 @@ flowchart TD
         GithubRs["github.rs HTTP policy"]
         GithubMods["github: client queue, wire contracts"]
         RunHistory["run_history.rs"]
+        AutoReposRs["auto_repos.rs newest pushes plus favorites"]
         WorkflowRs["workflow.rs dispatch YAML parsing"]
         ModelsRs["models.rs"]
         AuthRs["auth.rs and auth/native.rs keyring"]
@@ -51,7 +53,7 @@ flowchart TD
         StartupRs["startup.rs login startup rules"]
         PopupRs["popup.rs geometry"]
         RunLinkRs["run_link.rs canonical run URLs"]
-        UpdatesRs["updates.rs update policy"]
+        UpdatesRs["updates.rs and updates/installer.rs update policy, verified download"]
         DemoRs["demo.rs local simulation"]
     end
 
@@ -83,8 +85,6 @@ flowchart TD
     PanelTs --> StartsTs
     PanelTs --> NoticesTs
     PanelTs --> FavoritesTs
-    PanelTs --> RepoSelectionTs
-    RepoSelectionTs -->|"select_repos, one call at a time"| Bridge
     PanelTs --> AccountSel
     PanelTs --> ModelTs
     PanelTs -->|"bridge calls"| Bridge
@@ -92,6 +92,8 @@ flowchart TD
     Components --> FocusTs
     Components --> DispatchFormTs
     Components --> ClockTs
+    Components --> AutostartTs
+    AutostartTs -->|"autostart commands"| IpcTs
     Components --> SafeUrlTs
     Components -->|"auth, startup, links"| IpcTs
     SafeUrlTs -.->|"same rules"| RunLinksFixture
@@ -100,6 +102,8 @@ flowchart TD
     Components -->|"Darstellung"| ThemeTs
     Bridge -->|"browser mode"| DemoTs
     DemoTs --> DemoFixture
+    DemoTs --> AutoReposTs
+    AutoReposTs -.->|"same rule"| AutoReposRs
     DemoTs --> ModelTs
     Bridge -->|"native commands"| IpcTs
     Bridge -->|"snapshot events"| DesktopRs
@@ -123,8 +127,8 @@ flowchart TD
     DesktopStartup --> StartupRs
     DesktopStartup -->|"per-user value"| RunKey
     DesktopUpdates --> UpdatesRs
-    UpdatesRs -->|"notify: public releases/latest"| GitHubApi
-    DesktopUpdates -->|"signed builds only"| Releases
+    UpdatesRs -->|"public releases/latest, asset digest"| GitHubApi
+    UpdatesRs -->|"download installer EXE, verify size and SHA-256"| Releases
 
     LibRs --> LiveRs
     LibRs --> DemoRs
@@ -133,6 +137,8 @@ flowchart TD
     LiveRs --> LiveMods
     LiveMods --> GithubRs
     LiveMods --> RunHistory
+    LiveMods -->|"catalog selection"| AutoReposRs
+    DemoRs --> AutoReposRs
     LiveMods --> WorkflowRs
     LiveMods --> CacheRs
     LiveMods --> AuthRs
@@ -164,11 +170,11 @@ flowchart TD
     click StartsTs "src/lib/starts.svelte.ts"
     click NoticesTs "src/lib/notices.svelte.ts"
     click FavoritesTs "src/lib/favorites.svelte.ts"
-    click RepoSelectionTs "src/lib/repoSelection.svelte.ts"
     click ModalsTs "src/lib/modals.svelte.ts"
     click ViewTs "src/lib/view.svelte.ts"
     click DispatchFormTs "src/lib/dispatchForm.svelte.ts"
     click UpdaterTs "src/lib/updater.svelte.ts"
+    click AutostartTs "src/lib/autostart.svelte.ts"
     click Components "src/lib"
     click FocusTs "src/lib/focus.ts"
     click Styles "src/styles"
@@ -179,6 +185,7 @@ flowchart TD
     click ShortcutsTs "src/lib/shortcuts.ts"
     click SafeUrlTs "src/lib/safeGitHubUrl.ts"
     click DemoTs "src/lib/demo.ts"
+    click AutoReposTs "src/lib/autoRepos.ts"
     click ModelTs "src/lib/model.ts"
     click AccountSel "src/lib/accountSelection.ts"
     click DemoFixture "fixtures/demo.json"
@@ -195,6 +202,7 @@ flowchart TD
     click GithubRs "src-tauri/src/github.rs"
     click GithubMods "src-tauri/src/github"
     click RunHistory "src-tauri/src/run_history.rs"
+    click AutoReposRs "src-tauri/src/auto_repos.rs"
     click WorkflowRs "src-tauri/src/workflow.rs"
     click ModelsRs "src-tauri/src/models.rs"
     click AuthRs "src-tauri/src/auth.rs"
@@ -217,8 +225,8 @@ flowchart TD
     classDef external fill:#ff6347,stroke:#cc4f39,color:#fff
     classDef infra fill:#7b42bc,stroke:#5e338f,color:#fff
 
-    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,RepoSelectionTs,ModalsTs,ViewTs,DispatchFormTs,UpdaterTs,Components,FocusTs,Styles,ThemeTs,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
-    class MainRs,DesktopRs,DesktopAuth,DesktopStartup,TrayPopup,DesktopUpdates,LibRs,LiveRs,LiveMods,GithubRs,GithubMods,RunHistory,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,StartupRs,PopupRs,RunLinkRs,UpdatesRs,DemoRs backend
+    class AppSvelte,PanelTs,StartsTs,NoticesTs,FavoritesTs,ModalsTs,ViewTs,DispatchFormTs,UpdaterTs,AutostartTs,AutoReposTs,Components,FocusTs,Styles,ThemeTs,Bridge,IpcTs,ClockTs,ShortcutsTs,SafeUrlTs,DemoTs,ModelTs,AccountSel frontend
+    class MainRs,DesktopRs,DesktopAuth,DesktopStartup,TrayPopup,DesktopUpdates,LibRs,LiveRs,LiveMods,GithubRs,GithubMods,RunHistory,AutoReposRs,WorkflowRs,ModelsRs,AuthRs,BrowserAuth,LocalAuth,CacheRs,StartupRs,PopupRs,RunLinkRs,UpdatesRs,DemoRs backend
     class DemoFixture,RunLinksFixture,SQLite database
     class GitHubApi,Keyring,Releases,RunKey external
     class Checks,RustTests,IpcContract,ReleaseYml,ReleaseScripts infra

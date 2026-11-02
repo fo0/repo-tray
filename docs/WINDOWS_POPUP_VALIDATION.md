@@ -52,14 +52,14 @@ PC is needed. Keep the published installer/release unchanged.
    Confirm that the preferred size returns and controls remain reachable.
 5. Edit an unsaved form, use selects, keyboard navigation and an owned native
    dialog. Internal interactions must not dismiss the panel. Click outside,
-   reopen and confirm the draft remains. Test the integrated browser-login flow; hiding must not cancel it.
+   reopen and confirm the draft remains. Start a token or local sign-in check in the connection dialog; hiding must not cancel it (browser sign-in is paused).
 6. Disconnect/reconnect a display or restart Explorer, then reopen from the
    recreated tray icon. Confirm placement uses the new icon/monitor geometry.
 7. Drag the panel by its header, then double-click the header: the panel moves,
    never maximizes, and the next tray open places it beside the icon again.
 
 The remaining native-only checks (snapshot events under the narrowed
-capabilities, update notify mode, signed download progress, WebView2 clipboard,
+capabilities, in-app update with progress and restart, WebView2 clipboard,
 High Contrast and autostart after uninstall) are listed in the
 [native Windows smoke checklist](VALIDATION.md#native-windows-smoke-checklist).
 

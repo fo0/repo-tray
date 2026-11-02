@@ -47,16 +47,10 @@
   line-height: 1.6;
   margin: 14px 0;
 }
-.startup-saved {
-  color: var(--ok);
-}
 .startup-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-.startup-help {
-  margin-top: 20px;
 }
 .settings-tabs button {
   flex: 1;
@@ -83,139 +77,89 @@
   border-radius: 50%;
   background: var(--accent);
 }
+/* Updates tab: one version row, then at most one compact release block. */
 .update-panel {
   color: var(--text);
-}
-.update-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.update-heading h3 {
-  font-size: 14px;
-  margin-bottom: 5px;
-}
-.update-heading p,
-.update-check-row,
-.update-release {
   font-size: var(--font-size-meta);
-  line-height: 1.6;
+  line-height: 1.5;
 }
-.update-heading p {
-  color: var(--text-2);
-}
-.update-symbol {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--accent-line);
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  flex-shrink: 0;
-}
-.version-badge {
-  margin-left: auto;
-  font-size: var(--font-size-meta);
-  color: var(--text-2);
-  padding: 3px 7px;
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
-}
-.update-description {
-  margin: 16px 0;
-  font-size: var(--font-size-meta);
-  line-height: 1.6;
-  color: var(--text-2);
-}
-.update-check-row {
+.update-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px 12px;
 }
-.update-release {
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--raised);
-  margin-top: 18px;
-  padding: 14px;
-}
-.update-release-heading {
+.update-version {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-right: auto;
 }
-.update-release-heading strong {
-  color: var(--text);
+.update-version strong {
   font-size: 13px;
 }
-.update-release-heading > span {
-  color: var(--text-2);
-}
-.update-steps {
-  display: flex;
-  list-style: none;
-  gap: 8px;
-  padding: 14px 0;
-  margin: 0;
+.update-version span,
+.update-title span {
   color: var(--text-3);
-  font-size: var(--font-size-meta);
 }
-.update-steps li {
-  flex: 1;
-  border-top: 2px solid var(--border-strong);
-  padding-top: 7px;
-}
-.update-steps .done {
-  border-color: var(--accent);
-  color: var(--text);
-}
-.update-changelog {
-  border-top: 1px solid var(--border);
-  margin-bottom: 16px;
-}
-.update-changelog summary {
-  cursor: pointer;
-  padding: 10px 0;
-  font-weight: 600;
-}
-.update-changelog p {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 180px;
-  overflow-y: auto;
-  color: var(--text-2);
-}
-.update-current {
+.update-line {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--text-2);
+}
+.update-ok {
   color: var(--ok);
-  margin: 14px 0;
-  font-size: var(--font-size-meta);
-  line-height: 1.6;
+}
+.update-release {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--raised);
+}
+.update-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0;
+}
+.update-title strong {
+  font-size: 13px;
+}
+.update-notes {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.update-notes li + li {
+  margin-top: 2px;
+}
+.update-progress {
+  margin-top: 10px;
 }
 .update-progress label {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 5px;
+  color: var(--text-2);
 }
 .update-progress progress {
   width: 100%;
   height: 8px;
   accent-color: var(--accent);
 }
+.update-release .alert {
+  margin-top: 10px;
+}
 .update-release .primary-button {
   width: 100%;
   margin-top: 10px;
-  white-space: normal;
-}
-.update-release > .field-help {
-  margin-top: 10px;
 }
 .update-panel > .alert {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 /* App tab: „Darstellung“ (System / Hell / Dunkel) above the startup option. */
@@ -255,7 +199,4 @@
   margin: 0;
   flex-shrink: 0;
   accent-color: var(--accent);
-}
-.theme-setting .theme-help {
-  margin-top: 10px;
 }

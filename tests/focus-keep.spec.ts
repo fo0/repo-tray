@@ -50,7 +50,7 @@ test('a quick start keeps focus on its button while it runs and after it settles
   await page.clock.install();
   await page.clock.pauseAt(Date.now() + 2000);
   const quick = templateCard(page, 'Quick build').getByRole('button', {
-    name: 'Favorit Quick build schnellstarten',
+    name: 'launch-kit-demo · Quick build schnellstarten',
   });
   await quick.focus();
   await page.keyboard.press('Enter');
@@ -87,25 +87,30 @@ test('the dialog start keeps focus while it runs, then hands it to the result', 
   ).toBeFocused();
 });
 
-test('closing the start dialog returns focus to a locked start button, which stays focusable', async ({
-  page,
-}) => {
-  await openPage(page, 'favorites');
-  // The demo answers after 300 ms; a paused clock holds the start in flight.
-  await page.clock.install();
-  await page.clock.pauseAt(Date.now() + 2000);
-  const chip = templateCard(page, 'Windows build').getByRole('button', {
-    name: 'Favorit Windows build starten…',
-    exact: true,
+for (const view of ['favorites', 'overview'] as const) {
+  test(`closing the start dialog returns focus to a locked favorite, which stays focusable (${view})`, async ({
+    page,
+  }) => {
+    await openPage(page, view);
+    // The demo answers after 300 ms; a paused clock holds the start in flight.
+    await page.clock.install();
+    await page.clock.pauseAt(Date.now() + 2000);
+    const chip = templateCard(page, 'Windows build').getByRole('button', {
+      name: 'launch-kit-demo · Windows build starten…',
+      exact: true,
+    });
+    await chip.click();
+    const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
+    await dialog.getByRole('button', { name: 'Start simulieren' }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(chip).toBeFocused();
+    await expect(chip).toHaveAttribute('aria-disabled', 'true');
+    await expect(chip).toHaveAccessibleDescription('Start läuft …');
+    // A locked name opens nothing.
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.clock.runFor(400);
+    await expect(chip).toBeEnabled();
   });
-  await chip.click();
-  const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
-  await dialog.getByRole('button', { name: 'Start simulieren' }).click();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(chip).toBeFocused();
-  await expect(chip).toHaveAttribute('aria-disabled', 'true');
-  await expect(chip).toHaveAccessibleDescription('Start läuft …');
-  await page.clock.runFor(400);
-  await expect(chip).toBeEnabled();
-});
+}

@@ -1,5 +1,6 @@
 import { expect, test } from './support/test';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
+import { chooseToken, connectDialog } from './support/connect';
 import { installTauriMock, readCommands } from './support/tauriMock';
 
 for (const configured of [false, true]) {
@@ -32,26 +33,27 @@ for (const configured of [false, true]) {
     await page
       .getByRole('button', { name: 'GitHub-Konto verbinden', exact: true })
       .click();
+    const dialog = connectDialog(page);
+    const browser = dialog.getByRole('radio', {
+      name: /^Mit GitHub anmelden/,
+    });
+    await expect(browser).toBeDisabled();
+    await expect(browser).toHaveAccessibleName(
+      'Mit GitHub anmelden Vorübergehend deaktiviert',
+    );
     await expect(
-      page.getByRole('button', { name: /Mit GitHub anmelden/ }),
-    ).toBeDisabled();
-    await expect(
-      page.getByText(
-        /Die Browser-Anmeldung \/ GitHub App ist vorübergehend deaktiviert/,
-      ),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Token prüfen und verbinden' }),
-    ).toBeDisabled();
-    await page.getByLabel('GitHub-Token').fill('synthetic-test-value');
-    await expect(
-      page.getByRole('button', { name: 'Token prüfen und verbinden' }),
-    ).toBeEnabled();
-    await expect(
-      page.getByRole('button', {
-        name: 'Bestehende Anmeldung auf diesem PC verwenden',
+      dialog.getByRole('radio', {
+        name: /^Bestehende Anmeldung auf diesem PC verwenden/,
       }),
     ).toBeEnabled();
+    await chooseToken(page);
+    const connect = dialog.getByRole('button', {
+      name: 'Verbinden',
+      exact: true,
+    });
+    await expect(connect).toBeDisabled();
+    await dialog.getByLabel('GitHub-Token').fill('synthetic-test-value');
+    await expect(connect).toBeEnabled();
     const calls = await readCommands(page);
     expect(
       calls.some((cmd) =>

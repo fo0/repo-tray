@@ -8,7 +8,7 @@ fn the_claim_is_stored_before_the_post_and_an_accepted_start_releases_it() {
     let mut remote = Remote::new();
     remote.dispatches.push_back(confirmation(1, 77));
     let mut h = Harness::new("accepted", remote, &["github-1"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     assert!(!h.live.data.stale, "{:?}", h.live.data.message);
     let outcome = h.live.dispatch(request("start-1", "feature"));
     assert_eq!(
@@ -30,7 +30,7 @@ fn an_uncertain_start_keeps_its_claim_across_restart_and_is_never_sent_again() {
         .dispatches
         .push_back(json(204, serde_json::json!({})));
     let mut h = Harness::new("uncertain", remote, &["github-1"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     let first = h.live.dispatch(request("start-1", "main"));
     assert_eq!(first.state, DispatchState::Uncertain);
     assert_eq!(h.remote().claims_at_post, vec![1]);
@@ -60,7 +60,7 @@ fn a_rejected_start_releases_its_claim_and_the_target_can_start_again() {
     ));
     remote.dispatches.push_back(confirmation(1, 78));
     let mut h = Harness::new("rejected", remote, &["github-1"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     let first = h.live.dispatch(request("start-1", "main"));
     assert_eq!(first.state, DispatchState::Rejected);
     assert!(
@@ -78,7 +78,7 @@ fn a_rejected_start_releases_its_claim_and_the_target_can_start_again() {
 #[test]
 fn a_stale_snapshot_refuses_dispatch_before_any_request_or_claim() {
     let mut h = Harness::new("stale", Remote::new(), &["github-1"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     h.live.data.stale = true;
     h.remote().requests.clear();
     let outcome = h.live.dispatch(request("start-1", "main"));
@@ -96,7 +96,7 @@ fn a_request_id_replays_its_outcome_and_refuses_a_changed_payload() {
         serde_json::json!({"message": "Unexpected inputs"}),
     ));
     let mut h = Harness::new("request-id", remote, &["github-1"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     let first = h.live.dispatch(request("start-1", "main"));
     assert_eq!(first.state, DispatchState::Rejected);
     assert_eq!(h.live.dispatch(request("start-1", "main")), first);
@@ -110,7 +110,6 @@ fn a_pinned_ref_beyond_a_cut_off_listing_is_offered_and_a_vanished_one_is_reject
     let mut remote = Remote::new();
     remote.endless_branches = true;
     let mut h = Harness::new("pinned-ref", remote, &["github-1"]);
-    h.live.refresh();
     h.live.data.pins.push(Pin {
         id: "pin-1".into(),
         label: "Fixture release".into(),
@@ -121,7 +120,7 @@ fn a_pinned_ref_beyond_a_cut_off_listing_is_offered_and_a_vanished_one_is_reject
         inputs: Inputs::new(),
         quick_start: true,
     });
-    h.live.select_repos(vec!["github-1:1".into()]).unwrap();
+    h.load(&["github-1:1"]);
     let refs = &h.live.data.workflows[0].refs;
     assert!(refs.contains(&"release/gone".to_string()));
     assert!(refs.contains(&"v1".to_string()), "tags are not starved");
@@ -147,7 +146,7 @@ fn a_denied_repository_is_named_without_staling_and_its_frozen_open_runs_leave_t
         .runs
         .insert(2, vec![run(2, 20, "in_progress"), run(2, 21, "completed")]);
     let mut h = Harness::new("denied", remote, &["github-1"]);
-    h.select(&["github-1:1", "github-1:2", "github-1:3"]);
+    h.load(&["github-1:1", "github-1:2", "github-1:3"]);
     assert!(h.live.snapshot().runs.iter().any(|run| run.id == 20));
     h.remote().runs_status.extend([(2, 403), (3, 404)]);
     advance(60);
@@ -184,7 +183,7 @@ fn a_partial_refresh_keeps_and_persists_the_healthy_scopes() {
     remote.runs.insert(1, vec![run(1, 10, "completed")]);
     remote.runs_status.insert(2, 502);
     let mut h = Harness::new("partial", remote, &["github-1"]);
-    h.select(&["github-1:1", "github-1:2"]);
+    h.load(&["github-1:1", "github-1:2"]);
     let snapshot = h.live.snapshot();
     assert!(snapshot.stale);
     assert_eq!(snapshot.connectivity, Connectivity::Offline);
@@ -209,13 +208,14 @@ fn a_revoked_account_neither_storms_healthy_metadata_nor_retries_before_its_hold
     remote.account_status.insert("github-2".into(), 401);
     remote.account_status.insert("github-3".into(), 502);
     let mut h = Harness::new("storm", remote, &["github-1", "github-2", "github-3"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     let snapshot = h.live.snapshot();
     assert!(snapshot.stale);
     assert_eq!(snapshot.connectivity, Connectivity::Forbidden);
+    // The revoked account heads the message; the failing github-3 catalog counts too.
     assert_eq!(
         snapshot.message.as_deref(),
-        Some("Letzter Stand · Zugang von fixture-github-2 abgelaufen oder widerrufen – verbinde das Konto neu.")
+        Some("Letzter Stand · Zugang von fixture-github-2 abgelaufen oder widerrufen – verbinde das Konto neu. (+1 weitere)")
     );
     // One minute later: run polling only. The revoked account sends nothing, the transient
     // catalog failure retries alone, and healthy metadata is not read again.
@@ -251,7 +251,7 @@ fn a_backward_clock_jump_neither_stalls_reads_nor_extends_a_hold() {
     let mut remote = Remote::new();
     remote.account_status.insert("github-2".into(), 401);
     let mut h = Harness::new("clock", remote, &["github-1", "github-2"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     // The clock goes back a day: every deadline now lies more than an interval ahead.
     h.remote().requests.clear();
     rewind(86_400);
@@ -317,7 +317,7 @@ fn a_missing_vault_entry_holds_its_account_and_asks_to_reconnect_or_disconnect()
     remote.repos.insert("github-2".into(), vec![2]);
     remote.missing.insert("github-2".into());
     let mut h = Harness::new("missing", remote, &["github-1", "github-2"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     let snapshot = h.live.snapshot();
     assert!(snapshot.stale);
     assert_eq!(snapshot.connectivity, Connectivity::Forbidden);
@@ -391,6 +391,7 @@ fn schedule_timers_are_per_scope_and_unauthorized_waits_the_full_interval() {
         owner: "fixture-owner".into(),
         name: "fixture-1".into(),
         default_branch: "main".into(),
+        pushed_at: None,
         selected: true,
         permission: Permission::Write,
     }];
@@ -410,7 +411,7 @@ fn schedule_timers_are_per_scope_and_unauthorized_waits_the_full_interval() {
 #[test]
 fn a_workflow_listing_past_the_page_budget_keeps_known_workflows_and_names_the_cut() {
     let mut h = Harness::new("endless-workflows", Remote::new(), &["github-1"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     assert_eq!(h.live.data.workflows.len(), 1);
     h.remote().endless_workflows = true;
     advance(CATALOG_SECONDS);
@@ -434,7 +435,7 @@ fn an_environment_listing_past_the_page_budget_disables_only_that_input() {
     remote.runs.insert(1, vec![run(1, 11, "in_progress")]);
     remote.dispatches.push_back(confirmation(1, 77));
     let mut h = Harness::new("endless-environments", remote, &["github-1"]);
-    h.select(&["github-1:1"]);
+    h.load(&["github-1:1"]);
     assert!(!h.live.data.stale, "{:?}", h.live.data.message);
     // The workflow stays startable; only the environment choice is unavailable.
     let workflow = &h.live.data.workflows[0];

@@ -116,20 +116,26 @@ test('the filter chips keep their names and counts; the chosen one is filled', a
   await expect(active).toHaveCSS('background-color', 'rgb(241, 241, 244)');
 });
 
-test('a row names the repository without its owner, which stays in its title and name', async ({
+test('a row leads with the repository without its owner, which stays in its title and name', async ({
   page,
 }) => {
   await page.goto('/');
   await openPage(page, 'runs');
   const run = row(page, 8403);
+  // The repository is the bold first line; workflow and run number open
+  // the meta line, since every repository may call its workflow „Release“.
   await expect(run.locator('.run-repo')).toHaveText('runner-tools-demo');
   await expect(run.locator('.run-repo')).toHaveAttribute(
     'title',
     'example-org/runner-tools-demo',
   );
+  await expect(run.locator('.run-meta > .run-workflow')).toHaveText(
+    'Runner health#8403',
+  );
+  await expect(run.locator('.run-workflow .run-number')).toHaveText('#8403');
   await expect(run.locator('.branch-chip')).toHaveText('main');
   await expect(run.getByRole('button')).toHaveAccessibleName(
-    /^Runner health #8403 · example-org\/runner-tools-demo · Wartet · /,
+    /^example-org\/runner-tools-demo · Runner health #8403 · Wartet · /,
   );
 });
 

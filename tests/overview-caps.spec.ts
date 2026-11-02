@@ -21,12 +21,14 @@ test.describe('capped overview', () => {
   const NOW = Date.parse('2026-11-01T09:00:00Z');
   const ago = (minutes: number) =>
     new Date(NOW - minutes * 60_000).toISOString();
-  const repos = Array.from({ length: 8 }, (_, index) => ({
+  // The service selects up to 10 newest repositories plus those of favorites.
+  const repos = Array.from({ length: 12 }, (_, index) => ({
     id: `cap-repo-${index}`,
     accountId: 'github-4242',
     owner: 'cap-org',
-    name: `cap-repo-${index}`,
+    name: `cap-repo-${String(index).padStart(2, '0')}`,
     defaultBranch: 'main',
+    pushedAt: ago(60 + index),
     selected: true,
     permission: 'write',
   }));
@@ -95,19 +97,23 @@ test.describe('capped overview', () => {
     page,
   }) => {
     await expect(section(page, 'runs').getByRole('listitem')).toHaveCount(3);
-    await expect(section(page, 'favorites').locator('.tile')).toHaveCount(4);
+    await expect(section(page, 'favorites').locator('.pin-row')).toHaveCount(4);
     await expect(
       section(page, 'repos').locator('.repository-card'),
-    ).toHaveCount(6);
+    ).toHaveCount(10);
     // The header counts everything, not only the rows shown.
     await expect(section(page, 'runs')).toContainText('5 Runs');
     await expect(section(page, 'favorites')).toContainText('6 Favoriten');
-    await expect(section(page, 'repos')).toContainText('8 Repositories');
+    await expect(section(page, 'repos')).toContainText('12 Repositories');
+    // The tray picks its repositories itself: no way to add one by hand.
+    await expect(page.getByRole('button', { name: /Hinzufügen/ })).toHaveCount(
+      0,
+    );
 
     for (const [name, label, count, rows] of [
       ['runs', '+2 weitere Runs anzeigen', 5, 'article.run'],
-      ['favorites', '+2 weitere Favoriten anzeigen', 6, '.pin-card'],
-      ['repos', '+2 weitere Repositories anzeigen', 8, '.repository-card'],
+      ['favorites', '+2 weitere Favoriten anzeigen', 6, '.pin-row'],
+      ['repos', '+2 weitere Repositories anzeigen', 12, '.repository-card'],
     ] as const) {
       const button = section(page, name).getByRole('button', {
         name: label,
@@ -143,10 +149,10 @@ test.describe('capped overview', () => {
   test('a search lifts the caps', async ({ page }) => {
     await page.getByLabel('Übersicht durchsuchen').fill('cap');
     await expect(section(page, 'runs').getByRole('listitem')).toHaveCount(5);
-    await expect(section(page, 'favorites').locator('.tile')).toHaveCount(6);
+    await expect(section(page, 'favorites').locator('.pin-row')).toHaveCount(6);
     await expect(
       section(page, 'repos').locator('.repository-card'),
-    ).toHaveCount(8);
+    ).toHaveCount(12);
     await expect(more(page)).toHaveCount(0);
     await page.getByLabel('Übersicht durchsuchen').fill('');
     await expect(more(page)).toHaveCount(3);

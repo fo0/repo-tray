@@ -33,6 +33,13 @@ async function themeSetting(page: Page) {
 const option = (group: ReturnType<Page['locator']>, name: string) =>
   group.getByRole('radio', { name, exact: true });
 
+/** „Speichern“ keeps the previewed theme and closes the dialog. */
+async function save(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
 const stored = (page: Page) =>
   page.evaluate(() => localStorage.getItem('repotray.theme.v1'));
 
@@ -58,6 +65,9 @@ test('„Dunkel“ wins over a light OS at once and after a reload', async ({
   await option(group, 'Dunkel').check();
   await expectTheme(page, 'dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  // A preview until „Speichern“.
+  expect(await stored(page)).toBeNull();
+  await save(page);
   expect(await stored(page)).toBe('"dark"');
   // The browser frame follows the choice, not the OS.
   await expect(
@@ -80,6 +90,7 @@ test('„Hell“ wins over a dark OS; „System“ follows the OS again', async 
   let group = await themeSetting(page);
   await option(group, 'Hell').check();
   await expectTheme(page, 'light');
+  await save(page);
 
   await page.reload();
   await expectTheme(page, 'light');
@@ -88,6 +99,7 @@ test('„Hell“ wins over a dark OS; „System“ follows the OS again', async 
   await option(group, 'System').check();
   await expectTheme(page, 'dark');
   await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+  await save(page);
   expect(await stored(page)).toBeNull();
 
   await page.reload();
@@ -103,6 +115,7 @@ test('only „System“ follows a live change of the OS preference', async ({
   await expectTheme(page, 'light');
 
   await option(await themeSetting(page), 'Dunkel').check();
+  await save(page);
   await page.emulateMedia({ colorScheme: 'dark' });
   await expectTheme(page, 'dark');
   await page.emulateMedia({ colorScheme: 'light' });
@@ -147,8 +160,10 @@ test('a choice that cannot be saved applies and stays shown until restart', asyn
   await option(await themeSetting(page), 'Hell').check();
   await expectTheme(page, 'light');
   const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
-  await expect(dialog.locator('#theme-help')).toContainText(
-    'ließ sich nicht speichern',
+  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click();
+  // The dialog stays open with one error line; the theme stays applied.
+  await expect(dialog.getByRole('alert')).toHaveText(
+    'Darstellung ließ sich nicht speichern und gilt bis zum nächsten Start.',
   );
   expect(await stored(page)).toBeNull();
 

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 /** @typedef {import('@playwright/test').Page} Page */
 /** @typedef {'dark' | 'light'} Theme */
-/** @typedef {'overview' | 'runs' | 'favorites' | 'repos' | 'picker'} PanelPage */
+/** @typedef {'overview' | 'runs' | 'favorites' | 'repos'} PanelPage */
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export const baseUrl = process.env.REVIEW_BASE_URL ?? 'http://127.0.0.1:1420';
@@ -77,8 +77,8 @@ export function assertLocalOnly(requests) {
 }
 
 /**
- * Shows a panel page the way a user gets there: back to the overview, then a
- * section's maximize button, or „Repositories hinzufügen“ for the picker.
+ * Shows a panel page the way a user gets there: back to the overview (a
+ * section page's minimize button), then a section's maximize button.
  * @param {Page} page
  * @param {PanelPage} name
  */
@@ -88,18 +88,15 @@ export async function openPage(page, name) {
   if (current === name) return;
   if (current !== 'overview')
     await page
-      .getByRole('button', { name: 'Zurück zur Übersicht', exact: true })
+      .locator('.page-header')
+      .getByRole('button', { name: / verkleinern$/ })
       .click();
   const maximize = {
     runs: 'Läuft gerade maximieren',
     favorites: 'Favoriten maximieren',
     repos: 'Repositories maximieren',
   };
-  if (name === 'picker')
-    await page
-      .getByRole('button', { name: 'Repositories hinzufügen', exact: true })
-      .click();
-  else if (name !== 'overview')
+  if (name !== 'overview')
     await page
       .getByRole('button', { name: maximize[name], exact: true })
       .click();
@@ -137,14 +134,21 @@ export async function openSettings(page, tab = 'Konten') {
 }
 
 /**
- * Switches the demo scenario in settings and closes the dialog again.
+ * Switches the demo scenario in settings and saves, which closes the dialog.
  * @param {Page} page
  * @param {string} value
  */
 export async function scenario(page, value) {
-  await openSettings(page);
-  await page.getByLabel('Demo-Szenario').selectOption(value);
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  const dialog = await openSettings(page);
+  await dialog.getByLabel('Demo-Szenario').selectOption(value);
+  const save = dialog.getByRole('button', { name: 'Speichern', exact: true });
+  // The scenario in effect stages nothing; then there is nothing to save.
+  if (await save.isEnabled()) await save.click();
+  else
+    await dialog
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+  await expect(dialog).toHaveCount(0);
 }
 
 /**
@@ -155,7 +159,9 @@ export async function scenario(page, value) {
 export async function openFavorite(page, label) {
   await openPage(page, 'favorites');
   await page
-    .getByRole('button', { name: `Favorit ${label} starten…`, exact: true })
+    .locator('.pin-row')
+    .filter({ has: page.locator('.pin-label', { hasText: label }) })
+    .locator('.pin-open')
     .click();
   return page.getByRole('dialog', { name: 'Workflow starten' });
 }

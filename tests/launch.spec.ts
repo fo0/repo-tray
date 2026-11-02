@@ -5,6 +5,7 @@ import {
   openLaunch,
   openPage,
   scenario,
+  templateCard,
 } from './support/demo';
 
 test.beforeEach(async ({ page }) => {
@@ -24,9 +25,7 @@ test('closing the launch dialog and cancelling connection create no runs', async
     .click();
   await page.getByRole('button', { name: 'Konto hinzufügen' }).click();
   await expect(
-    page.getByRole('button', {
-      name: 'Mit GitHub anmelden',
-    }),
+    page.getByRole('radio', { name: /^Mit GitHub anmelden/ }),
   ).toBeDisabled();
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -60,11 +59,11 @@ test('offline and forbidden scenarios disable starts while showing cached activi
       .getByRole('button', { name: 'Abbrechen', exact: true })
       .click();
     await openPage(page, 'runs');
-    // The cached runs stay listed; a row names its repository with the
-    // owner in its accessible name.
+    // The cached runs stay listed; a row's accessible name leads with its
+    // repository, owner included.
     await expect(
       page
-        .getByRole('button', { name: ' · demo-dev/launch-kit-demo · ' })
+        .getByRole('button', { name: /^demo-dev\/launch-kit-demo · / })
         .first(),
     ).toBeVisible();
   }
@@ -133,12 +132,10 @@ test('an offline status check never claims a successful refresh of an uncertain 
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
   await scenario(page, 'offline');
-  const card = page
-    .locator('article')
-    .filter({ has: page.getByRole('heading', { name: 'Windows build' }) });
+  const card = templateCard(page, 'Windows build');
   await card
     .getByRole('button', {
-      name: 'Favorit Windows build starten…',
+      name: 'launch-kit-demo · Windows build starten…',
       exact: true,
     })
     .click();

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './support/test';
-import { openPage } from './support/demo';
+import { checkLocal, chooseToken, connectDialog } from './support/connect';
+import { openPage, templateCard } from './support/demo';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
 const key = 'repotray.activeAccount.v1';
@@ -60,12 +61,7 @@ async function setup(page: Page, saved: string | null = null) {
       );
       return async (cmd, args) => {
         if (
-          [
-            'snapshot',
-            'refresh_snapshot',
-            'select_repos',
-            'refresh_repositories',
-          ].includes(cmd)
+          ['snapshot', 'refresh_snapshot', 'refresh_repositories'].includes(cmd)
         )
           return structuredClone(snapshot);
         if (cmd === 'browser_auth_config') return { configured: true };
@@ -76,9 +72,8 @@ async function setup(page: Page, saved: string | null = null) {
           );
           return {
             version: '0.2.0',
-            notes: `Öffentliches Update`,
-            downloadUrl:
-              'https://github.com/fo0/repo-tray/releases/download/v0.2.0/RepoTray_0.2.0_x64-setup.exe',
+            notes: '* Öffentliches Update',
+            date: null,
           };
         }
         if (cmd === 'disconnect_account') {
@@ -109,25 +104,34 @@ async function openSettings(page: Page) {
     .click();
   await expect(workspace(page)).toBeVisible();
 }
+/** Leaves settings without applying anything. */
 async function closeSettings(page: Page) {
   await workspace(page)
-    .getByRole('button', { name: 'Schließen', exact: true })
+    .getByRole('button', { name: 'Abbrechen', exact: true })
     .click();
   await expect(workspace(page)).toHaveCount(0);
 }
-/** Picks the active account inside settings that are already open. */
+/** „Speichern“ applies the staged settings and closes the dialog. */
+async function saveSettings(page: Page) {
+  await workspace(page)
+    .getByRole('button', { name: 'Speichern', exact: true })
+    .click();
+  await expect(workspace(page)).toHaveCount(0);
+}
+/** The account radio of a connection, by its id. */
+const accountRadio = (page: Page, id: string) =>
+  workspace(page).locator(`input[name="active-account"][value="${id}"]`);
+/** Stages the active account inside settings that are already open. */
 async function pickAccount(page: Page, id: string) {
   await expect(workspace(page)).toBeVisible();
   await page.getByRole('tab', { name: 'Konten', exact: true }).click();
-  await page
-    .getByLabel('Aktives Konto auswählen', { exact: true })
-    .selectOption(id);
+  await accountRadio(page, id).check();
 }
-/** Opens settings, picks the active account and closes settings again. */
+/** Opens settings, picks the active account and saves. */
 async function chooseAccount(page: Page, id: string) {
   await openSettings(page);
   await pickAccount(page, id);
-  await closeSettings(page);
+  await saveSettings(page);
 }
 /** Disconnects a connection from its settings card, confirming in place. */
 async function disconnect(page: Page, title: string) {
@@ -167,19 +171,19 @@ test('native startup requires an account choice for workflows while updates need
   await menu
     .getByRole('menuitem', { name: 'Konten verwalten …', exact: true })
     .click();
-  const picker = page.getByLabel('Aktives Konto auswählen', { exact: true });
-  await expect(
-    page.getByRole('heading', { name: 'Aktives Konto', exact: true }),
-  ).toBeVisible();
-  await expect(picker).toHaveValue('');
-  await expect(picker.locator('option')).toHaveText([
-    'Aktives Konto auswählen',
+  const choice = page.getByRole('radiogroup', {
+    name: 'Aktives Konto',
+    exact: true,
+  });
+  await expect(choice.getByRole('radio')).toHaveCount(2);
+  await expect(choice.getByRole('radio', { checked: true })).toHaveCount(0);
+  await expect(choice.locator('label')).toHaveText([
     'fixture-user · Token',
     'fixture-user · Browser',
   ]);
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
-    page.getByRole('button', { name: 'Auf Updates prüfen' }),
+    page.getByRole('button', { name: 'Nach Updates suchen' }),
   ).toBeEnabled();
   expect((await updateCalls(page))[0]?.args).toEqual({});
 });
@@ -203,24 +207,14 @@ test('source-specific settings selection survives restart and pins remain tied t
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('fixture-user · Browser');
   await openSettings(page);
-  await expect(
-    page.getByLabel('Aktives Konto auswählen', { exact: true }),
-  ).toHaveValue('github-device-42');
+  await expect(accountRadio(page, 'github-device-42')).toBeChecked();
   await closeSettings(page);
   await openPage(page, 'favorites');
-  await expect(
-    page.getByRole('heading', { name: 'Browser Vorlage', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Token Vorlage', exact: true }),
-  ).toHaveCount(0);
+  await expect(templateCard(page, 'Browser Vorlage')).toBeVisible();
+  await expect(templateCard(page, 'Token Vorlage')).toHaveCount(0);
   await chooseAccount(page, 'github-42');
-  await expect(
-    page.getByRole('heading', { name: 'Token Vorlage', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Browser Vorlage', exact: true }),
-  ).toHaveCount(0);
+  await expect(templateCard(page, 'Token Vorlage')).toBeVisible();
+  await expect(templateCard(page, 'Browser Vorlage')).toHaveCount(0);
   expect(await readCommands(page)).not.toContain('dispatch_workflow');
 });
 
@@ -268,9 +262,7 @@ test('disconnecting another source preserves the active account; removing the ac
   await setup(page, 'github-device-42');
   await openSettings(page);
   await disconnect(page, 'fixture-user · Token');
-  await expect(
-    page.getByLabel('Aktives Konto auswählen', { exact: true }),
-  ).toHaveValue('github-device-42');
+  await expect(accountRadio(page, 'github-device-42')).toBeChecked();
   expect(
     await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key) ?? 'null'),
@@ -307,6 +299,8 @@ test('public update results survive account switches without using any account t
     page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
   await pickAccount(page, 'github-device-42');
+  await saveSettings(page);
+  await openSettings(page);
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
     page.getByText('Öffentliches Update', { exact: true }),
@@ -325,11 +319,13 @@ test('an in-flight public update check remains valid after switching the workflo
     page.getByText('Öffentliches Update', { exact: true }),
   ).toBeVisible();
   await mock.configure({ updateDelay: 600 });
-  await page.getByRole('button', { name: 'Auf Updates prüfen' }).click();
+  await page.getByRole('button', { name: 'Nach Updates suchen' }).click();
   await pickAccount(page, 'github-device-42');
+  await saveSettings(page);
+  await openSettings(page);
   await page.getByRole('tab', { name: 'Updates' }).click();
   await expect(
-    page.getByRole('button', { name: 'Auf Updates prüfen' }),
+    page.getByRole('button', { name: 'Nach Updates suchen' }),
   ).toBeEnabled();
   await expect(
     page.getByText('Öffentliches Update', { exact: true }),
@@ -341,34 +337,38 @@ test('an in-flight public update check remains valid after switching the workflo
   ).toBe(true);
 });
 
-test('stored token and active method are visible in settings and connection dialog', async ({
+test('settings show each connection by login and source, the one in effect checked and tagged', async ({
   page,
 }, testInfo) => {
   await setup(page, 'github-42');
   await openSettings(page);
-  const stored = page.getByRole('region', { name: 'Verbundene Anmeldungen' });
-  const token = stored
-    .locator('.connected-auth-card')
-    .filter({ has: page.getByText('fixture-user · Token', { exact: true }) });
-  await expect(token).toContainText('Token hinterlegt · Aktiv für RepoTray');
-  await expect(stored).toContainText(
-    'Browser-Anmeldung gespeichert · Verbunden, nicht aktiv',
+  const stored = page.getByRole('radiogroup', {
+    name: 'Aktives Konto',
+    exact: true,
+  });
+  await expect(accountRadio(page, 'github-42')).toBeChecked();
+  await expect(accountRadio(page, 'github-device-42')).not.toBeChecked();
+  await expect(
+    stored
+      .locator('.connected-auth-card')
+      .filter({ hasText: 'fixture-user · Token' }),
+  ).toContainText('Aktiv');
+  await expect(accountRadio(page, 'github-42')).toHaveAccessibleDescription(
+    'Aktiv',
   );
   await page
     .getByRole('button', { name: 'Konto hinzufügen', exact: true })
     .click();
+  await chooseToken(page);
+  const dialog = connectDialog(page);
   await expect(
-    page.getByRole('region', { name: 'Verbundene Anmeldungen' }),
-  ).toContainText('Token hinterlegt · Aktiv für RepoTray');
-  await expect(
-    page.getByRole('heading', { name: 'Weiteres Konto per Token verbinden' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Token prüfen und verbinden' }),
+    dialog.getByRole('button', { name: 'Verbinden', exact: true }),
   ).toBeDisabled();
-  await expect(page.getByLabel('GitHub-Token')).toHaveValue('');
+  await expect(
+    dialog.getByRole('button', { name: 'Verbinden', exact: true }),
+  ).toHaveAttribute('title', 'Token eingeben');
+  await expect(dialog.getByLabel('GitHub-Token')).toHaveValue('');
   await page.setViewportSize({ width: 360, height: 840 });
-  const dialog = page.getByRole('dialog', { name: 'GitHub verbinden' });
   expect(
     await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
   ).toBe(true);
@@ -377,23 +377,11 @@ test('stored token and active method are visible in settings and connection dial
   });
 });
 
-test('using an already connected source makes it active without reconnecting or importing a token', async ({
+test('choosing an already connected source makes it active without reconnecting or importing a token', async ({
   page,
 }) => {
   await setup(page, 'github-42');
-  await openSettings(page);
-  await page
-    .getByRole('button', { name: 'Konto hinzufügen', exact: true })
-    .click();
-  await page
-    .getByRole('button', {
-      name: 'fixture-user · Browser für RepoTray verwenden',
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByRole('dialog', { name: 'GitHub verbinden' }),
-  ).toHaveCount(0);
+  await chooseAccount(page, 'github-device-42');
   await expect(
     page.getByRole('status', { name: 'Aktives Konto', exact: true }),
   ).toContainText('fixture-user · Browser');
@@ -447,44 +435,38 @@ test('active account and local method button review screenshots', async ({
   await page
     .getByRole('button', { name: 'Konto hinzufügen', exact: true })
     .click();
-  const option = page.getByRole('button', {
-    name: 'Bestehende Anmeldung auf diesem PC verwenden',
-    exact: true,
+  const option = connectDialog(page).getByRole('radio', {
+    name: /^Bestehende Anmeldung auf diesem PC verwenden/,
   });
-  await expect(option).toHaveAttribute('aria-expanded', 'false');
-  await page
-    .getByRole('dialog', { name: 'GitHub verbinden' })
-    .screenshot({ path: testInfo.outputPath('local-login-option.png') });
-  const box = await option.boundingBox();
+  // The local method is the first choice; choosing it reads nothing yet.
+  await expect(option).toBeChecked();
+  const card = connectDialog(page)
+    .locator('.choice-card')
+    .filter({ hasText: 'Bestehende Anmeldung auf diesem PC verwenden' });
+  await connectDialog(page).screenshot({
+    path: testInfo.outputPath('local-login-option.png'),
+  });
+  const box = await card.boundingBox();
   expect(box?.height).toBeGreaterThanOrEqual(44);
   await page.setViewportSize({ width: 360, height: 840 });
-  await option.scrollIntoViewIfNeeded();
-  await page
-    .getByRole('dialog', { name: 'GitHub verbinden' })
-    .screenshot({ path: testInfo.outputPath('local-login-option-360.png') });
+  await connectDialog(page).screenshot({
+    path: testInfo.outputPath('local-login-option-360.png'),
+  });
   expect(
-    await option.evaluate(
+    await card.evaluate(
       (element) => element.scrollWidth <= element.clientWidth + 1,
     ),
   ).toBe(true);
-  const narrow = await option.boundingBox();
+  const narrow = await card.boundingBox();
   expect(narrow?.x).toBeGreaterThanOrEqual(0);
   expect((narrow?.x ?? 0) + (narrow?.width ?? 0)).toBeLessThanOrEqual(360);
   await page.setViewportSize({ width: 500, height: 840 });
-  await option.focus();
-  await page.keyboard.press('Enter');
-  await expect(option).toHaveAttribute('aria-expanded', 'true');
-  await expect(
-    page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }),
-  ).toBeVisible();
   expect(await readCommands(page)).not.toContain('discover_local_auth');
-  await page
-    .getByRole('dialog', { name: 'GitHub verbinden' })
-    .screenshot({ path: testInfo.outputPath('local-login-expanded.png') });
-  await page.getByRole('button', { name: 'Lokale Anmeldungen prüfen' }).click();
-  await expect(
-    page.getByText(
-      'Keine nutzbare gh-Anmeldung gefunden. Melde dich mit „gh auth login“ an und prüfe erneut.',
-    ),
-  ).toBeVisible();
+  await checkLocal(page);
+  await expect(connectDialog(page).locator('.modal-body')).toContainText(
+    'Keine gh-Anmeldung gefunden. Im Terminal mit „gh auth login“ anmelden.',
+  );
+  await connectDialog(page).screenshot({
+    path: testInfo.outputPath('local-login-checked.png'),
+  });
 });

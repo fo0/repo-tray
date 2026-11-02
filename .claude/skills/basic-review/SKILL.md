@@ -38,7 +38,7 @@ The full review workflow lives in `agent_docs/review_process.md`. **Do not dupli
 5. Evaluate against P0/P1/P2 categories, then run the Pre-Report Gate
 6. Fix P0/P1 inline; defer P2 only if non-trivial
 7. Regression & complexity QA pass
-8. UI review (only if UI changed)
+8. UI review against agent_docs/ux_rules.md (only if UI changed)
 9. Output standard Code Review Results table
 10. Write deferred findings to BACKLOG.md
 ```

@@ -10,7 +10,9 @@ import {
   recentSummary,
   repositoryActivity,
   repositoryStatus,
+  runLabel,
   runTone,
+  shortRepo,
   statusLabel,
   visibleRuns,
 } from './runs';
@@ -23,17 +25,27 @@ describe('activity model', () => {
     const data = snapshot();
     data.repos[3]!.selected = true;
     data.runs[3]!.updatedAt = '2026-10-31T10:00:00Z';
+    // Repositories without runs follow by name: example-org/…, then team-demo/….
+    const unused = [
+      ...[
+        'api',
+        'billing',
+        'ci',
+        'design',
+        'docs',
+        'infra',
+        'metrics',
+        'mobile',
+        'search',
+      ].map((name) => `demo-work-${name}`),
+      'demo-extra',
+    ];
     expect(repositoryActivity(data, '', '').map(({ repo }) => repo.id)).toEqual(
-      [
-        'demo-personal-site',
-        'demo-personal-kit',
-        'demo-team-tools',
-        'demo-extra',
-      ],
+      ['demo-personal-site', 'demo-personal-kit', 'demo-team-tools', ...unused],
     );
     expect(
       repositoryActivity(data, 'demo-work', '').map(({ repo }) => repo.id),
-    ).toEqual(['demo-team-tools', 'demo-extra']);
+    ).toEqual(['demo-team-tools', ...unused]);
     expect(
       repositoryActivity(data, '', 'desktop build').map(({ workflows }) =>
         workflows.map((w) => w.id),
@@ -92,6 +104,17 @@ describe('activity model', () => {
     expect(statusLabel(data.runs[3]!)).toBe('Fehlgeschlagen');
     expect(duration(data.runs[0]!)).toBe('1:00 min');
     expect(fullRepo(data.repos[1]!)).toBe('example-org/runner-tools-demo');
+  });
+  it('names a run by its repository first, then workflow and number', () => {
+    const data = snapshot();
+    const repo = fullRepo(data.repos[1]!);
+    expect(shortRepo(repo)).toBe('runner-tools-demo');
+    expect(shortRepo('Repository nicht verfügbar')).toBe(
+      'Repository nicht verfügbar',
+    );
+    expect(runLabel(data.runs[2]!, repo)).toBe(
+      'example-org/runner-tools-demo · Runner health #8403',
+    );
   });
   it.each([
     ['queued', null, 'In Warteschlange'],

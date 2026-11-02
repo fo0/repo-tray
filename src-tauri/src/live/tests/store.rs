@@ -181,6 +181,7 @@ fn a_refused_favorite_write_is_reported_in_german() {
         owner: "fixture-owner".into(),
         name: "fixture-repo".into(),
         default_branch: "main".into(),
+        pushed_at: None,
         selected: true,
         permission: Permission::Write,
     }];

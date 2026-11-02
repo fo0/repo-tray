@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
-/** The overview, one of its sections maximized, or the repository picker. */
-export type PanelPage = 'overview' | 'runs' | 'favorites' | 'repos' | 'picker';
+/** The overview or one of its sections maximized. */
+export type PanelPage = 'overview' | 'runs' | 'favorites' | 'repos';
 type Section = keyof typeof SECTION_TITLES;
 
 /** Section titles on the overview; their maximize buttons are named after them. */
@@ -15,7 +15,6 @@ export const PAGE_TITLES = {
   runs: 'Verlauf',
   favorites: 'Favoriten',
   repos: 'Repositories',
-  picker: 'Repositories im Tray',
 } as const;
 
 /** The maximize button in a section header of the overview. */
@@ -26,30 +25,29 @@ export function maximizeButton(page: Page, name: Section) {
   });
 }
 
-/** The back button of a maximized page. */
-export function backButton(page: Page) {
+/**
+ * The minimize button of a maximized page, in the header where the overview
+ * section has its maximize button.
+ */
+export function minimizeButton(page: Page, name: Section) {
   return page.getByRole('button', {
-    name: 'Zurück zur Übersicht',
+    name: `${PAGE_TITLES[name]} verkleinern`,
     exact: true,
   });
 }
 
 /**
- * Shows `name` the way a user gets there: the back button returns to the
- * overview, a section's maximize button opens its page, the Repositories
- * section's „Hinzufügen“ opens the picker. Nothing happens when the page is
- * already shown.
+ * Shows `name` the way a user gets there: a page's minimize button returns
+ * to the overview, a section's maximize button opens its page. Nothing happens when
+ * the page is already shown.
  */
 export async function openPage(page: Page, name: PanelPage) {
   const tray = page.locator('.tray');
   const current = await tray.getAttribute('data-page');
   if (current === name) return;
-  if (current !== 'overview') await backButton(page).click();
-  if (name === 'picker')
-    await page
-      .getByRole('button', { name: 'Repositories hinzufügen', exact: true })
-      .click();
-  else if (name !== 'overview') await maximizeButton(page, name).click();
+  if (current !== 'overview')
+    await minimizeButton(page, current as Section).click();
+  if (name !== 'overview') await maximizeButton(page, name).click();
   await expect(tray).toHaveAttribute('data-page', name);
 }
 
@@ -95,13 +93,21 @@ export async function chooseAccount(page: Page, name: string) {
   await expect(page.getByRole('menu')).toHaveCount(0);
 }
 
-/** Switches the demo scenario in settings and closes the dialog again. */
+/** Switches the demo scenario in settings and saves, which closes the dialog. */
 export async function scenario(page: Page, value: string) {
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();
-  await page.getByLabel('Demo-Szenario').selectOption(value);
-  await page.getByRole('button', { name: 'Dialog schließen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+  await dialog.getByLabel('Demo-Szenario').selectOption(value);
+  const save = dialog.getByRole('button', { name: 'Speichern', exact: true });
+  // The scenario in effect stages nothing; then there is nothing to save.
+  if (await save.isEnabled()) await save.click();
+  else
+    await dialog
+      .getByRole('button', { name: 'Abbrechen', exact: true })
+      .click();
+  await expect(dialog).toHaveCount(0);
 }
 
 /** Opens the demo connection dialog via settings. */
@@ -115,10 +121,11 @@ export async function openConnection(page: Page) {
   return page.getByRole('dialog', { name: 'GitHub verbinden' });
 }
 
-/** A saved template card on the Favoriten page, found by its heading. */
+/** A favorite's row, on the overview or the Favoriten page, by its label. */
 export function templateCard(page: Page, name: string) {
-  return page.getByRole('article').filter({
-    has: page.getByRole('heading', { name, exact: true }),
+  const exact = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  return page.locator('.pin-row').filter({
+    has: page.locator('.pin-label', { hasText: exact }),
   });
 }
 

@@ -62,31 +62,21 @@
     outline-offset: -2px;
   }
 
-  /* „Im Tray“ is a tinted row and a grey border: that toggle draws itself
-     like a selected tab instead (`.pick` outranks its later colours). */
-  .pick .pick-toggle.added,
-  .pick .pick-toggle.added .pick-icon {
-    forced-color-adjust: none;
-    background: Highlight;
-    border-color: Highlight;
-    color: HighlightText;
-  }
-
-  /* Favourites are a filled heart, on workflow rows and on tiles. */
+  /* Favourites are a filled heart, on workflow rows and favorite rows. */
   .favorite-button[aria-pressed='true'] svg,
-  .tile .tile-heart svg {
+  .pin-row .pin-heart svg {
     fill: ButtonText;
   }
 
-  /* The round start of a tile is an accent fill: draw its ring instead. */
-  .tile .tile-start {
+  /* The round start of a favorite is an accent fill: draw its ring instead. */
+  .pin-row .pin-start {
     border-color: ButtonText;
   }
-  .tile .tile-start[aria-disabled='true'] {
+  .pin-row .pin-start[aria-disabled='true'] {
     border-color: GrayText;
     color: GrayText;
   }
-  .tile .tile-open:focus-visible::after {
+  .pin-row .pin-open:focus-visible::after {
     outline-color: Highlight;
   }
 

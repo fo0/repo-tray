@@ -164,22 +164,30 @@
   background: transparent;
   color: var(--text);
 }
+/* One line per workflow: the branch or reason shortens first, then the name;
+   both stay complete in the button's accessible name. */
 .action-copy > span:last-child {
   min-width: 0;
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
   column-gap: 7px;
 }
-.action-copy strong {
+.action-copy strong,
+.action-copy small {
   display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.action-copy strong {
+  flex: 0 1 auto;
   font-size: 13px;
   font-weight: 560;
   line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 .action-copy small {
-  display: block;
+  flex: 0 100 auto;
   font-size: var(--font-size-meta);
   color: var(--text-3);
 }

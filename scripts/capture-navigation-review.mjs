@@ -1,5 +1,5 @@
 /*
- * Navigation review: the overview, every maximized page, the picker, the
+ * Navigation review: the overview, every maximized page, the
  * account menu and the settings App tab in both themes at 480×760, plus the
  * overview at the 360×560 minimum. NAVIGATION_REVIEW_DIR and
  * NAVIGATION_REVIEW_PREFIX redirect the files, e.g. into a step folder.
@@ -49,7 +49,8 @@ try {
       });
     };
 
-    await expect(page.locator('.repository-card')).toHaveCount(3);
+    // The overview shows at most 10 repositories; the rest wait under „+N weitere“.
+    await expect(page.locator('.repository-card')).toHaveCount(10);
     await capture('overview');
 
     await openPage(page, 'runs');
@@ -58,17 +59,11 @@ try {
     await capture('verlauf');
 
     await openPage(page, 'favorites');
-    await expect(page.locator('article.pin-card')).toHaveCount(1);
+    await expect(page.locator('.pin-row')).toHaveCount(1);
     await capture('favoriten');
 
     await openPage(page, 'repos');
     await capture('repositories');
-
-    await openPage(page, 'picker');
-    await expect(
-      page.getByRole('button', { name: /^Hinzufügen: / }).first(),
-    ).toBeVisible();
-    await capture('picker');
 
     await openPage(page, 'overview');
     await accountMenuButton(page).click();

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   blockedReason,
+  favoriteNames,
   START_REASONS,
   startGate,
   startReason,
@@ -41,6 +42,24 @@ describe('startReason', () => {
     expect(blockedReason(snapshot('offline'))).toBe(START_REASONS.offline);
     expect(blockedReason(snapshot('forbidden'))).toBe(START_REASONS.forbidden);
     expect(blockedReason(null)).toBe(START_REASONS.offline);
+  });
+});
+
+describe('favoriteNames', () => {
+  it('leads every name with the repository, then the favorite', () => {
+    expect(favoriteNames('launch-kit-demo', 'Release')).toEqual({
+      open: 'launch-kit-demo · Release starten…',
+      quickStart: 'launch-kit-demo · Release schnellstarten',
+      remove: 'launch-kit-demo · Release aus Favoriten entfernen',
+      uncertain: 'Startstatus ungeklärt: launch-kit-demo · Release',
+    });
+  });
+
+  it('tells two favorites with the same label apart by repository', () => {
+    const site = favoriteNames('website-demo', 'Release');
+    const kit = favoriteNames('launch-kit-demo', 'Release');
+    for (const key of ['open', 'quickStart', 'remove', 'uncertain'] as const)
+      expect(site[key]).not.toBe(kit[key]);
   });
 });
 

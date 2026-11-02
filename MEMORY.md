@@ -9,14 +9,12 @@ Stable project knowledge. **Read at session start.**
 - **Date:** 2026-10-31
 - **Context:** Releases must work without signing keys or certificates.
 - **Decision:** The standard _Release_ Action publishes an unsigned NSIS EXE (`createUpdaterArtifacts: false` in `src-tauri/tauri.release.conf.json`). The version is `YYYY.MMDD.HHmm` (UTC) from the immutable run creation time, stamped only into the build workspace — Git keeps `0.1.0`, no bump commit.
-- **Reason:** Retries keep the same version; no secrets beyond `GITHUB_TOKEN`. The Tauri updater stays implemented for separately signed builds only. Detail: `docs/RELEASES.md`.
+- **Reason:** Retries keep the same version; no secrets beyond `GITHUB_TOKEN`. The Tauri updater stays for separately signed builds; unsigned builds update per ADR-0004. Detail: `docs/RELEASES.md`.
 
-### Unsigned builds announce updates, they never install them
+### Unsigned builds update in the app
 
 - **Date:** 2026-11-01
-- **Context:** Without an updater public key the in-app updater cannot verify packages, so published unsigned builds never learned about new releases.
-- **Decision:** Notify-only mode: every 6 h an unauthenticated `api.github.com/repos/fo0/repo-tray/releases/latest` check accepts only a canonical stable `vX.Y.Z` newer than the running version and offers „Release-Seite öffnen“ for that tag page; no download, no execution. Signed builds keep the verified install path.
-- **Reason:** Users learn about releases without trusting unsigned code. Detail: `docs/RELEASES.md`.
+- **Decision:** Owner reversed notify-only („Release-Seite öffnen“): unsigned builds download the release EXE, verify size + SHA-256 against GitHub's asset digest and run the NSIS installer (`/P /R /UPDATE`, no `/ARGS`), which restarts the app without `--autostart`. Trust trade-off and detail: [ADR-0004](docs/adr/0004-in-app-updates-for-unsigned-builds.md).
 
 ### Uncertain starts are released only by an explicit confirmation
 
@@ -60,3 +58,4 @@ Stable project knowledge. **Read at session start.**
 
 - **Chat in German, direct, no filler**; generated files and commits in English (owner, 2026-11-01)
 - **Simple subagent work may run at effort `high`** on the session's model instead of inheriting the session effort (owner, 2026-11-01)
+- **Never reintroduce manual repository selection** — the owner asked three times before the picker went; repositories are automatic ([ADR-0003](docs/adr/0003-automatic-repositories.md)), UI rules in `agent_docs/ux_rules.md` (owner, 2026-11-01)

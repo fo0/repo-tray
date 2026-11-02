@@ -18,7 +18,7 @@ async function uncertainTemplate(page: Page, quickStart = false) {
   if (quickStart) {
     await card
       .getByRole('button', {
-        name: 'Favorit Windows build starten…',
+        name: 'launch-kit-demo · Windows build starten…',
         exact: true,
       })
       .click();
@@ -42,7 +42,7 @@ async function uncertainTemplate(page: Page, quickStart = false) {
   await scenario(page, 'uncertain');
   await card
     .getByRole('button', {
-      name: 'Favorit Windows build starten…',
+      name: 'launch-kit-demo · Windows build starten…',
       exact: true,
     })
     .click();
@@ -58,18 +58,19 @@ async function uncertainTemplate(page: Page, quickStart = false) {
 }
 
 for (const width of [360, 480]) {
-  test(`uncertain status uses the existing row with hover and keyboard help at ${width}px`, async ({
+  test(`uncertain status marks the compact row with hover and keyboard help at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 760 });
     const card = await uncertainTemplate(page);
     const status = card.getByRole('button', {
-      name: 'Startstatus ungeklärt: Windows build',
+      name: 'Startstatus ungeklärt: launch-kit-demo · Windows build',
       exact: true,
     });
     const tooltip = page.getByRole('tooltip');
+    // The marker fits the compact row; the row keeps its height.
     const height = (await card.boundingBox())!.height;
-    expect(height).toBe(62);
+    expect(height).toBe(34);
     await expect(status).toBeVisible();
     expect((await status.boundingBox())!.height).toBeGreaterThanOrEqual(24);
     await expect(tooltip).toHaveCount(0);
@@ -96,10 +97,11 @@ for (const width of [360, 480]) {
     await page.keyboard.press('Escape');
     await expect(tooltip).toHaveCount(0);
     await expect(status).toBeFocused();
-    await page.keyboard.press('Tab');
+    // The name before it opens the dialog to check or release the lock.
+    await page.keyboard.press('Shift+Tab');
     await expect(
       card.getByRole('button', {
-        name: 'Favorit Windows build starten…',
+        name: 'launch-kit-demo · Windows build starten…',
         exact: true,
       }),
     ).toBeFocused();
@@ -135,20 +137,20 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     await page.goto('/');
     const card = await uncertainTemplate(page, true);
     const status = card.getByRole('button', {
-      name: 'Startstatus ungeklärt: Windows build',
+      name: 'Startstatus ungeklärt: launch-kit-demo · Windows build',
       exact: true,
     });
     const tooltip = page.getByRole('tooltip');
     await expect(
       card.getByRole('button', {
-        name: 'Favorit Windows build schnellstarten',
+        name: 'launch-kit-demo · Windows build schnellstarten',
         exact: true,
       }),
     ).toBeDisabled();
     await status.tap();
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText('Schnellstart aktiviert');
-    await expect(tooltip).toContainText('Zahnrad „Starten…“');
+    await expect(tooltip).toContainText('Wähle den Favoriten');
     await status.tap();
     await expect(tooltip).toHaveCount(0);
     await status.tap();
@@ -156,7 +158,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     await page.getByRole('heading', { name: /^RepoTray/ }).tap();
     await expect(tooltip).toHaveCount(0);
     await card
-      .getByRole('button', { name: 'Favorit Windows build starten…' })
+      .getByRole('button', { name: 'launch-kit-demo · Windows build starten…' })
       .tap();
     await expect(
       page

@@ -4,7 +4,7 @@
 
 RepoTray implements the GitHub App **device flow** in native Rust. It uses the system browser, a short code on `https://github.com/login/device`, automatic polling and the OS credential vault. There is no server, callback listener, embedded browser, client secret or private key. The browser preview remains its existing labelled demo. Native UI tests use an IPC fixture and never open GitHub.
 
-**Code implementation and fixture checks are available. Real sign-in remains configuration-dependent.** No publisher GitHub App has been registered or configured, no account has authorized/installed it, and no real end-to-end login or workflow dispatch was performed. Without publisher configuration, the native button explains that setup is missing and stays disabled. PAT and existing local gh CLI/GCM UI remain available.
+**Code implementation and fixture checks are available. Real sign-in remains configuration-dependent.** No publisher GitHub App has been registered or configured, no account has authorized/installed it, and no real end-to-end login or workflow dispatch was performed. In every build, configured or not, the connection dialog shows **Mit GitHub anmelden** only as a disabled option (**Vorübergehend deaktiviert**); the device-flow component `src/lib/BrowserAuth.svelte` is mounted nowhere (BACKLOG #32). Token and local gh sign-in remain available.
 
 ## Publisher configuration (documentation only)
 
@@ -35,12 +35,12 @@ pnpm desktop:build
 
 These are compile-time Rust environment variables, not `VITE_` variables. Client ID differs from the numeric App ID. Both values must belong to the same intended publisher app; the code validates syntax and HTTPS paths but cannot verify publisher ownership without real setup. No borrowed app Client ID or working credential is included. The release pipeline is unchanged; the owner must supply correct public configuration for a future coordinated build.
 
-## What the user does
+## What the user does (once re-enabled)
 
 1. Click **Mit GitHub anmelden**. RepoTray obtains a device code in Rust, shows the short confirmation code and opens the exact GitHub device page in the system browser.
 2. Check the account shown by GitHub, enter the code and authorize the publisher app. RepoTray recognizes the result automatically, verifies `/user`, and stores its own browser credential.
-3. Separately install the app on the personal or organization account and select individual or all repositories. The connection dialog and the panel's **Repositories im Tray** page contain a button to the configured app's installation page. Organization administrator approval and an active SAML SSO session may be required.
-4. Click **Repository-Liste aktualisieren** in **Repositories im Tray** after changing installation access. This bypasses the ordinary catalog refresh interval, follows paginated installations and their paginated repositories, and preserves still-accessible selections.
+3. Separately install the app on the personal or organization account and select individual or all repositories. **Repository-Freigabe auf GitHub ändern** at the bottom of the Repositories page opens the configured app's installation page (`open_browser_installation`); it shows while a browser account is connected. Organization administrator approval and an active SAML SSO session may be required.
+4. After changing installation access, **Repository-Liste aktualisieren** next to it forces a repository refresh (`refresh_repositories`) that bypasses the ordinary catalog refresh interval and follows paginated installations and their paginated repositories; the tray's repositories then follow automatically ([ADR-0003](adr/0003-automatic-repositories.md)).
 
 An authorization can succeed with no installed repositories. That is an authenticated account, not permission to access every repository. RepoTray explains the separate installation requirement. It checks installation Actions rights separately from the user's `permissions.push`; push alone never grants browser-account Actions write. Contents read is also required before browser-account dispatch is offered. GitHub's actual API response remains authoritative. Workflows needing environment lists can remain unavailable when their additional API access is absent; RepoTray requests no broader permissions.
 
@@ -56,7 +56,7 @@ Access and refresh tokens, expiry and a rotation marker are stored as **one vaul
 
 ## Validation and remaining acceptance work
 
-Fixture tests cover pending, slowdown, denial, expiry, network errors, cancellation, stale start/poll responses, token shapes, untrusted verification URLs, distinct ownership, effective permissions, refresh identity mismatch and ambiguous refresh recovery. Existing PAT cancellation and gh/GCM tests remain unchanged. `tests/browser-auth.spec.ts` checks the paused state against an IPC mock, both with and without publisher configuration: **Mit GitHub anmelden** stays disabled with its pause notice, the token and local-account alternatives stay usable, no browser-auth, token-connect or local-discovery IPC command is called and no extra window opens.
+Fixture tests cover pending, slowdown, denial, expiry, network errors, cancellation, stale start/poll responses, token shapes, untrusted verification URLs, distinct ownership, effective permissions, refresh identity mismatch and ambiguous refresh recovery. Existing PAT cancellation and gh/GCM tests remain unchanged. `tests/browser-auth.spec.ts` checks the paused state against an IPC mock, both with and without publisher configuration: the option **Mit GitHub anmelden** stays disabled with **Vorübergehend deaktiviert**, the token and local-account alternatives stay usable, no browser-auth, token-connect or local-discovery IPC command is called and no extra window opens.
 
 Fixture tests cannot establish Windows Credential Manager/WebView2 behavior or system-browser focus. CI checks native Windows compilation; Windows runtime acceptance and a real publisher-configured end-to-end login require a separate native session.
 

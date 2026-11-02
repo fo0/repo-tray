@@ -1,7 +1,7 @@
 <script lang="ts">
   import EmptyState, { type NextStep } from './EmptyState.svelte';
+  import FavoriteTiles from './FavoriteTiles.svelte';
   import Icon from './Icon.svelte';
-  import PinCard from './PinCard.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
   import type { Pin } from './types';
@@ -33,21 +33,18 @@
 </script>
 
 {#if setup}<EmptyState icon="heart" iconSize={25} {...setup} />
-{:else if pins.length}<div class="pin-list has-pins">
-    {#each pins as pin (pin.id)}
-      <PinCard
-        {pin}
-        uncertain={panel.starts.isQuarantined(pin)}
-        repo={repoName(pin.repoId)}
-        account={accountName(pin.accountId)}
-        demo={panel.demo}
-        gate={panel.starts.favoriteGate(pin)}
-        onLaunch={() => modals.launchPin(pin)}
-        onConfigure={() => modals.openDispatch(pin)}
-        onRemove={() => panel.favorites.remove(pin.id)}
-      />
-    {/each}
-  </div>
+{:else if pins.length}<FavoriteTiles
+    {pins}
+    isUncertain={panel.starts.isQuarantined}
+    {repoName}
+    {accountName}
+    gate={panel.starts.favoriteGate}
+    onConfigure={(pin) => modals.openDispatch(pin)}
+    onRemove={panel.favorites.remove}
+    onLaunch={modals.launchPin}
+    help
+    demo={panel.demo}
+  />
 {:else if searching}<EmptyState
     icon="search"
     iconSize={25}

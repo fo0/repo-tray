@@ -80,7 +80,10 @@ test('a running start names itself on the locked favorite', async ({
   await page.clock.install();
   await page.clock.pauseAt(Date.now() + 2000);
   const card = templateCard(page, 'Windows build');
-  const open = card.locator('.pin-start');
+  const open = card.getByRole('button', {
+    name: 'launch-kit-demo · Windows build starten…',
+    exact: true,
+  });
   await expect(open).toBeEnabled();
   await open.click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });

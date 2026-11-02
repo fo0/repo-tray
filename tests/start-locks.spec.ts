@@ -45,21 +45,25 @@ test('a running start locks only its own target in every list', async ({
   const develop = templateCard(page, 'Develop build');
   await expect(main.locator('.pin-start')).toBeDisabled();
   await expect(develop.locator('.pin-start')).toBeEnabled();
-  // Removing follows the same rule as the favorite tile and the heart.
+  // Removing follows the same rule as the start and the workflow's heart.
   await expect(
-    main.getByRole('button', { name: 'Favorit Windows build entfernen' }),
+    main.getByRole('button', {
+      name: 'launch-kit-demo · Windows build aus Favoriten entfernen',
+    }),
   ).toBeDisabled();
   await expect(
-    develop.getByRole('button', { name: 'Favorit Develop build entfernen' }),
+    develop.getByRole('button', {
+      name: 'launch-kit-demo · Develop build aus Favoriten entfernen',
+    }),
   ).toBeEnabled();
 
-  // Overview: favorite tiles and workflow rows follow the target.
+  // Overview: favorite rows and workflow rows follow the target.
   await openPage(page, 'overview');
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
-  const tile = (label: string) =>
-    pinned.locator('.tile').filter({ hasText: label });
-  await expect(tile('Windows build').locator('.tile-start')).toBeDisabled();
-  await expect(tile('Develop build').locator('.tile-start')).toBeEnabled();
+  const row = (label: string) =>
+    pinned.locator('.pin-row').filter({ hasText: label });
+  await expect(row('Windows build').locator('.pin-start')).toBeDisabled();
+  await expect(row('Develop build').locator('.pin-start')).toBeEnabled();
   const kit = page.getByRole('region', {
     name: 'demo-dev/launch-kit-demo',
     exact: true,
@@ -91,11 +95,13 @@ test('a running start locks only its own target in every list', async ({
   ).toBeEnabled();
 
   await page.clock.runFor(400);
-  await expect(tile('Windows build').locator('.tile-start')).toBeEnabled();
+  await expect(row('Windows build').locator('.pin-start')).toBeEnabled();
   await expect(desktopRow).toBeEnabled();
   await openPage(page, 'favorites');
   await expect(
-    main.getByRole('button', { name: 'Favorit Windows build entfernen' }),
+    main.getByRole('button', {
+      name: 'launch-kit-demo · Windows build aus Favoriten entfernen',
+    }),
   ).toBeEnabled();
   await openPage(page, 'overview');
   await expect(

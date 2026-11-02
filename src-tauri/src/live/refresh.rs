@@ -23,6 +23,7 @@ impl<T: Transport> LiveStore<T> {
     /// Lists every account whose catalog is due, each on its own timer. A failing account
     /// keeps its last known repositories: a transient failure retries after a minute, an
     /// unauthorized account waits out its hold. Healthy accounts are not refetched early.
+    /// A listed account selects its repositories automatically (`merge_catalog`).
     fn catalog(&mut self, issues: &mut RefreshIssues, now: u64) {
         let mut listings = BTreeMap::new();
         for account in &self.data.accounts {
@@ -45,8 +46,29 @@ impl<T: Transport> LiveStore<T> {
                 }
             }
         }
-        if !listings.is_empty() {
-            self.data.repos = merge_catalog(&self.data.repos, &self.data.accounts, listings);
+        if listings.is_empty() {
+            return;
+        }
+        let before: BTreeSet<_> = self
+            .data
+            .repos
+            .iter()
+            .filter(|r| r.selected)
+            .map(|r| r.id.clone())
+            .collect();
+        self.data.repos = merge_catalog(
+            &self.data.repos,
+            &self.data.accounts,
+            listings,
+            &self.data.pins,
+        );
+        for repo in &self.data.repos {
+            if repo.selected && !before.contains(&repo.id) {
+                // A deselected repository's runs left the snapshot: a newly selected one
+                // loads its initial history now, not just the runs since its last poll.
+                self.history_since.remove(&repo.id);
+                self.poll_at.remove(&repo.id);
+            }
         }
     }
     fn repo_metadata(&self, repo: &Repo, now: u64) -> Result<Vec<Workflow>, ScopeError> {
@@ -366,27 +388,6 @@ impl<T: Transport> LiveStore<T> {
     pub fn refresh_repositories(&mut self) -> Snapshot {
         self.schedule = Schedule::default();
         self.refresh()
-    }
-    pub fn select_repos(&mut self, ids: Vec<String>) -> Result<Snapshot, String> {
-        if ids.len() > 50
-            || ids
-                .iter()
-                .any(|id| !self.data.repos.iter().any(|r| &r.id == id))
-        {
-            return Err("Wähle höchstens 50 bekannte Repositories.".into());
-        }
-        for repo in &mut self.data.repos {
-            let selected = ids.contains(&repo.id);
-            if selected && !repo.selected {
-                // A deselected repository's runs leave the foreground snapshot.
-                // Re-selecting must restore its initial history, not just new runs.
-                self.history_since.remove(&repo.id);
-            }
-            repo.selected = selected;
-        }
-        self.poll_at.clear();
-        self.persist();
-        Ok(self.refresh())
     }
 }
 
