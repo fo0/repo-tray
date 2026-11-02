@@ -54,7 +54,7 @@ export function releasePlan(timestamp, sourceSha) {
   return {
     version,
     tag: `v${version}`,
-    title: `RepoTray ${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} (Berlin, ${parts.timeZoneName})`,
+    title: `RepoWatch ${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} (Berlin, ${parts.timeZoneName})`,
     created_at: date.toISOString(),
     source_sha: sourceSha,
   };
@@ -130,16 +130,17 @@ function appVersions(directory) {
 export function stampVersions(directory, plan) {
   validatePlan(plan);
   const { pkg, pkgText, tauriText, cargo, lock } = appVersions(directory);
-  if (pkg.name !== 'repotray') throw new Error('Expected the RepoTray package');
+  if (pkg.name !== 'repowatch')
+    throw new Error('Expected the RepoWatch package');
   const manifestPattern = /^(\[package\][\s\S]*?^version\s*=\s*)"[^"]+"/m;
   const lockPattern =
-    /^(\[\[package\]\]\r?\nname = "repotray"\r?\nversion = )"[^"]+"/gm;
+    /^(\[\[package\]\]\r?\nname = "repowatch"\r?\nversion = )"[^"]+"/gm;
   if (
     !manifestPattern.test(cargo) ||
     [...lock.matchAll(lockPattern)].length !== 1
   )
     throw new Error(
-      'RepoTray Cargo package/lockfile entry missing or ambiguous',
+      'RepoWatch Cargo package/lockfile entry missing or ambiguous',
     );
   /** @param {string} text */
   const versionJson = (text) => {
@@ -178,7 +179,7 @@ export function assertVersions(directory, plan) {
     cargo,
   )?.[1];
   const lockVersion =
-    /^\[\[package\]\]\r?\nname = "repotray"\r?\nversion = "([^"]+)"/m.exec(
+    /^\[\[package\]\]\r?\nname = "repowatch"\r?\nversion = "([^"]+)"/m.exec(
       lock,
     )?.[1];
   if (

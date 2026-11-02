@@ -1,9 +1,9 @@
 //! Windows' per-user Run value, scoped to the installed executable. We use the
 //! documented Run mechanism directly so ownership checks precede every mutation
 //! and no plugin can fall back to HKLM or override Windows' startup veto.
-use repotray_core::startup::StartupStatus;
+use repowatch_core::startup::StartupStatus;
 #[cfg(not(windows))]
-use repotray_core::startup::Status;
+use repowatch_core::startup::Status;
 use std::sync::Mutex;
 
 #[derive(Default)]
@@ -30,7 +30,7 @@ pub fn set_autostart(
     #[cfg(windows)]
     {
         let expected = windows::expected()?;
-        repotray_core::startup::set_enabled(
+        repowatch_core::startup::set_enabled(
             &mut windows::Registry::current_user(),
             &expected,
             enabled,
@@ -46,7 +46,7 @@ pub fn set_autostart(
 fn status() -> Result<StartupStatus, String> {
     #[cfg(windows)]
     {
-        repotray_core::startup::read(&windows::Registry::current_user(), &windows::expected()?)
+        repowatch_core::startup::read(&windows::Registry::current_user(), &windows::expected()?)
     }
     #[cfg(not(windows))]
     Ok(StartupStatus {
@@ -72,7 +72,7 @@ pub fn open_startup_settings(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg(windows)]
 mod windows {
-    use repotray_core::startup::{self, Approval, Registration, VALUE_NAME};
+    use repowatch_core::startup::{self, Approval, Registration, VALUE_NAME};
     use std::{io, path::Path};
     use winreg::{enums::*, RegKey};
 
@@ -168,7 +168,7 @@ mod windows {
             // An isolated test root: never register an actual startup command in CI.
             let hkcu = RegKey::predef(HKEY_CURRENT_USER);
             let path = format!(
-                r"Software\io.github.fo0.repotray\Tests\{}-{}",
+                r"Software\io.github.fo0.repowatch\Tests\{}-{}",
                 std::process::id(),
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -180,7 +180,8 @@ mod windows {
             let (run, _) = registry.root.create_subkey(RUN).unwrap();
             run.set_value("unrelated", &"leave me").unwrap();
             let expected =
-                command_for_path(Path::new(r"C:\Users\Test Person\RepoTray\repotray.exe")).unwrap();
+                command_for_path(Path::new(r"C:\Users\Test Person\RepoWatch\repowatch.exe"))
+                    .unwrap();
             assert_eq!(
                 startup::read(&registry, &expected).unwrap().status,
                 startup::Status::Disabled

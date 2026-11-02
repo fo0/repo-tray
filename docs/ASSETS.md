@@ -1,6 +1,6 @@
 # Asset sources
 
-The current application icons and UI glyphs were constructed for RepoTray from basic lines, circles and rectangles during the source-distribution cleanup. No external icon library, downloaded artwork, font glyph or previous raster image is an input. The existing project license is unchanged; this note does not assert authorship or rights for the superseded assets in older commits or releases.
+The current application icons and UI glyphs were constructed for RepoWatch from basic lines, circles and rectangles during the source-distribution cleanup. No external icon library, downloaded artwork, font glyph or previous raster image is an input. The existing project license is unchanged; this note does not assert authorship or rights for the superseded assets in older commits or releases.
 
 ## Application icons
 

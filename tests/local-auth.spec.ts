@@ -205,7 +205,7 @@ test('„Zurück“ cancels a running check and discards its late result; an emp
   await expect(found(page).getByRole('radio')).toHaveCount(3);
 });
 
-test('a gh login RepoTray already holds is marked, and taking it over again needs the same explicit „Übernehmen“', async ({
+test('a gh login RepoWatch already holds is marked, and taking it over again needs the same explicit „Übernehmen“', async ({
   page,
 }, testInfo) => {
   await checkLocal(page);

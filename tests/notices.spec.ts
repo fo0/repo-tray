@@ -171,7 +171,7 @@ test('a notice that arrives behind a dialog waits there and times out only after
   const notice = page.getByRole('status').filter({ hasText: /Demo-Run #9001/ });
   await expect(notice).toBeVisible();
   // The full timeout starts once the dialog is gone.
-  await page.getByRole('heading', { name: /^RepoTray/ }).hover();
+  await page.getByRole('heading', { name: /^RepoWatch/ }).hover();
   await page
     .getByRole('button', { name: 'Aktualisieren', exact: true })
     .focus();

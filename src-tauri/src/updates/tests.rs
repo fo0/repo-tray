@@ -3,7 +3,7 @@ use super::*;
 const DIGEST: &str = "sha256:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 fn url(version: &str) -> String {
-    format!("https://github.com/fo0/repo-tray/releases/download/v{version}/RepoTray_{version}_x64-setup.exe")
+    format!("https://github.com/fo0/repo-watch/releases/download/v{version}/RepoWatch_{version}_x64-setup.exe")
 }
 fn asset(version: &str) -> serde_json::Value {
     serde_json::json!({
@@ -21,7 +21,7 @@ fn release_with(tag: &str, draft: bool, prerelease: bool, assets: serde_json::Va
         "prerelease": prerelease,
         "body": "Synthetic changelog",
         "published_at": "2026-11-01T09:05:42+01:00",
-        "html_url": "https://github.com/fo0/repo-tray/releases/tag/ignored",
+        "html_url": "https://github.com/fo0/repo-watch/releases/tag/ignored",
         "assets": assets,
     })
     .to_string()
@@ -51,7 +51,7 @@ fn rejects_foreign_urls_credentials_queries_and_version_mismatches() {
         expected.replace("https:", "http:"),
         expected.replace("github.com", "github.com.attacker.invalid"),
         expected.replace("github.com", "token@github.com"),
-        expected.replace("fo0/repo-tray", "other/repo"),
+        expected.replace("fo0/repo-watch", "other/repo"),
         expected.replace("v0.2.0/", "v0.3.0/"),
         format!("{expected}?token=x"),
         format!("{expected}#fragment"),
@@ -108,7 +108,7 @@ fn reports_a_newer_stable_release_with_its_verified_installer() {
 fn picks_the_exact_installer_among_other_assets() {
     let version = "2026.1101.905";
     let mut other = asset(version);
-    other["name"] = "RepoTray_2026.1101.905_x64-setup.exe.sig".into();
+    other["name"] = "RepoWatch_2026.1101.905_x64-setup.exe.sig".into();
     other["browser_download_url"] = format!("{}.sig", url(version)).into();
     let body = release_with(
         "v2026.1101.905",
@@ -137,9 +137,9 @@ fn a_newer_release_without_a_trustworthy_installer_fails_closed() {
         serde_json::json!([]),
         serde_json::Value::Null,
         serde_json::json!([without_digest]),
-        changed("name", "RepoTray_2026.1101.905_x64-setup.msi".into()),
-        changed("name", "repotray_2026.1101.905_x64-setup.exe".into()),
-        changed("name", "RepoTray_2026.1101.904_x64-setup.exe".into()),
+        changed("name", "RepoWatch_2026.1101.905_x64-setup.msi".into()),
+        changed("name", "repowatch_2026.1101.905_x64-setup.exe".into()),
+        changed("name", "RepoWatch_2026.1101.904_x64-setup.exe".into()),
         changed("browser_download_url", url("2026.1101.904").into()),
         changed("browser_download_url", foreign_host.into()),
         changed(

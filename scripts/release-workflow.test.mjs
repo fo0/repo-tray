@@ -75,7 +75,7 @@ if (process.env.RELEASE_TEST_COMMAND === 'pnpm') {
     const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
     const dir = 'src-tauri/target/release/bundle/nsis';
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'RepoTray_' + version + '_x64-setup.exe'), state.payload);
+    fs.writeFileSync(path.join(dir, 'RepoWatch_' + version + '_x64-setup.exe'), state.payload);
     state.built = true;
     save();
   }
@@ -110,7 +110,7 @@ if (process.env.RELEASE_TEST_COMMAND === 'pnpm') {
  */
 function fixture(t, changes = {}) {
   const directory = mkdtempSync(
-    path.join(tmpdir(), 'repotray-release-action-'),
+    path.join(tmpdir(), 'repowatch-release-action-'),
   );
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   mkdirSync(path.join(directory, 'scripts'));
@@ -132,7 +132,7 @@ function fixture(t, changes = {}) {
     if (
       name.toLowerCase() === 'path' ||
       name.startsWith('TAURI_SIGNING_') ||
-      name.startsWith('REPOTRAY_UPDATER_')
+      name.startsWith('REPOWATCH_UPDATER_')
     )
       delete env[name];
   }
@@ -190,7 +190,7 @@ function fixture(t, changes = {}) {
     PATH: `${bin}${path.delimiter}${inheritedPath}`,
     RELEASE_TEST_STATE: stateFile,
     GITHUB_REF: 'refs/heads/main',
-    GITHUB_REPOSITORY: 'fo0/repo-tray',
+    GITHUB_REPOSITORY: 'fo0/repo-watch',
     GITHUB_RUN_ID: '1',
     GITHUB_ENV: actionsEnv,
     RELEASE_SOURCE_SHA: sha,

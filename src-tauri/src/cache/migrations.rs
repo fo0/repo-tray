@@ -11,7 +11,7 @@ pub(super) fn migrate(connection: &mut Connection) -> Result<(), CacheError> {
     let applied = usize::try_from(applied).unwrap_or(usize::MAX);
     if applied > MIGRATIONS.len() {
         return Err(CacheError::Invalid(
-            "The local cache was written by a newer RepoTray version.".into(),
+            "The local cache was written by a newer RepoWatch version.".into(),
         ));
     }
     for (index, migration) in MIGRATIONS.iter().enumerate().skip(applied) {

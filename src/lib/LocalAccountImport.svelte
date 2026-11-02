@@ -4,7 +4,7 @@
   /** One radio value per found entry; gh and GCM may share a login. */
   export const localKey = (account: LocalAccount) =>
     `${account.source}:${account.login}`;
-  /** Only gh entries carry an API sign-in RepoTray can import. */
+  /** Only gh entries carry an API sign-in RepoWatch can import. */
   export const importable = (account: LocalAccount) =>
     account.source === 'gh' && account.usable;
 </script>
@@ -20,7 +20,7 @@
   }: {
     /** Every entry the discovery found, importable or not. */
     accounts: LocalAccount[];
-    /** gh accounts RepoTray already holds a copy of. */
+    /** gh accounts RepoWatch already holds a copy of. */
     connected: Account[];
     /** `localKey` of the chosen entry, or ''. */
     selected: string;

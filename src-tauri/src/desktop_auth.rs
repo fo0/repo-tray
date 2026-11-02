@@ -2,7 +2,7 @@
 //! connect, and disconnect. Each connect takes a generation ticket; `cancel_connect` or a
 //! newer connect invalidates it.
 use crate::desktop::{work, NativeState};
-use repotray_core::{
+use repowatch_core::{
     auth::{DeviceFlowStatus, DevicePollResult, SecretToken},
     browser_auth::{self, NativeOAuthTransport, PollOutcome},
     local_auth::{self, LocalDiscovery, ProcessRunner, Programs},
@@ -57,7 +57,7 @@ pub(crate) async fn connect_local_auth(
     confirm_import: bool,
 ) -> Result<Snapshot, String> {
     if !confirm_import {
-        return Err("Bestätige zuerst die Übernahme in den RepoTray-Tresor.".into());
+        return Err("Bestätige zuerst die Übernahme in den RepoWatch-Tresor.".into());
     }
     let ticket = app
         .state::<NativeState>()
@@ -121,7 +121,7 @@ pub(crate) async fn start_browser_auth(app: tauri::AppHandle) -> Result<BrowserR
         flow.0 = ticket;
         let status = flow
             .1
-            .start_local(authorization, repotray_core::live::now())
+            .start_local(authorization, repowatch_core::live::now())
             .map_err(|e| e.to_string())?;
         Ok(BrowserReply {
             flow_id: ticket,
@@ -145,7 +145,7 @@ pub(crate) fn open_browser_auth(app: tauri::AppHandle, flow_id: u64) -> Result<(
     if state.auth_generation.load(Ordering::SeqCst) != flow_id
         || flow.0 != flow_id
         || !matches!(
-            flow.1.status(repotray_core::live::now()),
+            flow.1.status(repowatch_core::live::now()),
             DeviceFlowStatus::AwaitingAuthorization { .. }
         )
     {
@@ -177,7 +177,7 @@ pub(crate) async fn poll_browser_auth(
             if !current() || flow.0 != flow_id {
                 return Err("Anmeldung wurde abgebrochen.".into());
             }
-            let status = flow.1.status(repotray_core::live::now());
+            let status = flow.1.status(repowatch_core::live::now());
             if !matches!(status, DeviceFlowStatus::AwaitingAuthorization { .. }) {
                 return Ok(BrowserReply {
                     flow_id,
@@ -188,7 +188,7 @@ pub(crate) async fn poll_browser_auth(
             }
             let Some(ticket) = flow
                 .1
-                .next_poll(repotray_core::live::now())
+                .next_poll(repowatch_core::live::now())
                 .map_err(|e| e.to_string())?
             else {
                 return Ok(BrowserReply {
@@ -200,7 +200,7 @@ pub(crate) async fn poll_browser_auth(
             };
             let code = flow
                 .1
-                .with_device_code(ticket, repotray_core::live::now(), |s| {
+                .with_device_code(ticket, repowatch_core::live::now(), |s| {
                     SecretToken::new(s.to_owned())
                 })
                 .map_err(|e| e.to_string())?;
@@ -210,7 +210,7 @@ pub(crate) async fn poll_browser_auth(
             &mut NativeOAuthTransport::new()?,
             browser_auth::publisher()?.0,
             &code,
-            repotray_core::live::now(),
+            repowatch_core::live::now(),
         );
         let (poll_status, tokens, message) = match result {
             Ok(PollOutcome::Status(status)) => (status, None, None),
@@ -235,7 +235,7 @@ pub(crate) async fn poll_browser_auth(
             if !current() || flow.0 != flow_id {
                 return Err("Anmeldung wurde abgebrochen.".into());
             }
-            let now = repotray_core::live::now();
+            let now = repowatch_core::live::now();
             if flow.1.status(now) == DeviceFlowStatus::Expired {
                 return Ok(BrowserReply {
                     flow_id,

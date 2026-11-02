@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "RepoTray",
+  "productName": "RepoWatch",
   "version": "0.1.0",
-  "identifier": "io.github.fo0.repotray",
+  "identifier": "io.github.fo0.repowatch",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "RepoTray",
+        "title": "RepoWatch",
         "width": 480,
         "height": 760,
         "minWidth": 360,
@@ -37,7 +37,7 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"],
     "category": "DeveloperTool",
     "shortDescription": "GitHub Actions within reach",
-    "copyright": "Copyright (c) 2026 RepoTray contributors",
+    "copyright": "Copyright (c) 2026 RepoWatch contributors",
     "windows": {
       "nsis": {
         "displayLanguageSelector": true,

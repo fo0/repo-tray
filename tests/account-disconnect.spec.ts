@@ -85,7 +85,7 @@ async function setup(page: Page, uncertainFor?: string) {
   );
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('github-42'),
     ),
   );
@@ -236,7 +236,7 @@ test('removing the active account while another remains never picks a replacemen
   );
   expect(
     await page.evaluate(() =>
-      localStorage.getItem('repotray.activeAccount.v1'),
+      localStorage.getItem('repowatch.activeAccount.v1'),
     ),
   ).toBeNull();
 });

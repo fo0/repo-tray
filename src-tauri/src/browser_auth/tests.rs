@@ -80,19 +80,19 @@ fn browser_sign_in_is_explicitly_paused_independently_of_publisher_configuration
         .unwrap_err()
         .contains("vorübergehend deaktiviert"));
     // Keep configuration parsing for existing credentials and future re-enabling.
-    assert!(validate_publisher("Iv1.synthetic", "repotray-desktop").is_ok());
+    assert!(validate_publisher("Iv1.synthetic", "repowatch-desktop").is_ok());
 }
 
 #[test]
 fn public_config_rejects_urls_and_accepts_current_and_legacy_client_id_formats() {
     for id in ["Iv1.synthetic", "Iv23liSynthetic1234"] {
-        assert!(validate_publisher(id, "repotray-desktop").is_ok());
+        assert!(validate_publisher(id, "repowatch-desktop").is_ok());
     }
     for (id, slug) in [
-        ("", "repotray"),
+        ("", "repowatch"),
         ("Iv1.synthetic", "evil/path"),
         ("Iv1.synthetic", "../device"),
-        ("https://evil.test", "repotray"),
+        ("https://evil.test", "repowatch"),
     ] {
         assert!(validate_publisher(id, slug).is_err());
     }

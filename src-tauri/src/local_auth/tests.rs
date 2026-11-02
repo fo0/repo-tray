@@ -173,7 +173,7 @@ fn a_configuration_path_containing_token_is_still_a_stored_credential() {
 #[test]
 fn windows_discovery_finds_scoop_winget_and_absolute_path_but_rejects_project_binaries() {
     use std::{collections::BTreeMap, ffi::OsString};
-    let root = std::env::temp_dir().join(format!("repotray-cli-paths-{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("repowatch-cli-paths-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
     struct Cleanup(PathBuf);
     impl Drop for Cleanup {

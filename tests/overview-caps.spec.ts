@@ -75,7 +75,7 @@ test.describe('capped overview', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() =>
       localStorage.setItem(
-        'repotray.activeAccount.v1',
+        'repowatch.activeAccount.v1',
         JSON.stringify('github-4242'),
       ),
     );

@@ -1,6 +1,6 @@
 //! Win32 calls stay on the Tauri event-loop thread. No global hooks, injected
 //! input, focus-stealing workarounds or changes to process DPI awareness.
-use repotray_core::popup::{place, DismissAction, Rect};
+use repowatch_core::popup::{place, DismissAction, Rect};
 use std::{io, mem::size_of};
 use windows_sys::Win32::{
     Foundation::{HWND, POINT, RECT},
@@ -180,7 +180,7 @@ mod tests {
             CreateWindowExW(
                 0,
                 w!("STATIC"),
-                w!("RepoTray popup test"),
+                w!("RepoWatch popup test"),
                 style,
                 0,
                 0,

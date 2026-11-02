@@ -41,7 +41,7 @@ async function save(page: Page) {
 }
 
 const stored = (page: Page) =>
-  page.evaluate(() => localStorage.getItem('repotray.theme.v1'));
+  page.evaluate(() => localStorage.getItem('repowatch.theme.v1'));
 
 for (const scheme of ['light', 'dark'] as const) {
   test(`„System“ renders the ${scheme} theme the OS prefers`, async ({
@@ -135,7 +135,7 @@ test('the theme radios work with the arrow keys', async ({ page }) => {
 
 test('an unknown stored theme falls back to „System“', async ({ page }) => {
   await page.addInitScript(() =>
-    localStorage.setItem('repotray.theme.v1', JSON.stringify('sepia')),
+    localStorage.setItem('repowatch.theme.v1', JSON.stringify('sepia')),
   );
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
@@ -150,7 +150,7 @@ test('a choice that cannot be saved applies and stays shown until restart', asyn
   await page.addInitScript(() => {
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key: string, value: string) {
-      if (key === 'repotray.theme.v1')
+      if (key === 'repowatch.theme.v1')
         throw new DOMException('denied', 'SecurityError');
       setItem.call(this, key, value);
     };

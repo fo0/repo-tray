@@ -1,6 +1,6 @@
 //! Main-window lifecycle. Hiding never destroys the webview or cancels a form,
 //! dispatch or browser authentication operation.
-use repotray_core::popup::{DismissAction, Dismissal, Rect, TrayGesture};
+use repowatch_core::popup::{DismissAction, Dismissal, Rect, TrayGesture};
 use std::{sync::Mutex, time::Duration};
 #[cfg(not(windows))]
 use tauri::PhysicalPosition;
@@ -42,7 +42,7 @@ fn physical_rect(rect: tauri::Rect) -> Rect {
 }
 
 fn anchor(app: &tauri::AppHandle) -> Option<Rect> {
-    app.tray_by_id("repotray")
+    app.tray_by_id("repowatch")
         .and_then(|tray| tray.rect().ok().flatten())
         .map(physical_rect)
         .filter(|rect| rect.width > 0 && rect.height > 0)
@@ -102,7 +102,7 @@ fn position(window: &tauri::WebviewWindow, icon: Option<Rect>) -> tauri::Result<
                 };
                 let size = window.outer_size()?;
                 let frame =
-                    repotray_core::popup::place(icon, bounds, work, (size.width, size.height), 6);
+                    repowatch_core::popup::place(icon, bounds, work, (size.width, size.height), 6);
                 window.set_position(PhysicalPosition::new(frame.x, frame.y))?;
             }
         }
@@ -144,7 +144,7 @@ fn toggle_at(app: &tauri::AppHandle, icon: Option<Rect>) {
         show_at(app, icon)
     };
     if let Err(error) = result {
-        eprintln!("RepoTray popup: {error}");
+        eprintln!("RepoWatch popup: {error}");
     }
 }
 
@@ -187,7 +187,7 @@ pub fn tray_event(app: &tauri::AppHandle, event: TrayIconEvent) {
         // Explorer takes focus for the second click too. Keep the first click's
         // open state and restore focus instead of immediately dismissing it.
         if let Err(error) = show_at(app, clicked_anchor) {
-            eprintln!("RepoTray popup: {error}");
+            eprintln!("RepoWatch popup: {error}");
         }
     } else {
         schedule_dismiss(app);

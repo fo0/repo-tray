@@ -85,7 +85,7 @@ test('natively the stop button sends exactly one cancel_run for the run', async 
 }) => {
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('demo-personal'),
     ),
   );

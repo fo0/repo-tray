@@ -20,7 +20,7 @@ const REAUTH: &str =
     "Browser-Anmeldung abgelaufen oder nicht sicher erneuerbar. Melde dich erneut mit GitHub an.";
 const INVALID: &str = "GitHub hat eine ungültige Anmeldeantwort geliefert.";
 const NETWORK: &str =
-    "GitHub ist gerade nicht erreichbar. RepoTray versucht es weiter, solange der Code gültig ist.";
+    "GitHub ist gerade nicht erreichbar. RepoWatch versucht es weiter, solange der Code gültig ist.";
 // Serialize entire read/refresh/replace/delete transactions across all native callers.
 static CREDENTIALS: Mutex<()> = Mutex::new(());
 
@@ -35,8 +35,8 @@ pub fn config() -> BrowserConfig {
     }
 }
 pub fn publisher() -> Result<(&'static str, &'static str), String> {
-    let id = option_env!("REPOTRAY_GITHUB_CLIENT_ID").unwrap_or("");
-    let slug = option_env!("REPOTRAY_GITHUB_APP_SLUG").unwrap_or("");
+    let id = option_env!("REPOWATCH_GITHUB_CLIENT_ID").unwrap_or("");
+    let slug = option_env!("REPOWATCH_GITHUB_APP_SLUG").unwrap_or("");
     validate_publisher(id, slug)?;
     Ok((id, slug))
 }
@@ -107,7 +107,7 @@ impl NativeOAuthTransport {
             client: reqwest::blocking::Client::builder()
                 .timeout(Duration::from_secs(20))
                 .redirect(reqwest::redirect::Policy::none())
-                .user_agent(concat!("RepoTray/", env!("CARGO_PKG_VERSION")))
+                .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
                 .build()
                 .map_err(|_| "Anmeldedienst nicht verfügbar.")?,
         })

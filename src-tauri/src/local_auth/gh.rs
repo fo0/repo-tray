@@ -67,7 +67,7 @@ pub(super) fn gh_status(
         }
         Ok((vec![LocalAccount {
             source: "gh".into(), host: "github.com".into(), login: login.into(), usable: true, active: true,
-            detail: "Aktives gh-Konto über GitHub bestätigt. Noch nicht mit RepoTray verbunden.".into(),
+            detail: "Aktives gh-Konto über GitHub bestätigt. Noch nicht mit RepoWatch verbunden.".into(),
             actions_read: "Scopes nicht auslesbar; Lesezugriff auf Workflows pro Repository ungeprüft.".into(),
             actions_write: "Workflows starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
         }], true))

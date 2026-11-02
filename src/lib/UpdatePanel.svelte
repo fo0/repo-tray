@@ -82,7 +82,7 @@
         <p class="update-line" role="status">Wird geprüft …</p>
       {:else if phase === 'installing'}
         <p class="update-line" role="status">
-          Wird installiert – RepoTray startet neu …
+          Wird installiert – RepoWatch startet neu …
         </p>
       {:else}
         {#if error}<div class="alert danger" role="alert">

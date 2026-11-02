@@ -43,7 +43,7 @@ test('an environment input the service could not list shows its note and offers 
   );
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('demo-personal'),
     ),
   );

@@ -24,7 +24,7 @@ it intentionally returns.
 - `cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features network,native-credentials`
   covers placement on all edges, negative coordinates, integer/fractional DPI,
   overflow/auto-hide, constrained work areas, stale blur and click sequences.
-- On Windows, `cargo test --locked --manifest-path src-tauri/Cargo.toml --features desktop --bin repotray`
+- On Windows, `cargo test --locked --manifest-path src-tauri/Cargo.toml --features desktop --bin repowatch`
   creates real Win32 windows to test owner/child relationships and repeated frame
   placement against the executor's actual monitor work area. Checks CI runs this
   after the full desktop compile.
@@ -65,5 +65,5 @@ High Contrast and autostart after uninstall) are listed in the
 
 The lifecycle and generation approach was compared read-only with
 `fo0/OpenQuota` at `0b21b354e1a0a3f65d78900ec244c43f581542e2`
-(`window.rs`, `popup.rs`, and the tray event wiring). RepoTray's Win32 placement
+(`window.rs`, `popup.rs`, and the tray event wiring). RepoWatch's Win32 placement
 and tests are its own; OpenQuota was not modified.

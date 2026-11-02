@@ -67,7 +67,7 @@
     id={`release-${uid}`}
     tone="caution"
     title="Sperre aufheben?"
-    text="Hebe die Sperre nur auf, wenn du auf GitHub geprüft hast, dass dieser Start nicht läuft oder ein erneuter Start gewollt ist. RepoTray startet dabei nichts."
+    text="Hebe die Sperre nur auf, wenn du auf GitHub geprüft hast, dass dieser Start nicht läuft oder ein erneuter Start gewollt ist. RepoWatch startet dabei nichts."
     confirmLabel="Ich habe die Runs auf GitHub geprüft – Sperre aufheben"
     busyLabel="Sperre wird aufgehoben …"
     busy={releasing}

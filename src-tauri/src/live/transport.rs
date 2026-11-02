@@ -18,7 +18,7 @@ impl HttpTransport {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(25))
             .redirect(reqwest::redirect::Policy::none())
-            .user_agent(concat!("RepoTray/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|_| "HTTP-Dienst konnte nicht gestartet werden.")?;
         Ok(Self {

@@ -24,7 +24,7 @@ async function native(page: Page, saved: string | null = null, connected = 2) {
     await page.addInitScript(
       (saved) =>
         localStorage.setItem(
-          'repotray.activeAccount.v1',
+          'repowatch.activeAccount.v1',
           JSON.stringify(saved),
         ),
       saved,
@@ -249,7 +249,7 @@ test.describe('browser demo', () => {
   }) => {
     await page.setViewportSize({ width: 360, height: 760 });
     await expect(
-      page.getByRole('heading', { name: 'RepoTray' }),
+      page.getByRole('heading', { name: 'RepoWatch' }),
     ).toBeAttached();
     await accountMenuButton(page).click();
     const box = await menu(page).boundingBox();
@@ -290,7 +290,7 @@ test.describe('native', () => {
     await expect(status(page)).toContainText('Kein aktives Konto');
     expect(
       await page.evaluate(() =>
-        localStorage.getItem('repotray.activeAccount.v1'),
+        localStorage.getItem('repowatch.activeAccount.v1'),
       ),
     ).toBeNull();
   });
@@ -327,7 +327,9 @@ test.describe('native', () => {
     ).toHaveCount(0);
     expect(
       await page.evaluate(() =>
-        JSON.parse(localStorage.getItem('repotray.activeAccount.v1') ?? 'null'),
+        JSON.parse(
+          localStorage.getItem('repowatch.activeAccount.v1') ?? 'null',
+        ),
       ),
     ).toBe('github-device-42');
     await accountMenuButton(page).click();

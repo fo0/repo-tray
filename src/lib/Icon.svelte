@@ -1,5 +1,5 @@
 <script module lang="ts">
-  // RepoTray geometry constructed from basic SVG primitives; see docs/ASSETS.md.
+  // RepoWatch geometry constructed from basic SVG primitives; see docs/ASSETS.md.
   type Shape = {
     tag: 'line' | 'polyline' | 'rect' | 'circle' | 'path';
     attributes: Record<string, number | string>;

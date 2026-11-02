@@ -6,7 +6,7 @@ The **browser preview** uses local fixtures and an explicitly labelled token sig
 
 ## Token permissions
 
-Use a fine-grained token restricted to intended repositories and an appropriate expiration. RepoTray does not create or broaden it. The token step lists the same permissions, in the same order, in one line **Benötigte Rechte** below the field (`src/lib/TokenPermissions.svelte`).
+Use a fine-grained token restricted to intended repositories and an appropriate expiration. RepoWatch does not create or broaden it. The token step lists the same permissions, in the same order, in one line **Benötigte Rechte** below the field (`src/lib/TokenPermissions.svelte`).
 
 | Permission          | Panel label                 | Use                                          |
 | ------------------- | --------------------------- | -------------------------------------------- |
@@ -14,7 +14,7 @@ Use a fine-grained token restricted to intended repositories and an appropriate 
 | Contents: read      | **Contents** Lesen          | Read workflow YAML and list branches/tags    |
 | Metadata: read      | **Metadata** Lesen          | Identify accessible repositories             |
 
-The update check needs no token or account: it reads public release metadata of `fo0/repo-tray` unauthenticated (see [release process](RELEASES.md)). Repository workflow permissions remain account-specific. Organization approval/SSO may be necessary. Repository write access alone does not prove a token has Actions write; GitHub's dispatch response is authoritative.
+The update check needs no token or account: it reads public release metadata of `fo0/repo-watch` unauthenticated (see [release process](RELEASES.md)). Repository workflow permissions remain account-specific. Organization approval/SSO may be necessary. Repository write access alone does not prove a token has Actions write; GitHub's dispatch response is authoritative.
 
 ## Access errors and stale data
 

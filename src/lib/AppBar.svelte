@@ -58,7 +58,7 @@
 
 <!-- Natively the bar drags the window from its free space; its controls,
      the brand's home button among them, stay clickable. The heading keeps
-     its name „RepoTray“; the tooltip says where the button leads. -->
+     its name „RepoWatch“; the tooltip says where the button leads. -->
 <header class="app-bar" data-tauri-drag-region={native ? true : undefined}>
   <h1 class="brand">
     <button
@@ -67,7 +67,7 @@
       title="Zur Übersicht"
       onclick={() => onHome()}
       ><span class="brand-icon"><Icon name="tray" size={16} /></span><span
-        class="brand-name">RepoTray</span
+        class="brand-name">RepoWatch</span
       ></button
     >
   </h1>

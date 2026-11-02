@@ -117,7 +117,7 @@
     {:else}
       {#if !usable.length}<p class="step-line">
           {ghMissing
-            ? 'GitHub CLI (gh) nicht gefunden. Nach der Installation RepoTray neu starten.'
+            ? 'GitHub CLI (gh) nicht gefunden. Nach der Installation RepoWatch neu starten.'
             : 'Keine gh-Anmeldung gefunden. Im Terminal mit „gh auth login“ anmelden.'}
         </p>{/if}
       {#if accounts.length}<LocalAccountImport

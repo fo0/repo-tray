@@ -7,7 +7,7 @@
  */
 export type ThemePreference = 'system' | 'light' | 'dark';
 
-export const THEME_KEY = 'repotray.theme.v1';
+export const THEME_KEY = 'repowatch.theme.v1';
 
 export interface ThemeStorage {
   getItem(key: string): string | null;

@@ -56,7 +56,7 @@ export interface Commands {
   open_startup_settings: { args: undefined; result: void };
   /** `null` when the installed version is current. */
   check_update: { args: undefined; result: UpdateInfo | null };
-  /** Downloads, verifies and starts the checked update; RepoTray then exits and restarts. */
+  /** Downloads, verifies and starts the checked update; RepoWatch then exits and restarts. */
   install_update: {
     args: { onProgress: Channel<DownloadProgress> };
     result: void;

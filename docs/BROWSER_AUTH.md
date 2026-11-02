@@ -2,7 +2,7 @@
 
 > **Temporarily paused:** New browser / GitHub App sign-ins are disabled in the UI and native start/open/poll commands, regardless of publisher configuration. Use a personal token or explicitly import a local gh account. Existing stored browser credentials retain their normal lifecycle. The implementation and Rust tests below are retained for later re-enabling; they do not mean new sign-in is currently available.
 
-RepoTray implements the GitHub App **device flow** in native Rust. It uses the system browser, a short code on `https://github.com/login/device`, automatic polling and the OS credential vault. There is no server, callback listener, embedded browser, client secret or private key. The browser preview remains its existing labelled demo. Native UI tests use an IPC fixture and never open GitHub.
+RepoWatch implements the GitHub App **device flow** in native Rust. It uses the system browser, a short code on `https://github.com/login/device`, automatic polling and the OS credential vault. There is no server, callback listener, embedded browser, client secret or private key. The browser preview remains its existing labelled demo. Native UI tests use an IPC fixture and never open GitHub.
 
 **Code implementation and fixture checks are available. Real sign-in remains configuration-dependent.** No publisher GitHub App has been registered or configured, no account has authorized/installed it, and no real end-to-end login or workflow dispatch was performed. In every build, configured or not, the connection dialog shows **Mit GitHub anmelden** only as a disabled option (**Vorübergehend deaktiviert**); the device-flow component `src/lib/BrowserAuth.svelte` is mounted nowhere (BACKLOG #32). Token and local gh sign-in remain available.
 
@@ -10,26 +10,26 @@ RepoTray implements the GitHub App **device flow** in native Rust. It uses the s
 
 The project owner would need to create and maintain the following GitHub App separately. The repository performs no registration, consent, grants, secret generation, hosting or release configuration.
 
-| Setting                                | Intended value                                                                          |
-| -------------------------------------- | --------------------------------------------------------------------------------------- |
-| Owner                                  | `fo0` (owner of `fo0/repo-tray`; any different publisher is an explicit owner decision) |
-| App name                               | `RepoTray Desktop` (proposed; global name availability has not been checked)            |
-| Homepage                               | `https://github.com/fo0/repo-tray` (use owner profile if the repository is private)     |
-| Device flow                            | Enable Device Flow                                                                      |
-| Expire user authorization tokens       | Enabled; code additionally requests `offline_access`                                    |
-| Repository permissions                 | Metadata: read; Actions: read & write; Contents: read                                   |
-| Organization/account permissions       | None                                                                                    |
-| Webhooks                               | Inactive; no webhook URL or secret                                                      |
-| User authorization during installation | Off; authorization is performed separately through device flow                          |
-| Callback / Setup URL                   | Unset; device flow does not use a redirect callback                                     |
-| Installation availability              | Any account if distributing RepoTray beyond the owner's account                         |
-| Client secret / private key            | Neither is needed by RepoTray; never embed one                                          |
+| Setting                                | Intended value                                                                           |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Owner                                  | `fo0` (owner of `fo0/repo-watch`; any different publisher is an explicit owner decision) |
+| App name                               | `RepoWatch Desktop` (proposed; global name availability has not been checked)            |
+| Homepage                               | `https://github.com/fo0/repo-watch` (use owner profile if the repository is private)     |
+| Device flow                            | Enable Device Flow                                                                       |
+| Expire user authorization tokens       | Enabled; code additionally requests `offline_access`                                     |
+| Repository permissions                 | Metadata: read; Actions: read & write; Contents: read                                    |
+| Organization/account permissions       | None                                                                                     |
+| Webhooks                               | Inactive; no webhook URL or secret                                                       |
+| User authorization during installation | Off; authorization is performed separately through device flow                           |
+| Callback / Setup URL                   | Unset; device flow does not use a redirect callback                                      |
+| Installation availability              | Any account if distributing RepoWatch beyond the owner's account                         |
+| Client secret / private key            | Neither is needed by RepoWatch; never embed one                                          |
 
 After the owner independently registers the intended publisher app, build the native app with its actual **public Client ID** and actual app slug:
 
 ```sh
-REPOTRAY_GITHUB_CLIENT_ID='<publisher GitHub App Client ID>' \
-REPOTRAY_GITHUB_APP_SLUG='<publisher-app-slug>' \
+REPOWATCH_GITHUB_CLIENT_ID='<publisher GitHub App Client ID>' \
+REPOWATCH_GITHUB_APP_SLUG='<publisher-app-slug>' \
 pnpm desktop:build
 ```
 
@@ -37,22 +37,22 @@ These are compile-time Rust environment variables, not `VITE_` variables. Client
 
 ## What the user does (once re-enabled)
 
-1. Click **Mit GitHub anmelden**. RepoTray obtains a device code in Rust, shows the short confirmation code and opens the exact GitHub device page in the system browser.
-2. Check the account shown by GitHub, enter the code and authorize the publisher app. RepoTray recognizes the result automatically, verifies `/user`, and stores its own browser credential.
+1. Click **Mit GitHub anmelden**. RepoWatch obtains a device code in Rust, shows the short confirmation code and opens the exact GitHub device page in the system browser.
+2. Check the account shown by GitHub, enter the code and authorize the publisher app. RepoWatch recognizes the result automatically, verifies `/user`, and stores its own browser credential.
 3. Separately install the app on the personal or organization account and select individual or all repositories. **Repository-Freigabe auf GitHub ändern** at the bottom of the Repositories page opens the configured app's installation page (`open_browser_installation`); it shows while a browser account is connected. Organization administrator approval and an active SAML SSO session may be required.
 4. After changing installation access, **Repository-Liste aktualisieren** next to it forces a repository refresh (`refresh_repositories`) that bypasses the ordinary catalog refresh interval and follows paginated installations and their paginated repositories; the tray's repositories then follow automatically ([ADR-0003](adr/0003-automatic-repositories.md)).
 
-An authorization can succeed with no installed repositories. That is an authenticated account, not permission to access every repository. RepoTray explains the separate installation requirement. It checks installation Actions rights separately from the user's `permissions.push`; push alone never grants browser-account Actions write. Contents read is also required before browser-account dispatch is offered. GitHub's actual API response remains authoritative. Workflows needing environment lists can remain unavailable when their additional API access is absent; RepoTray requests no broader permissions.
+An authorization can succeed with no installed repositories. That is an authenticated account, not permission to access every repository. RepoWatch explains the separate installation requirement. It checks installation Actions rights separately from the user's `permissions.push`; push alone never grants browser-account Actions write. Contents read is also required before browser-account dispatch is offered. GitHub's actual API response remains authoritative. Workflows needing environment lists can remain unavailable when their additional API access is absent; RepoWatch requests no broader permissions.
 
 ## Ownership and failure handling
 
-Browser accounts use `github-device-<numeric-user-id>` in the existing RepoTray vault namespace. PAT accounts and imported gh accounts keep their distinct keys. Disconnect deletes only RepoTray's own selected account entry/cache. It does not revoke GitHub authorization, uninstall the App, delete gh/GCM credentials or switch gh accounts.
+Browser accounts use `github-device-<numeric-user-id>` in the existing RepoWatch vault namespace. PAT accounts and imported gh accounts keep their distinct keys. Disconnect deletes only RepoWatch's own selected account entry/cache. It does not revoke GitHub authorization, uninstall the App, delete gh/GCM credentials or switch gh accounts.
 
 Only the public code, canonical verification URL, expiry, next poll time, generation and safe status cross IPC. Device, access and refresh tokens never enter frontend state, snapshots, SQLite, logs, browser URLs or repository files. OAuth POSTs are restricted to the two fixed `github.com/login/...` endpoints; ordinary REST requests remain restricted to `api.github.com`. Redirects are disabled and bodies are bounded. There is no arbitrary-URL opener.
 
 The existing native state machine prevents overlapping polls, enforces the server interval, adds five seconds on `slow_down`, backs off after transport failures, and clears the device secret on cancel, denial, expiry or completion. UI generations and the native shared auth generation discard late start/poll results after cancellation, another browser attempt, PAT sign-in or local-account work. An expired response cannot commit tokens. Identity is verified before initial credential storage.
 
-Access and refresh tokens, expiry and a rotation marker are stored as **one vault value**. Refresh, sign-in credential commits and disconnects share one native transaction lock. A sign-in cancelled during a blocking vault write restores the previous entry (or removes the new entry) before it can commit account metadata. A refresh cannot resurrect a disconnected credential or overwrite a newer sign-in. Before sending the single-use refresh request, RepoTray persists a pending marker. It verifies the new token's numeric user identity and stores the replacement pair together before using it. A lost response, process crash, identity mismatch or vault-write failure leaves reauthentication required; it does not automatically retry an already consumed refresh token. This deliberately prefers a fresh login over uncertain token reuse. Expired/revoked authorization stays a visible error; no foreign credential is removed.
+Access and refresh tokens, expiry and a rotation marker are stored as **one vault value**. Refresh, sign-in credential commits and disconnects share one native transaction lock. A sign-in cancelled during a blocking vault write restores the previous entry (or removes the new entry) before it can commit account metadata. A refresh cannot resurrect a disconnected credential or overwrite a newer sign-in. Before sending the single-use refresh request, RepoWatch persists a pending marker. It verifies the new token's numeric user identity and stores the replacement pair together before using it. A lost response, process crash, identity mismatch or vault-write failure leaves reauthentication required; it does not automatically retry an already consumed refresh token. This deliberately prefers a fresh login over uncertain token reuse. Expired/revoked authorization stays a visible error; no foreign credential is removed.
 
 ## Validation and remaining acceptance work
 

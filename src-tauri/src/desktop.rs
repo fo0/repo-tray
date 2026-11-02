@@ -1,4 +1,4 @@
-use repotray_core::{
+use repowatch_core::{
     auth::{DeviceFlow, OsKeyring},
     cache::Cache,
     live::LiveStore,
@@ -92,7 +92,7 @@ fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
 fn open_run(app: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     // Open only the parser's canonical form, never the raw IPC string.
-    let url = repotray_core::run_link::canonical_run_url(&url)
+    let url = repowatch_core::run_link::canonical_run_url(&url)
         .ok_or("Nur GitHub-Run-Links sind erlaubt.")?;
     app.opener()
         .open_url(url, None::<&str>)
@@ -124,13 +124,13 @@ fn tray_image(active: bool, failed: bool) -> tauri::image::Image<'static> {
 }
 
 pub fn run() {
-    let show_panel = repotray_core::startup::show_on_launch(std::env::args_os());
+    let show_panel = repowatch_core::startup::show_on_launch(std::env::args_os());
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             // A duplicate login launch must neither show nor hide the existing panel.
-            if repotray_core::startup::show_on_launch(args) {
+            if repowatch_core::startup::show_on_launch(args) {
                 if let Err(error) = crate::tray_popup::show(app) {
-                    eprintln!("RepoTray popup: {error}");
+                    eprintln!("RepoWatch popup: {error}");
                 }
             }
         }))
@@ -143,7 +143,7 @@ pub fn run() {
         .setup(move |app| {
             let cache_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&cache_dir)?;
-            let cache = Cache::open(cache_dir.join("repotray-live.db"))?;
+            let cache = Cache::open(cache_dir.join("repowatch-live.db"))?;
             let store =
                 LiveStore::new(cache, Arc::new(OsKeyring::new())).map_err(std::io::Error::other)?;
             let baseline = store.snapshot();
@@ -157,7 +157,7 @@ pub fn run() {
             let show = MenuItem::with_id(
                 app,
                 "toggle",
-                "RepoTray öffnen / ausblenden",
+                "RepoWatch öffnen / ausblenden",
                 true,
                 None::<&str>,
             )?;
@@ -169,11 +169,11 @@ pub fn run() {
                 notify,
                 None::<&str>,
             )?;
-            let quit = MenuItem::with_id(app, "quit", "RepoTray beenden", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "RepoWatch beenden", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &notifications, &quit])?;
-            TrayIconBuilder::with_id("repotray")
+            TrayIconBuilder::with_id("repowatch")
                 .icon(tray_image(false, false))
-                .tooltip("RepoTray")
+                .tooltip("RepoWatch")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
@@ -253,16 +253,16 @@ pub fn run() {
                         .any(|run| selected(&run.repo_id) && run.status != RunStatus::Completed);
                     let failed = value.runs.iter().any(|run| {
                         selected(&run.repo_id)
-                            && run.conclusion == Some(repotray_core::Conclusion::Failure)
+                            && run.conclusion == Some(repowatch_core::Conclusion::Failure)
                     });
-                    if let Some(tray) = handle.tray_by_id("repotray") {
+                    if let Some(tray) = handle.tray_by_id("repowatch") {
                         let _ = tray.set_icon(Some(tray_image(active, failed)));
                         let _ = tray.set_tooltip(Some(if active {
-                            "RepoTray · Workflows laufen"
+                            "RepoWatch · Workflows laufen"
                         } else if failed {
-                            "RepoTray · Fehler"
+                            "RepoWatch · Fehler"
                         } else {
-                            "RepoTray · bereit"
+                            "RepoWatch · bereit"
                         }));
                     }
                     for run in &value.runs {
@@ -276,13 +276,13 @@ pub fn run() {
                             let _ = handle
                                 .notification()
                                 .builder()
-                                .title("RepoTray")
+                                .title("RepoWatch")
                                 .body(format!("{}: Run beendet.", run.name))
                                 .show();
                         }
                     }
                     previous = value.runs.iter().map(|run| (run.id, run.status)).collect();
-                    let _ = handle.emit("repotray:snapshot", value);
+                    let _ = handle.emit("repowatch:snapshot", value);
                 }
             });
             Ok(())
@@ -317,5 +317,5 @@ pub fn run() {
             hide_panel
         ])
         .run(tauri::generate_context!())
-        .expect("RepoTray konnte nicht gestartet werden");
+        .expect("RepoWatch konnte nicht gestartet werden");
 }

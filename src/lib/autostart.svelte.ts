@@ -96,7 +96,7 @@ export class Autostart {
       );
   };
 
-  /** „Autostarteintrag entfernen“: removes only RepoTray's own entry, at once. */
+  /** „Autostarteintrag entfernen“: removes only RepoWatch's own entry, at once. */
   remove = async () => {
     this.pending = null;
     try {

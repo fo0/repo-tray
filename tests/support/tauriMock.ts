@@ -24,7 +24,7 @@ type MockRuntime = { calls: IpcCall[]; state: Record<string, unknown> };
 declare global {
   interface Window {
     /** Present only while a spec installed the labelled IPC mock. */
-    __repoTrayIpcMock?: MockRuntime;
+    __repoWatchIpcMock?: MockRuntime;
   }
 }
 
@@ -39,7 +39,7 @@ function shell(
   let callback = 0;
   Object.assign(window, {
     isTauri: true,
-    __repoTrayIpcMock: { calls, state },
+    __repoWatchIpcMock: { calls, state },
     __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
     __TAURI_INTERNALS__: {
       invoke: async (cmd: string, args?: Record<string, unknown>) => {
@@ -79,14 +79,14 @@ export async function installTauriMock<A, S extends object>(
   return {
     async configure(values) {
       await page.evaluate((values) => {
-        const mock = window.__repoTrayIpcMock;
+        const mock = window.__repoWatchIpcMock;
         if (!mock) throw new Error('The labelled IPC mock is not installed.');
         Object.assign(mock.state, values);
       }, values);
     },
     async read<K extends keyof S & string>(key: K) {
       const value = await page.evaluate(
-        (key) => window.__repoTrayIpcMock?.state[key],
+        (key) => window.__repoWatchIpcMock?.state[key],
         key,
       );
       // The page boundary erases types; the state was installed as an `S`.
@@ -99,7 +99,7 @@ export async function installTauriMock<A, S extends object>(
 export function readCalls(page: Page, cmd?: string): Promise<IpcCall[]> {
   return page.evaluate(
     (cmd) =>
-      (window.__repoTrayIpcMock?.calls ?? [])
+      (window.__repoWatchIpcMock?.calls ?? [])
         .filter((call) => cmd === undefined || call.cmd === cmd)
         .map(({ cmd, args }) => ({ cmd, args })),
     cmd,
@@ -109,6 +109,6 @@ export function readCalls(page: Page, cmd?: string): Promise<IpcCall[]> {
 /** Command names in call order; never transfers argument objects. */
 export function readCommands(page: Page): Promise<string[]> {
   return page.evaluate(() =>
-    (window.__repoTrayIpcMock?.calls ?? []).map((call) => call.cmd),
+    (window.__repoWatchIpcMock?.calls ?? []).map((call) => call.cmd),
   );
 }

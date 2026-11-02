@@ -61,7 +61,7 @@ export function updaterManifest(version, signature, notes, date) {
     platforms: {
       'windows-x86_64': {
         signature: signature.trim(),
-        url: `https://github.com/fo0/repo-tray/releases/download/v${version}/RepoTray_${version}_x64-setup.exe`,
+        url: `https://github.com/fo0/repo-watch/releases/download/v${version}/RepoWatch_${version}_x64-setup.exe`,
       },
     },
   };
@@ -78,7 +78,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   };
   if (command === 'config') {
     const config = updaterConfig(
-      process.env.REPOTRAY_UPDATER_PUBLIC_KEY,
+      process.env.REPOWATCH_UPDATER_PUBLIC_KEY,
       JSON.parse(readFileSync('src-tauri/tauri.release.conf.json', 'utf8')),
     );
     writeFileSync(arg(0), JSON.stringify(config, null, 2) + '\n');

@@ -13,7 +13,7 @@ export async function openNativeActivity(page: Page) {
   await page.clock.install({ time: NOW - 5_000 });
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('demo-personal'),
     ),
   );

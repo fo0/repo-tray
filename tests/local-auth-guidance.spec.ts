@@ -56,7 +56,7 @@ test.beforeEach(async ({ page }) => {
             return {
               accounts: [],
               notices: [
-                'gh CLI nicht gefunden. Installiere GitHub CLI (gh), starte RepoTray danach neu und prüfe im Terminal gh auth status. Git allein reicht nicht.',
+                'gh CLI nicht gefunden. Installiere GitHub CLI (gh), starte RepoWatch danach neu und prüfe im Terminal gh auth status. Git allein reicht nicht.',
               ],
             };
           return { accounts: state.empty ? [] : accounts, notices: [] };
@@ -103,7 +103,7 @@ test('every local result is one short line with one next action: failure, gh mis
   await mock.configure({ scanError: '', missing: true });
   await rescan.click();
   await expect(body).toContainText(
-    'GitHub CLI (gh) nicht gefunden. Nach der Installation RepoTray neu starten.',
+    'GitHub CLI (gh) nicht gefunden. Nach der Installation RepoWatch neu starten.',
   );
   await expect(body).not.toContainText('Git allein reicht nicht');
   await mock.configure({ missing: false, empty: true });
