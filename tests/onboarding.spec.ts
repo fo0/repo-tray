@@ -129,7 +129,7 @@ test('settings without an account show one empty state with one action', async (
   expect(await readCommands(page)).not.toContain('connect_token');
   expect(
     await page.evaluate(() =>
-      localStorage.getItem('repotray.activeAccount.v1'),
+      localStorage.getItem('repowatch.activeAccount.v1'),
     ),
   ).toBeNull();
 });

@@ -7,7 +7,7 @@ use std::fmt;
 
 /// Stable app namespace, shared by browser authorization and an optional token sign-in path.
 /// The user/entry identifier is derived from the stable account ID, never its display name.
-pub const CREDENTIAL_SERVICE: &str = "io.github.fo0.repotray";
+pub const CREDENTIAL_SERVICE: &str = "io.github.fo0.repowatch";
 
 #[cfg(feature = "native-credentials")]
 pub use native::OsKeyring;

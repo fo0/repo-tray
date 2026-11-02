@@ -183,7 +183,7 @@
 
 <Modal
   title="Einstellungen"
-  eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
+  eyebrow={`REPOWATCH · ${demo ? 'DEMO' : 'GITHUB'}`}
   wide
   {returnFocus}
   onClose={() => !saving && onClose()}

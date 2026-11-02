@@ -30,8 +30,8 @@ test.describe('demo overview', () => {
     page,
   }) => {
     const brand = page
-      .getByRole('heading', { name: 'RepoTray', exact: true })
-      .getByRole('button', { name: 'RepoTray', exact: true });
+      .getByRole('heading', { name: 'RepoWatch', exact: true })
+      .getByRole('button', { name: 'RepoWatch', exact: true });
     await expect(brand).toHaveAttribute('title', 'Zur Übersicht');
     const search = page.getByRole('textbox', { name: 'Übersicht durchsuchen' });
     await maximizeButton(page, 'repos').click();

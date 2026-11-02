@@ -13,13 +13,13 @@ pub use installer::Installer;
 /// Signed updater feed. Standard unsigned releases publish no `latest.json`, so this resolves
 /// to 404 until signing is introduced. A signed build then needs a dedicated feed URL that
 /// only ever serves signed manifests instead of this "latest release asset" shortcut.
-pub const ENDPOINT: &str = "https://github.com/fo0/repo-tray/releases/latest/download/latest.json";
+pub const ENDPOINT: &str = "https://github.com/fo0/repo-watch/releases/latest/download/latest.json";
 /// Shown when the signed feed above yields no manifest. The updater plugin reports every
 /// non-success status (404, 403, 429, 5xx) as `ReleaseNotFound`, so the text stays neutral.
 pub const NO_SIGNED_FEED: &str =
     "Kein Update-Feed für signierte Updates erreichbar oder veröffentlicht.";
 /// Public release metadata, read without a token.
-pub const LATEST_RELEASE_API: &str = "https://api.github.com/repos/fo0/repo-tray/releases/latest";
+pub const LATEST_RELEASE_API: &str = "https://api.github.com/repos/fo0/repo-watch/releases/latest";
 const MAX_RELEASE_BYTES: usize = 1024 * 1024;
 const MAX_NOTES_CHARS: usize = 4000;
 const MAX_VERSION_CHARS: usize = 48;
@@ -62,12 +62,12 @@ fn newer_than(version: &semver::Version, current: &str) -> Result<bool, String> 
 
 pub fn validate_download_url(url: &str, version: &str) -> bool {
     stable_version(version).is_some()
-        && url == format!("https://github.com/fo0/repo-tray/releases/download/v{version}/RepoTray_{version}_x64-setup.exe")
+        && url == format!("https://github.com/fo0/repo-watch/releases/download/v{version}/RepoWatch_{version}_x64-setup.exe")
 }
 
 pub fn validate_update(url: &str, version: &str, current: &str) -> Result<(), String> {
     if !validate_download_url(url, version) {
-        return Err("Das Update gehört nicht zu einem stabilen RepoTray-Release.".into());
+        return Err("Das Update gehört nicht zu einem stabilen RepoWatch-Release.".into());
     }
     let version = semver::Version::parse(version).map_err(|_| "Update-Version ungültig.")?;
     if !newer_than(&version, current)? {
@@ -96,7 +96,7 @@ fn bounded_notes(notes: Option<String>) -> String {
     }
 }
 
-/// Interprets `GET /repos/fo0/repo-tray/releases/latest`. `Ok(None)` means no newer stable
+/// Interprets `GET /repos/fo0/repo-watch/releases/latest`. `Ok(None)` means no newer stable
 /// release exists; a newer release that cannot be trusted as a stable `v<version>` tag with
 /// its exact installer asset is an error, so nothing is ever installed from it.
 pub fn parse_latest_release(
@@ -177,7 +177,7 @@ pub fn fetch_latest_release(current: &str) -> Result<Option<Release>, String> {
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(20))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent(concat!("RepoTray/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| CHECK_FAILED)?;
     let response = client

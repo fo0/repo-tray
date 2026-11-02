@@ -3,7 +3,7 @@ import { checkLocal, chooseToken, connectDialog } from './support/connect';
 import { openPage, templateCard } from './support/demo';
 import fixture from '../fixtures/demo.json' with { type: 'json' };
 import { installTauriMock, readCalls, readCommands } from './support/tauriMock';
-const key = 'repotray.activeAccount.v1';
+const key = 'repowatch.activeAccount.v1';
 type AccountMock = { updateDelay: number };
 async function setup(page: Page, saved: string | null = null) {
   const mock = await installTauriMock<

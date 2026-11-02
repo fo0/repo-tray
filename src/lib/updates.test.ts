@@ -19,14 +19,14 @@ Version: 2026.1101.905
 Source: 0123456789abcdef0123456789abcdef01234567
 
 ## What's Changed
-* feat: install updates in the app by @synthetic-user in https://github.com/fo0/repo-tray/pull/18
-* fix(panel): keep the **banner** compact by @dependabot[bot] in https://github.com/fo0/repo-tray/pull/19
-- docs: explain \`install_update\` and [releases](https://example.invalid/x) by @a.b in https://github.com/fo0/repo-tray/pull/20
+* feat: install updates in the app by @synthetic-user in https://github.com/fo0/repo-watch/pull/18
+* fix(panel): keep the **banner** compact by @dependabot[bot] in https://github.com/fo0/repo-watch/pull/19
+- docs: explain \`install_update\` and [releases](https://example.invalid/x) by @a.b in https://github.com/fo0/repo-watch/pull/20
 
 ## New Contributors
-* @synthetic-user made their first contribution in https://github.com/fo0/repo-tray/pull/18
+* @synthetic-user made their first contribution in https://github.com/fo0/repo-watch/pull/18
 
-**Full Changelog**: https://github.com/fo0/repo-tray/compare/v1...v2
+**Full Changelog**: https://github.com/fo0/repo-watch/compare/v1...v2
 
 Windows installer: not Authenticode signed.`;
 

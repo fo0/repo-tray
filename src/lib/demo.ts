@@ -34,7 +34,7 @@ export interface PreferenceStorage {
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 }
-export const PREFERENCE_KEY = 'repotray.demo.preferences.v1';
+export const PREFERENCE_KEY = 'repowatch.demo.preferences.v1';
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const fingerprint = (request: DispatchRequest) =>
   JSON.stringify([

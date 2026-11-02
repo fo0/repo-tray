@@ -17,7 +17,7 @@ let mock: TauriMock<AccessMock>;
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('github-device-42'),
     ),
   );

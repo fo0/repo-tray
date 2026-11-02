@@ -31,8 +31,8 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 const DOWNLOAD_FAILED: &str = "Download fehlgeschlagen – nichts installiert.";
 const VERIFY_FAILED: &str = "Datei passt nicht zum Release – nichts installiert.";
 const STAGE_FAILED: &str = "Installer konnte nicht gespeichert werden.";
-/// Staged update folders under the temp directory: `RepoTray-update-<version>`.
-const STAGE_PREFIX: &str = "RepoTray-update-";
+/// Staged update folders under the temp directory: `RepoWatch-update-<version>`.
+const STAGE_PREFIX: &str = "RepoWatch-update-";
 
 /// The exact installer asset of a validated release.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,9 +43,9 @@ pub struct Installer {
     pub sha256: [u8; 32],
 }
 
-/// `RepoTray_<version>_x64-setup.exe`, the asset name the release workflow uploads.
+/// `RepoWatch_<version>_x64-setup.exe`, the asset name the release workflow uploads.
 pub fn file_name(version: &str) -> String {
-    format!("RepoTray_{version}_x64-setup.exe")
+    format!("RepoWatch_{version}_x64-setup.exe")
 }
 
 impl Installer {
@@ -163,7 +163,7 @@ pub fn download(installer: &Installer, progress: impl FnMut(u64)) -> Result<Vec<
                 attempt.error("redirect target not allowed")
             }
         }))
-        .user_agent(concat!("RepoTray/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| DOWNLOAD_FAILED)?;
     let deadline = Instant::now() + DOWNLOAD_DEADLINE;
@@ -189,7 +189,7 @@ pub fn download(installer: &Installer, progress: impl FnMut(u64)) -> Result<Vec<
     )
 }
 
-/// Writes verified installer bytes into a fresh `<root>/RepoTray-update-<version>/`,
+/// Writes verified installer bytes into a fresh `<root>/RepoWatch-update-<version>/`,
 /// replacing a leftover directory of an earlier attempt, and returns the EXE path.
 /// Folders of other versions are earlier updates whose installers have finished; they
 /// are removed on a best-effort basis, so at most the current one stays behind.
@@ -226,7 +226,7 @@ mod tests {
         url_for(VERSION)
     }
     fn url_for(version: &str) -> String {
-        format!("https://github.com/fo0/repo-tray/releases/download/v{version}/RepoTray_{version}_x64-setup.exe")
+        format!("https://github.com/fo0/repo-watch/releases/download/v{version}/RepoWatch_{version}_x64-setup.exe")
     }
     fn sha(bytes: &[u8]) -> [u8; 32] {
         Sha256::digest(bytes).into()
@@ -272,7 +272,7 @@ mod tests {
         for bad_url in [
             url().replace("https:", "http:"),
             url().replace("github.com", "objects.githubusercontent.com"),
-            url().replace("fo0/repo-tray", "other/repo-tray"),
+            url().replace("fo0/repo-watch", "other/repo-watch"),
             format!("{}?x=1", url()),
         ] {
             assert_eq!(Installer::new(VERSION, &bad_url, 19, &good), None);
@@ -415,10 +415,11 @@ mod tests {
 
     #[test]
     fn stage_writes_a_fresh_version_directory() {
-        let root = std::env::temp_dir().join(format!("repotray-stage-test-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("repowatch-stage-test-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         let installer = Installer::new(VERSION, &url(), 3, &digest(b"new")).unwrap();
-        let leftover = root.join(format!("RepoTray-update-{VERSION}"));
+        let leftover = root.join(format!("RepoWatch-update-{VERSION}"));
         std::fs::create_dir_all(leftover.join("old")).unwrap();
         std::fs::write(leftover.join("stale.exe"), b"stale").unwrap();
         let path = stage(&root, &installer, b"new").unwrap();
@@ -427,17 +428,17 @@ mod tests {
         let entries: Vec<_> = std::fs::read_dir(&leftover).unwrap().collect();
         assert_eq!(entries.len(), 1);
         // The next update removes this one; unrelated entries stay.
-        let unrelated = root.join("RepoTray-other");
+        let unrelated = root.join("RepoWatch-other");
         let next_version = "2099.1231.2359";
         std::fs::create_dir_all(&unrelated).unwrap();
-        std::fs::write(root.join("RepoTray-update-file"), b"file").unwrap();
+        std::fs::write(root.join("RepoWatch-update-file"), b"file").unwrap();
         let next = Installer::new(next_version, &url_for(next_version), 3, &digest(b"new"));
         stage(&root, &next.unwrap(), b"new").unwrap();
         assert!(!leftover.exists());
         assert!(unrelated.exists());
-        assert!(root.join("RepoTray-update-file").exists());
+        assert!(root.join("RepoWatch-update-file").exists());
         assert!(root
-            .join(format!("RepoTray-update-{next_version}"))
+            .join(format!("RepoWatch-update-{next_version}"))
             .is_dir());
         std::fs::remove_dir_all(&root).unwrap();
     }

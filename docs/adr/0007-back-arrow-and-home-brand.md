@@ -12,7 +12,7 @@ ADR-0005 turned a maximized section's maximize button into a minimize button at 
 
 ## Decision
 
-We will keep the toggle in place (rule 8), but a maximized section shows a back arrow there: accessible name **Zurück zur Übersicht**, tooltip **Zurück · Esc**. The brand (icon and **RepoTray**) at the top left is a button with the tooltip **Zur Übersicht**: from a maximized page it returns like the back arrow, and on the overview it clears the search and scrolls to the top. The heading keeps its name **RepoTray**. Esc and Ctrl+1/2/3 are unchanged.
+We will keep the toggle in place (rule 8), but a maximized section shows a back arrow there: accessible name **Zurück zur Übersicht**, tooltip **Zurück · Esc**. The brand (icon and **RepoWatch**) at the top left is a button with the tooltip **Zur Übersicht**: from a maximized page it returns like the back arrow, and on the overview it clears the search and scrolls to the top. The heading keeps its name **RepoWatch**. Esc and Ctrl+1/2/3 are unchanged.
 
 ## Consequences
 

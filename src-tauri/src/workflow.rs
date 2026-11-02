@@ -111,7 +111,7 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
 fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
     if inputs.len() > MAX_INPUTS {
         return Err(error(format!(
-            "Der Workflow hat mehr als {MAX_INPUTS} Eingaben – mehr unterstützt RepoTray nicht."
+            "Der Workflow hat mehr als {MAX_INPUTS} Eingaben – mehr unterstützt RepoWatch nicht."
         )));
     }
     let mut result = Vec::with_capacity(inputs.len());

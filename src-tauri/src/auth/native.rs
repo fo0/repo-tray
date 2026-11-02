@@ -361,7 +361,7 @@ mod tests {
         let adapter = OsKeyring::new();
         assert_eq!(
             format!("{adapter:?}"),
-            "OsKeyring { service: \"io.github.fo0.repotray\", .. }"
+            "OsKeyring { service: \"io.github.fo0.repowatch\", .. }"
         );
         let credentials = super::super::Credentials::locked(adapter);
         assert!(matches!(

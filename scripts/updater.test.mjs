@@ -14,7 +14,7 @@ const signature = (version) =>
   ).toString('base64');
 
 test('release feed accepts version-bound artifacts produced by the pinned Tauri CLI', (t) => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'repotray-updater-test-'));
+  const directory = mkdtempSync(path.join(tmpdir(), 'repowatch-updater-test-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const cli = fileURLToPath(
     new URL('../node_modules/@tauri-apps/cli/tauri.js', import.meta.url),
@@ -75,7 +75,7 @@ test('feed uses the exact public release and preserves changelog and version-bou
   assert.deepEqual(feed.platforms, {
     'windows-x86_64': {
       signature: sig,
-      url: 'https://github.com/fo0/repo-tray/releases/download/v2026.1101.15/RepoTray_2026.1101.15_x64-setup.exe',
+      url: 'https://github.com/fo0/repo-watch/releases/download/v2026.1101.15/RepoWatch_2026.1101.15_x64-setup.exe',
     },
   });
 });

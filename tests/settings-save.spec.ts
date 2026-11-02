@@ -19,7 +19,7 @@ async function open(page: Page, tab?: 'App') {
 const theme = (page: Page) =>
   page.evaluate(() => document.documentElement.getAttribute('data-theme'));
 const storedTheme = (page: Page) =>
-  page.evaluate(() => localStorage.getItem('repotray.theme.v1'));
+  page.evaluate(() => localStorage.getItem('repowatch.theme.v1'));
 
 test('a theme previews while staged, every way out but „Speichern“ restores it, „Speichern“ keeps it', async ({
   page,
@@ -136,7 +136,7 @@ test('the active account changes only with „Speichern“, together with the ot
   );
   await page.addInitScript(() => {
     if (!sessionStorage.getItem('seeded')) {
-      localStorage.setItem('repotray.activeAccount.v1', '"github-42"');
+      localStorage.setItem('repowatch.activeAccount.v1', '"github-42"');
       sessionStorage.setItem('seeded', '1');
     }
   });
@@ -147,7 +147,7 @@ test('the active account changes only with „Speichern“, together with the ot
     exact: true,
   });
   const stored = () =>
-    page.evaluate(() => localStorage.getItem('repotray.activeAccount.v1'));
+    page.evaluate(() => localStorage.getItem('repowatch.activeAccount.v1'));
   await expect(status).toContainText('fixture-user · Token');
   const browser = () =>
     dialog(page).getByRole('radio', {

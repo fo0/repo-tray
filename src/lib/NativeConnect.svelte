@@ -15,7 +15,7 @@
     /** A connection succeeded; the caller closes this dialog. */
     onConnected: (snapshot: Snapshot) => void;
     onClose: () => void;
-    /** Connected accounts; marks gh logins that RepoTray already holds. */
+    /** Connected accounts; marks gh logins that RepoWatch already holds. */
     accounts?: Account[];
   } = $props();
 

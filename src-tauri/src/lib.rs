@@ -1,4 +1,4 @@
-//! RepoTray core. Browser preview uses fixtures; the native shell uses authenticated GitHub APIs.
+//! RepoWatch core. Browser preview uses fixtures; the native shell uses authenticated GitHub APIs.
 
 pub mod auth;
 pub mod auto_repos;

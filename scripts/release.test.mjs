@@ -26,24 +26,24 @@ const timestamp = '2026-10-31T15:33:04Z';
 const plan = releasePlan(timestamp, sourceSha);
 /** @param {import('node:test').TestContext} t */
 function workspace(t) {
-  const directory = mkdtempSync(path.join(tmpdir(), 'repotray-release-'));
+  const directory = mkdtempSync(path.join(tmpdir(), 'repowatch-release-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   mkdirSync(path.join(directory, 'src-tauri'));
   writeFileSync(
     path.join(directory, 'package.json'),
-    JSON.stringify({ name: 'repotray', version: '0.1.0', type: 'module' }),
+    JSON.stringify({ name: 'repowatch', version: '0.1.0', type: 'module' }),
   );
   writeFileSync(
     path.join(directory, 'src-tauri/tauri.conf.json'),
-    JSON.stringify({ version: '0.1.0', identifier: 'io.github.fo0.repotray' }),
+    JSON.stringify({ version: '0.1.0', identifier: 'io.github.fo0.repowatch' }),
   );
   writeFileSync(
     path.join(directory, 'src-tauri/Cargo.toml'),
-    '[package]\nname = "repotray"\nversion = "0.1.0"\n\n[dependencies]\nserde = { version = "1" }\n',
+    '[package]\nname = "repowatch"\nversion = "0.1.0"\n\n[dependencies]\nserde = { version = "1" }\n',
   );
   writeFileSync(
     path.join(directory, 'src-tauri/Cargo.lock'),
-    'version = 4\n\n[[package]]\nname = "dependency"\nversion = "1.2.3"\n\n[[package]]\nname = "repotray"\nversion = "0.1.0"\ndependencies = ["dependency"]\n',
+    'version = 4\n\n[[package]]\nname = "dependency"\nversion = "1.2.3"\n\n[[package]]\nname = "repowatch"\nversion = "0.1.0"\ndependencies = ["dependency"]\n',
   );
   return directory;
 }
@@ -62,7 +62,7 @@ test('stable canonical tags reject input that is unsafe or not semver', () => {
 test('one stable UTC timestamp produces version, tag and Berlin release title', () => {
   assert.equal(plan.version, '2026.1031.1533');
   assert.equal(plan.tag, 'v2026.1031.1533');
-  assert.equal(plan.title, 'RepoTray 2026-10-31 16:33 (Berlin, GMT+1)');
+  assert.equal(plan.title, 'RepoWatch 2026-10-31 16:33 (Berlin, GMT+1)');
   assert.equal(plan.source_sha, sourceSha);
   assert.deepEqual(releasePlan(timestamp, sourceSha), plan);
 });
@@ -120,7 +120,7 @@ test('retry, same-minute collision and publishing an older run cannot replace la
 test('stamp keeps all four app/lockfile versions aligned without modifying dependencies', (t) => {
   const directory = workspace(t);
   const tauri =
-    '{\n  "version": "0.1.0",\n  "identifier": "io.github.fo0.repotray",\n  "bundle": { "targets": ["nsis"] }\n}\n';
+    '{\n  "version": "0.1.0",\n  "identifier": "io.github.fo0.repowatch",\n  "bundle": { "targets": ["nsis"] }\n}\n';
   writeFileSync(path.join(directory, 'src-tauri/tauri.conf.json'), tauri);
   stampVersions(directory, plan);
   assertVersions(directory, plan);
@@ -138,7 +138,7 @@ test('stamp keeps all four app/lockfile versions aligned without modifying depen
     JSON.parse(
       readFileSync(path.join(directory, 'src-tauri/tauri.conf.json'), 'utf8'),
     ).identifier,
-    'io.github.fo0.repotray',
+    'io.github.fo0.repowatch',
   );
   assert.equal(
     readFileSync(path.join(directory, 'src-tauri/tauri.conf.json'), 'utf8'),
@@ -146,7 +146,7 @@ test('stamp keeps all four app/lockfile versions aligned without modifying depen
   );
   writeFileSync(
     path.join(directory, 'package.json'),
-    JSON.stringify({ name: 'repotray', version: '0.1.0' }),
+    JSON.stringify({ name: 'repowatch', version: '0.1.0' }),
   );
   assert.throws(() => assertVersions(directory, plan));
 });
@@ -155,7 +155,7 @@ test('missing/ambiguous Cargo lock entry fails before any stamp writes', (t) => 
   const pkg = readFileSync(path.join(directory, 'package.json'), 'utf8');
   for (const lock of [
     '',
-    '[[package]]\nname = "repotray"\nversion = "0.1.0"\n\n[[package]]\nname = "repotray"\nversion = "0.2.0"\n',
+    '[[package]]\nname = "repowatch"\nversion = "0.1.0"\n\n[[package]]\nname = "repowatch"\nversion = "0.2.0"\n',
   ]) {
     writeFileSync(path.join(directory, 'src-tauri/Cargo.lock'), lock);
     assert.throws(() => stampVersions(directory, plan));

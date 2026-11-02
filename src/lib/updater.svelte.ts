@@ -72,7 +72,7 @@ export class Updater {
 
   /**
    * Downloads, verifies and starts the installer in one native call; on
-   * success RepoTray exits and the installer restarts it. A failure returns
+   * success RepoWatch exits and the installer restarts it. A failure returns
    * to `available` with its message, so the same button retries.
    */
   install = async () => {

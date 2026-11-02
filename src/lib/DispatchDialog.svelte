@@ -180,7 +180,7 @@
 
 <Modal
   title="Workflow starten"
-  eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
+  eyebrow={`REPOWATCH · ${demo ? 'DEMO' : 'GITHUB'}`}
   {returnFocus}
   {onClose}
 >

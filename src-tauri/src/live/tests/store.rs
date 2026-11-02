@@ -45,7 +45,7 @@ fn account(id: &str) -> Account {
 #[test]
 fn claims_survive_restart_release_explicitly_and_leave_with_their_account() {
     let path = std::env::temp_dir().join(format!(
-        "repotray-live-claims-{}-{}.db",
+        "repowatch-live-claims-{}-{}.db",
         std::process::id(),
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
     ));
@@ -169,7 +169,7 @@ fn a_missing_or_unreadable_credential_fails_before_sending_and_is_not_a_network_
 #[test]
 fn a_refused_favorite_write_is_reported_in_german() {
     let path = std::env::temp_dir().join(format!(
-        "repotray-live-pin-errors-{}-{}.db",
+        "repowatch-live-pin-errors-{}-{}.db",
         std::process::id(),
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
     ));

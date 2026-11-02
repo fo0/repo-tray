@@ -129,7 +129,7 @@
   inert={modals.kind !== null}
   aria-hidden={modals.kind !== null ? 'true' : undefined}
 >
-  <section class="tray" aria-label="RepoTray" data-page={view.page}>
+  <section class="tray" aria-label="RepoWatch" data-page={view.page}>
     <AppBar
       bind:this={appBar}
       {native}
@@ -218,7 +218,7 @@
 {:else if modals.kind === 'connect'}
   <Modal
     title="GitHub verbinden"
-    eyebrow={`REPOTRAY · ${demo ? 'DEMO' : 'GITHUB'}`}
+    eyebrow={`REPOWATCH · ${demo ? 'DEMO' : 'GITHUB'}`}
     returnFocus={modals.returnFocus}
     onClose={modals.close}
   >

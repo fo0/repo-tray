@@ -1,8 +1,8 @@
 //! In-app updates independent of GitHub account selection. Standard unsigned builds install
 //! the release's NSIS EXE after verifying its published size and SHA-256; builds with a
 //! compiled-in updater key install Tauri-signed packages instead. Either way one
-//! `install_update` call downloads, verifies and starts the installer, then RepoTray exits.
-use repotray_core::updates::{self, installer, Installer, UpdateInfo, CHECK_FAILED};
+//! `install_update` call downloads, verifies and starts the installer, then RepoWatch exits.
+use repowatch_core::updates::{self, installer, Installer, UpdateInfo, CHECK_FAILED};
 use serde::Serialize;
 use std::{
     process::{Command, Stdio},
@@ -107,7 +107,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
 }
 
 fn updater_key() -> Option<&'static str> {
-    option_env!("REPOTRAY_UPDATER_PUBLIC_KEY").filter(|key| !key.trim().is_empty())
+    option_env!("REPOWATCH_UPDATER_PUBLIC_KEY").filter(|key| !key.trim().is_empty())
 }
 
 /// Signed feed of builds with a compiled-in updater key.
@@ -152,7 +152,7 @@ async fn check_signed(
     Ok((Some(info), Some(Candidate::Signed(Box::new(update)))))
 }
 
-/// Downloads and verifies the checked update, starts its installer and exits RepoTray so
+/// Downloads and verifies the checked update, starts its installer and exits RepoWatch so
 /// the installer can replace the EXE; the installer relaunches the app.
 #[tauri::command]
 pub async fn install_update(

@@ -1,4 +1,4 @@
-<!-- The token permissions RepoTray needs, in one line; mirrors docs/GITHUB_SETUP.md. -->
+<!-- The token permissions RepoWatch needs, in one line; mirrors docs/GITHUB_SETUP.md. -->
 <div class="token-permissions" id="token-permissions">
   <span id="token-permissions-heading">Benötigte Rechte</span>
   <ul aria-labelledby="token-permissions-heading">

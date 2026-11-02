@@ -87,7 +87,7 @@ for (const width of [360, 480]) {
     expect((await card.boundingBox())!.height).toBe(height);
     await tooltip.hover();
     await expect(tooltip).toBeVisible();
-    await page.getByRole('heading', { name: /^RepoTray/ }).hover();
+    await page.getByRole('heading', { name: /^RepoWatch/ }).hover();
     await expect(tooltip).toHaveCount(0);
     await status.focus();
     await expect(tooltip).toBeVisible();
@@ -155,7 +155,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     await expect(tooltip).toHaveCount(0);
     await status.tap();
     await expect(tooltip).toBeVisible();
-    await page.getByRole('heading', { name: /^RepoTray/ }).tap();
+    await page.getByRole('heading', { name: /^RepoWatch/ }).tap();
     await expect(tooltip).toHaveCount(0);
     await card
       .getByRole('button', { name: 'launch-kit-demo · Windows build starten…' })

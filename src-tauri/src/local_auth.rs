@@ -377,7 +377,7 @@ pub fn discover(
     if let Some(gh) = &programs.gh {
         result
             .notices
-            .push("gh CLI gefunden. Erkennung verbindet noch kein Konto mit RepoTray.".into());
+            .push("gh CLI gefunden. Erkennung verbindet noch kein Konto mit RepoWatch.".into());
         match gh_status(gh, runner, current) {
             Ok((accounts, legacy)) => {
                 if legacy {
@@ -395,7 +395,7 @@ pub fn discover(
     } else {
         result
             .notices
-            .push("gh CLI nicht gefunden. Installiere GitHub CLI (gh), starte RepoTray danach neu und prüfe im Terminal gh auth status. Git allein reicht nicht.".into());
+            .push("gh CLI nicht gefunden. Installiere GitHub CLI (gh), starte RepoWatch danach neu und prüfe im Terminal gh auth status. Git allein reicht nicht.".into());
     }
     if let Some(gcm) = &programs.gcm {
         match runner.run(

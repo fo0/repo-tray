@@ -399,7 +399,7 @@ impl Harness {
     pub(super) fn new(name: &str, remote: Remote, accounts: &[&str]) -> Self {
         NOW.with(|now| now.set(START));
         let path = std::env::temp_dir().join(format!(
-            "repotray-live-{name}-{}-{}.db",
+            "repowatch-live-{name}-{}-{}.db",
             std::process::id(),
             chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));

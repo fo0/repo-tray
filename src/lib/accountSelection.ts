@@ -1,6 +1,6 @@
 import type { Account } from './types';
 
-export const ACTIVE_ACCOUNT_KEY = 'repotray.activeAccount.v1';
+export const ACTIVE_ACCOUNT_KEY = 'repowatch.activeAccount.v1';
 export interface AccountPreferenceStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;

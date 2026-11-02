@@ -1,6 +1,6 @@
 [package]
-name = "repotray"
-default-run = "repotray"
+name = "repowatch"
+default-run = "repowatch"
 version = "0.1.0"
 description = "A compact tray companion for GitHub Actions"
 edition = "2021"
@@ -8,11 +8,11 @@ license = "MIT"
 publish = false
 
 [lib]
-name = "repotray_core"
+name = "repowatch_core"
 path = "src/lib.rs"
 
 [[bin]]
-name = "repotray"
+name = "repowatch"
 path = "src/main.rs"
 required-features = ["desktop"]
 

@@ -24,10 +24,10 @@ const NOTES = [
   'Release 2026.1101.905 · nur IPC-Mock',
   '',
   "## What's Changed",
-  '* feat: synthetische Änderung eins by @synthetic-user in https://github.com/fo0/repo-tray/pull/1',
-  '* fix: synthetische Änderung zwei by @synthetic-user in https://github.com/fo0/repo-tray/pull/2',
+  '* feat: synthetische Änderung eins by @synthetic-user in https://github.com/fo0/repo-watch/pull/1',
+  '* fix: synthetische Änderung zwei by @synthetic-user in https://github.com/fo0/repo-watch/pull/2',
   '',
-  '**Full Changelog**: https://github.com/fo0/repo-tray/compare/v1...v2',
+  '**Full Changelog**: https://github.com/fo0/repo-watch/compare/v1...v2',
 ].join('\n');
 
 test.beforeEach(async ({ page }) => {
@@ -149,7 +149,7 @@ test('an available update installs in the app: changelog, progress, check, resta
   ).toBeDisabled();
   await expect(panel.getByText('Wird geprüft …')).toBeVisible();
   await expect(
-    panel.getByText('Wird installiert – RepoTray startet neu …'),
+    panel.getByText('Wird installiert – RepoWatch startet neu …'),
   ).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Installieren' })).toHaveCount(
     0,
@@ -187,7 +187,7 @@ test('a failed install keeps the update and offers „Erneut versuchen“', asyn
   await panel.getByRole('button', { name: 'Erneut versuchen' }).click();
   await expect(panel.getByRole('alert')).toHaveCount(0);
   await expect(
-    panel.getByText('Wird installiert – RepoTray startet neu …'),
+    panel.getByText('Wird installiert – RepoWatch startet neu …'),
   ).toBeVisible();
   expect(await readCalls(page, 'install_update')).toHaveLength(2);
 });

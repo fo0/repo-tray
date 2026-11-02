@@ -3,13 +3,13 @@
 In **Einstellungen → App → Mit Windows starten**, explicitly enable login startup
 for the current Windows user and press **Speichern**; **Abbrechen** drops the
 change. A fresh installation does not register anything.
-After the next **user login**, RepoTray creates its tray icon and keeps the main
+After the next **user login**, RepoWatch creates its tray icon and keeps the main
 window hidden. This is not a service and does not run before login. Windows may
 delay startup. There is no separate “start minimized” preference: login launches
 always start in the tray, while manual launches open the existing popup.
 
 Closing or hiding the popup preserves the webview and ongoing work. The tray
-icon/menu can reopen it; **RepoTray beenden** exits until the next manual launch
+icon/menu can reopen it; **RepoWatch beenden** exits until the next manual launch
 or login. A second manual launch opens the existing instance. A second launch
 with `--autostart` does not show, hide or focus it.
 
@@ -19,7 +19,7 @@ The native commands use the documented Windows per-user `Run` mechanism:
 
 ```text
 HKCU\Software\Microsoft\Windows\CurrentVersion\Run
-  io.github.fo0.repotray = "<absolute current executable>" --autostart
+  io.github.fo0.repowatch = "<absolute current executable>" --autostart
 ```
 
 There is no SQLite/localStorage preference copy and no registration during app
@@ -41,14 +41,14 @@ Windows can retain a separate startup veto in
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`.
 Known enabled/disabled formats are read conservatively; an unexpected type or
 format is displayed as unknown. **This Windows-owned format is not a public API
-contract**. RepoTray never writes/deletes it, and cannot guarantee detection of
+contract**. RepoWatch never writes/deletes it, and cannot guarantee detection of
 every future Windows format or enterprise startup policy. A visible Run entry
 is not a guarantee that Windows will execute it.
 
 When Windows blocks the entry, the switch is locked and one line names the
 reason. **Windows-Autostart öffnen** opens the fixed Windows Settings page, where
 the user can grant permission again. **Autostarteintrag entfernen** can still
-remove RepoTray's own Run value. Both act at once, without **Speichern**. Windows may retain its veto even after removal, so
+remove RepoWatch's own Run value. Both act at once, without **Speichern**. Windows may retain its veto even after removal, so
 re-enabling the app may also require re-enabling it in Windows Settings.
 
 The official [Tauri autostart plugin](https://v2.tauri.app/plugin/autostart/) was
@@ -68,7 +68,7 @@ from `desktop:dev` or a temporary build directory. The setting registers the
 currently running path. In-place NSIS upgrades keep that path and registration;
 neither unsigned public installers nor signed-updater configuration opt users in.
 The standard in-app update runs the installer with `/P /R /UPDATE` and no `/ARGS`,
-so the installer relaunches RepoTray without `--autostart`: after an update the
+so the installer relaunches RepoWatch without `--autostart`: after an update the
 panel opens, even when the app had started from login. Signed builds using the
 Tauri updater pass the launch arguments on (`/ARGS`) and restart hidden after an
 `--autostart` launch. The next login launch starts in the tray again.
@@ -78,7 +78,7 @@ startup from the old installation, then enabling it from the new one. The new
 installation treats an old-path value as a conflict, even if the filename is
 the same. **Disable startup before uninstalling**; the installer has no NSIS
 uninstall hook for it. If the old executable is already gone, remove only that
-identified RepoTray Run value yourself in an authorized Windows session. Do not
+identified RepoWatch Run value yourself in an authorized Windows session. Do not
 delete the Run key or unrelated entries. No claim is made about which version a
 particular user's computer currently has installed.
 

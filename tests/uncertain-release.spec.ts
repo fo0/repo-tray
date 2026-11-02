@@ -62,7 +62,7 @@ async function nativeWithClaim(page: Page) {
   );
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('demo-personal'),
     ),
   );

@@ -34,7 +34,7 @@ export async function observeSnapshots(
 ): Promise<() => void> {
   if (native) {
     try {
-      return await listen<Snapshot>('repotray:snapshot', (event) =>
+      return await listen<Snapshot>('repowatch:snapshot', (event) =>
         callback(event.payload),
       );
     } catch {

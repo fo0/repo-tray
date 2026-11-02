@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 fn temp_db(name: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "repotray-{name}-{}-{}.db",
+        "repowatch-{name}-{}-{}.db",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

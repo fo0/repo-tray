@@ -20,7 +20,7 @@ export const menuButton = (page: Page, name: string) =>
 export async function openNative(page: Page, { more = 0 } = {}) {
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('demo-personal'),
     ),
   );

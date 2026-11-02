@@ -61,7 +61,7 @@ export async function expectPage(page: Page, name: PanelPage) {
 /** Loads the browser demo and maximizes the runs: the Verlauf. */
 export async function openDemoActivity(page: Page) {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /RepoTray/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /RepoWatch/ })).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Einstellungen', exact: true }),
   ).toBeEnabled();

@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::{ffi::OsStr, io};
 
 pub const AUTOSTART_ARG: &str = "--autostart";
-pub const VALUE_NAME: &str = "io.github.fo0.repotray";
+pub const VALUE_NAME: &str = "io.github.fo0.repowatch";
 
 /// argv includes the executable, both at first launch and in SingleInstance.
 pub fn show_on_launch(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> bool {
@@ -160,24 +160,24 @@ mod tests {
         }
     }
     fn expected() -> String {
-        registration_command(r"C:\Users\Test Person\RepoTray\repotray.exe").unwrap()
+        registration_command(r"C:\Users\Test Person\RepoWatch\repowatch.exe").unwrap()
     }
 
     #[test]
     fn manual_and_duplicate_manual_launch_show_but_login_launches_do_not() {
-        assert!(show_on_launch(["repotray.exe"]));
-        assert!(show_on_launch(["repotray.exe", "--other"]));
-        assert!(!show_on_launch(["repotray.exe", AUTOSTART_ARG]));
-        assert!(!show_on_launch(["repotray.exe", "--other", AUTOSTART_ARG]));
+        assert!(show_on_launch(["repowatch.exe"]));
+        assert!(show_on_launch(["repowatch.exe", "--other"]));
+        assert!(!show_on_launch(["repowatch.exe", AUTOSTART_ARG]));
+        assert!(!show_on_launch(["repowatch.exe", "--other", AUTOSTART_ARG]));
         assert!(show_on_launch([AUTOSTART_ARG])); // executable is not a flag
-        assert!(show_on_launch(["repotray.exe", "--autostart=false"]));
+        assert!(show_on_launch(["repowatch.exe", "--autostart=false"]));
     }
 
     #[test]
     fn quoted_unicode_path_and_run_length_limit() {
         assert_eq!(
-            registration_command(r"C:\Täst User\repotray.exe").unwrap(),
-            "\"C:\\Täst User\\repotray.exe\" --autostart"
+            registration_command(r"C:\Täst User\repowatch.exe").unwrap(),
+            "\"C:\\Täst User\\repowatch.exe\" --autostart"
         );
         for invalid in ["", "bad\"path", "bad\0path", "bad\npath"] {
             assert!(registration_command(invalid).is_err());
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn foreign_or_relocated_installations_are_never_overwritten_or_removed() {
-        for command in ["other.exe", "\"C:\\Old\\repotray.exe\" --autostart"] {
+        for command in ["other.exe", "\"C:\\Old\\repowatch.exe\" --autostart"] {
             let mut store = Mock {
                 command: Some(command.into()),
                 ..Mock::default()

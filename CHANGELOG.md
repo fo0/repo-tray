@@ -1,6 +1,6 @@
 # Changelog
 
-Release notes live on the [GitHub Releases page](https://github.com/fo0/repo-tray/releases), which is the changelog of record. Each release uses a CalVer version (`YYYY.MMDD.HHmm`, UTC) and GitHub-generated notes from the merged changes; see [release process](docs/RELEASES.md). This file is not updated per release.
+Release notes live on the [GitHub Releases page](https://github.com/fo0/repo-watch/releases), which is the changelog of record. Each release uses a CalVer version (`YYYY.MMDD.HHmm`, UTC) and GitHub-generated notes from the merged changes; see [release process](docs/RELEASES.md). This file is not updated per release.
 
 ## [0.1.0] - 2026-10-31 (historical)
 

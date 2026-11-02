@@ -8,7 +8,7 @@
     $props();
   const note = $derived(startupNote(autostart.current, autostart.busy));
   const status = $derived(autostart.current?.status);
-  /** Windows itself blocks or hides RepoTray's entry. */
+  /** Windows itself blocks or hides RepoWatch's entry. */
   const vetoed = $derived(
     status === 'disabledByWindows' || status === 'unknownApproval',
   );

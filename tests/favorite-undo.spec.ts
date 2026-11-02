@@ -87,7 +87,7 @@ test('the heart removes a renamed favorite with undo, and the removal is final a
   await notice.hover();
   await page.clock.runFor(9000);
   await expect(notice).toBeVisible();
-  await page.getByRole('heading', { name: /^RepoTray/ }).hover();
+  await page.getByRole('heading', { name: /^RepoWatch/ }).hover();
   await page.clock.runFor(8100);
   await expect(notice).toHaveCount(0);
   await page.reload();

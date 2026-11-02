@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
-// RepoTray artwork constructed from a tile and three connected workflow nodes.
+// RepoWatch artwork constructed from a tile and three connected workflow nodes.
 // The 64-unit geometry is the source: no existing raster/external asset is read.
 const tile = { x: 4, y: 4, width: 56, height: 56, radius: 14 };
 /** @type {[x1: number, y1: number, x2: number, y2: number][]} */
@@ -223,7 +223,7 @@ for (const [name, data] of outputs) {
   }
 }
 if (mismatches.length)
-  throw new Error(`Regenerate RepoTray icons: ${mismatches.join(', ')}`);
+  throw new Error(`Regenerate RepoWatch icons: ${mismatches.join(', ')}`);
 console.log(
-  `${check ? 'Verified' : 'Generated'} ${outputs.size} RepoTray icon files`,
+  `${check ? 'Verified' : 'Generated'} ${outputs.size} RepoWatch icon files`,
 );

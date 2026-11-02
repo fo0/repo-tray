@@ -182,7 +182,7 @@ test('native: last runs come from the history or the core’s lookup', async ({
   await page.clock.install({ time: now - 5_000 });
   await page.addInitScript(() =>
     localStorage.setItem(
-      'repotray.activeAccount.v1',
+      'repowatch.activeAccount.v1',
       JSON.stringify('demo-personal'),
     ),
   );
