@@ -46,6 +46,15 @@
     searchField?.focus();
   };
   const warn = (value: string) => panel.showNotice(value, 'warning');
+  /**
+   * The brand leads home: the overview from its top, without a search. From
+   * a maximized page focus returns to its opener; on the overview it stays.
+   */
+  function goHome() {
+    view.query = '';
+    if (!view.back())
+      document.querySelector('.tray .content')?.scrollTo({ top: 0 });
+  }
 
   /** A load error offers a retry before any snapshot exists. */
   const canRefresh = $derived(!!snapshot || !!panel.error);
@@ -134,6 +143,7 @@
       {canRefresh}
       busy={panel.settingsBusy}
       onAccountChange={changeAccount}
+      onHome={goHome}
       onConnect={() => modals.show('connect')}
       onManageAccounts={() => openSettings('accounts')}
       onRefresh={() => void refreshPanel()}

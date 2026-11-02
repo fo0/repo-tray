@@ -32,6 +32,9 @@
     searching,
     repoName,
     repoAccountName,
+    canCancel = () => false,
+    isCancelling = () => false,
+    onCancel = () => {},
     onFilter,
     onToggle,
     onClearQuery,
@@ -50,6 +53,10 @@
     searching: boolean;
     repoName: (repoId: string) => string;
     repoAccountName: (repoId: string) => string;
+    /** The run is open and its repository grants write access. */
+    canCancel?: (run: Run) => boolean;
+    isCancelling?: (run: Run) => boolean;
+    onCancel?: (run: Run) => void;
     onFilter: (filter: ActivityFilter) => void;
     onToggle: (runId: number) => void;
     onClearQuery: () => void;
@@ -150,6 +157,9 @@
         {demo}
         {native}
         now={$minuteClock}
+        canCancel={canCancel(run)}
+        cancelling={isCancelling(run)}
+        onCancel={() => onCancel(run)}
         onToggle={() => onToggle(run.id)}
         {onNotice}
       />

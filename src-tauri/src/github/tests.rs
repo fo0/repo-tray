@@ -591,6 +591,49 @@ fn throttled_reads_are_rate_limits_and_plain_forbidden_stays_http() {
     assert_eq!(sent.lock().unwrap().len(), 2);
 }
 
+#[test]
+fn a_cancel_is_one_validated_bodiless_post_and_throttling_is_a_rate_limit() {
+    let cancel = ApiRequest::cancel_run("personal", "octo", "demo", 77).unwrap();
+    assert_eq!(cancel.method(), Method::Post);
+    assert_eq!(
+        cancel.url().as_str(),
+        "https://api.github.com/repos/octo/demo/actions/runs/77/cancel"
+    );
+    assert!(cancel.body().is_none());
+    assert!(!cancel.headers().contains_key("Content-Type"));
+    assert_eq!(cancel.headers()["X-GitHub-Api-Version"], API_VERSION);
+    for (owner, repo, run_id) in [
+        ("octo/x", "demo", 1),
+        ("octo", "..", 1),
+        ("", "demo", 1),
+        ("octo", "demo", 0),
+    ] {
+        assert!(ApiRequest::cancel_run("personal", owner, repo, run_id).is_err());
+    }
+    let (client, sent) = client(vec![
+        Ok(response(202, &[], "{}")),
+        Ok(response(403, &[], r#"{"message":"Forbidden"}"#)),
+        Ok(response(429, &[("Retry-After", "5")], "{}")),
+    ]);
+    assert_eq!(client.post(&cancel, 100).unwrap().status, 202);
+    assert_eq!(client.post(&cancel, 100).unwrap().status, 403);
+    assert_eq!(
+        client.post(&cancel, 100).unwrap_err(),
+        ApiError::RateLimited { retry_at: 105 }
+    );
+    // During the backoff nothing is sent, and a GET never goes out as a POST.
+    assert_eq!(
+        client.post(&cancel, 101).unwrap_err(),
+        ApiError::RateLimited { retry_at: 105 }
+    );
+    let read = ApiRequest::get(
+        "personal",
+        ApiUrl::parse("https://api.github.com/user").unwrap(),
+    );
+    assert!(client.post(&read.unwrap(), 200).is_err());
+    assert_eq!(sent.lock().unwrap().len(), 3);
+}
+
 fn wire_run(status: Option<&str>, conclusion: Option<&str>) -> serde_json::Value {
     serde_json::json!({"id":77,"workflow_id":42,"name":"Build","head_branch":"main","status":status,"conclusion":conclusion,"created_at":"2026-10-31T09:00:00Z","updated_at":"2026-10-31T09:01:00Z","html_url":"https://github.com/octo/demo/actions/runs/77"})
 }

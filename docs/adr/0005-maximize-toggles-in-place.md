@@ -1,6 +1,6 @@
 # ADR-0005: Maximize toggles in place
 
-- **Status:** Accepted
+- **Status:** Accepted; partly superseded — the minimize symbol and its name by [ADR-0007](0007-back-arrow-and-home-brand.md)
 - **Date:** 2026-11-01
 - **Decider(s):** owner
 - **Tags:** ui, navigation
@@ -12,7 +12,7 @@ ADR-0002 put a maximized section under a header with **Zurück zur Übersicht**.
 
 ## Decision
 
-We will keep the section header where it is when a section is maximized: the maximized page shows the section's own header (`SectionHeader` with `onMinimize`, the only thing `SectionPage` renders), whose minimize button („<Titel> verkleinern“, tooltip „Verkleinern · Esc“) sits exactly where the maximize button is; minimizing returns to the overview. The separate **Zurück zur Übersicht** header goes; there is no back button at all. **Esc** and the section's **Ctrl+1/2/3** key still return; everything else in ADR-0002 (one overview, caps lifted by search, focus rules, Verlauf with the run expanded) stays.
+We will keep the section header where it is when a section is maximized: the maximized page shows the section's own header (`SectionHeader` with `onMinimize`, the only thing `SectionPage` renders), whose minimize button („<Titel> verkleinern“, tooltip „Verkleinern · Esc“) _(superseded by ADR-0007: a back arrow)_ sits exactly where the maximize button is; minimizing returns to the overview. The separate **Zurück zur Übersicht** header goes; there is no back button at all. **Esc** and the section's **Ctrl+1/2/3** key still return; everything else in ADR-0002 (one overview, caps lifted by search, focus rules, Verlauf with the run expanded) stays.
 
 ## Consequences
 

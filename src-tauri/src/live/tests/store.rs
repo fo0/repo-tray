@@ -193,6 +193,7 @@ fn a_refused_favorite_write_is_reported_in_german() {
         dispatch: true,
         inputs: vec![],
         refs: vec!["main".into()],
+        last_run_at: None,
     }];
     let pin = Pin {
         id: "pin-1".into(),

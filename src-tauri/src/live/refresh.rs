@@ -62,6 +62,8 @@ impl<T: Transport> LiveStore<T> {
             listings,
             &self.data.pins,
         );
+        // Before the loop below, so a repository opened from the search keeps its history.
+        self.keep_browsed();
         for repo in &self.data.repos {
             if repo.selected && !before.contains(&repo.id) {
                 // A deselected repository's runs left the snapshot: a newly selected one
@@ -144,6 +146,7 @@ impl<T: Transport> LiveStore<T> {
                 dispatch: value["state"] == "active" && parsed.as_ref().is_some_and(|p| p.dispatch),
                 inputs: parsed.map(|p| p.inputs).unwrap_or_default(),
                 refs: vec![],
+                last_run_at: None,
             });
         }
         let pinned: Vec<_> = self
@@ -165,6 +168,7 @@ impl<T: Transport> LiveStore<T> {
                 .remove(&workflow.id)
                 .unwrap_or_else(|| vec![repo.default_branch.clone()]);
         }
+        self.fill_last_runs(repo, &mut workflows, now);
         Ok(workflows)
     }
     /// Every account and repository refreshes on its own: a failing scope keeps its last
@@ -281,7 +285,7 @@ impl<T: Transport> LiveStore<T> {
         self.settle(issues);
         self.snapshot()
     }
-    fn login(&self, account_id: &str) -> String {
+    pub(super) fn login(&self, account_id: &str) -> String {
         self.data
             .accounts
             .iter()

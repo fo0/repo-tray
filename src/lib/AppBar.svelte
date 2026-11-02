@@ -15,6 +15,7 @@
     canRefresh,
     busy,
     onAccountChange,
+    onHome,
     onConnect,
     onManageAccounts,
     onRefresh,
@@ -35,6 +36,8 @@
     /** A settings change is running; the account stays as it is meanwhile. */
     busy: boolean;
     onAccountChange: (id: string) => void;
+    /** The brand: back to the overview, without a search. */
+    onHome: () => void;
     onConnect: () => void;
     onManageAccounts: () => void;
     onRefresh: () => void;
@@ -53,12 +56,19 @@
   }
 </script>
 
-<!-- Natively the bar drags the window: the brand ignores the pointer, so a
-     press on it or on the free space lands on the bar; controls stay clickable. -->
+<!-- Natively the bar drags the window from its free space; its controls,
+     the brand's home button among them, stay clickable. The heading keeps
+     its name „RepoTray“; the tooltip says where the button leads. -->
 <header class="app-bar" data-tauri-drag-region={native ? true : undefined}>
   <h1 class="brand">
-    <span class="brand-icon"><Icon name="tray" size={16} /></span><span
-      class="brand-name">RepoTray</span
+    <button
+      type="button"
+      class="brand-home"
+      title="Zur Übersicht"
+      onclick={() => onHome()}
+      ><span class="brand-icon"><Icon name="tray" size={16} /></span><span
+        class="brand-name">RepoTray</span
+      ></button
     >
   </h1>
   <div class="app-bar-actions">

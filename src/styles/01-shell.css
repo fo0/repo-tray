@@ -44,6 +44,29 @@
   line-height: 1.2;
   white-space: nowrap;
 }
+/* The brand leads home: icon and name in one borderless button. */
+.brand-home {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.brand-home:hover {
+  background: var(--hover);
+}
+.brand-home:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .brand-icon {
   width: 26px;
   height: 26px;

@@ -84,6 +84,10 @@ pub struct Workflow {
     pub dispatch: bool,
     pub inputs: Vec<InputSpec>,
     pub refs: Vec<String>,
+    /// When the workflow's latest run was created (RFC 3339), looked up only for workflows
+    /// without a run in `Snapshot.runs`; `None` when unknown. Older cache rows lack it.
+    #[serde(default)]
+    pub last_run_at: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
