@@ -1,5 +1,5 @@
 import type { DispatchSeed, FavoriteMode } from './DispatchDialog.svelte';
-import type { SettingsTab } from './SettingsDialog.svelte';
+import type { SettingsTab } from './settingsTabs';
 import type { Panel } from './panel.svelte';
 import type { Pin, Workflow } from './types';
 

@@ -1,12 +1,3 @@
-<script module lang="ts">
-  export const SETTINGS_TABS = [
-    { id: 'accounts', label: 'Konten' },
-    { id: 'app', label: 'App' },
-    { id: 'updates', label: 'Updates' },
-  ] as const;
-  export type SettingsTab = (typeof SETTINGS_TABS)[number]['id'];
-</script>
-
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import AccountsTab from './AccountsTab.svelte';
@@ -21,6 +12,7 @@
   import { errorMessage } from './format';
   import { HiddenChoice } from './hiddenChoice.svelte';
   import { RefreshChoice } from './refresh.svelte';
+  import { SETTINGS_TABS, type SettingsTab } from './settingsTabs';
   import { appliedTheme, applyTheme, rememberTheme } from './theme';
   import type { DemoScenario, HiddenRepo, Snapshot } from './types';
   import type { Updater } from './updater.svelte';
