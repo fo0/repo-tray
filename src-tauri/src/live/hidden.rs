@@ -2,12 +2,7 @@
 //! row (`AppSettings::hidden_repos`); a hidden repository gives up its automatic place, and
 //! only a favorite keeps it selected.
 use super::LiveStore;
-use crate::{
-    auto_repos::{auto_select, is_hidden},
-    cache::AppSettings,
-    github::Transport,
-    models::*,
-};
+use crate::{auto_repos::auto_select, cache::AppSettings, github::Transport, models::*};
 use std::collections::BTreeSet;
 
 /// Hidden repositories kept at most; far below the settings row's size limit.
@@ -58,7 +53,7 @@ impl<T: Transport> LiveStore<T> {
                 }
                 next.push(HiddenRepo {
                     account_id,
-                    repo_id,
+                    repo_id: repo_id.clone(),
                     owner: repo.owner.clone(),
                     name: repo.name.clone(),
                 });
@@ -68,6 +63,11 @@ impl<T: Transport> LiveStore<T> {
             }
         }
         self.save_hidden(next)?;
+        // The repository hidden now also loses the session's „opened from the search“ hold;
+        // a hidden one opened from the search later keeps its own.
+        if hidden {
+            self.browsed.retain(|id| id != repo_id);
+        }
         self.reselect();
         Ok(self.snapshot())
     }
@@ -114,10 +114,10 @@ impl<T: Transport> LiveStore<T> {
         Ok(())
     }
 
-    /// The automatic selection over the known catalog, as the next listing would make it. A
-    /// hidden repository also loses the session's „opened from the search“ hold. A newly
-    /// selected repository loads its initial history on the next refresh; a deselected one's
-    /// runs leave the snapshot, as a refresh would drop them.
+    /// The automatic selection over the known catalog, as the next listing would make it,
+    /// keeping the repositories opened from the search. A newly selected repository loads its
+    /// initial history on the next refresh; a deselected one's runs leave the snapshot, as a
+    /// refresh would drop them.
     fn reselect(&mut self) {
         let before: BTreeSet<_> = self
             .data
@@ -127,13 +127,6 @@ impl<T: Transport> LiveStore<T> {
             .map(|repo| repo.id.clone())
             .collect();
         auto_select(&mut self.data.repos, &self.data.pins, &self.hidden);
-        let hidden = &self.hidden;
-        let repos = &self.data.repos;
-        self.browsed.retain(|id| {
-            !repos
-                .iter()
-                .any(|repo| repo.id == id && is_hidden(hidden, repo))
-        });
         self.keep_browsed();
         let selected: BTreeSet<_> = self
             .data

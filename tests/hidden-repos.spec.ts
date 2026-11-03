@@ -84,7 +84,8 @@ test('Settings → App shows a hidden repository again only with „Speichern“
 
   await openApp(page);
   const show = hiddenSection(page).getByRole('button', {
-    name: 'runner-tools-demo einblenden',
+    name: 'example-org/runner-tools-demo einblenden',
+    exact: true,
   });
   await expect(show).toHaveAttribute('aria-pressed', 'false');
   const save = dialog(page).getByRole('button', {

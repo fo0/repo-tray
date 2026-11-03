@@ -1,6 +1,6 @@
 // Repositories the user hid from the lists (ADR-0008): matching, and the
 // browser demo's stored copy of the native setting.
-import type { PreferenceStorage } from './demo';
+import type { PreferenceStorage } from './bridgeTypes';
 import type { HiddenRepo, Repo } from './types';
 
 /** The demo's hidden repositories; the native shell keeps its own. */
@@ -79,14 +79,30 @@ export function demoHidden(storage?: PreferenceStorage) {
     get list(): HiddenRepo[] {
       return list;
     },
+    /**
+     * Applies one change and returns the repositories under `select` (the
+     * automatic rule). Repositories opened from the search stay selected,
+     * except the one hidden now (`live/hidden.rs`).
+     */
     change(
       repos: readonly Repo[],
       accountId: string,
       repoId: string,
       hide: boolean,
-    ) {
+      select: (hidden: readonly HiddenRepo[]) => Repo[],
+    ): Repo[] {
+      const auto = select(list);
+      const opened = new Set(
+        repos
+          .filter((repo, index) => repo.selected && !auto[index]?.selected)
+          .filter((repo) => !hide || repo.id !== repoId)
+          .map((repo) => repo.id),
+      );
       list = changeHidden(repos, list, accountId, repoId, hide);
       writeHidden(storage, list);
+      return select(list).map((repo) =>
+        opened.has(repo.id) ? { ...repo, selected: true } : repo,
+      );
     },
     reset() {
       list = [];

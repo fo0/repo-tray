@@ -29,7 +29,7 @@
             type="button"
             class="secondary-button compact"
             aria-pressed={staged}
-            aria-label={`${entry.name} einblenden`}
+            aria-label={`${entry.owner}/${entry.name} einblenden`}
             title={`${entry.owner}/${entry.name}`}
             onclick={() => choice.toggle(entry)}
             >{#if staged}<Icon name="check" size={12} />{/if}Einblenden</button

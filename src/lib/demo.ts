@@ -255,8 +255,9 @@ export function createDemoBridge(
       return snapshot();
     },
     async setRepoHidden(accountId, repoId, hide) {
-      hidden.change(data.repos, accountId, repoId, hide);
-      data.repos = autoSelect(data.repos, data.pins, hidden.list);
+      data.repos = hidden.change(data.repos, accountId, repoId, hide, (list) =>
+        autoSelect(data.repos, data.pins, list),
+      );
       return snapshot();
     },
     async releaseUncertainStart(start) {

@@ -172,3 +172,25 @@ fn disconnecting_an_account_drops_its_hidden_repositories() {
     assert!(restarted.snapshot().hidden_repos.is_empty());
     assert_eq!(restarted.refresh_interval(), 300);
 }
+
+#[test]
+fn hiding_drops_only_its_own_search_hold() {
+    let mut h = eleven();
+    // 11 was opened from the search; hiding it ends that hold.
+    h.live.open_repository("github-1:11".into()).unwrap();
+    let snapshot = h
+        .live
+        .set_repo_hidden("github-1".into(), "github-1:11".into(), true)
+        .unwrap();
+    assert_eq!(selected(&snapshot), ids(1..=10));
+    // A hidden repository opened from the search stays open while another one is hidden.
+    h.live.open_repository("github-1:11".into()).unwrap();
+    let snapshot = h
+        .live
+        .set_repo_hidden("github-1".into(), "github-1:2".into(), true)
+        .unwrap();
+    let mut expected = ids([1]);
+    expected.extend(ids(3..=11));
+    assert_eq!(selected(&snapshot), expected);
+    assert!(h.live.browsed.contains("github-1:11"));
+}

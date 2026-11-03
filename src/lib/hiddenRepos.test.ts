@@ -24,6 +24,8 @@ const selected = (snapshot: Snapshot) =>
 const TOOLS = 'demo-team-tools';
 /** demo-work's 11th newest repository: it moves up when one is hidden. */
 const NEXT = 'demo-work-legacy';
+/** demo-work's 12th newest repository: only opening it from the search loads it. */
+const OPENED = 'demo-extra';
 
 describe('demo bridge', () => {
   it('hides at once, frees the place, persists and shows again', async () => {
@@ -84,6 +86,16 @@ describe('demo bridge', () => {
     );
     const value = await blocked.setRepoHidden('demo-work', TOOLS, true);
     expect(value.hiddenRepos).toHaveLength(1);
+  });
+
+  it('keeps a repository opened from the search, unless it is hidden', async () => {
+    const bridge = createDemoBridge(memory().storage, 0);
+    await bridge.openRepository(OPENED);
+    // Hiding another repository leaves the opened one loaded.
+    const other = await bridge.setRepoHidden('demo-work', TOOLS, true);
+    expect(selected(other)).toEqual(expect.arrayContaining([OPENED, NEXT]));
+    const own = await bridge.setRepoHidden('demo-work', OPENED, true);
+    expect(selected(own)).not.toContain(OPENED);
   });
 
   it('a reset shows every repository again', async () => {
