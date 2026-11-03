@@ -11,11 +11,14 @@
   import { onDestroy, untrack } from 'svelte';
   import AccountsTab from './AccountsTab.svelte';
   import Modal from './Modal.svelte';
+  import RefreshSetting from './RefreshSetting.svelte';
   import StartupSettings from './StartupSettings.svelte';
   import ThemeSetting from './ThemeSetting.svelte';
   import UpdatePanel from './UpdatePanel.svelte';
   import { Autostart } from './autostart.svelte';
+  import { bridge } from './bridge';
   import { errorMessage } from './format';
+  import { RefreshChoice } from './refresh.svelte';
   import { appliedTheme, applyTheme, rememberTheme } from './theme';
   import type { DemoScenario, Snapshot } from './types';
   import type { Updater } from './updater.svelte';
@@ -78,6 +81,7 @@
   let keptTheme = untrack(() => savedTheme);
   let theme = $state(untrack(() => savedTheme));
   const autostart = new Autostart(untrack(() => native));
+  const refresh = new RefreshChoice(bridge);
   onDestroy(() => {
     alive = false;
     autostart.dispose();
@@ -97,12 +101,24 @@
     scenario: demo && draftScenario !== scenario,
     theme: theme !== savedTheme,
     autostart: autostart.pending !== null,
+    refresh: refresh.pending,
   });
   const dirty = $derived(Object.values(changed).some(Boolean));
-  const saveBlocked = $derived(!dirty || saving || busy);
-  /** Tab states: a dot whose text is part of the tab's name, like the activity count. */
-  const badges = $derived<Partial<Record<SettingsTab, string>>>({
-    ...(updater.info && { updates: 'Update verfügbar' }),
+  const saveBlocked = $derived(!dirty || saving || busy || refresh.invalid);
+  /** Why „Speichern“ is off although something changed, if a value is invalid. */
+  const invalidReason = $derived(
+    refresh.invalid ? 'Aktualisierung ungültig' : null,
+  );
+  /**
+   * Tab states: a dot whose text is part of the tab's name, like the activity
+   * count. An invalid value marks its tab, so the blocked „Speichern“ is
+   * explained from every tab.
+   */
+  const badges = $derived<
+    Partial<Record<SettingsTab, { text: string; tone?: 'danger' }>>
+  >({
+    ...(updater.info && { updates: { text: 'Update verfügbar' } }),
+    ...(invalidReason && { app: { text: invalidReason, tone: 'danger' } }),
   });
 
   /** Runs a mutation and shows its error while this dialog is still open. */
@@ -150,6 +166,7 @@
             'Darstellung ließ sich nicht speichern und gilt bis zum nächsten Start.',
           );
       }
+      if (pending.refresh) await refresh.apply();
       if (pending.autostart) await autostart.apply();
       if (alive) onClose();
     } catch (cause) {
@@ -205,8 +222,10 @@
         onclick={() => (tab = item.id)}
         >{item.label}{#if badges[item.id]}<span
             class="tab-update-dot"
+            data-tone={badges[item.id]?.tone}
             role="img"
-            aria-label={badges[item.id]}
+            aria-label={badges[item.id]?.text}
+            title={badges[item.id]?.text}
           ></span>{/if}</button
       >
     {/each}
@@ -236,6 +255,7 @@
       />
     {:else if tab === 'app'}
       <ThemeSetting bind:value={theme} />
+      <RefreshSetting choice={refresh} />
       <StartupSettings {native} {autostart} />
     {:else}
       <UpdatePanel
@@ -264,7 +284,8 @@
       type="button"
       class="primary-button"
       aria-disabled={saveBlocked ? 'true' : undefined}
-      title={dirty || saving ? undefined : 'Keine Änderungen'}
+      title={invalidReason ??
+        (dirty || saving ? undefined : 'Keine Änderungen')}
       onclick={() => void save()}
       >{saving ? 'Wird gespeichert …' : 'Speichern'}</button
     >

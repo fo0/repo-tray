@@ -2,6 +2,14 @@ use super::*;
 use crate::github::{ApiResponse, ApiUrl, DispatchConfirmation, TransportError};
 use std::sync::{Arc, Mutex};
 
+/// A pass at `now` with the default refresh interval.
+fn pace(now: u64) -> Pace {
+    Pace {
+        now,
+        idle_seconds: crate::refresh_interval::DEFAULT_SECONDS,
+    }
+}
+
 #[derive(Default)]
 struct Remote {
     calls: Vec<String>,
@@ -271,7 +279,7 @@ fn one_failing_repository_keeps_its_last_runs_while_the_others_refresh() {
         &BTreeMap::new(),
         &BTreeMap::new(),
         &mut blocked,
-        100,
+        pace(100),
     );
     assert_eq!(pass.polled, vec![(healthy.id.clone(), 100)]);
     assert!(pass
@@ -310,7 +318,7 @@ fn unauthorized_account_skips_its_other_repositories_and_not_other_accounts() {
         &BTreeMap::new(),
         &BTreeMap::new(),
         &mut blocked,
-        100,
+        pace(100),
     );
     assert_eq!(pass.failures.len(), 1);
     assert!(matches!(
@@ -339,11 +347,41 @@ fn repositories_inside_their_poll_interval_keep_runs_without_requests() {
         &poll_at,
         &BTreeMap::new(),
         &mut BTreeSet::new(),
-        114,
+        pace(114),
     );
     assert_eq!(pass.runs, vec![open]);
     assert!(pass.polled.is_empty() && pass.failures.is_empty());
     assert!(remote.lock().unwrap().calls.is_empty());
+}
+#[test]
+fn an_idle_repository_waits_the_chosen_interval_and_an_open_run_still_polls_every_15_seconds() {
+    let done = parse_run(&repo().id, &run(1, "completed")).unwrap();
+    let open = parse_run(&repo().id, &run(2, "in_progress")).unwrap();
+    let client = ApiClient::new(Mock(Arc::new(Mutex::new(Remote {
+        resolved: BTreeMap::from([(2, run(2, "in_progress"))]),
+        ..Remote::default()
+    }))));
+    let poll_at = BTreeMap::from([(repo().id, 100)]);
+    let polled = |previous: &Run, now: u64| {
+        !refresh_selected(
+            &client,
+            &[repo()],
+            std::slice::from_ref(previous),
+            &poll_at,
+            &BTreeMap::new(),
+            &mut BTreeSet::new(),
+            Pace {
+                now,
+                idle_seconds: 300,
+            },
+        )
+        .polled
+        .is_empty()
+    };
+    assert!(!polled(&done, 100 + 60), "the default no longer applies");
+    assert!(!polled(&done, 100 + 299));
+    assert!(polled(&done, 100 + 300));
+    assert!(polled(&open, 100 + 15));
 }
 fn tracker(id: u64, repo_id: &str) -> RunTracker {
     RunTracker {
@@ -496,7 +534,7 @@ fn an_active_run_list_past_the_page_budget_fails_the_repository_instead_of_hidin
         &BTreeMap::new(),
         &BTreeMap::from([("fixture-repo".to_string(), 100)]),
         &mut blocked,
-        115,
+        pace(115),
     );
     // The repository keeps its last known runs and is reported, not polled.
     assert_eq!(pass.runs, known);
@@ -519,7 +557,7 @@ fn a_discovery_window_past_the_page_budget_keeps_its_newest_runs_and_the_reposit
         &BTreeMap::new(),
         &BTreeMap::from([("fixture-repo".to_string(), 100)]),
         &mut blocked,
-        200,
+        pace(200),
     );
     // Only the newest runs of the window matter; the cut is accepted, not a failure.
     assert!(first.failures.is_empty(), "{:?}", first.failures);
@@ -542,7 +580,7 @@ fn a_discovery_window_past_the_page_budget_keeps_its_newest_runs_and_the_reposit
         &BTreeMap::from([("fixture-repo".to_string(), 200)]),
         &BTreeMap::from([("fixture-repo".to_string(), 200)]),
         &mut blocked,
-        300,
+        pace(300),
     );
     assert!(second.failures.is_empty(), "{:?}", second.failures);
     assert_eq!(second.polled, vec![("fixture-repo".to_string(), 300)]);

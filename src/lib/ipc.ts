@@ -23,6 +23,10 @@ export interface Commands {
   snapshot: { args: undefined; result: Snapshot };
   refresh_snapshot: { args: undefined; result: Snapshot };
   refresh_repositories: { args: undefined; result: Snapshot };
+  /** Seconds between idle refreshes; an open run still polls every 15 s. */
+  refresh_interval: { args: undefined; result: number };
+  /** Validates (15–3600 s) and stores the interval; resolves with the saved value. */
+  set_refresh_interval: { args: { seconds: number }; result: number };
   save_pin: { args: { pin: Pin }; result: Snapshot };
   delete_pin: { args: { pinId: string }; result: Snapshot };
   dispatch_workflow: {
@@ -62,6 +66,8 @@ export interface Commands {
     result: void;
   };
   open_run: { args: { url: string }; result: void };
+  /** Opens a repository page (`safeRepoUrl`); the shell re-validates it. */
+  open_repo: { args: { url: string }; result: void };
   /** Registered for the shell; the panel itself never hides the window. */
   hide_panel: { args: undefined; result: void };
 }
@@ -74,6 +80,8 @@ const REGISTERED: Record<Command, true> = {
   snapshot: true,
   refresh_snapshot: true,
   refresh_repositories: true,
+  refresh_interval: true,
+  set_refresh_interval: true,
   save_pin: true,
   delete_pin: true,
   dispatch_workflow: true,
@@ -96,6 +104,7 @@ const REGISTERED: Record<Command, true> = {
   check_update: true,
   install_update: true,
   open_run: true,
+  open_repo: true,
   hide_panel: true,
 };
 export const COMMAND_NAMES: readonly string[] = Object.keys(REGISTERED);

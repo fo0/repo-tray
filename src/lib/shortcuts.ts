@@ -88,15 +88,20 @@ export function isTypingTarget(target: EventTarget | null) {
 /**
  * Window keydown handler for the panel shortcuts. A reload is always
  * suppressed, since it would drop open dialogs and typed input; while a dialog
- * is open nothing else runs. Only `/` types a character, so only it yields to
- * a focused text field; F5, Ctrl+R and Ctrl+1-3 work from the search field too.
+ * is open nothing else runs. A held refresh key refreshes once. Only `/` types
+ * a character, so only it yields to a focused text field; F5, Ctrl+R and
+ * Ctrl+1-3 work from the search field too.
  */
 export function createShortcuts(actions: ShortcutActions) {
   return (event: KeyboardEvent) => {
     const shortcut = shortcutFor(event);
     if (!shortcut) return;
     const handled = event.defaultPrevented;
-    if (shortcut.kind === 'refresh') event.preventDefault();
+    if (shortcut.kind === 'refresh') {
+      event.preventDefault();
+      // A held F5 repeats keydown; one refresh per press, not one per repeat.
+      if (event.repeat) return;
+    }
     if (handled || event.isComposing || actions.blocked()) return;
     if (shortcut.kind === 'search' && isTypingTarget(event.target)) return;
     switch (shortcut.kind) {

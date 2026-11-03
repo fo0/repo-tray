@@ -33,9 +33,8 @@ test('„Rückgängig“ restores a removed favorite with its label, inputs and 
     }),
   ).toBeVisible();
   await expect(notice).toHaveCount(0);
-  // Still with confirmation: the round start opens the dialog.
-  await expect(card.locator('.pin-start')).not.toHaveClass(/quick/);
-  await card.locator('.pin-start').click();
+  // The restored favorite keeps its stored configuration.
+  await card.locator('.pin-open').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Version')).toHaveValue('0.1.0');
   await expect(dialog.getByLabel('Branch oder Tag')).toHaveValue('main');

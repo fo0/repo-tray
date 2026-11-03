@@ -14,7 +14,8 @@ export class DispatchForm {
   ref = $state('main');
   inputs = $state<Record<string, InputValue>>({});
   pinLabel = $state('');
-  pinQuickStart = $state(false);
+  /** The legacy `Pin.quickStart` the edited favorite had; saved unchanged. */
+  #pinQuickStart = false;
   editingPinId = $state<string | null>(null);
   #panel: Panel;
   #onRetarget: () => void;
@@ -61,7 +62,7 @@ export class DispatchForm {
       this.ref = pin.ref;
       this.inputs = { ...pin.inputs };
       this.pinLabel = pin.label;
-      this.pinQuickStart = pin.quickStart;
+      this.#pinQuickStart = pin.quickStart === true;
       this.editingPinId = pin.id;
     }
   }
@@ -79,7 +80,7 @@ export class DispatchForm {
     if (workflow && !workflow.refs.includes(this.ref))
       this.ref = workflow.refs[0] ?? '';
     this.pinLabel = workflow?.name ?? '';
-    this.pinQuickStart = false;
+    this.#pinQuickStart = false;
   };
   selectRepo = (value: string) => {
     this.repoId = value;
@@ -102,7 +103,7 @@ export class DispatchForm {
       label: this.pinLabel,
       ...this.target,
       inputs: { ...this.inputs },
-      quickStart: this.pinQuickStart,
+      quickStart: this.#pinQuickStart,
     };
   }
 }

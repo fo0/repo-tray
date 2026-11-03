@@ -1,6 +1,6 @@
 use super::harness::*;
 use crate::live::last_run::MAX_RUN_LOOKUPS;
-use crate::live::schedule::CATALOG_SECONDS;
+use crate::live::schedule::METADATA_SECONDS;
 use crate::live::*;
 
 fn workflow(id: u64, file: &str) -> Value {
@@ -50,7 +50,7 @@ fn a_workflow_without_known_runs_shows_its_latest_run_and_one_with_runs_needs_no
     assert_eq!(last_run(&first, 12), Some("2026-09-15T08:00:00Z"));
     assert_eq!(last_run(&first, 9), Some("2026-11-01T10:00:00Z"));
     assert_eq!((lookups(&h, 9), lookups(&h, 12)), (1, 1));
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     h.remote().requests.clear();
     let snapshot = h.live.refresh();
     assert!(!snapshot.stale, "{:?}", snapshot.message);
@@ -86,11 +86,11 @@ fn a_failed_lookup_never_fails_the_metadata_and_stops_the_lookups_of_that_pass()
     );
     // Once the lookups work, 13 gets its value; a later failure keeps the last known one.
     h.remote().workflow_runs_status.clear();
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     let snapshot = h.live.refresh();
     assert_eq!(last_run(&snapshot, 13), Some("2026-09-15T08:00:00Z"));
     h.remote().workflow_runs_status.insert(13, 404);
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     let snapshot = h.live.refresh();
     assert!(!snapshot.stale, "{:?}", snapshot.message);
     assert_eq!(last_run(&snapshot, 13), Some("2026-09-15T08:00:00Z"));
@@ -125,7 +125,7 @@ fn lookups_are_capped_per_repository_take_turns_and_the_rest_keep_their_last_val
     for workflow in &mut h.live.data.workflows {
         workflow.last_run_at = Some("2026-01-01T00:00:00Z".into());
     }
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     h.remote().requests.clear();
     let snapshot = h.live.refresh();
     let second = looked_up(&h);
@@ -160,7 +160,7 @@ fn a_favorite_workflow_is_looked_up_before_the_others() {
     });
     for turn in 0..3 {
         if turn > 0 {
-            advance(CATALOG_SECONDS);
+            advance(METADATA_SECONDS);
         }
         h.remote().requests.clear();
         if turn == 0 {

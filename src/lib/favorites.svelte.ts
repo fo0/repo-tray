@@ -9,6 +9,12 @@ import type { Pin, Snapshot, Workflow } from './types';
 
 /** How long „Rückgängig“ stays offered after a favorite was removed. */
 export const UNDO_TIMEOUT = 8000;
+/**
+ * How long a favorite refuses another direct start after its last one
+ * settled: a held key or a late second click must not send it again. Other
+ * favorites, also of the same workflow and ref, stay startable.
+ */
+export const RESTART_COOLDOWN = 1500;
 /** Runs a pin change under the panel's pin busy flag and view epoch. */
 export type PinMutation = (
   run: (ticket: number) => Promise<void>,
@@ -54,7 +60,7 @@ function sibling(card: HTMLElement, forward: boolean) {
 
 /**
  * Favorite changes from the views: heart toggles, removal with undo and
- * quick starts. They report in the banner, never in a dialog.
+ * direct starts. They report in the banner, never in a dialog.
  */
 export class Favorites {
   #panel: Panel;
@@ -65,6 +71,11 @@ export class Favorites {
    * ids of the favorites kept at removal: only one added later re-adds it.
    */
   #removed = new Map<string, { pin: Pin; kept: Set<string> }>();
+  /**
+   * Favorite id → `performance.now()` until which its direct start stays
+   * refused; monotonic, so a wall-clock jump never extends the wait.
+   */
+  #cooldown = new Map<string, number>();
 
   constructor(panel: Panel, bridge: Bridge, mutate: PinMutation) {
     this.#panel = panel;
@@ -125,11 +136,28 @@ export class Favorites {
     noCardLeft()?.focus();
   };
 
-  /** Quick-starts a favorite; false when it needs the start dialog instead. */
-  launch = (pin: Pin) => {
-    if (!pin.quickStart) return false;
-    void this.#panel.starts.dispatch(pinRequest(pin), { label: pin.label });
-    return true;
+  /**
+   * Starts a favorite at once with its stored target and inputs. Resolves
+   * nothing while its start is refused (`Starts.favoriteGate`: offline, the
+   * uncertain lock, a running start …) or for `RESTART_COOLDOWN` after the
+   * favorite's last direct start settled, and 'incomplete' when the stored
+   * request would not pass validation: the start dialog completes it then.
+   */
+  launch = (pin: Pin): 'incomplete' | void => {
+    const panel = this.#panel;
+    if (!panel.snapshot || !panel.starts.favoriteGate(pin).canStart) return;
+    const now = performance.now();
+    for (const [id, until] of this.#cooldown)
+      if (until <= now) this.#cooldown.delete(id);
+    // Shortly after its last direct start settled, the favorite refuses quietly.
+    if (this.#cooldown.has(pin.id)) return;
+    const request = pinRequest(pin);
+    if (validateDispatch(panel.snapshot, request)) return 'incomplete';
+    void panel.starts
+      .dispatch(request, { label: pin.label })
+      .finally(() =>
+        this.#cooldown.set(pin.id, performance.now() + RESTART_COOLDOWN),
+      );
   };
 
   /** A favorite was saved: an undo offer for the same favorite is moot. */
@@ -187,7 +215,7 @@ export class Favorites {
       panel.showNotice('Favorit ist bereits wieder gespeichert.');
       return this.#focusCard(existing.id);
     }
-    // The identical favorite: same id, label, inputs and quick start.
+    // The identical favorite: same id, label and inputs.
     const done = await this.#change(
       () => this.#bridge.savePin(pin),
       () => panel.showNotice(`Favorit „${pin.label}“ wiederhergestellt.`),

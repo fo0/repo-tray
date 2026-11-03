@@ -56,9 +56,10 @@ export function safeGitHubUrl(value: string): string | null {
 }
 
 /**
- * A repository's page on GitHub, built in the panel for „Link kopieren“, or
- * null unless owner and name use GitHub's charsets (so nothing needs
- * encoding). The shell opens no repository pages: `open_run` takes runs only.
+ * A repository's page on GitHub, built in the panel for „Link kopieren“ and
+ * the **GitHub** button, or null unless owner and name use GitHub's charsets
+ * (so nothing needs encoding). Same vectors (fixtures/repo-links.json) as
+ * `canonical_repo_url` in src-tauri/src/run_link.rs, which `open_repo` uses.
  */
 export function safeRepoUrl(owner: string, name: string): string | null {
   return OWNER.test(owner) && REPO.test(name) && name !== '.' && name !== '..'

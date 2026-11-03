@@ -1,6 +1,7 @@
 import fixture from '../../fixtures/demo.json';
 import { autoSelect } from './autoRepos';
 import { safePin, targetKey, validateDispatch } from './model';
+import { demoRefresh } from './refresh';
 import type {
   DemoScenario,
   DispatchOutcome,
@@ -23,6 +24,10 @@ export interface Bridge {
   cancelRun(repoId: string, runId: number): Promise<Snapshot>;
   /** Loads a repository the search found outside the automatic set. */
   openRepository(repoId: string): Promise<Snapshot>;
+  /** Seconds between idle refreshes. */
+  refreshInterval(): Promise<number>;
+  /** Stores a validated interval (15–3600 s); rejects with a German message. */
+  setRefreshInterval(seconds: number): Promise<number>;
 }
 /** Demo-only controls; the native shell registers no matching command. */
 export interface DemoControls {
@@ -280,6 +285,7 @@ export function createDemoBridge(
       uncertain.delete(key);
       return snapshot();
     },
+    ...demoRefresh(storage),
     async setDemoScenario(next) {
       scenario = next;
       return snapshot();

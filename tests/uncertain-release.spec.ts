@@ -82,7 +82,9 @@ test('a persisted claim locks the start after a restart until it is released exp
       exact: true,
     }),
   ).toBeVisible();
-  await card.locator('.pin-start').click();
+  // The direct start stays locked (favorite-start.spec.ts); the name opens
+  // the dialog.
+  await card.locator('.pin-open').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const start = dialog.getByRole('button', { name: 'Workflow starten' });
   await expect(dialog.getByText('Startstatus ungeklärt')).toBeVisible();
@@ -187,7 +189,7 @@ test('a refused release refreshes the claim, so confirming again releases the ne
   page,
 }) => {
   const mock = await nativeWithClaim(page);
-  await templateCard(page, 'Windows build').locator('.pin-start').click();
+  await templateCard(page, 'Windows build').locator('.pin-open').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   // Another start claimed the target again; the panel has not seen it yet.
   const newer = { ...claim, claimedAt: '2026-11-01T09:00:00Z' };
@@ -227,7 +229,7 @@ test('the confirmation releases the claim it opened with, not one a later refres
   page,
 }) => {
   const mock = await nativeWithClaim(page);
-  await templateCard(page, 'Windows build').locator('.pin-start').click();
+  await templateCard(page, 'Windows build').locator('.pin-open').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const confirm = dialog.getByRole('group', { name: 'Sperre aufheben' });
   await dialog.getByRole('button', { name: 'Sperre aufheben…' }).click();
@@ -257,7 +259,7 @@ test('Escape cancels only the release question, and a running release keeps focu
   page,
 }) => {
   const mock = await nativeWithClaim(page);
-  await templateCard(page, 'Windows build').locator('.pin-start').click();
+  await templateCard(page, 'Windows build').locator('.pin-open').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const ask = dialog.getByRole('button', { name: 'Sperre aufheben…' });
   const confirm = dialog.getByRole('group', { name: 'Sperre aufheben' });

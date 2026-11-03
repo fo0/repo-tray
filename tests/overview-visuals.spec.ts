@@ -20,14 +20,10 @@ const tones = (row: Locator) =>
 const empty = (count: number) => Array<string>(count).fill('none');
 
 /** Saves the launch dialog's default workflow on main as a favorite. */
-async function saveFavorite(page: Page, label: string, quickStart = false) {
+async function saveFavorite(page: Page, label: string) {
   const dialog = await openLaunch(page);
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
   await dialog.getByLabel('Name des Favoriten').fill(label);
-  if (quickStart)
-    await dialog
-      .getByLabel('Schnellstart aktivieren', { exact: false })
-      .check();
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
@@ -117,11 +113,10 @@ test.describe('run strip', () => {
   });
 
   test('a new run enters on the right', async ({ page }) => {
-    await saveFavorite(page, 'Quick build', true);
     const kit = repoRow(page, 'demo-dev/launch-kit-demo');
-    await row(page, 'Quick build')
+    await row(page, 'Windows build')
       .getByRole('button', {
-        name: 'launch-kit-demo · Quick build schnellstarten',
+        name: 'launch-kit-demo · Windows build jetzt starten',
         exact: true,
       })
       .click();
@@ -147,7 +142,7 @@ test.describe('run strip', () => {
 });
 
 test.describe('favorite rows', () => {
-  test('the repository leads, the name anywhere on the row and the round start open the stored configuration', async ({
+  test('the repository leads and the name anywhere on the row opens the stored configuration', async ({
     page,
   }) => {
     const windows = row(page, 'Windows build');
@@ -204,13 +199,6 @@ test.describe('favorite rows', () => {
     await windows.click({
       position: { x: chip.x - box.x + chip.width / 2, y: box.height / 2 },
     });
-    await expectStored();
-    // Without quick start the round start is a second pointer target for
-    // the same dialog, hidden from assistive tech and the tab order.
-    const start = windows.locator('.pin-start');
-    await expect(start).toHaveAttribute('aria-hidden', 'true');
-    await expect(start).toHaveAttribute('tabindex', '-1');
-    await start.click();
     await expectStored();
   });
 

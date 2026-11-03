@@ -44,6 +44,7 @@
     {accountName}
     gate={panel.starts.favoriteGate}
     onConfigure={(pin) => modals.openDispatch(pin)}
+    onEdit={modals.editPin}
     onRemove={panel.favorites.remove}
     onLaunch={modals.launchPin}
     lastRun={pinRun}

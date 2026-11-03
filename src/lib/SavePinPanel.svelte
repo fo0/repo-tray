@@ -4,17 +4,15 @@
   let {
     open,
     label = $bindable(),
-    quickStart = $bindable(),
     editing,
     saving,
     locked,
     valid,
     onSave,
   }: {
-    /** Opened up front when a favorite still needs input. */
+    /** Opened up front to complete or edit a favorite. */
     open: boolean;
     label: string;
-    quickStart: boolean;
     /** The dialog edits an existing template. */
     editing: boolean;
     /** A template save is running. */
@@ -51,16 +49,6 @@
         maxlength="80"
         placeholder="z. B. Windows build"
       /></label
-    ><label class="quick-opt-in"
-      ><input
-        type="checkbox"
-        bind:checked={quickStart}
-        disabled={locked || saving}
-      /><span
-        >Schnellstart aktivieren<small
-          >Startet diesen Favoriten per Klick ohne Bestätigung.</small
-        ></span
-      ></label
     >
     <p class="field-help">
       Speichert Konto, Repository, Workflow, Branch oder Tag und nicht geheime

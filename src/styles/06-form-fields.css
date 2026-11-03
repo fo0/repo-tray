@@ -200,24 +200,6 @@
   padding: 13px 10px;
   border-top: 1px solid var(--border);
 }
-.quick-opt-in {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: var(--font-size-meta);
-  line-height: 1.5;
-  color: var(--text-2);
-}
-.quick-opt-in small {
-  display: block;
-  font-size: var(--font-size-meta);
-  color: var(--text-3);
-  margin-top: 5px;
-  max-width: 280px;
-}
-.quick-opt-in input {
-  margin-top: 1px;
-}
 .save-pin-body > .field-help {
   margin: 11px 0;
 }

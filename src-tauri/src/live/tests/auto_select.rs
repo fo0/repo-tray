@@ -1,7 +1,7 @@
 use super::harness::*;
 use crate::auto_repos::AUTO_REPOS;
 use crate::live::catalog::{merge_catalog, AccountRepos};
-use crate::live::schedule::CATALOG_SECONDS;
+use crate::live::schedule::METADATA_SECONDS;
 use crate::live::*;
 
 /// `github-1:<number>`, pushed on that day of October 2026 when a day is given.
@@ -101,7 +101,7 @@ fn a_repository_that_becomes_one_of_the_newest_loads_its_initial_history() {
 
     // Its newest push grows old: the repository leaves the selection and is not read.
     h.remote().pushed.insert(1, "2026-09-01T08:00:00Z".into());
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     h.remote().requests.clear();
     let snapshot = h.live.refresh();
     assert_eq!(selected_ids(&snapshot), ids(2..=11));
@@ -111,7 +111,7 @@ fn a_repository_that_becomes_one_of_the_newest_loads_its_initial_history() {
 
     // A new push brings it back with its initial history, not just the runs since then.
     h.remote().pushed.insert(1, "2026-10-31T08:00:00Z".into());
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     h.remote().requests.clear();
     let snapshot = h.live.refresh();
     assert_eq!(selected_ids(&snapshot), first);

@@ -126,6 +126,8 @@ pub struct LiveStore<T: Transport = HttpTransport> {
     claims: Vec<UncertainStart>,
     /// UNIX seconds for refresh timers and backoff; tests step it forward.
     clock: fn() -> u64,
+    /// The user's refresh interval (`refresh_interval`), read once and kept in step on save.
+    refresh_seconds: u64,
 }
 impl LiveStore<HttpTransport> {
     pub fn new(cache: Cache, keyring: Arc<dyn NativeKeyring>) -> Result<Self, String> {
@@ -162,6 +164,12 @@ impl<T: Transport> LiveStore<T> {
         let claims = cache
             .uncertain_starts()
             .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
+        // An unreadable preference keeps the default interval.
+        let refresh_seconds = cache
+            .load_app_settings()
+            .map_or(crate::refresh_interval::DEFAULT_SECONDS, |settings| {
+                settings.refresh_interval()
+            });
         if !data.accounts.is_empty() {
             data.stale = true;
             data.connectivity = Connectivity::Offline;
@@ -172,7 +180,7 @@ impl<T: Transport> LiveStore<T> {
             data,
             keyring,
             cache,
-            schedule: Schedule::default(),
+            schedule: Schedule::new(refresh_seconds),
             poll_at: BTreeMap::new(),
             history_since: BTreeMap::new(),
             browsed: Browsed::default(),
@@ -180,6 +188,7 @@ impl<T: Transport> LiveStore<T> {
             outcomes: RecentOutcomes::new(MAX_RECORDED_OUTCOMES),
             claims,
             clock: now,
+            refresh_seconds,
         })
     }
     /// A denied repository's open runs are frozen at their last known state; they leave the
@@ -210,6 +219,44 @@ impl<T: Transport> LiveStore<T> {
         self.cache
             .save_app_settings(&settings)
             .map_err(|_| "Einstellung konnte nicht gespeichert werden.".into())
+    }
+    /// Seconds between idle refreshes; an open run is still followed every 15 seconds.
+    pub fn refresh_interval(&self) -> u64 {
+        self.refresh_seconds
+    }
+    /// Validates, stores and applies a new interval; a shorter one also brings each healthy
+    /// account's next catalog read forward to within the new interval.
+    pub fn set_refresh_interval(&mut self, seconds: u64) -> Result<u64, String> {
+        let seconds = crate::refresh_interval::validate(seconds)?;
+        let mut settings: AppSettings = self.cache.load_app_settings().unwrap_or_default();
+        settings.refresh_seconds = Some(seconds);
+        self.cache
+            .save_app_settings(&settings)
+            .map_err(|_| "Einstellung konnte nicht gespeichert werden.")?;
+        self.refresh_seconds = seconds;
+        self.schedule.set_refresh(seconds, (self.clock)());
+        Ok(seconds)
+    }
+    /// Whether the panel shows a run that is not completed yet, or a started run is still
+    /// being followed, so a refresh is due every 15 seconds
+    /// (`refresh_interval::OPEN_RUN_SECONDS`). Matches `snapshot`: a denied repository's
+    /// frozen open runs do not count.
+    pub fn has_open_run(&self) -> bool {
+        let open = self.data.runs.iter().any(|run| {
+            run.status != RunStatus::Completed
+                && !self
+                    .data
+                    .repos
+                    .iter()
+                    .any(|repo| repo.id == run.repo_id && repo.permission == Permission::Denied)
+        });
+        // A started run the history does not list yet, e.g. after its first follow-up read
+        // failed, is followed at the open-run pace too, as long as a refresh still reads it.
+        open || self.tracked.values().any(|tracker| {
+            self.data.repos.iter().any(|repo| {
+                repo.id == tracker.repo_id && repo.selected && repo.permission != Permission::Denied
+            })
+        })
     }
     fn pages(
         &self,

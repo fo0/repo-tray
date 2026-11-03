@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../../fixtures/demo.json';
-import { lastRun, repositoryActivity } from './repoActivity';
+import { lastActivity, lastRun, repositoryActivity } from './repoActivity';
 import type { Snapshot } from './types';
 
 // Synthetic fixtures only.
@@ -75,6 +75,86 @@ describe('lastRun', () => {
     expect(kit.runs.map((run) => run.id)).toEqual([8401, 8402, 8405]);
     const api = groups.find(({ repo }) => repo.id === 'demo-work-api')!;
     expect(api.last).toBeNull();
+  });
+});
+
+describe('repository order', () => {
+  const order = (data: Snapshot) =>
+    repositoryActivity(data, '', '').map(({ repo }) => repo.id);
+
+  it('puts the most recent run, run start or push first on every snapshot', () => {
+    const data = snapshot();
+    // Runs first, then the run-less repositories by their last push.
+    expect(order(data).slice(0, 5)).toEqual([
+      'demo-personal-kit',
+      'demo-team-tools',
+      'demo-personal-site',
+      'demo-work-api',
+      'demo-work-docs',
+    ]);
+    // A push newer than every run wins over an old run.
+    data.repos.find((repo) => repo.id === 'demo-work-docs')!.pushedAt =
+      '2026-11-01T08:00:00Z';
+    expect(order(data)[0]).toBe('demo-work-docs');
+  });
+
+  it('orders a repository known only by Workflow.lastRunAt by that run', () => {
+    const data = snapshot();
+    const api = data.repos.find((repo) => repo.id === 'demo-work-api')!;
+    api.pushedAt = null;
+    // A synthetic workflow without a run in the history.
+    data.workflows.push({
+      ...data.workflows[0]!,
+      id: 901,
+      repoId: api.id,
+      lastRunAt: '2026-10-31T09:40:00Z',
+    });
+    // After runner-tools (09:42) and before website (09:36).
+    expect(order(data).slice(0, 4)).toEqual([
+      'demo-personal-kit',
+      'demo-team-tools',
+      'demo-work-api',
+      'demo-personal-site',
+    ]);
+  });
+
+  it('breaks ties by owner/name and puts repositories without any time last', () => {
+    const data = snapshot();
+    for (const repo of data.repos) repo.pushedAt = 'kein Datum';
+    data.runs = [];
+    for (const workflow of data.workflows) workflow.lastRunAt = null;
+    const groups = repositoryActivity(data, '', '');
+    expect(groups.map(({ repo }) => `${repo.owner}/${repo.name}`)).toEqual(
+      groups.map(({ repo }) => `${repo.owner}/${repo.name}`).sort(),
+    );
+    data.repos.find((repo) => repo.id === 'demo-work-api')!.pushedAt =
+      '2026-10-01T00:00:00Z';
+    data.repos.find((repo) => repo.id === 'demo-work-docs')!.pushedAt =
+      '2026-10-01T00:00:00Z';
+    const [first, second, third] = order(data);
+    expect([first, second]).toEqual(['demo-work-api', 'demo-work-docs']);
+    expect(third).not.toBe('demo-work-docs');
+  });
+
+  it('takes the newest readable time of a repository', () => {
+    const at = (time: string) => Date.parse(time);
+    expect(
+      lastActivity({
+        repo: { pushedAt: '2026-10-02T00:00:00Z' },
+        latest: { updatedAt: '2026-10-01T00:00:00Z' },
+        last: { at: '2026-10-03T00:00:00Z', active: false },
+      }),
+    ).toBe(at('2026-10-03T00:00:00Z'));
+    expect(
+      lastActivity({
+        repo: { pushedAt: 'kein Datum' },
+        latest: { updatedAt: '2026-10-01T00:00:00Z' },
+        last: null,
+      }),
+    ).toBe(at('2026-10-01T00:00:00Z'));
+    expect(
+      lastActivity({ repo: { pushedAt: null }, latest: undefined, last: null }),
+    ).toBe(-Infinity);
   });
 });
 

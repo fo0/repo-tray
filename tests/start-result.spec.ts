@@ -215,13 +215,12 @@ test('a start that settles after an account switch offers no hidden run', async 
   await expect(run.getByRole('button', { expanded: true })).toBeVisible();
 });
 
-test('a quick start keeps its result when another dialog opens meanwhile', async ({
+test('a direct start keeps its result when another dialog opens meanwhile', async ({
   page,
 }) => {
   let dialog = await openLaunch(page);
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
   await dialog.getByLabel('Name des Favoriten').fill('Quick build');
-  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
@@ -235,13 +234,13 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   const card = templateCard(page, 'Quick build');
   await card
     .getByRole('button', {
-      name: 'launch-kit-demo · Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     })
     .click();
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     }),
   ).toBeDisabled();
@@ -253,7 +252,7 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   // Still running after the settings dialog closed: no second start possible.
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     }),
   ).toBeDisabled();
@@ -261,7 +260,7 @@ test('a quick start keeps its result when another dialog opens meanwhile', async
   await expect(page.getByText(/Quick build: .*Demo-Run #9001/)).toBeVisible();
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     }),
   ).toBeEnabled();

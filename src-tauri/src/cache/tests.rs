@@ -433,26 +433,6 @@ fn deleting_a_snapshot_row_keeps_pins_settings_and_claims() {
 }
 
 #[test]
-fn app_settings_persist_and_the_reserved_key_is_not_an_account() {
-    let path = temp_db("settings");
-    {
-        let cache = Cache::open(&path).unwrap();
-        assert!(!cache.load_app_settings().unwrap().notifications);
-        cache
-            .save_app_settings(&AppSettings {
-                notifications: true,
-            })
-            .unwrap();
-    }
-    let mut cache = Cache::open(&path).unwrap();
-    assert!(cache.load_app_settings().unwrap().notifications);
-    assert!(cache.delete_account(APP_SETTINGS_KEY).is_err());
-    assert!(cache.load_app_settings().unwrap().notifications);
-    drop(cache);
-    remove_db(&path);
-}
-
-#[test]
 fn deleting_one_accounts_pin_does_not_delete_another_accounts_same_id() {
     let cache = Cache::in_memory().unwrap();
     let pin = DemoStore::new().snapshot().pins.remove(0);
@@ -484,3 +464,6 @@ fn a_file_cache_uses_wal_with_full_sync_so_a_dispatch_claim_survives_power_loss(
     drop(cache);
     remove_db(&path);
 }
+
+/// The app-wide settings row.
+mod settings;

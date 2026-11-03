@@ -140,6 +140,22 @@ describe('createShortcuts', () => {
     run(handle, event('/'));
     expect(actions.focusSearch).toHaveBeenCalledTimes(1);
   });
+  it('refreshes once while F5 or Ctrl+R is held, still without reloading', () => {
+    const { actions, handle } = setup();
+    run(handle, event('F5'));
+    for (const held of [
+      event('F5', { repeat: true }),
+      event('F5', { repeat: true }),
+      event('r', { ctrlKey: true, repeat: true }),
+    ]) {
+      run(handle, held);
+      expect(held.preventDefault).toHaveBeenCalled();
+    }
+    expect(actions.refresh).toHaveBeenCalledTimes(1);
+    // A new press after releasing the key refreshes again.
+    run(handle, event('F5'));
+    expect(actions.refresh).toHaveBeenCalledTimes(2);
+  });
   it('lets / type in a text field but runs commands from it', () => {
     const { actions, handle } = setup(false, true);
     const slash = event('/', {}, 'INPUT');

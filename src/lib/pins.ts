@@ -58,7 +58,7 @@ export function favoriteDraft(
   };
 }
 
-/** What a quick start sends for a favorite: its stored target and inputs, a fresh ID. */
+/** What a favorite's direct start sends: its stored target and inputs, a fresh ID. */
 export function pinRequest(pin: Pin): DispatchRequest {
   return {
     accountId: pin.accountId,

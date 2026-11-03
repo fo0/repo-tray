@@ -19,7 +19,7 @@ The same revamp also decides:
 
 - **Inline account and repository management (step 4).** _(Repository part superseded by ADR-0003.)_ The account menu in the app bar switches accounts directly (step 1); repositories are added and removed in the panel: the page **Repositories im Tray** (opened by „+ Hinzufügen“, the empty state and a fresh connection), **Nicht im Tray** while searching and a „⋯“ menu per repository row. Every change applies at once with **Rückgängig**; the settings dialog no longer has a Repositories tab or an unsaved-selection question.
 - **Theme preference is frontend-only (step 5).** System, light or dark is stored in `localStorage` (`repowatch.theme.v1`) like the active account and applied before mount (`src/lib/theme.ts`); „System“ is pure CSS (`prefers-color-scheme`), an explicit choice sets `data-theme` on `<html>`. It needs no IPC and no Rust change.
-- **No repository page link yet.** Opening a repository on GitHub needs an `open_repo` command, because `open_run` accepts run URLs only; recorded as BACKLOG #24.
+- **No repository page link yet.** Opening a repository on GitHub needs an `open_repo` command, because `open_run` accepts run URLs only; recorded as BACKLOG #24. _(Resolved by #28: `open_repo` behind the expanded repository's **GitHub** button.)_
 
 ## Consequences
 

@@ -63,6 +63,16 @@ impl From<serde_json::Error> for CacheError {
 #[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
     pub notifications: bool,
+    /// Seconds between idle refreshes; absent means `refresh_interval::DEFAULT_SECONDS`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_seconds: Option<u64>,
+}
+
+impl AppSettings {
+    /// The refresh interval in effect, clamped into the allowed range.
+    pub fn refresh_interval(&self) -> u64 {
+        crate::refresh_interval::effective(self.refresh_seconds)
+    }
 }
 
 /// Result of an explicit release request for one uncertain start.

@@ -10,7 +10,6 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
     },
-    time::Duration,
 };
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem},
@@ -21,6 +20,12 @@ use tauri_plugin_notification::NotificationExt;
 pub(crate) struct NativeState {
     pub(crate) engine: Mutex<LiveStore>,
     notifications: AtomicBool,
+    /// The saved refresh interval in seconds; the worker reads it on every wait tick.
+    refresh_seconds: AtomicU64,
+    /// Whether the last snapshot, from the worker or any command, shows an open run; the
+    /// worker reads it on every wait tick, so a run started from the panel is followed at
+    /// the 15 s pace without waiting out the idle interval.
+    open_run: AtomicBool,
     pub(crate) auth_generation: AtomicU64,
     pub(crate) browser_flow: Mutex<(u64, DeviceFlow)>,
 }
@@ -31,7 +36,11 @@ pub(crate) async fn work<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<NativeState>();
         let mut engine = state.engine.lock().map_err(|_| "Dienst nicht verfügbar.")?;
-        operation(&mut engine)
+        let result = operation(&mut engine);
+        state
+            .open_run
+            .store(engine.has_open_run(), Ordering::Relaxed);
+        result
     })
     .await
     .map_err(|_| "Aufgabe konnte nicht abgeschlossen werden.".to_string())?
@@ -40,13 +49,50 @@ pub(crate) async fn work<T: Send + 'static>(
 async fn snapshot(app: tauri::AppHandle) -> Result<Snapshot, String> {
     work(app, |engine| Ok(engine.snapshot())).await
 }
+/// F5 and the refresh button: every repository polls its runs now, also an idle one.
 #[tauri::command]
 async fn refresh_snapshot(app: tauri::AppHandle) -> Result<Snapshot, String> {
-    work(app, |engine| Ok(engine.refresh())).await
+    work(app, |engine| Ok(engine.refresh_now())).await
 }
 #[tauri::command]
 async fn refresh_repositories(app: tauri::AppHandle) -> Result<Snapshot, String> {
     work(app, |engine| Ok(engine.refresh_repositories())).await
+}
+/// Read without the engine lock, which a running refresh may hold.
+#[tauri::command]
+fn refresh_interval(state: tauri::State<'_, NativeState>) -> u64 {
+    state.refresh_seconds.load(Ordering::Relaxed)
+}
+/// Validates and stores the interval; the worker picks it up within a few seconds.
+#[tauri::command]
+async fn set_refresh_interval(app: tauri::AppHandle, seconds: u64) -> Result<u64, String> {
+    let handle = app.clone();
+    let seconds = work(app, move |engine| engine.set_refresh_interval(seconds)).await?;
+    if let Some(state) = handle.try_state::<NativeState>() {
+        state.refresh_seconds.store(seconds, Ordering::Relaxed);
+    }
+    Ok(seconds)
+}
+/// Waits until the worker's next refresh is due. The interval and the open-run state are
+/// read again every few seconds without the engine lock, so a saved change or a run started
+/// from the panel applies without waiting out the old interval.
+fn wait_for_refresh(app: &tauri::AppHandle) {
+    use repowatch_core::refresh_interval::{next_sleep, DEFAULT_SECONDS};
+    let started = std::time::Instant::now();
+    loop {
+        let (refresh, open_run) =
+            app.try_state::<NativeState>()
+                .map_or((DEFAULT_SECONDS, false), |state| {
+                    (
+                        state.refresh_seconds.load(Ordering::Relaxed),
+                        state.open_run.load(Ordering::Relaxed),
+                    )
+                });
+        match next_sleep(started.elapsed(), open_run, refresh) {
+            Some(sleep) => std::thread::sleep(sleep),
+            None => return,
+        }
+    }
 }
 #[tauri::command]
 async fn save_pin(app: tauri::AppHandle, pin: Pin) -> Result<Snapshot, String> {
@@ -94,6 +140,16 @@ fn open_run(app: tauri::AppHandle, url: String) -> Result<(), String> {
     // Open only the parser's canonical form, never the raw IPC string.
     let url = repowatch_core::run_link::canonical_run_url(&url)
         .ok_or("Nur GitHub-Run-Links sind erlaubt.")?;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
+}
+#[tauri::command]
+fn open_repo(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    // Open only the parser's canonical form, never the raw IPC string.
+    let url = repowatch_core::run_link::canonical_repo_url(&url)
+        .ok_or("Nur GitHub-Repository-Links sind erlaubt.")?;
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
@@ -148,9 +204,12 @@ pub fn run() {
                 LiveStore::new(cache, Arc::new(OsKeyring::new())).map_err(std::io::Error::other)?;
             let baseline = store.snapshot();
             let notify = store.notifications_enabled();
+            let refresh_seconds = store.refresh_interval();
             app.manage(NativeState {
                 engine: Mutex::new(store),
                 notifications: AtomicBool::new(notify),
+                refresh_seconds: AtomicU64::new(refresh_seconds),
+                open_run: AtomicBool::new(false),
                 auth_generation: AtomicU64::new(0),
                 browser_flow: Mutex::new((0, DeviceFlow::new())),
             });
@@ -220,26 +279,25 @@ pub fn run() {
                     .iter()
                     .map(|run| (run.id, run.status))
                     .collect();
-                loop {
-                    // One serialized worker; active repositories poll faster than idle ones.
-                    std::thread::sleep(Duration::from_secs(
-                        if previous
-                            .values()
-                            .any(|status| *status != RunStatus::Completed)
-                        {
-                            15
-                        } else {
-                            60
-                        },
+                // One serialized worker. Its first wait is a few seconds, so the panel's
+                // first `snapshot` gets the cached state before the heaviest refresh takes
+                // the engine lock, yet a long interval never keeps it stale; then every
+                // 15 s while a run is open, otherwise at the user's refresh interval.
+                if let Some(state) = handle.try_state::<NativeState>() {
+                    std::thread::sleep(repowatch_core::refresh_interval::startup_wait(
+                        state.refresh_seconds.load(Ordering::Relaxed),
                     ));
-                    let Some(state) = handle.try_state::<NativeState>() else {
-                        break;
-                    };
+                }
+                while let Some(state) = handle.try_state::<NativeState>() {
                     let value = {
                         let Ok(mut engine) = state.engine.lock() else {
                             break;
                         };
-                        engine.refresh()
+                        let value = engine.refresh();
+                        state
+                            .open_run
+                            .store(engine.has_open_run(), Ordering::Relaxed);
+                        value
                     };
                     let selected = |repo_id: &str| {
                         value
@@ -283,6 +341,7 @@ pub fn run() {
                     }
                     previous = value.runs.iter().map(|run| (run.id, run.status)).collect();
                     let _ = handle.emit("repowatch:snapshot", value);
+                    wait_for_refresh(&handle);
                 }
             });
             Ok(())
@@ -292,6 +351,8 @@ pub fn run() {
             snapshot,
             refresh_snapshot,
             refresh_repositories,
+            refresh_interval,
+            set_refresh_interval,
             save_pin,
             delete_pin,
             dispatch_workflow,
@@ -314,6 +375,7 @@ pub fn run() {
             crate::desktop_updates::check_update,
             crate::desktop_updates::install_update,
             open_run,
+            open_repo,
             hide_panel
         ])
         .run(tauri::generate_context!())

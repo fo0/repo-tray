@@ -1,8 +1,8 @@
 /*
  * Favorite row review: the Favoriten page with one and two favorites, an
- * uncertain start with its help, a quick-start favorite and the overview
- * rows, in both themes, with layout metrics per shot. CARD_REVIEW_DIR
- * redirects the files.
+ * uncertain start with its help, the favorite row controls (name, settings,
+ * heart, direct start) and the overview rows, in both themes, with layout
+ * metrics per shot. CARD_REVIEW_DIR redirects the files.
  */
 import { expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -152,21 +152,9 @@ try {
     await page.keyboard.press('Escape');
 
     await scenario(page, 'normal');
-    dialog = await openFavorite(page, 'Linux develop');
-    await dialog.getByText('Als Favorit speichern', { exact: true }).click();
-    await dialog
-      .getByLabel('Schnellstart aktivieren', { exact: false })
-      .check();
-    await dialog
-      .getByRole('button', { name: 'Favorit aktualisieren', exact: true })
-      .click();
-    await expect(dialog.getByText(/als Favorit gespeichert/)).toBeVisible();
-    await dialog
-      .getByRole('button', { name: 'Abbrechen', exact: true })
-      .click();
     await capture(
-      '22-favoriten-schnellstart',
-      'Schnellstart-Favorit: Blitz startet, Zeile öffnet den Dialog, Herz entfernt.',
+      '22-favoriten-start',
+      'Favoriten: Zeile öffnet den Dialog, Zahnrad bearbeitet die Standardwerte, Herz entfernt, runder Start rechts startet sofort.',
     );
 
     await openPage(page, 'overview');
