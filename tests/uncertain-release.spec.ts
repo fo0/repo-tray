@@ -82,18 +82,8 @@ test('a persisted claim locks the start after a restart until it is released exp
       exact: true,
     }),
   ).toBeVisible();
-  // The direct start stays locked and sends nothing; the name opens the dialog.
-  const direct = card.getByRole('button', {
-    name: 'launch-kit-demo · Windows build starten',
-    exact: true,
-  });
-  await expect(direct).toBeDisabled();
-  await expect(direct).toHaveAccessibleDescription(
-    'Startstatus ungeklärt – prüfe die Runs auf GitHub',
-  );
-  await direct.click({ force: true });
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  expect(await readCalls(page, 'dispatch_workflow')).toEqual([]);
+  // The direct start stays locked (favorite-start.spec.ts); the name opens
+  // the dialog.
   await card.locator('.pin-open').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const start = dialog.getByRole('button', { name: 'Workflow starten' });

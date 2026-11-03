@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDemoBridge, type Bridge } from './demo';
-import { samePin } from './favorites.svelte';
+import { RESTART_COOLDOWN, samePin } from './favorites.svelte';
 import { Modals } from './modals.svelte';
 import { Panel } from './panel.svelte';
 import { START_REASONS } from './startReason';
@@ -124,7 +124,10 @@ describe('Favorite undo', () => {
 });
 
 describe('Favorite start', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
 
   /** A panel that records every dispatch instead of starting anything. */
   async function starting() {
@@ -237,5 +240,26 @@ describe('Favorite start', () => {
     answer();
     await flush();
     expect(sent).toHaveLength(1);
+  });
+
+  it('refuses the same favorite again shortly after its start settled', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-03T10:00:00Z'));
+    const { panel, sent } = await starting();
+    const pin = panel.snapshot!.pins[0]!;
+    panel.favorites.launch(pin);
+    await flush();
+    expect(sent).toHaveLength(1);
+    // A held key or a late second click right after the first start settled.
+    expect(panel.starts.favoriteGate(pin).canStart).toBe(true);
+    panel.favorites.launch(pin);
+    vi.setSystemTime(Date.now() + RESTART_COOLDOWN - 1);
+    panel.favorites.launch(pin);
+    await flush();
+    expect(sent).toHaveLength(1);
+    vi.setSystemTime(Date.now() + 1);
+    panel.favorites.launch(pin);
+    await flush();
+    expect(sent).toHaveLength(2);
   });
 });

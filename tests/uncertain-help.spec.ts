@@ -119,7 +119,7 @@ test('touch can open and dismiss uncertain-start help while the direct start sta
     const tooltip = page.getByRole('tooltip');
     await expect(
       card.getByRole('button', {
-        name: 'launch-kit-demo · Windows build starten',
+        name: 'launch-kit-demo · Windows build jetzt starten',
         exact: true,
       }),
     ).toBeDisabled();

@@ -1,8 +1,8 @@
 /*
  * Favorite row review: the Favoriten page with one and two favorites, an
- * uncertain start with its help, a quick-start favorite and the overview
- * rows, in both themes, with layout metrics per shot. CARD_REVIEW_DIR
- * redirects the files.
+ * uncertain start with its help, the favorite row controls (name, settings,
+ * heart, direct start) and the overview rows, in both themes, with layout
+ * metrics per shot. CARD_REVIEW_DIR redirects the files.
  */
 import { expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';

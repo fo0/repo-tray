@@ -49,7 +49,7 @@ describe('favoriteNames', () => {
   it('leads every name with the repository, then the favorite', () => {
     expect(favoriteNames('launch-kit-demo', 'Release')).toEqual({
       open: 'launch-kit-demo · Release starten…',
-      start: 'launch-kit-demo · Release starten',
+      start: 'launch-kit-demo · Release jetzt starten',
       edit: 'launch-kit-demo · Release bearbeiten',
       remove: 'launch-kit-demo · Release aus Favoriten entfernen',
       uncertain: 'Startstatus ungeklärt: launch-kit-demo · Release',

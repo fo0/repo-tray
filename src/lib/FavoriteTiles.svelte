@@ -114,10 +114,16 @@
         onclick={() => onRemove(pin.id)}><Icon name="heart" size={14} /></button
       >
       <!-- Starts at once when the stored request is complete; otherwise the
-           start dialog opens with the favorite section to complete it. -->
+           start dialog opens with the favorite section to complete it. A
+           held key or the second click of a double-click never starts again;
+           `Favorites.launch` adds a short cooldown after a start settled. -->
       <button
         class="pin-start"
-        onclick={() => can.canStart && onLaunch(pin)}
+        onclick={(event) => event.detail <= 1 && can.canStart && onLaunch(pin)}
+        onkeydown={(event) => {
+          if (event.repeat && (event.key === 'Enter' || event.key === ' '))
+            event.preventDefault();
+        }}
         aria-disabled={can.canStart ? undefined : 'true'}
         aria-label={names.start}
         title={can.reason ?? 'Starten'}><Icon name="play" size={12} /></button

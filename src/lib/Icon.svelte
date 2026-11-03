@@ -119,7 +119,6 @@
       line(10, 11, 10, 17),
       line(14, 11, 14, 17),
     ],
-    bolt: [wire('14,3 5,13 11,13 10,21 19,10 13,10 14,3')],
     arrow: [line(4, 12, 20, 12), wire('14,6 20,12 14,18')],
     // Back to the overview from a maximized section.
     back: [line(20, 12, 4, 12), wire('10,6 4,12 10,18')],

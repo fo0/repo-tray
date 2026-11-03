@@ -151,7 +151,7 @@ test('a notice that arrives behind a dialog waits there and times out only after
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await templateCard(page, 'Quick build')
     .getByRole('button', {
-      name: 'launch-kit-demo · Quick build starten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     })
     .click();

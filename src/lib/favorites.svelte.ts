@@ -2,13 +2,18 @@ import { tick } from 'svelte';
 import type { Bridge } from './demo';
 import { focusLost, hasDom, landing } from './focus';
 import { errorMessage } from './format';
-import { validateDispatch } from './model';
+import { targetKey, validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
 import { favoriteDraft, findFavorite, pinRequest } from './pins';
 import type { Pin, Snapshot, Workflow } from './types';
 
 /** How long „Rückgängig“ stays offered after a favorite was removed. */
 export const UNDO_TIMEOUT = 8000;
+/**
+ * How long a target refuses another direct favorite start after one settled:
+ * a held key or a late second click must not send the same workflow again.
+ */
+export const RESTART_COOLDOWN = 1500;
 /** Runs a pin change under the panel's pin busy flag and view epoch. */
 export type PinMutation = (
   run: (ticket: number) => Promise<void>,
@@ -65,6 +70,8 @@ export class Favorites {
    * ids of the favorites kept at removal: only one added later re-adds it.
    */
   #removed = new Map<string, { pin: Pin; kept: Set<string> }>();
+  /** Target key → time until which a direct start stays refused. */
+  #cooldown = new Map<string, number>();
 
   constructor(panel: Panel, bridge: Bridge, mutate: PinMutation) {
     this.#panel = panel;
@@ -128,15 +135,21 @@ export class Favorites {
   /**
    * Starts a favorite at once with its stored target and inputs. Resolves
    * nothing while its start is refused (`Starts.favoriteGate`: offline, the
-   * uncertain lock, a running start …) and 'incomplete' when the stored
+   * uncertain lock, a running start …) or for `RESTART_COOLDOWN` after its
+   * last direct start settled, and 'incomplete' when the stored
    * request would not pass validation: the start dialog completes it then.
    */
   launch = (pin: Pin): 'incomplete' | void => {
     const panel = this.#panel;
     if (!panel.snapshot || !panel.starts.favoriteGate(pin).canStart) return;
+    const key = targetKey(pin);
+    // Shortly after its last direct start settled, the target refuses quietly.
+    if ((this.#cooldown.get(key) ?? 0) > Date.now()) return;
     const request = pinRequest(pin);
     if (validateDispatch(panel.snapshot, request)) return 'incomplete';
-    void panel.starts.dispatch(request, { label: pin.label });
+    void panel.starts
+      .dispatch(request, { label: pin.label })
+      .finally(() => this.#cooldown.set(key, Date.now() + RESTART_COOLDOWN));
   };
 
   /** A favorite was saved: an undo offer for the same favorite is moot. */

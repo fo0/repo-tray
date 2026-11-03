@@ -49,7 +49,7 @@ test('a direct start keeps focus on its button while it runs and after it settle
   await page.clock.install();
   await page.clock.pauseAt(Date.now() + 2000);
   const start = templateCard(page, 'Quick build').getByRole('button', {
-    name: 'launch-kit-demo · Quick build starten',
+    name: 'launch-kit-demo · Quick build jetzt starten',
     exact: true,
   });
   await start.focus();

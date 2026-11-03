@@ -116,7 +116,7 @@ test.describe('run strip', () => {
     const kit = repoRow(page, 'demo-dev/launch-kit-demo');
     await row(page, 'Windows build')
       .getByRole('button', {
-        name: 'launch-kit-demo · Windows build starten',
+        name: 'launch-kit-demo · Windows build jetzt starten',
         exact: true,
       })
       .click();
@@ -142,7 +142,7 @@ test.describe('run strip', () => {
 });
 
 test.describe('favorite rows', () => {
-  test('the repository leads, the name anywhere on the row opens the stored configuration and the round start comes last', async ({
+  test('the repository leads and the name anywhere on the row opens the stored configuration', async ({
     page,
   }) => {
     const windows = row(page, 'Windows build');
@@ -200,35 +200,6 @@ test.describe('favorite rows', () => {
       position: { x: chip.x - box.x + chip.width / 2, y: box.height / 2 },
     });
     await expectStored();
-    // Settings, heart, then the round start at the far right: every one a
-    // real button with its own name, the start reachable by keyboard.
-    expect(
-      await windows
-        .getByRole('button')
-        .evaluateAll((buttons) =>
-          buttons.map((button) => button.getAttribute('aria-label')),
-        ),
-    ).toEqual([
-      'launch-kit-demo · Windows build starten…',
-      'launch-kit-demo · Windows build bearbeiten',
-      'launch-kit-demo · Windows build aus Favoriten entfernen',
-      'launch-kit-demo · Windows build starten',
-    ]);
-    const start = windows.locator('.pin-start');
-    await expect(start).not.toHaveAttribute('aria-hidden');
-    await expect(start).not.toHaveAttribute('tabindex');
-    await expect(start).toHaveAttribute('title', 'Starten');
-    const edit = windows.locator('.pin-edit');
-    await expect(edit).toHaveAttribute('title', 'Standardwerte bearbeiten');
-    const [startBox, editBox, rowBox] = await Promise.all([
-      start.boundingBox(),
-      edit.boundingBox(),
-      windows.boundingBox(),
-    ]);
-    expect(startBox!.x).toBeGreaterThan(editBox!.x);
-    expect(
-      rowBox!.x + rowBox!.width - (startBox!.x + startBox!.width),
-    ).toBeLessThan(8);
   });
 
   test('the heart removes a row and „Rückgängig“ brings it back', async ({

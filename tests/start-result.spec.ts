@@ -234,13 +234,13 @@ test('a direct start keeps its result when another dialog opens meanwhile', asyn
   const card = templateCard(page, 'Quick build');
   await card
     .getByRole('button', {
-      name: 'launch-kit-demo · Quick build starten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     })
     .click();
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Quick build starten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     }),
   ).toBeDisabled();
@@ -252,7 +252,7 @@ test('a direct start keeps its result when another dialog opens meanwhile', asyn
   // Still running after the settings dialog closed: no second start possible.
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Quick build starten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     }),
   ).toBeDisabled();
@@ -260,7 +260,7 @@ test('a direct start keeps its result when another dialog opens meanwhile', asyn
   await expect(page.getByText(/Quick build: .*Demo-Run #9001/)).toBeVisible();
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Quick build starten',
+      name: 'launch-kit-demo · Quick build jetzt starten',
       exact: true,
     }),
   ).toBeEnabled();

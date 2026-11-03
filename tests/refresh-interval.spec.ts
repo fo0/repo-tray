@@ -47,9 +47,16 @@ test('the refresh interval stages on the slider or as an own value and applies o
     'Aktualisierung muss zwischen 15 s und 60 min liegen.',
   );
   await expect(save(page)).toBeDisabled();
+  // From another tab, the App tab's marker and the tooltip name the cause.
+  const app = dialog(page).getByRole('tab', { name: 'App' });
+  await dialog(page).getByRole('tab', { name: 'Konten' }).click();
+  await expect(app).toHaveAccessibleName('App Aktualisierung ungültig');
+  await expect(save(page)).toHaveAttribute('title', 'Aktualisierung ungültig');
+  await app.click();
   // A valid own value overrides the slider and is saved.
   await custom(page).fill('90');
   await expect(slider(page)).toHaveAttribute('aria-valuetext', '1 min 30 s');
+  await expect(app).toHaveAccessibleName('App');
   await save(page).click();
   await expect(dialog(page)).toHaveCount(0);
   expect(await stored(page)).toBe('90');

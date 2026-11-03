@@ -105,9 +105,20 @@
   });
   const dirty = $derived(Object.values(changed).some(Boolean));
   const saveBlocked = $derived(!dirty || saving || busy || refresh.invalid);
-  /** Tab states: a dot whose text is part of the tab's name, like the activity count. */
-  const badges = $derived<Partial<Record<SettingsTab, string>>>({
-    ...(updater.info && { updates: 'Update verfügbar' }),
+  /** Why „Speichern“ is off although something changed, if a value is invalid. */
+  const invalidReason = $derived(
+    refresh.invalid ? 'Aktualisierung ungültig' : null,
+  );
+  /**
+   * Tab states: a dot whose text is part of the tab's name, like the activity
+   * count. An invalid value marks its tab, so the blocked „Speichern“ is
+   * explained from every tab.
+   */
+  const badges = $derived<
+    Partial<Record<SettingsTab, { text: string; tone?: 'danger' }>>
+  >({
+    ...(updater.info && { updates: { text: 'Update verfügbar' } }),
+    ...(invalidReason && { app: { text: invalidReason, tone: 'danger' } }),
   });
 
   /** Runs a mutation and shows its error while this dialog is still open. */
@@ -211,8 +222,10 @@
         onclick={() => (tab = item.id)}
         >{item.label}{#if badges[item.id]}<span
             class="tab-update-dot"
+            data-tone={badges[item.id]?.tone}
             role="img"
-            aria-label={badges[item.id]}
+            aria-label={badges[item.id]?.text}
+            title={badges[item.id]?.text}
           ></span>{/if}</button
       >
     {/each}
@@ -271,7 +284,8 @@
       type="button"
       class="primary-button"
       aria-disabled={saveBlocked ? 'true' : undefined}
-      title={dirty || saving ? undefined : 'Keine Änderungen'}
+      title={invalidReason ??
+        (dirty || saving ? undefined : 'Keine Änderungen')}
       onclick={() => void save()}
       >{saving ? 'Wird gespeichert …' : 'Speichern'}</button
     >

@@ -77,6 +77,9 @@
   border-radius: 50%;
   background: var(--accent);
 }
+.tab-update-dot[data-tone='danger'] {
+  background: var(--fail);
+}
 /* Updates tab: one version row, then at most one compact release block. */
 .update-panel {
   color: var(--text);

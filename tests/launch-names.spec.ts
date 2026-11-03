@@ -42,7 +42,7 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
   const repositories = await startNames(page);
   expect(repositories).toEqual(
     expect.arrayContaining([
-      'launch-kit-demo · Windows build starten',
+      'launch-kit-demo · Windows build jetzt starten',
       'Desktop build starten…',
       'Runner health starten…',
     ]),
@@ -61,7 +61,7 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
 
   await openPage(page, 'favorites');
   const favorites = await startNames(page);
-  expect(favorites).toEqual(['launch-kit-demo · Windows build starten']);
+  expect(favorites).toEqual(['launch-kit-demo · Windows build jetzt starten']);
 });
 
 test('favorites use the heart icon in headings, empty state and save summary', async ({
@@ -139,7 +139,7 @@ test('two favorites name their start and their lock uniquely', async ({
   }
   const start = (label: string) =>
     page.getByRole('button', {
-      name: `launch-kit-demo · ${label} starten`,
+      name: `launch-kit-demo · ${label} jetzt starten`,
       exact: true,
     });
   await expect(start('Develop start')).toBeVisible();
@@ -171,7 +171,7 @@ test('two favorites name their start and their lock uniquely', async ({
   ).toBeVisible();
   await expect(
     pinned.getByRole('button', {
-      name: 'launch-kit-demo · Develop start starten',
+      name: 'launch-kit-demo · Develop start jetzt starten',
       exact: true,
     }),
   ).toBeEnabled();

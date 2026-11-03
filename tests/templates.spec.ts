@@ -63,7 +63,7 @@ test('a saved complete favorite starts at once from its round start', async ({
   const card = templateCard(page, 'Direct build');
   await card
     .getByRole('button', {
-      name: 'launch-kit-demo · Direct build starten',
+      name: 'launch-kit-demo · Direct build jetzt starten',
       exact: true,
     })
     .click();
@@ -199,7 +199,7 @@ test('compact saved templates keep their configuration and removal reachable', a
   const card = templateCard(page, 'Compact build');
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Compact build starten',
+      name: 'launch-kit-demo · Compact build jetzt starten',
       exact: true,
     }),
   ).toBeVisible();
