@@ -42,6 +42,11 @@ export interface Commands {
   cancel_run: { args: { repoId: string; runId: number }; result: Snapshot };
   /** Loads a repository found by the search, so its workflows can be used. */
   open_repository: { args: { repoId: string }; result: Snapshot };
+  /** Hides a repository from the lists or shows it again; the selection applies at once. */
+  set_repo_hidden: {
+    args: { accountId: string; repoId: string; hidden: boolean };
+    result: Snapshot;
+  };
   connect_token: { args: { token: string }; result: Snapshot };
   browser_auth_config: { args: undefined; result: BrowserConfig };
   start_browser_auth: { args: undefined; result: BrowserReply };
@@ -88,6 +93,7 @@ const REGISTERED: Record<Command, true> = {
   release_uncertain_start: true,
   cancel_run: true,
   open_repository: true,
+  set_repo_hidden: true,
   connect_token: true,
   browser_auth_config: true,
   start_browser_auth: true,

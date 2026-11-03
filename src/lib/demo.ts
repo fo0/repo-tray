@@ -1,11 +1,13 @@
 import fixture from '../../fixtures/demo.json';
 import { autoSelect } from './autoRepos';
+import { demoHidden } from './hiddenRepos';
 import { safePin, targetKey, validateDispatch } from './model';
 import { demoRefresh } from './refresh';
 import type {
   DemoScenario,
   DispatchOutcome,
   DispatchRequest,
+  HiddenRepo,
   Pin,
   Snapshot,
   UncertainStart,
@@ -24,6 +26,12 @@ export interface Bridge {
   cancelRun(repoId: string, runId: number): Promise<Snapshot>;
   /** Loads a repository the search found outside the automatic set. */
   openRepository(repoId: string): Promise<Snapshot>;
+  /** Hides a repository from the lists or shows it again. */
+  setRepoHidden(
+    accountId: string,
+    repoId: string,
+    hidden: boolean,
+  ): Promise<Snapshot>;
   /** Seconds between idle refreshes. */
   refreshInterval(): Promise<number>;
   /** Stores a validated interval (15–3600 s); rejects with a German message. */
@@ -48,10 +56,10 @@ const fingerprint = (request: DispatchRequest) =>
   ]);
 
 /** The fixture under the native rule: each account's newest repositories. */
-function initial(pins?: Pin[]): Snapshot {
+function initial(pins?: Pin[], hidden: HiddenRepo[] = []): Snapshot {
   const data = copy(fixture) as Snapshot;
   if (pins) data.pins = pins;
-  data.repos = autoSelect(data.repos, data.pins);
+  data.repos = autoSelect(data.repos, data.pins, hidden);
   return data;
 }
 
@@ -59,7 +67,8 @@ export function createDemoBridge(
   storage?: PreferenceStorage,
   latency = 300,
 ): Bridge & DemoControls {
-  let data = initial();
+  const hidden = demoHidden(storage);
+  let data = initial(undefined, hidden.list);
   let scenario: DemoScenario = 'normal';
   let nextRun = 9000;
   let generation = 0;
@@ -86,6 +95,7 @@ export function createDemoBridge(
             return [];
           }
         }),
+        hidden.list,
       );
     }
   } catch {
@@ -129,6 +139,7 @@ export function createDemoBridge(
             : 'online',
       stale: scenario === 'offline',
       uncertainStarts: [...uncertain.values()],
+      ...(hidden.list.length ? { hiddenRepos: hidden.list } : {}),
       message:
         scenario === 'offline'
           ? 'Offline: Letzter Demo-Stand bleibt sichtbar. Es wurde nichts gestartet.'
@@ -275,6 +286,11 @@ export function createDemoBridge(
       repo.selected = true;
       return snapshot();
     },
+    async setRepoHidden(accountId, repoId, hide) {
+      hidden.change(data.repos, accountId, repoId, hide);
+      data.repos = autoSelect(data.repos, data.pins, hidden.list);
+      return snapshot();
+    },
     async releaseUncertainStart(start) {
       const key = targetKey(start);
       const current = uncertain.get(key);
@@ -292,6 +308,7 @@ export function createDemoBridge(
     },
     async resetDemo() {
       generation++;
+      hidden.reset();
       data = initial();
       scenario = 'normal';
       nextRun = 9000;

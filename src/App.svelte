@@ -214,6 +214,7 @@
     onScenario={panel.changeScenario}
     onReset={panel.resetDemo}
     onDisconnect={panel.disconnectAccount}
+    onUnhide={panel.actions.unhide}
   />
 {:else if modals.kind === 'connect'}
   <Modal

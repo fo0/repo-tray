@@ -80,6 +80,18 @@ export interface Snapshot {
   message?: string | undefined;
   /** Targets locked after a start with unknown outcome; omitted when none. */
   uncertainStarts?: UncertainStart[];
+  /** Repositories the user hid from the lists; omitted when none. */
+  hiddenRepos?: HiddenRepo[];
+}
+/**
+ * Mirrors `HiddenRepo` in src-tauri/src/models.rs: a repository hidden from
+ * the lists, named by owner and name even after it left the catalog.
+ */
+export interface HiddenRepo {
+  accountId: string;
+  repoId: string;
+  owner: string;
+  name: string;
 }
 /** One workflow on one ref of one account's repository. */
 export interface DispatchTarget {

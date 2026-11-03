@@ -39,16 +39,18 @@ test.describe('native repository menu', () => {
     await page.keyboard.press('ArrowDown');
     await expect(item('Link kopieren')).toBeFocused();
     await page.keyboard.press('ArrowDown');
+    await expect(item('Ausblenden')).toBeFocused();
+    await page.keyboard.press('ArrowDown');
     await expect(item('Letzten Run auf GitHub öffnen')).toBeFocused();
-    // The menu only opens and copies; the tray picks its repositories itself.
-    await expect(menu.getByRole('menuitem')).toHaveCount(2);
+    // The menu opens, copies and hides; the tray picks its repositories itself.
+    await expect(menu.getByRole('menuitem')).toHaveCount(3);
     // Escape closes the menu only, not the page or the search.
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     await expect(trigger).toBeFocused();
     await expectPage(page, 'repos');
     await page.keyboard.press('ArrowUp');
-    await expect(item('Link kopieren')).toBeFocused();
+    await expect(item('Ausblenden')).toBeFocused();
     await page.keyboard.press('Home');
     await page.keyboard.press('Enter');
     await expect(menu).toHaveCount(0);

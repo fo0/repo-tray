@@ -278,3 +278,46 @@
   font-size: var(--font-size-meta);
   color: var(--fail);
 }
+
+/* App tab: „Ausgeblendete Repositories“ – one line per hidden repository; a
+   pressed „Einblenden“ is staged until „Speichern“. */
+.hidden-setting {
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.hidden-setting h3 {
+  margin: 0 0 8px;
+}
+.hidden-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hidden-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+}
+.hidden-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-meta);
+}
+.hidden-row.staged .hidden-name {
+  color: var(--text-2);
+}
+.hidden-row .secondary-button[aria-pressed='true'] {
+  border-color: var(--accent-line);
+  background:
+    linear-gradient(var(--accent-soft), var(--accent-soft)), var(--raised);
+}
+.hidden-empty {
+  margin: 0;
+  font-size: var(--font-size-meta);
+  color: var(--text-2);
+}

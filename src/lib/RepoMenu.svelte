@@ -10,17 +10,23 @@
   let {
     repo,
     latest,
+    hidden,
     native,
     demo,
     onNotice,
+    onHide,
   }: {
     repo: Repo;
     /** The repository's latest run, if any. */
     latest: Run | undefined;
+    /** Hidden from the lists; only a search shows it. */
+    hidden: boolean;
     native: boolean;
     demo: boolean;
     /** Panel banner for link results. */
     onNotice: (text: string, tone: NoticeTone) => void;
+    /** Hides the repository (true) or shows it again (false), at once. */
+    onHide: (hidden: boolean) => void;
   } = $props();
 
   const id = $props.id();
@@ -200,6 +206,19 @@
             : 'Für dieses Repository gibt es keinen gültigen GitHub-Link'}
         onclick={() => run(copy)}
         ><Icon name="copy" size={16} />Link kopieren</button
+      >
+      <button
+        type="button"
+        class="menu-item"
+        role="menuitem"
+        tabindex="-1"
+        title={hidden
+          ? 'Wieder in Repositories und Verlauf zeigen'
+          : 'Nicht mehr in Repositories und Verlauf zeigen · Einstellungen → App'}
+        onclick={() => run(() => onHide(!hidden))}
+        ><Icon name={hidden ? 'eye' : 'eyeOff'} size={16} />{hidden
+          ? 'Einblenden'
+          : 'Ausblenden'}</button
       >
     </div>
   {/if}
