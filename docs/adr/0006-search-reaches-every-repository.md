@@ -1,6 +1,6 @@
 # ADR-0006: Search reaches every repository
 
-- **Status:** Accepted
+- **Status:** Accepted; partly superseded — „no remove“ by [ADR-0008](0008-hidden-repositories.md)
 - **Date:** 2026-11-02
 - **Decider(s):** owner
 - **Tags:** ui, repositories, search, catalog
@@ -12,7 +12,7 @@ ADR-0003 limits the tray to the 10 most recently pushed repositories per account
 
 ## Decision
 
-We will let a non-blank search also list the account's repositories outside the automatic set whose `owner/name` matches, after the matching ones of the set, newest push first. Such a card shows only its last push. Expanding it calls the native command `open_repository`, which keeps the repository in a session-only list of at most 5 opened repositories (the oldest opened goes first), selects it and loads its workflows and runs at once; from then on it is a normal card (start, favorite, run strip) until the app restarts or it drops out of the 5. A favorite keeps it for good, as before. Still no picker, no add and no remove (rule 4 stands): the search finds, expanding loads.
+We will let a non-blank search also list the account's repositories outside the automatic set whose `owner/name` matches, after the matching ones of the set, newest push first. Such a card shows only its last push. Expanding it calls the native command `open_repository`, which keeps the repository in a session-only list of at most 5 opened repositories (the oldest opened goes first), selects it and loads its workflows and runs at once; from then on it is a normal card (start, favorite, run strip) until the app restarts or it drops out of the 5. A favorite keeps it for good, as before. Still no picker, no add and no remove _(remove: superseded by ADR-0008, hiding)_ (rule 4 stands): the search finds, expanding loads.
 
 ## Consequences
 
