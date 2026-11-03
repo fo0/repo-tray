@@ -1,5 +1,6 @@
 use super::harness::*;
 use crate::live::schedule::{Schedule, METADATA_SECONDS};
+use crate::live::*;
 use crate::run_history::{Cause, ScopeError};
 
 #[test]
@@ -91,6 +92,40 @@ fn the_open_run_flag_follows_the_runs_the_panel_shows() {
     h.remote().runs.insert(1, vec![run(1, 30, "completed")]);
     advance(15);
     h.live.refresh();
+    assert!(!h.live.has_open_run());
+}
+
+#[test]
+fn a_started_run_whose_first_read_failed_still_counts_as_open() {
+    let mut remote = Remote::new();
+    remote.dispatches.push_back(confirmation(1, 77));
+    let mut h = Harness::new("refresh-open-tracker", remote, &["github-1"]);
+    h.load(&["github-1:1"]);
+    h.live.set_refresh_interval(1800).unwrap();
+    assert!(!h.live.has_open_run());
+    // GitHub accepted the start, but every run read of the repository fails for now.
+    h.remote().runs_status.insert(1, 502);
+    let outcome = h.live.dispatch(request("start-1", "main"));
+    assert_eq!(
+        outcome.state,
+        DispatchState::Accepted,
+        "{}",
+        outcome.message
+    );
+    assert_eq!(h.remote().count("github-1", "/actions/runs/77"), 1);
+    assert!(
+        h.live.snapshot().runs.is_empty(),
+        "the started run is not listed yet"
+    );
+    assert!(
+        h.live.has_open_run(),
+        "the tracker keeps the 15 s pace instead of the 30 min interval"
+    );
+    // The next read finds the run completed: tracking ends and the idle pace returns.
+    h.remote().runs_status.clear();
+    h.remote().runs.insert(1, vec![run(1, 77, "completed")]);
+    advance(15);
+    h.live.refresh_now();
     assert!(!h.live.has_open_run());
 }
 

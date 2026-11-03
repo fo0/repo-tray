@@ -279,9 +279,15 @@ pub fn run() {
                     .iter()
                     .map(|run| (run.id, run.status))
                     .collect();
-                // One serialized worker. It refreshes at once on start, so the cached
-                // snapshot (stale until then) never waits out a long interval, then every
+                // One serialized worker. Its first wait is a few seconds, so the panel's
+                // first `snapshot` gets the cached state before the heaviest refresh takes
+                // the engine lock, yet a long interval never keeps it stale; then every
                 // 15 s while a run is open, otherwise at the user's refresh interval.
+                if let Some(state) = handle.try_state::<NativeState>() {
+                    std::thread::sleep(repowatch_core::refresh_interval::startup_wait(
+                        state.refresh_seconds.load(Ordering::Relaxed),
+                    ));
+                }
                 while let Some(state) = handle.try_state::<NativeState>() {
                     let value = {
                         let Ok(mut engine) = state.engine.lock() else {

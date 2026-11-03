@@ -237,17 +237,25 @@ impl<T: Transport> LiveStore<T> {
         self.schedule.set_refresh(seconds, (self.clock)());
         Ok(seconds)
     }
-    /// Whether the panel shows a run that is not completed yet, so a refresh is due every
-    /// 15 seconds (`refresh_interval::OPEN_RUN_SECONDS`). Matches `snapshot`: a denied
-    /// repository's frozen open runs do not count.
+    /// Whether the panel shows a run that is not completed yet, or a started run is still
+    /// being followed, so a refresh is due every 15 seconds
+    /// (`refresh_interval::OPEN_RUN_SECONDS`). Matches `snapshot`: a denied repository's
+    /// frozen open runs do not count.
     pub fn has_open_run(&self) -> bool {
-        self.data.runs.iter().any(|run| {
+        let open = self.data.runs.iter().any(|run| {
             run.status != RunStatus::Completed
                 && !self
                     .data
                     .repos
                     .iter()
                     .any(|repo| repo.id == run.repo_id && repo.permission == Permission::Denied)
+        });
+        // A started run the history does not list yet, e.g. after its first follow-up read
+        // failed, is followed at the open-run pace too, as long as a refresh still reads it.
+        open || self.tracked.values().any(|tracker| {
+            self.data.repos.iter().any(|repo| {
+                repo.id == tracker.repo_id && repo.selected && repo.permission != Permission::Denied
+            })
         })
     }
     fn pages(

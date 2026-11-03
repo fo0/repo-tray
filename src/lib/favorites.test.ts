@@ -127,6 +127,7 @@ describe('Favorite start', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   /** A panel that records every dispatch instead of starting anything. */
@@ -243,8 +244,8 @@ describe('Favorite start', () => {
   });
 
   it('refuses the same favorite again shortly after its start settled', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-11-03T10:00:00Z'));
+    let now = 1_000_000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
     const { panel, sent } = await starting();
     const pin = panel.snapshot!.pins[0]!;
     panel.favorites.launch(pin);
@@ -253,11 +254,35 @@ describe('Favorite start', () => {
     // A held key or a late second click right after the first start settled.
     expect(panel.starts.favoriteGate(pin).canStart).toBe(true);
     panel.favorites.launch(pin);
-    vi.setSystemTime(Date.now() + RESTART_COOLDOWN - 1);
+    now += RESTART_COOLDOWN - 1;
     panel.favorites.launch(pin);
     await flush();
     expect(sent).toHaveLength(1);
-    vi.setSystemTime(Date.now() + 1);
+    now += 1;
+    panel.favorites.launch(pin);
+    await flush();
+    expect(sent).toHaveLength(2);
+  });
+
+  it('keeps another favorite of the same workflow and ref startable', async () => {
+    let now = 1_000_000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const { panel, sent } = await starting();
+    const pin = panel.snapshot!.pins[0]!;
+    const sibling: Pin = {
+      ...pin,
+      id: 'pin-sibling',
+      label: 'Andere Eingaben',
+      inputs: { ...pin.inputs, version: '9.9.9' },
+    };
+    panel.favorites.launch(pin);
+    await flush();
+    panel.favorites.launch(sibling);
+    await flush();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]!.inputs).toMatchObject({ version: '9.9.9' });
+    // The first one is still cooling down.
+    now += 1;
     panel.favorites.launch(pin);
     await flush();
     expect(sent).toHaveLength(2);

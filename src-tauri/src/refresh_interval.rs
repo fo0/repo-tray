@@ -48,6 +48,16 @@ pub fn poll_seconds(open_run: bool, refresh: u64) -> u64 {
 /// again, so a saved interval or a run started from the panel applies within this time.
 pub const WAIT_TICK_SECONDS: u64 = 5;
 
+/// The longest the desktop worker waits after start before its first refresh.
+pub const STARTUP_WAIT_SECONDS: u64 = 3;
+
+/// The desktop worker's first wait after start: short, so the panel reads the cached
+/// snapshot before that first, heaviest refresh takes the engine lock, and capped, so the
+/// app is live within seconds whatever the interval.
+pub fn startup_wait(refresh: u64) -> Duration {
+    Duration::from_secs(refresh.min(STARTUP_WAIT_SECONDS))
+}
+
 /// How long the desktop worker still sleeps after `waited` seconds of its current wait, at
 /// most one tick; `None` once its next refresh is due. `open_run` and `refresh` are read
 /// again before every tick, so a run started elsewhere shortens a wait already under way.
@@ -88,6 +98,17 @@ mod tests {
         assert_eq!(poll_seconds(false, 1800), 1800);
         assert_eq!(poll_seconds(false, 15), 15);
         assert_eq!(poll_seconds(true, 15), 15);
+    }
+
+    #[test]
+    fn the_first_wait_after_start_is_short_whatever_the_interval() {
+        let secs = Duration::from_secs;
+        assert_eq!(startup_wait(DEFAULT_SECONDS), secs(3));
+        assert_eq!(startup_wait(MAX_SECONDS), secs(3));
+        assert_eq!(startup_wait(MIN_SECONDS), secs(3));
+        // Never longer than the interval itself.
+        assert_eq!(startup_wait(2), secs(2));
+        assert_eq!(startup_wait(0), secs(0));
     }
 
     #[test]

@@ -2,7 +2,7 @@ import { tick } from 'svelte';
 import type { Bridge } from './demo';
 import { focusLost, hasDom, landing } from './focus';
 import { errorMessage } from './format';
-import { targetKey, validateDispatch } from './model';
+import { validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
 import { favoriteDraft, findFavorite, pinRequest } from './pins';
 import type { Pin, Snapshot, Workflow } from './types';
@@ -10,8 +10,9 @@ import type { Pin, Snapshot, Workflow } from './types';
 /** How long „Rückgängig“ stays offered after a favorite was removed. */
 export const UNDO_TIMEOUT = 8000;
 /**
- * How long a target refuses another direct favorite start after one settled:
- * a held key or a late second click must not send the same workflow again.
+ * How long a favorite refuses another direct start after its last one
+ * settled: a held key or a late second click must not send it again. Other
+ * favorites, also of the same workflow and ref, stay startable.
  */
 export const RESTART_COOLDOWN = 1500;
 /** Runs a pin change under the panel's pin busy flag and view epoch. */
@@ -70,7 +71,10 @@ export class Favorites {
    * ids of the favorites kept at removal: only one added later re-adds it.
    */
   #removed = new Map<string, { pin: Pin; kept: Set<string> }>();
-  /** Target key → time until which a direct start stays refused. */
+  /**
+   * Favorite id → `performance.now()` until which its direct start stays
+   * refused; monotonic, so a wall-clock jump never extends the wait.
+   */
   #cooldown = new Map<string, number>();
 
   constructor(panel: Panel, bridge: Bridge, mutate: PinMutation) {
@@ -135,21 +139,25 @@ export class Favorites {
   /**
    * Starts a favorite at once with its stored target and inputs. Resolves
    * nothing while its start is refused (`Starts.favoriteGate`: offline, the
-   * uncertain lock, a running start …) or for `RESTART_COOLDOWN` after its
-   * last direct start settled, and 'incomplete' when the stored
+   * uncertain lock, a running start …) or for `RESTART_COOLDOWN` after the
+   * favorite's last direct start settled, and 'incomplete' when the stored
    * request would not pass validation: the start dialog completes it then.
    */
   launch = (pin: Pin): 'incomplete' | void => {
     const panel = this.#panel;
     if (!panel.snapshot || !panel.starts.favoriteGate(pin).canStart) return;
-    const key = targetKey(pin);
-    // Shortly after its last direct start settled, the target refuses quietly.
-    if ((this.#cooldown.get(key) ?? 0) > Date.now()) return;
+    const now = performance.now();
+    for (const [id, until] of this.#cooldown)
+      if (until <= now) this.#cooldown.delete(id);
+    // Shortly after its last direct start settled, the favorite refuses quietly.
+    if (this.#cooldown.has(pin.id)) return;
     const request = pinRequest(pin);
     if (validateDispatch(panel.snapshot, request)) return 'incomplete';
     void panel.starts
       .dispatch(request, { label: pin.label })
-      .finally(() => this.#cooldown.set(key, Date.now() + RESTART_COOLDOWN));
+      .finally(() =>
+        this.#cooldown.set(pin.id, performance.now() + RESTART_COOLDOWN),
+      );
   };
 
   /** A favorite was saved: an undo offer for the same favorite is moot. */
