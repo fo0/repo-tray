@@ -264,10 +264,6 @@
   .pin-running-word {
     display: none;
   }
-  .pin-start {
-    width: 26px;
-    height: 26px;
-  }
   .pin-row .branch-chip > svg {
     display: none;
   }
