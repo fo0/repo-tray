@@ -54,7 +54,7 @@ Stable project knowledge. **Read at session start.**
 - **Local Playwright in the cloud container** needs `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium-<rev>/chrome-linux64/chrome` (the project pins a newer Playwright than the preinstalled browser); `E2E_PORT` gives each checkout its own dev server. (2026-11-01)
 - **Agent worktrees start from local `main`**, which can be stale — reset a worktree onto the working branch before editing. (2026-11-01)
 - **The SQLite cache is versioned (`PRAGMA user_version`)** — a build refuses a newer schema, so downgrading after a migration fails at startup by design. (2026-11-01)
-- **`docs/review/` and screenshots are gitignored** and never published; capture scripts assert demo mode. (2026-10-31)
+- **`docs/review/` and screenshots are gitignored** and never published; capture scripts assert demo mode. Exception: the README images in `docs/images/` are committed — regenerate them with `pnpm capture:readme` after visible panel changes. (2026-11-03)
 - **Playwright emulates a light OS by default**; `playwright.config.ts` sets `colorScheme: 'dark'` so specs that assert token colors see the dark set. Light and the override live in `tests/theme.spec.ts`; capture scripts run both themes. New colors go into `src/styles/00-tokens.css` (both light blocks) — `tokens.test.ts` rejects literals elsewhere. Its contrast pairs lay one tint on an opaque surface: a tinted element inside another tint needs its own opaque base (`linear-gradient(var(--x-soft), var(--x-soft)), var(--raised)`). (2026-11-01)
 
 ## External Dependencies

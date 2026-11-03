@@ -9,6 +9,12 @@
 
 Built with **Tauri 2, Rust, Svelte 5 and TypeScript**. Windows x64 is the primary target; other desktop platforms require their own native validation.
 
+| Dark                                                                                                                                                                                               | Light                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/images/repowatch-dark.png" alt="RepoWatch panel in the dark theme, opened above its tray icon on a dark taskbar, showing running workflows, a favorite and example repositories" /> | <img src="docs/images/repowatch-light.png" alt="RepoWatch panel in the light theme, opened above its tray icon on a light taskbar, showing running workflows, a favorite and example repositories" /> |
+
+<sub>Browser demo with synthetic example data on an illustrative taskbar; regenerate with `pnpm capture:readme`.</sub>
+
 ## What it does
 
 - **A panel beside the tray icon.** Windows placement follows the clicked icon, monitor work area and DPI. Clicking outside hides the panel while preserving open forms and ongoing work. Closing the window keeps RepoWatch in the tray; **RepoWatch beenden** in the tray menu exits it.

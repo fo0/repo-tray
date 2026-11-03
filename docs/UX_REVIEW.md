@@ -85,6 +85,7 @@ node scripts/capture-navigation-review.mjs
 
 - Screenshots shown to the owner come from the exact commit being delivered; never present a mock-up as the result.
 - The scripts assert demo mode, fail on any request leaving the dev server, use only synthetic fixtures and capture each view in dark and light (`-dark` / `-light`). `REVIEW_BASE_URL` targets another port; `NAVIGATION_REVIEW_DIR` and `NAVIGATION_REVIEW_PREFIX` redirect the navigation capture.
+- `pnpm capture:readme` (`scripts/capture-readme.mjs`) captures the demo overview at 480×760 in both themes, places it unmodified above a generic taskbar drawn from plain shapes and writes the committed README images `docs/images/repowatch-{dark,light}.png`.
 - Output: `docs/review/` (gitignored, never published) — `screenshots/` with `manifest.json`, `card-revision/` with layout metrics, `navigation/` (480×760, overview also 360×560). Review captures before sharing.
 
 ## Native acceptance
