@@ -23,6 +23,11 @@ Stable project knowledge. **Read at session start.**
 - **Decision:** Claims persist with `claimed_at`, appear as `Snapshot.uncertainStarts`, and are released only by `release_uncertain_start` after the user confirms „Ich habe die Runs auf GitHub geprüft – Sperre aufheben“; release never dispatches and must match the exact claim. Disconnecting an account deletes its claims (the confirmation warns).
 - **Reason:** Keeps "never auto-retry an uncertain dispatch" while giving users a deliberate way out.
 
+### Favorites start directly; the refresh interval is a setting
+
+- **Date:** 2026-11-03
+- **Decision (owner, #28):** a favorite's start button sends at once when its stored ref and inputs validate, otherwise opens the dialog in edit mode; the quick-start opt-in is gone (`Pin.quickStart` stays in IPC as a legacy field). Guards: one start per press (no multi-click / key repeat), 1.5 s per-favorite cooldown, uncertain targets locked. Settings → App „Aktualisierung“ (15–3600 s, default 60 s) drives idle run polling, the worker wait and the account catalog (floor 60 s); open runs stay at 15 s, metadata at 600 s, F5 polls every repository.
+
 ### Browser / GitHub App sign-in is paused
 
 - **Date:** 2026-10-31
