@@ -81,7 +81,7 @@
             ><Icon name="spinner" size={11} class="pin-spinner" /><Icon
               name="activity"
               size={11}
-            />läuft</span
+            /><span class="pin-running-word">läuft</span></span
           >{/if}</button
       >
       <span class="branch-chip"

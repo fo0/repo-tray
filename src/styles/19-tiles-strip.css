@@ -250,9 +250,23 @@
 /* The 360 px minimum: the branch chip drops its icon and the settings and
    heart buttons narrow to their 24 px target, so the repository keeps its
    whole name next to „läuft“. */
+/* At the minimum width the settings button's room comes from tighter
+   spacing and an icon-only „läuft“ (the tooltip says „Läuft gerade“), so
+   the repository is never cut. */
 @media (max-width: 400px) {
   .pin-row {
     gap: 2px;
+    padding-left: 8px;
+  }
+  .pin-open {
+    gap: 4px;
+  }
+  .pin-running-word {
+    display: none;
+  }
+  .pin-start {
+    width: 26px;
+    height: 26px;
   }
   .pin-row .branch-chip > svg {
     display: none;
