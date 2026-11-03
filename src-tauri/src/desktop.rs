@@ -344,11 +344,13 @@ pub fn run() {
                                 .is_some_and(|status| *status != RunStatus::Completed)
                             && state.notifications.load(Ordering::Relaxed)
                         {
+                            let (title, body) =
+                                repowatch_core::run_notice::completion_notice(run, &value.repos);
                             let _ = handle
                                 .notification()
                                 .builder()
-                                .title("RepoWatch")
-                                .body(format!("{}: Run beendet.", run.name))
+                                .title(title)
+                                .body(body)
                                 .show();
                         }
                     }
