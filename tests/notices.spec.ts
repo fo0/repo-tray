@@ -145,18 +145,17 @@ test('a notice that arrives behind a dialog waits there and times out only after
   const dialog = await openLaunch(page);
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
   await dialog.getByLabel('Name des Favoriten').fill('Quick build');
-  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await templateCard(page, 'Quick build')
     .getByRole('button', {
-      name: 'launch-kit-demo · Quick build schnellstarten',
+      name: 'launch-kit-demo · Quick build starten',
       exact: true,
     })
     .click();
-  // The quick start settles while the settings dialog hides the panel.
+  // The direct start settles while the settings dialog hides the panel.
   await page
     .getByRole('button', { name: 'Einstellungen', exact: true })
     .click();

@@ -267,6 +267,14 @@ pub(crate) struct RunsRefresh {
     pub failures: Vec<(Repo, ScopeError)>,
 }
 
+/// When a pass runs and how long an idle repository waits between polls.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Pace {
+    pub now: u64,
+    /// The user's refresh interval; a repository with an open run polls every 15 seconds.
+    pub idle_seconds: u64,
+}
+
 /// Polls each due repository on its own. A failing repository keeps its last known runs and
 /// is retried on the next refresh; an unauthorized account skips its remaining repositories.
 pub(crate) fn refresh_selected<T: Transport>(
@@ -276,8 +284,9 @@ pub(crate) fn refresh_selected<T: Transport>(
     poll_at: &BTreeMap<String, u64>,
     history_since: &BTreeMap<String, u64>,
     blocked: &mut BTreeSet<String>,
-    now: u64,
+    pace: Pace,
 ) -> RunsRefresh {
+    let Pace { now, idle_seconds } = pace;
     let mut pass = RunsRefresh::default();
     for repo in repos {
         let last = || {
@@ -286,11 +295,10 @@ pub(crate) fn refresh_selected<T: Transport>(
                 .filter(|run| run.repo_id == repo.id)
                 .cloned()
         };
-        let interval = if last().any(|run| run.status != RunStatus::Completed) {
-            15
-        } else {
-            60
-        };
+        let interval = crate::refresh_interval::poll_seconds(
+            last().any(|run| run.status != RunStatus::Completed),
+            idle_seconds,
+        );
         // A poll time ahead of now means the clock went back: poll now instead of waiting it
         // out, and never open the discovery window in the future.
         let polled_at = poll_at.get(&repo.id).copied().unwrap_or(0);

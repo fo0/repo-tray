@@ -188,7 +188,19 @@ test.describe('native', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     const body = row.locator('.repository-actions');
     await expect(body).toHaveAttribute('aria-busy', 'true');
-    await expect(body).toHaveText('Workflows werden geladen …');
+    await expect(body.locator('.repository-no-actions')).toHaveText(
+      'Workflows werden geladen …',
+    );
+    // The info line comes first, already while the workflows load.
+    await expect(body.locator('.repository-info time')).toHaveText(
+      'Push 01.09.2026',
+    );
+    await expect(
+      body.getByRole('link', {
+        name: 'demo-dev/archive-tools-demo auf GitHub öffnen',
+        exact: true,
+      }),
+    ).toBeVisible();
     await page.evaluate(() =>
       (window as unknown as { releaseOpen: () => void }).releaseOpen(),
     );

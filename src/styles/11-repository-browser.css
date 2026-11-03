@@ -270,3 +270,45 @@
   color: var(--text-3);
   font-size: var(--font-size-meta);
 }
+
+/* The expanded repository's info line (RepoInfoRow): default branch, last
+   push and the GitHub link, smaller and quieter than a workflow. */
+.repository-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 32px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--font-size-meta);
+  line-height: 16px;
+  white-space: nowrap;
+}
+.repository-info > .branch-chip {
+  padding: 2px 5px;
+  max-width: 40%;
+}
+.repository-info > time {
+  flex-shrink: 0;
+}
+.repository-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  min-height: 24px;
+  margin-left: auto;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--font-size-meta);
+  font-weight: 600;
+  text-decoration: none;
+}
+.repository-github:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}

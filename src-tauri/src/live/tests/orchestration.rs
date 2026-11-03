@@ -1,5 +1,5 @@
 use super::harness::*;
-use crate::live::schedule::{CATALOG_SECONDS, RETRY_SECONDS};
+use crate::live::schedule::{METADATA_SECONDS, RETRY_SECONDS};
 use crate::live::*;
 use crate::run_history::{Cause, ScopeError};
 
@@ -168,9 +168,10 @@ fn a_denied_repository_is_named_without_staling_and_its_frozen_open_runs_leave_t
         .iter()
         .filter(|repo| repo.id != "github-1:1")
         .all(|repo| repo.permission == Permission::Denied));
-    // The notice stays while the repository is denied; no request retries it early.
+    // The notice stays while the repository is denied; no request retries it before the
+    // next catalog read (one minute by default) lists it as accessible again.
     h.remote().requests.clear();
-    advance(60);
+    advance(30);
     let again = h.live.refresh();
     assert_eq!(again.message, snapshot.message);
     assert_eq!(h.remote().count("github-1", "fixture-2"), 0);
@@ -217,8 +218,8 @@ fn a_revoked_account_neither_storms_healthy_metadata_nor_retries_before_its_hold
         snapshot.message.as_deref(),
         Some("Letzter Stand · Zugang von fixture-github-2 abgelaufen oder widerrufen – verbinde das Konto neu. (+1 weitere)")
     );
-    // One minute later: run polling only. The revoked account sends nothing, the transient
-    // catalog failure retries alone, and healthy metadata is not read again.
+    // One minute later: run polling and the catalogs only (the default refresh interval).
+    // The revoked account sends nothing and healthy metadata is not read again.
     h.remote().requests.clear();
     advance(60);
     let snapshot = h.live.refresh();
@@ -227,7 +228,7 @@ fn a_revoked_account_neither_storms_healthy_metadata_nor_retries_before_its_hold
         for fragment in ["/branches", "/tags", "/actions/workflows", "/contents/"] {
             assert_eq!(remote.count("github-1", fragment), 0, "{fragment}");
         }
-        assert_eq!(remote.count("github-1", "/user/repos"), 0);
+        assert_eq!(remote.count("github-1", "/user/repos"), 1);
         assert_eq!(remote.count("github-2", "/"), 0);
         assert_eq!(remote.count("github-3", "/user/repos"), 1);
         assert!(remote.count("github-1", "/actions/runs") > 0);
@@ -238,7 +239,7 @@ fn a_revoked_account_neither_storms_healthy_metadata_nor_retries_before_its_hold
     // The full interval later every catalog and the healthy metadata are due again, and the
     // revoked account gets exactly one new try.
     h.remote().requests.clear();
-    advance(CATALOG_SECONDS - 60);
+    advance(METADATA_SECONDS - 60);
     h.live.refresh();
     let remote = h.remote();
     assert_eq!(remote.count("github-2", "/"), 1);
@@ -279,13 +280,14 @@ fn a_backward_clock_jump_neither_stalls_reads_nor_extends_a_hold() {
             "the discovery window never opens in the future"
         );
     }
-    // From here the timers run on the new clock: no storm, and the new hold holds.
+    // From here the timers run on the new clock: no storm, and the new hold holds. The
+    // healthy catalog follows its one-minute refresh interval.
     h.remote().requests.clear();
     advance(RETRY_SECONDS);
     h.live.refresh();
     {
         let remote = h.remote();
-        assert_eq!(remote.count("github-1", "/user/repos"), 0);
+        assert_eq!(remote.count("github-1", "/user/repos"), 1);
         assert_eq!(remote.count("github-1", "/branches"), 0);
         assert_eq!(remote.count("github-2", "/"), 0);
     }
@@ -331,7 +333,7 @@ fn a_missing_vault_entry_holds_its_account_and_asks_to_reconnect_or_disconnect()
     advance(RETRY_SECONDS);
     h.live.refresh();
     assert_eq!(h.remote().count("github-2", "/"), 0);
-    advance(CATALOG_SECONDS - RETRY_SECONDS);
+    advance(METADATA_SECONDS - RETRY_SECONDS);
     h.live.refresh();
     assert_eq!(h.remote().count("github-2", "/"), 1);
     // Disconnecting it is possible and leaves the healthy account fresh.
@@ -361,19 +363,20 @@ fn schedule_timers_are_per_scope_and_unauthorized_waits_the_full_interval() {
     let transient = ScopeError::Transient(Cause::Unreachable);
     let mut schedule = Schedule::default();
     assert!(schedule.catalog_due("a", 0) && schedule.metadata_due("a:1", 0));
+    // A healthy catalog follows the refresh interval: one minute by default.
     schedule.catalog_read("a", None, 100);
-    assert!(!schedule.catalog_due("a", 100 + CATALOG_SECONDS - 1));
-    assert!(schedule.catalog_due("a", 100 + CATALOG_SECONDS));
+    assert!(!schedule.catalog_due("a", 159));
+    assert!(schedule.catalog_due("a", 160));
     schedule.catalog_read("b", Some(&transient), 100);
     assert!(schedule.catalog_due("b", 100 + RETRY_SECONDS));
     schedule.catalog_read("c", Some(&revoked), 100);
     assert!(!schedule.catalog_due("c", 100 + RETRY_SECONDS));
     schedule.hold("c", revoked.clone(), 100);
     assert_eq!(
-        schedule.held("c", 100 + CATALOG_SECONDS - 1),
+        schedule.held("c", 100 + METADATA_SECONDS - 1),
         Some(&revoked)
     );
-    assert_eq!(schedule.held("c", 100 + CATALOG_SECONDS), None);
+    assert_eq!(schedule.held("c", 100 + METADATA_SECONDS), None);
     schedule.metadata_read("c:1", Some(&transient), 100);
     assert!(!schedule.metadata_due("c:1", 159));
     assert!(schedule.metadata_due("c:1", 160));
@@ -402,7 +405,7 @@ fn schedule_timers_are_per_scope_and_unauthorized_waits_the_full_interval() {
     schedule.catalog_read("d", None, 10_000);
     schedule.metadata_read("d:1", None, 10_000);
     schedule.hold("e", revoked.clone(), 10_000);
-    assert!(!schedule.catalog_due("d", 10_100) && !schedule.metadata_due("d:1", 10_100));
+    assert!(!schedule.catalog_due("d", 10_050) && !schedule.metadata_due("d:1", 10_100));
     assert_eq!(schedule.held("e", 10_100), Some(&revoked));
     assert!(schedule.catalog_due("d", 9_000) && schedule.metadata_due("d:1", 9_000));
     assert_eq!(schedule.held("e", 9_000), None);
@@ -414,7 +417,7 @@ fn a_workflow_listing_past_the_page_budget_keeps_known_workflows_and_names_the_c
     h.load(&["github-1:1"]);
     assert_eq!(h.live.data.workflows.len(), 1);
     h.remote().endless_workflows = true;
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     let snapshot = h.live.refresh();
     assert_eq!(snapshot.workflows.len(), 1, "the known workflows stay");
     assert!(snapshot.stale);
@@ -474,7 +477,7 @@ fn an_environment_listing_past_the_page_budget_disables_only_that_input() {
         .get_mut(&1)
         .unwrap()
         .push(run(1, 12, "queued"));
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     let snapshot = h.live.refresh();
     assert!(snapshot.runs.iter().any(|run| run.id == 12));
 }

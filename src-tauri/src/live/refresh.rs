@@ -248,7 +248,10 @@ impl<T: Transport> LiveStore<T> {
             &self.poll_at,
             &self.history_since,
             &mut issues.blocked,
-            now,
+            run_history::Pace {
+                now,
+                idle_seconds: self.refresh_seconds,
+            },
         );
         // Held repositories (account unusable, access denied, metadata failed) keep their runs.
         let eligible_ids: BTreeSet<_> = eligible.iter().map(|r| r.id.as_str()).collect();
@@ -390,7 +393,7 @@ impl<T: Transport> LiveStore<T> {
     /// The explicit "refresh repository access" action: every scope, including a held
     /// account, reads its catalog and metadata again now.
     pub fn refresh_repositories(&mut self) -> Snapshot {
-        self.schedule = Schedule::default();
+        self.schedule = Schedule::new(self.refresh_seconds);
         self.refresh()
     }
 }

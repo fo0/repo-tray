@@ -87,7 +87,7 @@ test('after an uncertain start, disconnecting and reconnecting the account unloc
 }) => {
   await openPage(page, 'favorites');
   const card = templateCard(page, 'Windows build');
-  await card.locator('.pin-start').click();
+  await card.locator('.pin-open').click();
   let dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await dialog.getByRole('button', { name: 'Workflow starten' }).click();
   await expect(
@@ -120,7 +120,7 @@ test('after an uncertain start, disconnecting and reconnecting the account unloc
 
   await openPage(page, 'favorites');
   await expect(card.locator('.uncertain-start')).toHaveCount(0);
-  await card.locator('.pin-start').click();
+  await card.locator('.pin-open').click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(
     dialog.getByText('Startstatus ungeklärt', { exact: true }),

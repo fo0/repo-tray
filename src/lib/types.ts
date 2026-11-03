@@ -61,6 +61,10 @@ export interface Pin {
   workflowId: number;
   ref: string;
   inputs: Record<string, InputValue>;
+  /**
+   * Legacy opt-in, kept for compatibility with stored favorites and the
+   * service; the panel ignores it: every favorite starts at once when complete.
+   */
   quickStart: boolean;
 }
 export interface Snapshot {

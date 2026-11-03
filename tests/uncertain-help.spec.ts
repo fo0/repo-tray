@@ -11,34 +11,10 @@ test.beforeEach(async ({ page }) => {
   await openDemoActivity(page);
 });
 
-async function uncertainTemplate(page: Page, quickStart = false) {
+async function uncertainTemplate(page: Page) {
   await chooseAccount(page, 'demo-dev');
   await openPage(page, 'favorites');
   const card = templateCard(page, 'Windows build');
-  if (quickStart) {
-    await card
-      .getByRole('button', {
-        name: 'launch-kit-demo · Windows build starten…',
-        exact: true,
-      })
-      .click();
-    const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
-    await dialog.getByText('Als Favorit speichern', { exact: true }).click();
-    await dialog
-      .getByLabel('Schnellstart aktivieren', { exact: false })
-      .check();
-    await dialog
-      .getByRole('button', { name: 'Favorit aktualisieren', exact: true })
-      .click();
-    await expect(
-      dialog.getByText('„Windows build“ als Favorit gespeichert.', {
-        exact: true,
-      }),
-    ).toBeVisible();
-    await dialog
-      .getByRole('button', { name: 'Abbrechen', exact: true })
-      .click();
-  }
   await scenario(page, 'uncertain');
   await card
     .getByRole('button', {
@@ -121,7 +97,7 @@ for (const width of [360, 480]) {
   });
 }
 
-test('touch can open and dismiss uncertain-start help without enabling quick start', async ({
+test('touch can open and dismiss uncertain-start help while the direct start stays locked', async ({
   browser,
   baseURL,
 }) => {
@@ -135,7 +111,7 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
   const problems = guardConsole(page);
   try {
     await page.goto('/');
-    const card = await uncertainTemplate(page, true);
+    const card = await uncertainTemplate(page);
     const status = card.getByRole('button', {
       name: 'Startstatus ungeklärt: launch-kit-demo · Windows build',
       exact: true,
@@ -143,13 +119,13 @@ test('touch can open and dismiss uncertain-start help without enabling quick sta
     const tooltip = page.getByRole('tooltip');
     await expect(
       card.getByRole('button', {
-        name: 'launch-kit-demo · Windows build schnellstarten',
+        name: 'launch-kit-demo · Windows build starten',
         exact: true,
       }),
     ).toBeDisabled();
     await status.tap();
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).toContainText('Schnellstart aktiviert');
+    await expect(tooltip).not.toContainText('Schnellstart');
     await expect(tooltip).toContainText('Wähle den Favoriten');
     await status.tap();
     await expect(tooltip).toHaveCount(0);

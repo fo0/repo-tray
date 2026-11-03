@@ -123,7 +123,7 @@ async function walk(theme) {
     'favoriten',
     'Häufige Starts als Favoriten',
     'Verkleinern → „Favoriten“ maximieren.',
-    'Windows build ist gespeichert. Starten… führt zur Bestätigung; Schnellstart ist standardmäßig aus.',
+    'Windows build ist gespeichert. Der runde Start startet sofort; das Zahnrad bearbeitet die Standardwerte.',
   );
 
   let dialog = await openFavorite(page, 'Windows build');
@@ -152,7 +152,7 @@ async function walk(theme) {
     'favorit-speichern',
     'Eine Variante als neuen Favoriten speichern',
     'Als Favorit speichern → Linux develop → Als neuen Favoriten speichern.',
-    'Die Variante wird lokal gespeichert; Windows build bleibt erhalten. Schnellstart bleibt aus, nichts wird gestartet.',
+    'Die Variante wird lokal gespeichert; Windows build bleibt erhalten. Nichts wird gestartet.',
   );
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await capture(

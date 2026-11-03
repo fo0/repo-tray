@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import RepoInfoRow from './RepoInfoRow.svelte';
   import RepoMenu from './RepoMenu.svelte';
   import RunStrip from './RunStrip.svelte';
   import type { NoticeTone } from './StatusBanners.svelte';
@@ -162,6 +163,12 @@
         hidden={!open}
         aria-busy={loading || undefined}
       >
+        {#if open}<RepoInfoRow
+            repo={group.repo}
+            {native}
+            {demo}
+            {onNotice}
+          />{/if}
         {#if !group.loaded}<p class="repository-no-actions">
             Workflows werden geladen …
           </p>{:else}{#each group.workflows as workflow (workflow.id)}

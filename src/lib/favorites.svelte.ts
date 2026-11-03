@@ -54,7 +54,7 @@ function sibling(card: HTMLElement, forward: boolean) {
 
 /**
  * Favorite changes from the views: heart toggles, removal with undo and
- * quick starts. They report in the banner, never in a dialog.
+ * direct starts. They report in the banner, never in a dialog.
  */
 export class Favorites {
   #panel: Panel;
@@ -125,11 +125,18 @@ export class Favorites {
     noCardLeft()?.focus();
   };
 
-  /** Quick-starts a favorite; false when it needs the start dialog instead. */
-  launch = (pin: Pin) => {
-    if (!pin.quickStart) return false;
-    void this.#panel.starts.dispatch(pinRequest(pin), { label: pin.label });
-    return true;
+  /**
+   * Starts a favorite at once with its stored target and inputs. Resolves
+   * nothing while its start is refused (`Starts.favoriteGate`: offline, the
+   * uncertain lock, a running start …) and 'incomplete' when the stored
+   * request would not pass validation: the start dialog completes it then.
+   */
+  launch = (pin: Pin): 'incomplete' | void => {
+    const panel = this.#panel;
+    if (!panel.snapshot || !panel.starts.favoriteGate(pin).canStart) return;
+    const request = pinRequest(pin);
+    if (validateDispatch(panel.snapshot, request)) return 'incomplete';
+    void panel.starts.dispatch(request, { label: pin.label });
   };
 
   /** A favorite was saved: an undo offer for the same favorite is moot. */
@@ -187,7 +194,7 @@ export class Favorites {
       panel.showNotice('Favorit ist bereits wieder gespeichert.');
       return this.#focusCard(existing.id);
     }
-    // The identical favorite: same id, label, inputs and quick start.
+    // The identical favorite: same id, label and inputs.
     const done = await this.#change(
       () => this.#bridge.savePin(pin),
       () => panel.showNotice(`Favorit „${pin.label}“ wiederhergestellt.`),

@@ -14,6 +14,7 @@
     accountName,
     gate,
     onConfigure,
+    onEdit,
     onRemove,
     onLaunch,
     lastRun = () => null,
@@ -21,15 +22,19 @@
     demo = true,
   }: {
     pins: Pin[];
-    /** The pin's target has a start with unknown outcome; quick start stays locked. */
+    /** The pin's target has a start with unknown outcome; its start stays locked. */
     isUncertain: (pin: Pin) => boolean;
     /** Full repository name, e.g. `owner/name`. */
     repoName: (repoId: string) => string;
     accountName: (accountId: string) => string;
     /** What a favorite's controls may do right now (`Starts.gate`). */
     gate: (pin: Pin) => StartGate;
+    /** Opens the start dialog with the favorite's stored values. */
     onConfigure: (pin: Pin) => void;
+    /** Opens the start dialog with the favorite section open, to edit it. */
+    onEdit: (pin: Pin) => void;
     onRemove: (pinId: string) => void;
+    /** Starts at once, or opens the dialog when input is missing. */
     onLaunch: (pin: Pin) => void;
     /** When the favorite's workflow last ran, on any ref, and whether it runs. */
     lastRun?: (pin: Pin) => LastRun | null;
@@ -41,7 +46,8 @@
 
 <!-- One compact row per favorite, on the overview and its page alike. The
      name opens the start dialog with the stored inputs (its hit area covers
-     the row), the round button starts, the heart removes. -->
+     the row), the gear edits the stored defaults, the heart removes and the
+     round start at the far right starts at once. -->
 <ul class="pin-rows">
   {#each pins as pin (pin.id)}
     {@const uncertain = isUncertain(pin)}
@@ -52,7 +58,7 @@
     {@const last = lastRun(pin)}
     {@const moment = last && lastRunMoment(last, $minuteClock, demo)}
     <!-- `data-pin-*` lets focus move to a neighbour or a restored row; the
-         name comes first, so a restored row focuses it. Its start and name
+         name comes first, so a restored row focuses it. Name, gear and start
          are off via aria-disabled: a start that locks them keeps focus. -->
     <li class="pin-row" class:uncertain data-pin-id={pin.id}>
       <!-- The time of the last run drops out whole before the repository
@@ -84,7 +90,6 @@
       {#if uncertain}{#if help}<UncertainStartHelp
             id={`uncertain-help-${pin.id}`}
             name={names.uncertain}
-            quickStart={pin.quickStart}
             {demo}
           />{:else}<span
             class="pin-warning"
@@ -92,18 +97,13 @@
             role="img"
             aria-label={names.uncertain}><Icon name="warning" size={13} /></span
           >{/if}{/if}
-      <!-- Without quick start this button opens the same dialog as the
-           name: one control for assistive tech and the keyboard. -->
       <button
-        class="pin-start"
-        class:quick={pin.quickStart}
-        onclick={() => can.canStart && onLaunch(pin)}
-        aria-disabled={can.canStart ? undefined : 'true'}
-        aria-label={pin.quickStart ? names.quickStart : names.open}
-        aria-hidden={pin.quickStart ? undefined : 'true'}
-        tabindex={pin.quickStart ? undefined : -1}
-        title={can.reason ?? (pin.quickStart ? 'Schnellstart' : 'Starten…')}
-        ><Icon name={pin.quickStart ? 'bolt' : 'play'} size={12} /></button
+        class="icon-button small pin-edit"
+        onclick={() => can.canOpen && onEdit(pin)}
+        aria-disabled={can.canOpen ? undefined : 'true'}
+        aria-label={names.edit}
+        title={can.openReason ?? 'Standardwerte bearbeiten'}
+        ><Icon name="settings" size={14} /></button
       >
       <button
         class="icon-button small pin-heart"
@@ -112,6 +112,15 @@
         title="Favorit entfernen"
         disabled={!can.canRemove}
         onclick={() => onRemove(pin.id)}><Icon name="heart" size={14} /></button
+      >
+      <!-- Starts at once when the stored request is complete; otherwise the
+           start dialog opens with the favorite section to complete it. -->
+      <button
+        class="pin-start"
+        onclick={() => can.canStart && onLaunch(pin)}
+        aria-disabled={can.canStart ? undefined : 'true'}
+        aria-label={names.start}
+        title={can.reason ?? 'Starten'}><Icon name="play" size={12} /></button
       >
     </li>
   {/each}

@@ -42,15 +42,14 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
   const repositories = await startNames(page);
   expect(repositories).toEqual(
     expect.arrayContaining([
-      'launch-kit-demo · Windows build starten…',
+      'launch-kit-demo · Windows build starten',
       'Desktop build starten…',
       'Runner health starten…',
     ]),
   );
   expect(new Set(repositories).size).toBe(repositories.length);
   expect(repositories).not.toContain('');
-  // The row's name and its round start open the same dialog: one name, one
-  // control for assistive tech.
+  // The row's name opens the dialog („…“); the round start starts at once.
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await expect(
     pinned.getByRole('button', {
@@ -62,7 +61,7 @@ test('every „Starten…“ button names its target uniquely', async ({ page })
 
   await openPage(page, 'favorites');
   const favorites = await startNames(page);
-  expect(favorites).toEqual(['launch-kit-demo · Windows build starten…']);
+  expect(favorites).toEqual(['launch-kit-demo · Windows build starten']);
 });
 
 test('favorites use the heart icon in headings, empty state and save summary', async ({
@@ -117,20 +116,17 @@ test('repository and workflow rows mark a locked start like favorites do', async
   await expect(tools.locator('.row-warning')).toHaveCount(0);
 });
 
-test('two quick-start favorites name their quick start and their lock uniquely', async ({
+test('two favorites name their start and their lock uniquely', async ({
   page,
 }) => {
   for (const [label, ref] of [
-    ['Develop quick', 'develop'],
-    ['Main quick', 'main'],
+    ['Develop start', 'develop'],
+    ['Main start', 'main'],
   ] as const) {
     const dialog = await openLaunch(page);
     await dialog.getByLabel('Branch oder Tag').selectOption(ref);
     await dialog.getByText('Als Favorit speichern', { exact: true }).click();
     await dialog.getByLabel('Name des Favoriten').fill(label);
-    await dialog
-      .getByLabel('Schnellstart aktivieren', { exact: false })
-      .check();
     await dialog
       .getByRole('button', { name: 'Favorit speichern', exact: true })
       .click();
@@ -141,27 +137,27 @@ test('two quick-start favorites name their quick start and their lock uniquely',
       .getByRole('button', { name: 'Abbrechen', exact: true })
       .click();
   }
-  const quick = (label: string) =>
+  const start = (label: string) =>
     page.getByRole('button', {
-      name: `launch-kit-demo · ${label} schnellstarten`,
+      name: `launch-kit-demo · ${label} starten`,
       exact: true,
     });
-  await expect(quick('Develop quick')).toBeVisible();
-  await expect(quick('Main quick')).toBeVisible();
+  await expect(start('Develop start')).toBeVisible();
+  await expect(start('Main start')).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Schnellstart', exact: true }),
+    page.getByRole('button', { name: 'Starten', exact: true }),
   ).toHaveCount(0);
 
-  // An uncertain quick start locks main: both favorites on it say which.
+  // An uncertain direct start locks main: both favorites on it say which.
   await scenario(page, 'uncertain');
   await openPage(page, 'favorites');
-  await quick('Main quick').click();
+  await start('Main start').click();
   const locked = (label: string) =>
     page.getByRole('button', {
       name: `Startstatus ungeklärt: launch-kit-demo · ${label}`,
       exact: true,
     });
-  await expect(locked('Main quick')).toBeVisible();
+  await expect(locked('Main start')).toBeVisible();
   await expect(locked('Windows build')).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Startstatus ungeklärt', exact: true }),
@@ -170,12 +166,13 @@ test('two quick-start favorites name their quick start and their lock uniquely',
   const pinned = page.getByRole('region', { name: 'Favoriten', exact: true });
   await expect(
     pinned.getByRole('img', {
-      name: 'Startstatus ungeklärt: launch-kit-demo · Main quick',
+      name: 'Startstatus ungeklärt: launch-kit-demo · Main start',
     }),
   ).toBeVisible();
   await expect(
     pinned.getByRole('button', {
-      name: 'launch-kit-demo · Develop quick schnellstarten',
+      name: 'launch-kit-demo · Develop start starten',
+      exact: true,
     }),
   ).toBeEnabled();
 });

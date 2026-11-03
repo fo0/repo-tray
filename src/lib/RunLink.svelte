@@ -4,19 +4,19 @@
 
   /**
    * Opens a checked run link: natively the shell opens the system browser
-   * and the webview never navigates; the browser demo follows the link.
+   * and the webview never navigates; the browser demo follows the link. A
+   * repository page (`safeRepoUrl`) takes `open_repo` the same way.
    */
   export function openRunLink(
     event: MouseEvent,
     url: string,
     native: boolean,
     onError: (message: string) => void,
+    command: 'open_run' | 'open_repo' = 'open_run',
   ) {
     if (!native) return;
     event.preventDefault();
-    void call('open_run', { url }).catch((cause) =>
-      onError(errorMessage(cause)),
-    );
+    void call(command, { url }).catch((cause) => onError(errorMessage(cause)));
   }
 
   /**

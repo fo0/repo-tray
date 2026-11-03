@@ -22,6 +22,8 @@ const nativeBridge: Bridge = {
   releaseUncertainStart: (start) => call('release_uncertain_start', { start }),
   cancelRun: (repoId, runId) => call('cancel_run', { repoId, runId }),
   openRepository: (repoId) => call('open_repository', { repoId }),
+  refreshInterval: () => call('refresh_interval'),
+  setRefreshInterval: (seconds) => call('set_refresh_interval', { seconds }),
 };
 
 export const bridge: Bridge & Partial<DemoControls> = native

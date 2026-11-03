@@ -25,7 +25,10 @@ describe('activity model', () => {
     const data = snapshot();
     data.repos[3]!.selected = true;
     data.runs[3]!.updatedAt = '2026-10-31T10:00:00Z';
-    // Repositories without runs follow by name: example-org/…, then team-demo/….
+    // Without push times, repositories without runs follow by name:
+    // example-org/…, then team-demo/…. Push order: repoActivity.test.ts.
+    const ran = new Set(data.runs.map((run) => run.repoId));
+    for (const repo of data.repos) if (!ran.has(repo.id)) repo.pushedAt = null;
     const unused = [
       ...[
         'api',

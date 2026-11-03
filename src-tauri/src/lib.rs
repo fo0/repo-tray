@@ -8,6 +8,7 @@ pub mod github;
 pub mod local_auth;
 pub mod models;
 pub mod popup;
+pub mod refresh_interval;
 pub mod startup;
 pub mod workflow;
 

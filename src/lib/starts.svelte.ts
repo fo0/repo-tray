@@ -56,7 +56,7 @@ export class Starts {
   running = $state.raw(new Map<string, number>());
   /**
    * Last settled result per target key. A dialog that watched a start shows
-   * it, even when another dialog or a quick start owned that start.
+   * it, even when another dialog or a favorite's direct start owned it.
    */
   settled = $state.raw(new Map<string, SettledStart>());
   any = $derived(this.running.size > 0);
@@ -112,8 +112,8 @@ export class Starts {
       },
       control,
     );
-  favoriteGate = (pin: Pin): StartGate =>
-    this.gate(pin, pin.quickStart ? 'quick' : 'favorite');
+  /** Every favorite starts at once, so the uncertain lock refuses it too. */
+  favoriteGate = (pin: Pin): StartGate => this.gate(pin, 'favorite');
   isReleasing = (target: DispatchTarget) =>
     this.releasing.has(targetKey(target));
   isRunning = (target: DispatchTarget) => this.running.has(targetKey(target));

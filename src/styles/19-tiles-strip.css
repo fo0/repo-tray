@@ -79,7 +79,7 @@
 
 /* Favorites: one compact row each, like the repository rows. The
    repository leads in bold, the favorite's name follows dimmed; branch,
-   marker, start and heart sit at the right end. */
+   marker, settings, heart and start (the far right) sit at the right end. */
 .pin-rows {
   margin: 0;
   padding: 0;
@@ -103,7 +103,7 @@
 .pin-row:hover {
   background: var(--hover);
 }
-/* The name's hit area covers the row; marker, start and heart sit above. */
+/* The name's hit area covers the row; the buttons sit above. */
 .pin-open {
   display: flex;
   align-items: center;
@@ -165,6 +165,7 @@
 }
 .pin-warning,
 .pin-row .uncertain-start,
+.pin-edit,
 .pin-start,
 .pin-heart {
   position: relative;
@@ -175,7 +176,7 @@
   display: inline-flex;
   color: var(--wait);
 }
-/* The round start: a play to check the inputs, a bolt to start at once. */
+/* The round start: starts at once, or opens the dialog for missing input. */
 .pin-start {
   display: grid;
   place-items: center;
@@ -188,16 +189,17 @@
   color: var(--on-accent);
 }
 .pin-start svg {
-  fill: currentColor;
-}
-.pin-start:not(.quick) svg {
   margin-left: 2px;
+  fill: currentColor;
 }
 .pin-start:hover:not([aria-disabled='true']) {
   background: color-mix(in srgb, var(--accent) 86%, var(--text));
 }
+.pin-row .pin-edit,
 .pin-row .pin-heart {
   min-width: 28px;
+}
+.pin-row .pin-heart {
   color: var(--accent);
 }
 .pin-heart svg {
@@ -245,11 +247,19 @@
     display: none;
   }
 }
-/* The 360 px minimum: the branch chip drops its icon, so the favorite's
-   name keeps room next to the repository. */
+/* The 360 px minimum: the branch chip drops its icon and the settings and
+   heart buttons narrow to their 24 px target, so the repository keeps its
+   whole name next to „läuft“. */
 @media (max-width: 400px) {
+  .pin-row {
+    gap: 2px;
+  }
   .pin-row .branch-chip > svg {
     display: none;
+  }
+  .pin-row .pin-edit,
+  .pin-row .pin-heart {
+    min-width: 24px;
   }
 }
 

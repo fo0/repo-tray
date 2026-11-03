@@ -200,3 +200,78 @@
   flex-shrink: 0;
   accent-color: var(--accent);
 }
+
+/* App tab: „Aktualisierung“ – preset slider with the recommended stop marked,
+   plus an own value in seconds. */
+.refresh-setting {
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.refresh-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.refresh-head h3 {
+  margin: 0;
+}
+.refresh-head output {
+  font-size: var(--font-size-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.refresh-track {
+  --thumb: 16px;
+  position: relative;
+  padding-bottom: 6px;
+}
+.refresh-track input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.refresh-tick {
+  position: absolute;
+  bottom: 0;
+  left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--at));
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.refresh-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: var(--font-size-meta);
+  color: var(--text-2);
+}
+.refresh-custom input {
+  width: 76px;
+  height: 30px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--font-size-meta);
+  font-variant-numeric: tabular-nums;
+}
+.refresh-custom input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.refresh-custom input[aria-invalid='true'] {
+  border-color: var(--fail-line);
+}
+.refresh-error {
+  margin: 6px 0 0;
+  font-size: var(--font-size-meta);
+  color: var(--fail);
+}

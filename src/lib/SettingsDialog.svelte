@@ -11,11 +11,14 @@
   import { onDestroy, untrack } from 'svelte';
   import AccountsTab from './AccountsTab.svelte';
   import Modal from './Modal.svelte';
+  import RefreshSetting from './RefreshSetting.svelte';
   import StartupSettings from './StartupSettings.svelte';
   import ThemeSetting from './ThemeSetting.svelte';
   import UpdatePanel from './UpdatePanel.svelte';
   import { Autostart } from './autostart.svelte';
+  import { bridge } from './bridge';
   import { errorMessage } from './format';
+  import { RefreshChoice } from './refresh.svelte';
   import { appliedTheme, applyTheme, rememberTheme } from './theme';
   import type { DemoScenario, Snapshot } from './types';
   import type { Updater } from './updater.svelte';
@@ -78,6 +81,7 @@
   let keptTheme = untrack(() => savedTheme);
   let theme = $state(untrack(() => savedTheme));
   const autostart = new Autostart(untrack(() => native));
+  const refresh = new RefreshChoice(bridge);
   onDestroy(() => {
     alive = false;
     autostart.dispose();
@@ -97,9 +101,10 @@
     scenario: demo && draftScenario !== scenario,
     theme: theme !== savedTheme,
     autostart: autostart.pending !== null,
+    refresh: refresh.pending,
   });
   const dirty = $derived(Object.values(changed).some(Boolean));
-  const saveBlocked = $derived(!dirty || saving || busy);
+  const saveBlocked = $derived(!dirty || saving || busy || refresh.invalid);
   /** Tab states: a dot whose text is part of the tab's name, like the activity count. */
   const badges = $derived<Partial<Record<SettingsTab, string>>>({
     ...(updater.info && { updates: 'Update verfügbar' }),
@@ -150,6 +155,7 @@
             'Darstellung ließ sich nicht speichern und gilt bis zum nächsten Start.',
           );
       }
+      if (pending.refresh) await refresh.apply();
       if (pending.autostart) await autostart.apply();
       if (alive) onClose();
     } catch (cause) {
@@ -236,6 +242,7 @@
       />
     {:else if tab === 'app'}
       <ThemeSetting bind:value={theme} />
+      <RefreshSetting choice={refresh} />
       <StartupSettings {native} {autostart} />
     {:else}
       <UpdatePanel

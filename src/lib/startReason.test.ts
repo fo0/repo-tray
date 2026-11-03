@@ -49,7 +49,8 @@ describe('favoriteNames', () => {
   it('leads every name with the repository, then the favorite', () => {
     expect(favoriteNames('launch-kit-demo', 'Release')).toEqual({
       open: 'launch-kit-demo · Release starten…',
-      quickStart: 'launch-kit-demo · Release schnellstarten',
+      start: 'launch-kit-demo · Release starten',
+      edit: 'launch-kit-demo · Release bearbeiten',
       remove: 'launch-kit-demo · Release aus Favoriten entfernen',
       uncertain: 'Startstatus ungeklärt: launch-kit-demo · Release',
     });
@@ -58,7 +59,7 @@ describe('favoriteNames', () => {
   it('tells two favorites with the same label apart by repository', () => {
     const site = favoriteNames('website-demo', 'Release');
     const kit = favoriteNames('launch-kit-demo', 'Release');
-    for (const key of ['open', 'quickStart', 'remove', 'uncertain'] as const)
+    for (const key of ['open', 'start', 'edit', 'remove', 'uncertain'] as const)
       expect(site[key]).not.toBe(kit[key]);
   });
 });
@@ -66,17 +67,17 @@ describe('favoriteNames', () => {
 describe('startGate', () => {
   const blocked = START_REASONS.offline;
 
-  it('refuses a quick start for every cause, the lock included', () => {
-    expect(startGate({ uncertain: true }, 'quick')).toMatchObject({
+  it('refuses a favorite’s direct start for every cause, the lock included', () => {
+    expect(startGate({ uncertain: true }, 'favorite')).toMatchObject({
       reason: START_REASONS.uncertain,
       canStart: false,
       canOpen: true,
     });
-    expect(startGate({ blocked }, 'quick').reason).toBe(blocked);
-    expect(startGate({ readOnly: true }, 'quick').reason).toBe(
+    expect(startGate({ blocked }, 'favorite').reason).toBe(blocked);
+    expect(startGate({ readOnly: true }, 'favorite').reason).toBe(
       START_REASONS.readOnly,
     );
-    expect(startGate({}, 'quick').canStart).toBe(true);
+    expect(startGate({}, 'favorite').canStart).toBe(true);
   });
 
   it('refuses a workflow row’s „Starten…“ for every cause but the lock', () => {
@@ -95,10 +96,11 @@ describe('startGate', () => {
   it('opens a favorite’s dialog offline and locked, only not while it starts', () => {
     expect(
       startGate({ blocked, readOnly: true, uncertain: true }, 'favorite'),
-    ).toMatchObject({ reason: null, canStart: true });
-    expect(startGate({ running: true }, 'favorite').reason).toBe(
-      START_REASONS.running,
-    );
+    ).toMatchObject({ canStart: false, canOpen: true, openReason: null });
+    expect(startGate({ running: true }, 'favorite')).toMatchObject({
+      reason: START_REASONS.running,
+      canOpen: false,
+    });
   });
 
   it('closes the dialog and the favorite change only while the target starts', () => {
@@ -107,11 +109,11 @@ describe('startGate', () => {
       openReason: START_REASONS.running,
       canRemove: false,
     });
-    expect(startGate({ blocked, uncertain: true }, 'quick')).toMatchObject({
+    expect(startGate({ blocked, uncertain: true }, 'favorite')).toMatchObject({
       canOpen: true,
       openReason: null,
       canRemove: true,
     });
-    expect(startGate({ busy: true }, 'quick').canRemove).toBe(false);
+    expect(startGate({ busy: true }, 'favorite').canRemove).toBe(false);
   });
 });

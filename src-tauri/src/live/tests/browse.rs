@@ -1,6 +1,6 @@
 use super::harness::*;
 use crate::live::browse::BROWSED_REPOS;
-use crate::live::schedule::CATALOG_SECONDS;
+use crate::live::schedule::METADATA_SECONDS;
 
 fn ids(numbers: impl IntoIterator<Item = u64>) -> Vec<String> {
     numbers
@@ -59,7 +59,7 @@ fn an_opened_repository_loads_at_once_and_survives_the_next_catalog_listing() {
         assert_eq!(remote.count("github-1", "/user/repos"), 0);
     }
     // The next listing would deselect it by push time; the opened repository stays.
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     h.remote().requests.clear();
     let snapshot = h.live.refresh();
     assert_eq!(h.remote().count("github-1", "/user/repos"), 1);
@@ -104,7 +104,7 @@ fn at_most_five_opened_repositories_are_kept_and_reopening_one_renews_it() {
     assert_eq!(h.live.browsed.ids(), strs(&renewed));
     // 11 dropped out first and stays selected only until the next listing.
     assert!(selected_ids(&h.live.snapshot()).contains(&"github-1:11"));
-    advance(CATALOG_SECONDS);
+    advance(METADATA_SECONDS);
     let snapshot = h.live.refresh();
     let mut expected = ids(1..=10);
     expected.extend(ids(12..=16));

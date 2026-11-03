@@ -1,11 +1,12 @@
 // Repository rows: activity, search reach and when each last ran.
 import { fullRepo } from './model';
 import { isActive, recentRuns, repositoryStatus } from './runs';
-import type { Run, Snapshot, Workflow } from './types';
+import type { Repo, Run, Snapshot, Workflow } from './types';
 
 /**
  * The repository browser includes selected repos even before their first
- * run. A search also reaches the account's other repositories by
+ * run, most recently active first (`lastActivity`), recomputed with every
+ * snapshot. A search also reaches the account's other repositories by
  * `owner/name`, after every selected match and newest push first: they carry
  * no workflows or runs until opened (`loaded: false`).
  */
@@ -54,8 +55,7 @@ export function repositoryActivity(
     )
     .sort(
       (a, b) =>
-        (b.latest ? Date.parse(b.latest.updatedAt) : 0) -
-          (a.latest ? Date.parse(a.latest.updatedAt) : 0) ||
+        lastActivity(b) - lastActivity(a) ||
         fullRepo(a.repo).localeCompare(fullRepo(b.repo)),
     );
   if (!needle) return loaded;
@@ -81,6 +81,25 @@ export function repositoryActivity(
       recent: [] as (Run | null)[],
     }));
   return [...loaded, ...found];
+}
+
+/**
+ * A loaded repository's most recent activity (ms since the epoch): the
+ * newest of its latest run's update, its last run start (`lastRun`, which
+ * knows `Workflow.lastRunAt`) and its last push. Missing or unreadable
+ * times count as absent; a repository with none sorts last.
+ */
+export function lastActivity(group: {
+  repo: Pick<Repo, 'pushedAt'>;
+  latest: Pick<Run, 'updatedAt'> | undefined;
+  last: LastRun | null;
+}): number {
+  return Math.max(
+    -Infinity,
+    ...[group.latest?.updatedAt, group.last?.at, group.repo.pushedAt]
+      .map((value) => Date.parse(value ?? ''))
+      .filter((time) => !Number.isNaN(time)),
+  );
 }
 
 /** When a repository or one workflow last ran, and whether it runs now. */

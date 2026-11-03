@@ -228,7 +228,7 @@ describe('local demo bridge safety', () => {
 });
 
 describe('non-secret preference persistence', () => {
-  it('persists pins with all target fields and explicit quickStart opt-in only', async () => {
+  it('persists pins with all target fields, the legacy quickStart included', async () => {
     const storage = memory();
     const bridge = createDemoBridge(storage, 0);
     const pin: Pin = {

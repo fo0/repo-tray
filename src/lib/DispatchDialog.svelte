@@ -1,12 +1,17 @@
 <script module lang="ts">
   import type { Pin, Workflow } from './types';
 
+  /**
+   * Why the favorite section opens up front: `add` for a heart favorite
+   * that still needs input, `edit` to change a favorite's defaults.
+   */
+  export type FavoriteMode = 'add' | 'edit';
+
   /** What the start dialog opens with. */
   export interface DispatchSeed {
     pin?: Pin | undefined;
     workflow?: Workflow | undefined;
-    /** Opened from a heart favorite that still needs input. */
-    favoriteIntent?: boolean;
+    favorite?: FavoriteMode | undefined;
   }
 </script>
 
@@ -71,7 +76,7 @@
         clearMessages();
       }),
   );
-  if (untrack(() => seed.favoriteIntent))
+  if (untrack(() => seed.favorite === 'add'))
     notice =
       'Ergänze die benötigten Angaben und speichere den Workflow als Favorit.';
 
@@ -79,7 +84,7 @@
   const uncertain = $derived(panel.starts.isQuarantined(target));
   /** The persisted claim behind `uncertain` as reported, else this session's untimed lock. */
   const claim = $derived(panel.starts.claimFor(target));
-  /** A start for this target is running, from this dialog or a quick start. */
+  /** A start for this target is running, from this dialog or a direct start. */
   const starting = $derived(panel.starts.isRunning(target));
   $effect.pre(() => {
     const seq = panel.starts.runningSeq(target);
@@ -231,9 +236,8 @@
           >
         </div>{/if}
       <SavePinPanel
-        open={!!seed.favoriteIntent}
+        open={!!seed.favorite}
         bind:label={form.pinLabel}
-        bind:quickStart={form.pinQuickStart}
         editing={!!form.editingPinId}
         saving={panel.templateBusy}
         locked={starting}

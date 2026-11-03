@@ -1,4 +1,4 @@
-import type { DispatchSeed } from './DispatchDialog.svelte';
+import type { DispatchSeed, FavoriteMode } from './DispatchDialog.svelte';
 import type { SettingsTab } from './SettingsDialog.svelte';
 import type { Panel } from './panel.svelte';
 import type { Pin, Workflow } from './types';
@@ -50,18 +50,20 @@ export class Modals {
     this.settingsTab = initial;
     this.show('settings');
   };
-  openDispatch = (pin?: Pin, workflow?: Workflow, favoriteIntent = false) => {
-    this.dispatchSeed = { pin, workflow, favoriteIntent };
+  openDispatch = (pin?: Pin, workflow?: Workflow, favorite?: FavoriteMode) => {
+    this.dispatchSeed = { pin, workflow, favorite };
     this.show('dispatch');
   };
-  /** Quick-starts a favorite, or opens it in the start dialog. */
+  /** Opens a favorite in the start dialog to edit its defaults. */
+  editPin = (pin: Pin) => this.openDispatch(pin, undefined, 'edit');
+  /** Starts a favorite at once; one that still needs input opens the dialog. */
   launchPin = (pin: Pin) => {
-    if (!this.#panel.favorites.launch(pin)) this.openDispatch(pin);
+    if (this.#panel.favorites.launch(pin) === 'incomplete') this.editPin(pin);
   };
   /** Toggles a heart favorite; one that still needs input opens the dialog. */
   toggleFavorite = async (workflow: Workflow) => {
     if ((await this.#panel.favorites.toggle(workflow)) === 'incomplete')
-      this.openDispatch(undefined, workflow, true);
+      this.openDispatch(undefined, workflow, 'add');
   };
   /** Shows an accepted start in the full Verlauf and focuses its row. */
   showRun = async (id: number | null) => {

@@ -1,0 +1,132 @@
+[
+  {
+    "owner": "team-demo",
+    "name": "sandbox-demo",
+    "expected": "https://github.com/team-demo/sandbox-demo"
+  },
+  {
+    "owner": "handle_shortcode",
+    "name": "repo.name_2",
+    "expected": "https://github.com/handle_shortcode/repo.name_2"
+  },
+  {
+    "owner": "a",
+    "name": ".github",
+    "expected": "https://github.com/a/.github"
+  },
+  {
+    "owner": "a",
+    "name": "b..c",
+    "expected": "https://github.com/a/b..c"
+  },
+  {
+    "owner": "ooooooooooooooooooooooooooooooooooooooo",
+    "name": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+    "expected": "https://github.com/ooooooooooooooooooooooooooooooooooooooo/rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+  },
+  {
+    "owner": "",
+    "name": "repo",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "",
+    "expected": null
+  },
+  {
+    "owner": "own er",
+    "name": "repo",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "re/po",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "..",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": ".",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo?x=1",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo#top",
+    "expected": null
+  },
+  {
+    "owner": "ówner",
+    "name": "repo",
+    "expected": null
+  },
+  {
+    "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "name": "repo",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo\n",
+    "expected": null
+  },
+  {
+    "owner": "owner\n",
+    "name": "repo",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo\u0000",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo‮",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo@evil.example",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo:443",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "re\\po",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "%2e%2e",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo/",
+    "expected": null
+  },
+  {
+    "owner": "owner",
+    "name": "repo\t",
+    "expected": null
+  }
+]

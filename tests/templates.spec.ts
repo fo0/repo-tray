@@ -19,7 +19,7 @@ const opener = (card: Locator, label: string) =>
     exact: true,
   });
 
-test('pins persist and keep quick launch disabled until explicitly enabled', async ({
+test('pins persist and the name opens their stored configuration', async ({
   page,
 }) => {
   let dialog = await openLaunch(page);
@@ -37,34 +37,33 @@ test('pins persist and keep quick launch disabled until explicitly enabled', asy
   await page.reload();
   await openPage(page, 'favorites');
   const card = templateCard(page, 'My saved build');
-  // With confirmation: the round start shows a play, not the quick bolt.
-  await expect(card.locator('.pin-start')).not.toHaveClass(/quick/);
   await opener(card, 'My saved build').click();
   dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   await expect(dialog.getByLabel('Branch oder Tag')).toHaveValue('main');
   await expect(dialog.getByLabel('Version')).toHaveValue('0.1.0');
+  // No opt-in any more: every complete favorite starts at once.
+  await expect(dialog.getByText(/Schnellstart/)).toHaveCount(0);
 });
 
-test('explicitly enabled quick launch dispatches from a saved template', async ({
+test('a saved complete favorite starts at once from its round start', async ({
   page,
 }) => {
   const dialog = await openLaunch(page);
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
-  await dialog.getByLabel('Name des Favoriten').fill('Quick build');
-  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
+  await dialog.getByLabel('Name des Favoriten').fill('Direct build');
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('„Quick build“ als Favorit gespeichert.', {
+    dialog.getByText('„Direct build“ als Favorit gespeichert.', {
       exact: true,
     }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  const card = templateCard(page, 'Quick build');
+  const card = templateCard(page, 'Direct build');
   await card
     .getByRole('button', {
-      name: 'launch-kit-demo · Quick build schnellstarten',
+      name: 'launch-kit-demo · Direct build starten',
       exact: true,
     })
     .click();
@@ -182,31 +181,29 @@ test('copying an existing template keeps the original and its values', async ({
   ).toHaveValue('main');
 });
 
-test('compact saved templates keep quick-start configuration and removal reachable', async ({
+test('compact saved templates keep their configuration and removal reachable', async ({
   page,
 }) => {
   const dialog = await openLaunch(page);
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
-  await dialog.getByLabel('Name des Favoriten').fill('Compact quick build');
-  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
+  await dialog.getByLabel('Name des Favoriten').fill('Compact build');
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
   await expect(
-    dialog.getByText('„Compact quick build“ als Favorit gespeichert.', {
+    dialog.getByText('„Compact build“ als Favorit gespeichert.', {
       exact: true,
     }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
-  const card = templateCard(page, 'Compact quick build');
-  await expect(card.locator('.pin-start')).toHaveClass(/quick/);
+  const card = templateCard(page, 'Compact build');
   await expect(
     card.getByRole('button', {
-      name: 'launch-kit-demo · Compact quick build schnellstarten',
+      name: 'launch-kit-demo · Compact build starten',
       exact: true,
     }),
   ).toBeVisible();
-  await opener(card, 'Compact quick build').click();
+  await opener(card, 'Compact build').click();
   await expect(page.getByRole('dialog').getByLabel('Version')).toHaveValue(
     '0.1.0',
   );
@@ -214,7 +211,7 @@ test('compact saved templates keep quick-start configuration and removal reachab
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await card
     .getByRole('button', {
-      name: 'launch-kit-demo · Compact quick build aus Favoriten entfernen',
+      name: 'launch-kit-demo · Compact build aus Favoriten entfernen',
       exact: true,
     })
     .click();
@@ -232,7 +229,6 @@ test('compact rows keep the repository, account context and click targets at 360
     'Nightly runner health checks for the shared maintenance environment';
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
   await dialog.getByLabel('Name des Favoriten').fill(label);
-  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();

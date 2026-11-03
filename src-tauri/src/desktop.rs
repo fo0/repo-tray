@@ -21,6 +21,8 @@ use tauri_plugin_notification::NotificationExt;
 pub(crate) struct NativeState {
     pub(crate) engine: Mutex<LiveStore>,
     notifications: AtomicBool,
+    /// The saved refresh interval in seconds; the worker reads it before every wait.
+    refresh_seconds: AtomicU64,
     pub(crate) auth_generation: AtomicU64,
     pub(crate) browser_flow: Mutex<(u64, DeviceFlow)>,
 }
@@ -47,6 +49,41 @@ async fn refresh_snapshot(app: tauri::AppHandle) -> Result<Snapshot, String> {
 #[tauri::command]
 async fn refresh_repositories(app: tauri::AppHandle) -> Result<Snapshot, String> {
     work(app, |engine| Ok(engine.refresh_repositories())).await
+}
+/// Read without the engine lock, which a running refresh may hold.
+#[tauri::command]
+fn refresh_interval(state: tauri::State<'_, NativeState>) -> u64 {
+    state.refresh_seconds.load(Ordering::Relaxed)
+}
+/// Validates and stores the interval; the worker picks it up within a few seconds.
+#[tauri::command]
+async fn set_refresh_interval(app: tauri::AppHandle, seconds: u64) -> Result<u64, String> {
+    let handle = app.clone();
+    let seconds = work(app, move |engine| engine.set_refresh_interval(seconds)).await?;
+    if let Some(state) = handle.try_state::<NativeState>() {
+        state.refresh_seconds.store(seconds, Ordering::Relaxed);
+    }
+    Ok(seconds)
+}
+/// Waits until the worker's next refresh is due. The interval is read again every few
+/// seconds, so a saved change applies without waiting out the old one.
+fn wait_for_refresh(app: &tauri::AppHandle, open_run: bool) {
+    use repowatch_core::refresh_interval::{poll_seconds, DEFAULT_SECONDS};
+    let started = std::time::Instant::now();
+    loop {
+        let refresh = app
+            .try_state::<NativeState>()
+            .map_or(DEFAULT_SECONDS, |state| {
+                state.refresh_seconds.load(Ordering::Relaxed)
+            });
+        let due = Duration::from_secs(poll_seconds(open_run, refresh));
+        match due.checked_sub(started.elapsed()) {
+            Some(left) if !left.is_zero() => {
+                std::thread::sleep(left.min(Duration::from_secs(5)));
+            }
+            _ => return,
+        }
+    }
 }
 #[tauri::command]
 async fn save_pin(app: tauri::AppHandle, pin: Pin) -> Result<Snapshot, String> {
@@ -94,6 +131,16 @@ fn open_run(app: tauri::AppHandle, url: String) -> Result<(), String> {
     // Open only the parser's canonical form, never the raw IPC string.
     let url = repowatch_core::run_link::canonical_run_url(&url)
         .ok_or("Nur GitHub-Run-Links sind erlaubt.")?;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
+}
+#[tauri::command]
+fn open_repo(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    // Open only the parser's canonical form, never the raw IPC string.
+    let url = repowatch_core::run_link::canonical_repo_url(&url)
+        .ok_or("Nur GitHub-Repository-Links sind erlaubt.")?;
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
@@ -148,9 +195,11 @@ pub fn run() {
                 LiveStore::new(cache, Arc::new(OsKeyring::new())).map_err(std::io::Error::other)?;
             let baseline = store.snapshot();
             let notify = store.notifications_enabled();
+            let refresh_seconds = store.refresh_interval();
             app.manage(NativeState {
                 engine: Mutex::new(store),
                 notifications: AtomicBool::new(notify),
+                refresh_seconds: AtomicU64::new(refresh_seconds),
                 auth_generation: AtomicU64::new(0),
                 browser_flow: Mutex::new((0, DeviceFlow::new())),
             });
@@ -221,17 +270,14 @@ pub fn run() {
                     .map(|run| (run.id, run.status))
                     .collect();
                 loop {
-                    // One serialized worker; active repositories poll faster than idle ones.
-                    std::thread::sleep(Duration::from_secs(
-                        if previous
+                    // One serialized worker; an open run polls every 15 s, otherwise the
+                    // user's refresh interval applies.
+                    wait_for_refresh(
+                        &handle,
+                        previous
                             .values()
-                            .any(|status| *status != RunStatus::Completed)
-                        {
-                            15
-                        } else {
-                            60
-                        },
-                    ));
+                            .any(|status| *status != RunStatus::Completed),
+                    );
                     let Some(state) = handle.try_state::<NativeState>() else {
                         break;
                     };
@@ -292,6 +338,8 @@ pub fn run() {
             snapshot,
             refresh_snapshot,
             refresh_repositories,
+            refresh_interval,
+            set_refresh_interval,
             save_pin,
             delete_pin,
             dispatch_workflow,
@@ -314,6 +362,7 @@ pub fn run() {
             crate::desktop_updates::check_update,
             crate::desktop_updates::install_update,
             open_run,
+            open_repo,
             hide_panel
         ])
         .run(tauri::generate_context!())

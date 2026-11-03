@@ -35,13 +35,12 @@ test('clearing the search keeps focus in the search field', async ({
   }
 });
 
-test('a quick start keeps focus on its button while it runs and after it settles', async ({
+test('a direct start keeps focus on its button while it runs and after it settles', async ({
   page,
 }) => {
   const dialog = await openLaunch(page);
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
   await dialog.getByLabel('Name des Favoriten').fill('Quick build');
-  await dialog.getByLabel('Schnellstart aktivieren', { exact: false }).check();
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
@@ -49,13 +48,14 @@ test('a quick start keeps focus on its button while it runs and after it settles
   // The demo answers after 300 ms; a paused clock holds the start in flight.
   await page.clock.install();
   await page.clock.pauseAt(Date.now() + 2000);
-  const quick = templateCard(page, 'Quick build').getByRole('button', {
-    name: 'launch-kit-demo · Quick build schnellstarten',
+  const start = templateCard(page, 'Quick build').getByRole('button', {
+    name: 'launch-kit-demo · Quick build starten',
+    exact: true,
   });
-  await quick.focus();
+  await start.focus();
   await page.keyboard.press('Enter');
-  await expect(quick).toHaveAttribute('aria-disabled', 'true');
-  await expect(quick).toBeFocused();
+  await expect(start).toHaveAttribute('aria-disabled', 'true');
+  await expect(start).toBeFocused();
   // Another activation while it runs sends nothing.
   await page.keyboard.press('Enter');
   await page.clock.runFor(400);
@@ -63,8 +63,8 @@ test('a quick start keeps focus on its button while it runs and after it settles
     page.getByRole('status').filter({ hasText: /Quick build: .*#9001/ }),
   ).toBeVisible();
   await expect(page.getByText(/#9002/)).toHaveCount(0);
-  await expect(quick).toBeEnabled();
-  await expect(quick).toBeFocused();
+  await expect(start).toBeEnabled();
+  await expect(start).toBeFocused();
 });
 
 test('the dialog start keeps focus while it runs, then hands it to the result', async ({

@@ -5,13 +5,11 @@
   let {
     id,
     name,
-    quickStart,
     demo = true,
   }: {
     id: string;
     /** Accessible name; names the favorite, so two markers never share one. */
     name: string;
-    quickStart: boolean;
     demo?: boolean;
   } = $props();
   let trigger = $state<HTMLButtonElement>();
@@ -151,7 +149,7 @@
     „Sperre aufheben…“.
   </p>
   <p class="tip-mode">
-    Favorit: {quickStart ? 'Schnellstart aktiviert' : 'mit Bestätigung'}. {demo
+    {demo
       ? 'Die Beispielsperre hebst du im Startdialog oder mit „Demo zurücksetzen“ auf.'
       : 'Die Startsperre bleibt auch nach einem Neustart erhalten, bis du sie aufhebst.'}
   </p>

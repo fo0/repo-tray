@@ -20,14 +20,10 @@ const tones = (row: Locator) =>
 const empty = (count: number) => Array<string>(count).fill('none');
 
 /** Saves the launch dialog's default workflow on main as a favorite. */
-async function saveFavorite(page: Page, label: string, quickStart = false) {
+async function saveFavorite(page: Page, label: string) {
   const dialog = await openLaunch(page);
   await dialog.getByText('Als Favorit speichern', { exact: true }).click();
   await dialog.getByLabel('Name des Favoriten').fill(label);
-  if (quickStart)
-    await dialog
-      .getByLabel('Schnellstart aktivieren', { exact: false })
-      .check();
   await dialog
     .getByRole('button', { name: 'Favorit speichern', exact: true })
     .click();
@@ -117,11 +113,10 @@ test.describe('run strip', () => {
   });
 
   test('a new run enters on the right', async ({ page }) => {
-    await saveFavorite(page, 'Quick build', true);
     const kit = repoRow(page, 'demo-dev/launch-kit-demo');
-    await row(page, 'Quick build')
+    await row(page, 'Windows build')
       .getByRole('button', {
-        name: 'launch-kit-demo · Quick build schnellstarten',
+        name: 'launch-kit-demo · Windows build starten',
         exact: true,
       })
       .click();
@@ -147,7 +142,7 @@ test.describe('run strip', () => {
 });
 
 test.describe('favorite rows', () => {
-  test('the repository leads, the name anywhere on the row and the round start open the stored configuration', async ({
+  test('the repository leads, the name anywhere on the row opens the stored configuration and the round start comes last', async ({
     page,
   }) => {
     const windows = row(page, 'Windows build');
@@ -205,13 +200,35 @@ test.describe('favorite rows', () => {
       position: { x: chip.x - box.x + chip.width / 2, y: box.height / 2 },
     });
     await expectStored();
-    // Without quick start the round start is a second pointer target for
-    // the same dialog, hidden from assistive tech and the tab order.
+    // Settings, heart, then the round start at the far right: every one a
+    // real button with its own name, the start reachable by keyboard.
+    expect(
+      await windows
+        .getByRole('button')
+        .evaluateAll((buttons) =>
+          buttons.map((button) => button.getAttribute('aria-label')),
+        ),
+    ).toEqual([
+      'launch-kit-demo · Windows build starten…',
+      'launch-kit-demo · Windows build bearbeiten',
+      'launch-kit-demo · Windows build aus Favoriten entfernen',
+      'launch-kit-demo · Windows build starten',
+    ]);
     const start = windows.locator('.pin-start');
-    await expect(start).toHaveAttribute('aria-hidden', 'true');
-    await expect(start).toHaveAttribute('tabindex', '-1');
-    await start.click();
-    await expectStored();
+    await expect(start).not.toHaveAttribute('aria-hidden');
+    await expect(start).not.toHaveAttribute('tabindex');
+    await expect(start).toHaveAttribute('title', 'Starten');
+    const edit = windows.locator('.pin-edit');
+    await expect(edit).toHaveAttribute('title', 'Standardwerte bearbeiten');
+    const [startBox, editBox, rowBox] = await Promise.all([
+      start.boundingBox(),
+      edit.boundingBox(),
+      windows.boundingBox(),
+    ]);
+    expect(startBox!.x).toBeGreaterThan(editBox!.x);
+    expect(
+      rowBox!.x + rowBox!.width - (startBox!.x + startBox!.width),
+    ).toBeLessThan(8);
   });
 
   test('the heart removes a row and „Rückgängig“ brings it back', async ({

@@ -49,7 +49,7 @@ test('an environment input the service could not list shows its note and offers 
   );
   await page.goto('/');
   await openPage(page, 'favorites');
-  await templateCard(page, 'Windows build').locator('.pin-start').click();
+  await templateCard(page, 'Windows build').locator('.pin-open').click();
   const dialog = page.getByRole('dialog', { name: 'Workflow starten' });
   const select = dialog.getByRole('combobox', { name: 'Umgebung' });
   await expect(select).toHaveAccessibleDescription(NOTE);

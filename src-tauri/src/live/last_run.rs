@@ -1,7 +1,7 @@
 //! The latest run of workflows the run history does not show. The history keeps only the
 //! newest completed runs per repository, so a rarely run workflow, such as a release, falls
 //! out of it; one lookup per such workflow names when it last ran.
-use super::{schedule::CATALOG_SECONDS, url, LiveStore};
+use super::{schedule::METADATA_SECONDS, url, LiveStore};
 use crate::{
     github::{ApiError, Transport},
     models::*,
@@ -46,7 +46,7 @@ impl<T: Transport> LiveStore<T> {
             .filter(|&index| !known.contains(&workflows[index].id))
             .partition(|&index| pinned.contains(&workflows[index].id));
         if !others.is_empty() {
-            let turn = (now / CATALOG_SECONDS) as usize;
+            let turn = (now / METADATA_SECONDS) as usize;
             let len = others.len();
             others.rotate_left(turn.wrapping_mul(MAX_RUN_LOOKUPS) % len);
         }

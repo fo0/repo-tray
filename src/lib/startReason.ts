@@ -64,7 +64,8 @@ export const favoriteNames = (repo: string, label: string) => {
   const name = `${repo} · ${label}`;
   return {
     open: `${name} starten…`,
-    quickStart: `${name} schnellstarten`,
+    start: `${name} starten`,
+    edit: `${name} bearbeiten`,
     remove: `${name} aus Favoriten entfernen`,
     uncertain: `Startstatus ungeklärt: ${name}`,
   };
@@ -72,13 +73,12 @@ export const favoriteNames = (repo: string, label: string) => {
 
 /**
  * What a target's start control does:
- * - `quick`: a quick start sends at once.
- * - `favorite`: a favorite's „Starten…“ opens its dialog, which also edits
- *   the favorite and releases a lock, so it opens offline too.
+ * - `favorite`: a favorite's start sends at once when its stored request is
+ *   complete, else it opens the start dialog to complete it.
  * - `workflow`: a workflow row's „Starten…“ opens the dialog with the
  *   defaults; its row opens the dialog for details anyway.
  */
-export type StartControl = 'quick' | 'favorite' | 'workflow';
+export type StartControl = 'favorite' | 'workflow';
 
 /** What the controls of one start target may do right now. */
 export interface StartGate {
@@ -86,7 +86,7 @@ export interface StartGate {
   reason: string | null;
   canStart: boolean;
   /**
-   * The start dialog may open (a row, the gear, a workflow item): only this
+   * The start dialog may open (a row, the settings, a workflow item): only this
    * target's running start closes it; the dialog names every other cause.
    */
   canOpen: boolean;
@@ -102,22 +102,20 @@ export interface GateState extends StartCauses {
 }
 
 /**
- * The one rule for every control of one start target. A quick start is
- * refused for every cause, the uncertain lock included. A workflow row's
- * „Starten…“ is refused for every cause but the lock: the dialog is where
- * a lock is checked and released. Opening the dialog, a favorite's
- * „Starten…“ included, and changing the favorite wait only for this
- * target's running start.
+ * The one rule for every control of one start target. A favorite's start
+ * may send at once, so it is refused for every cause, the uncertain lock
+ * included. A workflow row's „Starten…“ is refused for every cause but the
+ * lock: the dialog is where a lock is checked and released. Opening the
+ * dialog (a favorite's name or settings included) and changing the favorite
+ * wait only for this target's running start.
  */
 export function startGate(state: GateState, control: StartControl): StartGate {
   const running = !!state.running;
   const openReason = running ? START_REASONS.running : null;
   const reason =
-    control === 'quick'
+    control === 'favorite'
       ? startReason(state)
-      : control === 'workflow'
-        ? startReason({ ...state, uncertain: false })
-        : openReason;
+      : startReason({ ...state, uncertain: false });
   return {
     reason,
     canStart: !reason,
