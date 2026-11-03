@@ -390,11 +390,17 @@ impl<T: Transport> LiveStore<T> {
         // write only adds a notice and never marks fresh data stale.
         self.persist();
     }
+    /// The explicit refresh (F5, the refresh button): every repository polls its runs now,
+    /// also an idle one inside its refresh interval. Catalog and metadata keep their timers.
+    pub fn refresh_now(&mut self) -> Snapshot {
+        self.poll_at.clear();
+        self.refresh()
+    }
     /// The explicit "refresh repository access" action: every scope, including a held
     /// account, reads its catalog and metadata again now.
     pub fn refresh_repositories(&mut self) -> Snapshot {
         self.schedule = Schedule::new(self.refresh_seconds);
-        self.refresh()
+        self.refresh_now()
     }
 }
 

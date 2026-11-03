@@ -35,27 +35,30 @@ impl Schedule {
             catalog_seconds: refresh_interval::catalog_seconds(refresh_seconds),
         }
     }
-    /// A changed refresh interval applies from the next catalog read; a deadline set under a
-    /// longer interval than the new bound counts as reached at once (`reached`).
-    pub(super) fn set_refresh(&mut self, refresh_seconds: u64) {
+    /// A changed refresh interval applies at once: a healthy account's next catalog read moves
+    /// no later than one new interval from `now`. A held account keeps its hold.
+    pub(super) fn set_refresh(&mut self, refresh_seconds: u64, now: u64) {
         self.catalog_seconds = refresh_interval::catalog_seconds(refresh_seconds);
+        let latest = now.saturating_add(self.catalog_seconds);
+        for (account, at) in &mut self.catalog {
+            if !self.held.contains_key(account) {
+                *at = (*at).min(latest);
+            }
+        }
     }
-    /// Deadlines are wall-clock times. One further ahead than the longest delay any scope
-    /// gets was set before the clock went back, so it counts as reached: a backward clock
-    /// jump never stalls a read or extends a hold beyond one interval.
-    fn reached(&self, at: u64, now: u64) -> bool {
-        let longest = self.catalog_seconds.max(METADATA_SECONDS);
-        now >= at || at > now.saturating_add(longest)
+    /// The longest delay a catalog deadline gets: the catalog interval, or a hold.
+    fn catalog_longest(&self) -> u64 {
+        self.catalog_seconds.max(METADATA_SECONDS)
     }
     pub(super) fn catalog_due(&self, account: &str, now: u64) -> bool {
         self.catalog
             .get(account)
-            .is_none_or(|at| self.reached(*at, now))
+            .is_none_or(|at| reached(*at, now, self.catalog_longest()))
     }
     pub(super) fn metadata_due(&self, repo: &str, now: u64) -> bool {
         self.metadata
             .get(repo)
-            .is_none_or(|at| self.reached(*at, now))
+            .is_none_or(|at| reached(*at, now, METADATA_SECONDS))
     }
     /// A successful listing proves the account authorized again, so any hold left on it goes.
     pub(super) fn catalog_read(&mut self, account: &str, failure: Option<&ScopeError>, now: u64) {
@@ -100,7 +103,7 @@ impl Schedule {
         if self
             .held
             .get(account)
-            .is_some_and(|(until, _)| self.reached(*until, now))
+            .is_some_and(|(until, _)| reached(*until, now, METADATA_SECONDS))
         {
             self.held.remove(account);
         }
@@ -114,4 +117,10 @@ impl Schedule {
             self.metadata.remove(&repo.id);
         }
     }
+}
+/// Deadlines are wall-clock times. One further ahead than the longest delay its map gives was
+/// set before the clock went back, so it counts as reached: a backward clock jump never
+/// stalls a read or extends a hold beyond that map's own longest delay.
+fn reached(at: u64, now: u64, longest: u64) -> bool {
+    now >= at || at > now.saturating_add(longest)
 }

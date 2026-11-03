@@ -224,7 +224,8 @@ impl<T: Transport> LiveStore<T> {
     pub fn refresh_interval(&self) -> u64 {
         self.refresh_seconds
     }
-    /// Validates, stores and applies a new interval; the catalog follows from its next read.
+    /// Validates, stores and applies a new interval; a shorter one also brings each healthy
+    /// account's next catalog read forward to within the new interval.
     pub fn set_refresh_interval(&mut self, seconds: u64) -> Result<u64, String> {
         let seconds = crate::refresh_interval::validate(seconds)?;
         let mut settings: AppSettings = self.cache.load_app_settings().unwrap_or_default();
@@ -233,8 +234,21 @@ impl<T: Transport> LiveStore<T> {
             .save_app_settings(&settings)
             .map_err(|_| "Einstellung konnte nicht gespeichert werden.")?;
         self.refresh_seconds = seconds;
-        self.schedule.set_refresh(seconds);
+        self.schedule.set_refresh(seconds, (self.clock)());
         Ok(seconds)
+    }
+    /// Whether the panel shows a run that is not completed yet, so a refresh is due every
+    /// 15 seconds (`refresh_interval::OPEN_RUN_SECONDS`). Matches `snapshot`: a denied
+    /// repository's frozen open runs do not count.
+    pub fn has_open_run(&self) -> bool {
+        self.data.runs.iter().any(|run| {
+            run.status != RunStatus::Completed
+                && !self
+                    .data
+                    .repos
+                    .iter()
+                    .any(|repo| repo.id == run.repo_id && repo.permission == Permission::Denied)
+        })
     }
     fn pages(
         &self,

@@ -10,7 +10,6 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
     },
-    time::Duration,
 };
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem},
@@ -21,8 +20,12 @@ use tauri_plugin_notification::NotificationExt;
 pub(crate) struct NativeState {
     pub(crate) engine: Mutex<LiveStore>,
     notifications: AtomicBool,
-    /// The saved refresh interval in seconds; the worker reads it before every wait.
+    /// The saved refresh interval in seconds; the worker reads it on every wait tick.
     refresh_seconds: AtomicU64,
+    /// Whether the last snapshot, from the worker or any command, shows an open run; the
+    /// worker reads it on every wait tick, so a run started from the panel is followed at
+    /// the 15 s pace without waiting out the idle interval.
+    open_run: AtomicBool,
     pub(crate) auth_generation: AtomicU64,
     pub(crate) browser_flow: Mutex<(u64, DeviceFlow)>,
 }
@@ -33,7 +36,11 @@ pub(crate) async fn work<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<NativeState>();
         let mut engine = state.engine.lock().map_err(|_| "Dienst nicht verfügbar.")?;
-        operation(&mut engine)
+        let result = operation(&mut engine);
+        state
+            .open_run
+            .store(engine.has_open_run(), Ordering::Relaxed);
+        result
     })
     .await
     .map_err(|_| "Aufgabe konnte nicht abgeschlossen werden.".to_string())?
@@ -42,9 +49,10 @@ pub(crate) async fn work<T: Send + 'static>(
 async fn snapshot(app: tauri::AppHandle) -> Result<Snapshot, String> {
     work(app, |engine| Ok(engine.snapshot())).await
 }
+/// F5 and the refresh button: every repository polls its runs now, also an idle one.
 #[tauri::command]
 async fn refresh_snapshot(app: tauri::AppHandle) -> Result<Snapshot, String> {
-    work(app, |engine| Ok(engine.refresh())).await
+    work(app, |engine| Ok(engine.refresh_now())).await
 }
 #[tauri::command]
 async fn refresh_repositories(app: tauri::AppHandle) -> Result<Snapshot, String> {
@@ -65,23 +73,24 @@ async fn set_refresh_interval(app: tauri::AppHandle, seconds: u64) -> Result<u64
     }
     Ok(seconds)
 }
-/// Waits until the worker's next refresh is due. The interval is read again every few
-/// seconds, so a saved change applies without waiting out the old one.
-fn wait_for_refresh(app: &tauri::AppHandle, open_run: bool) {
-    use repowatch_core::refresh_interval::{poll_seconds, DEFAULT_SECONDS};
+/// Waits until the worker's next refresh is due. The interval and the open-run state are
+/// read again every few seconds without the engine lock, so a saved change or a run started
+/// from the panel applies without waiting out the old interval.
+fn wait_for_refresh(app: &tauri::AppHandle) {
+    use repowatch_core::refresh_interval::{next_sleep, DEFAULT_SECONDS};
     let started = std::time::Instant::now();
     loop {
-        let refresh = app
-            .try_state::<NativeState>()
-            .map_or(DEFAULT_SECONDS, |state| {
-                state.refresh_seconds.load(Ordering::Relaxed)
-            });
-        let due = Duration::from_secs(poll_seconds(open_run, refresh));
-        match due.checked_sub(started.elapsed()) {
-            Some(left) if !left.is_zero() => {
-                std::thread::sleep(left.min(Duration::from_secs(5)));
-            }
-            _ => return,
+        let (refresh, open_run) =
+            app.try_state::<NativeState>()
+                .map_or((DEFAULT_SECONDS, false), |state| {
+                    (
+                        state.refresh_seconds.load(Ordering::Relaxed),
+                        state.open_run.load(Ordering::Relaxed),
+                    )
+                });
+        match next_sleep(started.elapsed(), open_run, refresh) {
+            Some(sleep) => std::thread::sleep(sleep),
+            None => return,
         }
     }
 }
@@ -200,6 +209,7 @@ pub fn run() {
                 engine: Mutex::new(store),
                 notifications: AtomicBool::new(notify),
                 refresh_seconds: AtomicU64::new(refresh_seconds),
+                open_run: AtomicBool::new(false),
                 auth_generation: AtomicU64::new(0),
                 browser_flow: Mutex::new((0, DeviceFlow::new())),
             });
@@ -269,23 +279,19 @@ pub fn run() {
                     .iter()
                     .map(|run| (run.id, run.status))
                     .collect();
-                loop {
-                    // One serialized worker; an open run polls every 15 s, otherwise the
-                    // user's refresh interval applies.
-                    wait_for_refresh(
-                        &handle,
-                        previous
-                            .values()
-                            .any(|status| *status != RunStatus::Completed),
-                    );
-                    let Some(state) = handle.try_state::<NativeState>() else {
-                        break;
-                    };
+                // One serialized worker. It refreshes at once on start, so the cached
+                // snapshot (stale until then) never waits out a long interval, then every
+                // 15 s while a run is open, otherwise at the user's refresh interval.
+                while let Some(state) = handle.try_state::<NativeState>() {
                     let value = {
                         let Ok(mut engine) = state.engine.lock() else {
                             break;
                         };
-                        engine.refresh()
+                        let value = engine.refresh();
+                        state
+                            .open_run
+                            .store(engine.has_open_run(), Ordering::Relaxed);
+                        value
                     };
                     let selected = |repo_id: &str| {
                         value
@@ -329,6 +335,7 @@ pub fn run() {
                     }
                     previous = value.runs.iter().map(|run| (run.id, run.status)).collect();
                     let _ = handle.emit("repowatch:snapshot", value);
+                    wait_for_refresh(&handle);
                 }
             });
             Ok(())
