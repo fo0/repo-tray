@@ -1,4 +1,5 @@
-import type { Pin, Repo } from './types';
+import { isHidden } from './hiddenRepos';
+import type { HiddenRepo, Pin, Repo } from './types';
 
 /** Repositories each account shows by its newest pushes (`auto_repos.rs`). */
 export const AUTO_REPOS = 10;
@@ -13,9 +14,15 @@ const byName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 /**
  * The browser demo's copy of the native rule: per account the `AUTO_REPOS`
  * repositories with the newest push (a missing one last, ties by
- * `owner/name`), plus every repository of a favorite of that account.
+ * `owner/name`), plus every repository of a favorite of that account. A
+ * hidden repository takes none of the newest places, so the next one moves
+ * up; a favorite still selects it.
  */
-export function autoSelect(repos: Repo[], pins: Pin[]): Repo[] {
+export function autoSelect(
+  repos: Repo[],
+  pins: Pin[],
+  hidden: readonly HiddenRepo[] = [],
+): Repo[] {
   const ranked = [...repos].sort(
     (a, b) =>
       pushTime(b) - pushTime(a) ||
@@ -26,10 +33,14 @@ export function autoSelect(repos: Repo[], pins: Pin[]): Repo[] {
   const shown = new Map<string, number>();
   const selected = new Set<string>();
   for (const repo of ranked) {
-    const count = shown.get(repo.accountId) ?? 0;
     const pinned = pins.some(
       (pin) => pin.repoId === repo.id && pin.accountId === repo.accountId,
     );
+    if (isHidden(hidden, repo)) {
+      if (pinned) selected.add(repo.id);
+      continue;
+    }
+    const count = shown.get(repo.accountId) ?? 0;
     if (count < AUTO_REPOS) shown.set(repo.accountId, count + 1);
     if (count < AUTO_REPOS || pinned) selected.add(repo.id);
   }

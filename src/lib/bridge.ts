@@ -22,6 +22,8 @@ const nativeBridge: Bridge = {
   releaseUncertainStart: (start) => call('release_uncertain_start', { start }),
   cancelRun: (repoId, runId) => call('cancel_run', { repoId, runId }),
   openRepository: (repoId) => call('open_repository', { repoId }),
+  setRepoHidden: (accountId, repoId, hidden) =>
+    call('set_repo_hidden', { accountId, repoId, hidden }),
   refreshInterval: () => call('refresh_interval'),
   setRefreshInterval: (seconds) => call('set_refresh_interval', { seconds }),
 };

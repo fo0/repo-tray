@@ -11,7 +11,7 @@
   import { lastRun, type repositoryActivity } from './repoActivity';
   import { TONE_ICON } from './runs';
   import type { StartGate } from './startReason';
-  import type { DispatchTarget, Pin, Workflow } from './types';
+  import type { DispatchTarget, Pin, Repo, Workflow } from './types';
 
   let {
     groups,
@@ -27,6 +27,7 @@
     native,
     demo,
     onNotice,
+    onHide,
   }: {
     groups: ReturnType<typeof repositoryActivity>;
     onopen: (workflow: Workflow) => void;
@@ -50,6 +51,8 @@
     native: boolean;
     demo: boolean;
     onNotice: (text: string, tone: NoticeTone) => void;
+    /** Hides a repository from the lists, or shows a hidden one again. */
+    onHide: (repo: Repo, hidden: boolean) => void;
   } = $props();
 </script>
 
@@ -152,9 +155,11 @@
         <RepoMenu
           repo={group.repo}
           latest={group.latest}
+          hidden={group.hidden}
           {native}
           {demo}
           {onNotice}
+          onHide={(hidden) => onHide(group.repo, hidden)}
         />
       </div>
       <div

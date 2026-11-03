@@ -1,44 +1,20 @@
 import fixture from '../../fixtures/demo.json';
 import { autoSelect } from './autoRepos';
+import { demoHidden } from './hiddenRepos';
 import { safePin, targetKey, validateDispatch } from './model';
 import { demoRefresh } from './refresh';
+import type { Bridge, DemoControls, PreferenceStorage } from './bridgeTypes';
 import type {
   DemoScenario,
   DispatchOutcome,
   DispatchRequest,
+  HiddenRepo,
   Pin,
   Snapshot,
   UncertainStart,
 } from './types';
 
-/** The snapshot and start commands both the native shell and the demo serve. */
-export interface Bridge {
-  snapshot(): Promise<Snapshot>;
-  refreshSnapshot(): Promise<Snapshot>;
-  savePin(pin: Pin): Promise<Snapshot>;
-  deletePin(pinId: string): Promise<Snapshot>;
-  dispatchWorkflow(request: DispatchRequest): Promise<DispatchOutcome>;
-  /** Explicit user action after checking GitHub; releases exactly this claim, never dispatches. */
-  releaseUncertainStart(start: UncertainStart): Promise<Snapshot>;
-  /** Asks to cancel an open run; the outcome arrives with a later snapshot. */
-  cancelRun(repoId: string, runId: number): Promise<Snapshot>;
-  /** Loads a repository the search found outside the automatic set. */
-  openRepository(repoId: string): Promise<Snapshot>;
-  /** Seconds between idle refreshes. */
-  refreshInterval(): Promise<number>;
-  /** Stores a validated interval (15–3600 s); rejects with a German message. */
-  setRefreshInterval(seconds: number): Promise<number>;
-}
-/** Demo-only controls; the native shell registers no matching command. */
-export interface DemoControls {
-  setDemoScenario(scenario: DemoScenario): Promise<Snapshot>;
-  resetDemo(): Promise<Snapshot>;
-}
-export interface PreferenceStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+export type { Bridge, DemoControls, PreferenceStorage } from './bridgeTypes';
 export const PREFERENCE_KEY = 'repowatch.demo.preferences.v1';
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const fingerprint = (request: DispatchRequest) =>
@@ -48,10 +24,10 @@ const fingerprint = (request: DispatchRequest) =>
   ]);
 
 /** The fixture under the native rule: each account's newest repositories. */
-function initial(pins?: Pin[]): Snapshot {
+function initial(pins?: Pin[], hidden: HiddenRepo[] = []): Snapshot {
   const data = copy(fixture) as Snapshot;
   if (pins) data.pins = pins;
-  data.repos = autoSelect(data.repos, data.pins);
+  data.repos = autoSelect(data.repos, data.pins, hidden);
   return data;
 }
 
@@ -59,7 +35,8 @@ export function createDemoBridge(
   storage?: PreferenceStorage,
   latency = 300,
 ): Bridge & DemoControls {
-  let data = initial();
+  const hidden = demoHidden(storage);
+  let data = initial(undefined, hidden.list);
   let scenario: DemoScenario = 'normal';
   let nextRun = 9000;
   let generation = 0;
@@ -86,6 +63,7 @@ export function createDemoBridge(
             return [];
           }
         }),
+        hidden.list,
       );
     }
   } catch {
@@ -129,6 +107,7 @@ export function createDemoBridge(
             : 'online',
       stale: scenario === 'offline',
       uncertainStarts: [...uncertain.values()],
+      ...(hidden.list.length ? { hiddenRepos: hidden.list } : {}),
       message:
         scenario === 'offline'
           ? 'Offline: Letzter Demo-Stand bleibt sichtbar. Es wurde nichts gestartet.'
@@ -275,6 +254,12 @@ export function createDemoBridge(
       repo.selected = true;
       return snapshot();
     },
+    async setRepoHidden(accountId, repoId, hide) {
+      data.repos = hidden.change(data.repos, accountId, repoId, hide, (list) =>
+        autoSelect(data.repos, data.pins, list),
+      );
+      return snapshot();
+    },
     async releaseUncertainStart(start) {
       const key = targetKey(start);
       const current = uncertain.get(key);
@@ -292,6 +277,7 @@ export function createDemoBridge(
     },
     async resetDemo() {
       generation++;
+      hidden.reset();
       data = initial();
       scenario = 'normal';
       nextRun = 9000;

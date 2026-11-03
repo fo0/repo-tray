@@ -28,6 +28,11 @@ Stable project knowledge. **Read at session start.**
 - **Date:** 2026-11-03
 - **Decision (owner, #28):** a favorite's start button sends at once when its stored ref and inputs validate, otherwise opens the dialog in edit mode; the quick-start opt-in is gone (`Pin.quickStart` stays in IPC as a legacy field). Guards: one start per press (no multi-click / key repeat), 1.5 s per-favorite cooldown, uncertain targets locked. Settings → App „Aktualisierung“ (15–3600 s, default 60 s) drives idle run polling, the worker wait and the account catalog (floor 60 s); open runs stay at 15 s, metadata at 600 s, F5 polls every repository.
 
+### Repositories can be hidden
+
+- **Date:** 2026-11-03
+- **Decision (owner, #30):** „Ausblenden“ in a repository row's „⋯“ menu hides it (8 s „Rückgängig“); Settings → App „Ausgeblendete Repositories“ shows it again, staged until „Speichern“. Stored natively in `AppSettings.hiddenRepos` (account + repository ID, owner, name), sent as `Snapshot.hiddenRepos`, changed by `set_repo_hidden`. A hidden repository takes none of the 10 newest places and leaves every list and run list; a favorite keeps it selected and polled, and the search still finds it. Disconnect drops an account's entries. Partly supersedes ADR-0003: [ADR-0008](docs/adr/0008-hidden-repositories.md).
+
 ### Browser / GitHub App sign-in is paused
 
 - **Date:** 2026-10-31
@@ -49,7 +54,7 @@ Stable project knowledge. **Read at session start.**
 - **Local Playwright in the cloud container** needs `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium-<rev>/chrome-linux64/chrome` (the project pins a newer Playwright than the preinstalled browser); `E2E_PORT` gives each checkout its own dev server. (2026-11-01)
 - **Agent worktrees start from local `main`**, which can be stale — reset a worktree onto the working branch before editing. (2026-11-01)
 - **The SQLite cache is versioned (`PRAGMA user_version`)** — a build refuses a newer schema, so downgrading after a migration fails at startup by design. (2026-11-01)
-- **`docs/review/` and screenshots are gitignored** and never published; capture scripts assert demo mode. (2026-10-31)
+- **`docs/review/` and screenshots are gitignored** and never published; capture scripts assert demo mode. Exception: the README images in `docs/images/` are committed — regenerate them with `pnpm capture:readme` after visible panel changes. (2026-11-03)
 - **Playwright emulates a light OS by default**; `playwright.config.ts` sets `colorScheme: 'dark'` so specs that assert token colors see the dark set. Light and the override live in `tests/theme.spec.ts`; capture scripts run both themes. New colors go into `src/styles/00-tokens.css` (both light blocks) — `tokens.test.ts` rejects literals elsewhere. Its contrast pairs lay one tint on an opaque surface: a tinted element inside another tint needs its own opaque base (`linear-gradient(var(--x-soft), var(--x-soft)), var(--raised)`). (2026-11-01)
 
 ## External Dependencies
@@ -63,4 +68,4 @@ Stable project knowledge. **Read at session start.**
 
 - **Chat in German, direct, no filler**; generated files and commits in English (owner, 2026-11-01)
 - **Simple subagent work may run at effort `high`** on the session's model instead of inheriting the session effort (owner, 2026-11-01)
-- **Never reintroduce manual repository selection** — the owner asked three times before the picker went; repositories are automatic ([ADR-0003](docs/adr/0003-automatic-repositories.md)), UI rules in `agent_docs/ux_rules.md` (owner, 2026-11-01)
+- **Never reintroduce manual repository selection** — the owner asked three times before the picker went; repositories are automatic ([ADR-0003](docs/adr/0003-automatic-repositories.md)), UI rules in `agent_docs/ux_rules.md`; hiding a noisy repository is the one removal the owner allows ([ADR-0008](docs/adr/0008-hidden-repositories.md), 2026-11-03) (owner, 2026-11-01)

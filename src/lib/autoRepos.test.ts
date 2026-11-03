@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AUTO_REPOS, autoSelect } from './autoRepos';
-import type { Pin, Repo } from './types';
+import type { HiddenRepo, Pin, Repo } from './types';
 
 const repo = (
   accountId: string,
@@ -74,5 +74,34 @@ describe('autoSelect', () => {
     expect(picked).toHaveLength(AUTO_REPOS + 1);
     expect(picked).toContain('a:old');
     expect(picked).not.toContain('a:other');
+  });
+
+  it('hands the place of a hidden repository to the next one, unless a favorite needs it', () => {
+    const hide = (name: string): HiddenRepo => ({
+      accountId: 'a',
+      repoId: `a:${name}`,
+      owner: 'fixture-owner',
+      name,
+    });
+    const repos = [
+      ...Array.from({ length: AUTO_REPOS + 2 }, (_, n) =>
+        repo('a', `r${n}`, day(n + 1)),
+      ),
+      repo('b', 'r11', day(12)),
+    ];
+    const picked = shown(autoSelect(repos, [], [hide('r11')]));
+    expect(picked).not.toContain('a:r11');
+    expect(picked).toContain('a:r1');
+    expect(picked).not.toContain('a:r0');
+    expect(picked).toContain('b:r11');
+    const kept = shown(
+      autoSelect(repos, [pin('a', 'a:r11')], [hide('r11'), hide('r10')]),
+    );
+    expect(kept).toContain('a:r11');
+    expect(kept).not.toContain('a:r10');
+    expect(kept).toContain('a:r0');
+    expect(kept.filter((id) => id.startsWith('a:'))).toHaveLength(
+      AUTO_REPOS + 1,
+    );
   });
 });

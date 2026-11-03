@@ -1,10 +1,39 @@
-// Cancelling open runs and loading repositories the search found.
+// Cancelling open runs, loading repositories the search found and hiding
+// repositories from the lists.
+import { tick } from 'svelte';
 import type { NoticeTone } from './StatusBanners.svelte';
 import type { Bridge } from './demo';
+import { UNDO_TIMEOUT } from './favorites.svelte';
+import { focusLost, hasDom, landing } from './focus';
 import { errorMessage } from './format';
+import { hiddenKey } from './hiddenRepos';
 import type { RequestEpoch } from './model';
+import type { Notices } from './notices.svelte';
 import { isActive } from './runs';
-import type { Run, Snapshot } from './types';
+import type { HiddenRepo, Repo, Run, Snapshot } from './types';
+
+type ActionPort = Pick<
+  Bridge,
+  'cancelRun' | 'openRepository' | 'setRepoHidden'
+>;
+/** The notice of one hidden repository and its „Rückgängig“. */
+const hideNotice = (accountId: string, repoId: string) =>
+  `hide:${hiddenKey(accountId, repoId)}`;
+/** The toggle of the row after (else before) a repository's row, by its id. */
+function neighbourRow(repoId: string) {
+  const row = document.querySelector(`[data-repo-id="${CSS.escape(repoId)}"]`);
+  return (
+    [row?.nextElementSibling, row?.previousElementSibling]
+      .map((item) => item?.getAttribute('data-repo-id'))
+      .find(Boolean) ?? null
+  );
+}
+const rowToggle = (repoId: string | null) =>
+  repoId
+    ? document.querySelector<HTMLElement>(
+        `[data-repo-id="${CSS.escape(repoId)}"] .repository-toggle`,
+      )
+    : null;
 
 /** The panel state these actions read and change. */
 export interface ActionHost {
@@ -16,6 +45,7 @@ export interface ActionHost {
   accept(value: Snapshot): void;
   toggleRepo(repoId: string): void;
   showNotice(text: string, tone?: NoticeTone): void;
+  readonly notices: Notices;
 }
 
 /**
@@ -28,13 +58,14 @@ export class Actions {
   cancelling = $state.raw(new Set<number>());
   /** Repositories whose workflows are loading. */
   opening = $state.raw(new Set<string>());
+  /** Repositories whose hide or show request is running. */
+  hiding = $state.raw(new Set<string>());
+  /** Notice keys that still offer „Rückgängig“ for a hidden repository. */
+  #undo = new Set<string>();
   #host: ActionHost;
-  #bridge: Pick<Bridge, 'cancelRun' | 'openRepository'>;
+  #bridge: ActionPort;
 
-  constructor(
-    host: ActionHost,
-    bridge: Pick<Bridge, 'cancelRun' | 'openRepository'>,
-  ) {
+  constructor(host: ActionHost, bridge: ActionPort) {
     this.#host = host;
     this.#bridge = bridge;
   }
@@ -79,6 +110,69 @@ export class Actions {
   };
 
   /**
+   * Hides a repository from the lists at once and offers „Rückgängig“, or
+   * shows a hidden one again (its menu in a search). Focus in the vanished
+   * row moves to the next row, else to the page's landing.
+   */
+  setHidden = async (repo: Repo, hidden: boolean) => {
+    if (this.hiding.has(repo.id)) return;
+    this.hiding = new Set(this.hiding).add(repo.id);
+    const key = hideNotice(repo.accountId, repo.id);
+    const next = hasDom() ? neighbourRow(repo.id) : null;
+    const ticket = this.#ticket();
+    try {
+      const value = await this.#bridge.setRepoHidden(
+        repo.accountId,
+        repo.id,
+        hidden,
+      );
+      this.#accept(ticket, value);
+      this.#forget(key);
+      if (!hidden) return this.#host.showNotice(`${repo.name} eingeblendet`);
+      this.#undo.add(key);
+      this.#host.notices.show({
+        key,
+        text: `${repo.name} ausgeblendet`,
+        tone: 'subtle',
+        timeout: UNDO_TIMEOUT,
+        action: { label: 'Rückgängig', run: () => void this.#restore(repo) },
+      });
+      if (!hasDom()) return;
+      await tick();
+      if (focusLost()) (rowToggle(next) ?? landing())?.focus();
+    } catch (cause) {
+      this.#host.showNotice(errorMessage(cause), 'warning');
+    } finally {
+      this.#drop('hiding', repo.id);
+    }
+  };
+
+  /**
+   * Shows a hidden repository again from the settings. Rejects with the
+   * shell's message, which the dialog shows.
+   */
+  unhide = async (entry: HiddenRepo) => {
+    const ticket = this.#ticket();
+    const value = await this.#bridge.setRepoHidden(
+      entry.accountId,
+      entry.repoId,
+      false,
+    );
+    this.#accept(ticket, value);
+    this.#forget(hideNotice(entry.accountId, entry.repoId));
+  };
+
+  async #restore(repo: Repo) {
+    const key = hideNotice(repo.accountId, repo.id);
+    if (!this.#undo.has(key)) return;
+    await this.setHidden(repo, false);
+  }
+  #forget(key: string) {
+    this.#undo.delete(key);
+    this.#host.notices.clear(key);
+  }
+
+  /**
    * The answer is newer than any read in flight, so those reads are cancelled
    * and the refresh button is free again. A running mutation keeps its
    * ticket: it accepts its own, fresher answer (as `Starts.release` does).
@@ -97,9 +191,12 @@ export class Actions {
   clear() {
     this.cancelling = new Set();
     this.opening = new Set();
+    this.hiding = new Set();
+    // „Rückgängig“ belongs to the previous account's view.
+    for (const key of [...this.#undo]) this.#forget(key);
   }
 
-  #drop<K extends 'cancelling' | 'opening'>(
+  #drop<K extends 'cancelling' | 'opening' | 'hiding'>(
     key: K,
     value: K extends 'cancelling' ? number : string,
   ) {

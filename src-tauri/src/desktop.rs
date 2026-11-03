@@ -126,6 +126,19 @@ async fn cancel_run(
 ) -> Result<Snapshot, String> {
     work(app, move |engine| engine.cancel_run(repo_id, run_id)).await
 }
+/// Hides a repository from the panel lists or shows it again; the selection applies at once.
+#[tauri::command]
+async fn set_repo_hidden(
+    app: tauri::AppHandle,
+    account_id: String,
+    repo_id: String,
+    hidden: bool,
+) -> Result<Snapshot, String> {
+    work(app, move |engine| {
+        engine.set_repo_hidden(account_id, repo_id, hidden)
+    })
+    .await
+}
 #[tauri::command]
 async fn open_repository(app: tauri::AppHandle, repo_id: String) -> Result<Snapshot, String> {
     work(app, |engine| engine.open_repository(repo_id)).await
@@ -359,6 +372,7 @@ pub fn run() {
             release_uncertain_start,
             cancel_run,
             open_repository,
+            set_repo_hidden,
             crate::desktop_auth::connect_token,
             crate::desktop_auth::browser_auth_config,
             crate::desktop_auth::start_browser_auth,

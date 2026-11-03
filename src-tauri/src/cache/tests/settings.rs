@@ -1,4 +1,4 @@
-//! The app-wide settings row: notifications and the refresh interval.
+//! The app-wide settings row: notifications, the refresh interval and hidden repositories.
 use super::super::*;
 use super::{remove_db, temp_db};
 
@@ -49,4 +49,36 @@ fn the_refresh_interval_round_trips_and_an_older_row_keeps_the_default() {
         .write_settings_row(APP_SETTINGS_KEY, r#"{"refreshSeconds":1}"#)
         .unwrap();
     assert_eq!(cache.load_app_settings().unwrap().refresh_interval(), 15);
+}
+
+#[test]
+fn hidden_repositories_round_trip_and_an_older_row_hides_nothing() {
+    let cache = Cache::in_memory().unwrap();
+    // A row from before hidden repositories existed.
+    cache
+        .write_settings_row(
+            APP_SETTINGS_KEY,
+            r#"{"notifications":true,"refreshSeconds":300}"#,
+        )
+        .unwrap();
+    let older = cache.load_app_settings().unwrap();
+    assert!(older.hidden_repos.is_empty());
+    // An empty list is not written, so an older build reads the row unchanged.
+    assert!(!encode(&older).unwrap().contains("hidden"));
+    let hidden = AppSettings {
+        hidden_repos: vec![HiddenRepo {
+            account_id: "github-1".into(),
+            repo_id: "github-1:7".into(),
+            owner: "fixture-owner".into(),
+            name: "fixture-7".into(),
+        }],
+        ..older
+    };
+    cache.save_app_settings(&hidden).unwrap();
+    let loaded = cache.load_app_settings().unwrap();
+    assert_eq!(loaded, hidden);
+    assert!(loaded.notifications && loaded.refresh_interval() == 300);
+    assert!(encode(&loaded)
+        .unwrap()
+        .contains(r#""hiddenRepos":[{"accountId""#));
 }

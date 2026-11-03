@@ -7,9 +7,10 @@ use serde::Serialize;
 use std::collections::BTreeSet;
 
 /// Scopes a snapshot to one account and makes it safe to store. Pins and claims are left out
-/// (they have their own tables). GitHub-sourced strings that look like credentials are
-/// redacted instead of failing the write: a workflow input named `tokenizer_model` or a
-/// description starting with "Bearer " must not break refresh for every repository.
+/// (they have their own tables), hidden repositories too (the app settings hold them).
+/// GitHub-sourced strings that look like credentials are redacted instead of failing the
+/// write: a workflow input named `tokenizer_model` or a description starting with "Bearer "
+/// must not break refresh for every repository.
 pub(super) fn public_snapshot(
     account_id: &str,
     snapshot: &Snapshot,
@@ -29,6 +30,7 @@ pub(super) fn public_snapshot(
     scoped.runs.retain(|run| repo_ids.contains(&run.repo_id));
     scoped.pins.clear();
     scoped.uncertain_starts.clear();
+    scoped.hidden_repos.clear();
     for input in scoped
         .workflows
         .iter_mut()

@@ -157,6 +157,7 @@
         native={panel.native}
         demo={panel.demo}
         onNotice={(text, tone) => panel.showNotice(text, tone)}
+        onHide={(repo, hidden) => void panel.actions.setHidden(repo, hidden)}
       />{:else}<p class="section-empty">
         {searching
           ? 'Keine passenden Repositories.'

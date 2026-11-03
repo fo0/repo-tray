@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { COMMAND_NAMES } from './ipc';
+import { COMMAND_NAMES, type Commands } from './ipc';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
@@ -71,5 +71,22 @@ describe('IPC contract', () => {
         return RAW_CALL.test(source) || RAW_IMPORT.test(source);
       });
     expect(offenders).toEqual([]);
+  });
+
+  it('passes set_repo_hidden the arguments its Rust handler names', () => {
+    const source = read('src-tauri/src/desktop.rs');
+    const params = /async fn set_repo_hidden\(([^)]*)\)/.exec(source)?.[1];
+    const names = (params ?? '')
+      .split(',')
+      .map((param) => param.split(':')[0]!.trim())
+      .filter((name) => name && name !== 'app')
+      // Tauri reads camelCase keys for snake_case parameters.
+      .map((name) => name.replace(/_(\w)/g, (_, c: string) => c.toUpperCase()));
+    const args: Commands['set_repo_hidden']['args'] = {
+      accountId: 'a',
+      repoId: 'r',
+      hidden: true,
+    };
+    expect(names).toEqual(Object.keys(args));
   });
 });

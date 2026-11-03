@@ -1,15 +1,7 @@
-<script module lang="ts">
-  export const SETTINGS_TABS = [
-    { id: 'accounts', label: 'Konten' },
-    { id: 'app', label: 'App' },
-    { id: 'updates', label: 'Updates' },
-  ] as const;
-  export type SettingsTab = (typeof SETTINGS_TABS)[number]['id'];
-</script>
-
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import AccountsTab from './AccountsTab.svelte';
+  import HiddenReposSetting from './HiddenReposSetting.svelte';
   import Modal from './Modal.svelte';
   import RefreshSetting from './RefreshSetting.svelte';
   import StartupSettings from './StartupSettings.svelte';
@@ -18,9 +10,11 @@
   import { Autostart } from './autostart.svelte';
   import { bridge } from './bridge';
   import { errorMessage } from './format';
+  import { HiddenChoice } from './hiddenChoice.svelte';
   import { RefreshChoice } from './refresh.svelte';
+  import { SETTINGS_TABS, type SettingsTab } from './settingsTabs';
   import { appliedTheme, applyTheme, rememberTheme } from './theme';
-  import type { DemoScenario, Snapshot } from './types';
+  import type { DemoScenario, HiddenRepo, Snapshot } from './types';
   import type { Updater } from './updater.svelte';
 
   let {
@@ -41,6 +35,7 @@
     onScenario,
     onReset,
     onDisconnect,
+    onUnhide,
   }: {
     snapshot: Snapshot | null;
     native: boolean;
@@ -64,6 +59,7 @@
     onScenario: (value: DemoScenario) => Promise<unknown>;
     onReset: () => Promise<unknown>;
     onDisconnect: (id: string) => Promise<unknown>;
+    onUnhide: (entry: HiddenRepo) => Promise<unknown>;
   } = $props();
 
   // Simple settings are staged and applied together by „Speichern“; account
@@ -82,6 +78,7 @@
   let theme = $state(untrack(() => savedTheme));
   const autostart = new Autostart(untrack(() => native));
   const refresh = new RefreshChoice(bridge);
+  const hidden = new HiddenChoice();
   onDestroy(() => {
     alive = false;
     autostart.dispose();
@@ -102,6 +99,7 @@
     theme: theme !== savedTheme,
     autostart: autostart.pending !== null,
     refresh: refresh.pending,
+    hidden: hidden.pendingIn(snapshot?.hiddenRepos ?? []),
   });
   const dirty = $derived(Object.values(changed).some(Boolean));
   const saveBlocked = $derived(!dirty || saving || busy || refresh.invalid);
@@ -167,6 +165,8 @@
           );
       }
       if (pending.refresh) await refresh.apply();
+      if (pending.hidden)
+        await hidden.apply(snapshot?.hiddenRepos ?? [], onUnhide);
       if (pending.autostart) await autostart.apply();
       if (alive) onClose();
     } catch (cause) {
@@ -256,6 +256,7 @@
     {:else if tab === 'app'}
       <ThemeSetting bind:value={theme} />
       <RefreshSetting choice={refresh} />
+      <HiddenReposSetting {snapshot} choice={hidden} />
       <StartupSettings {native} {autostart} />
     {:else}
       <UpdatePanel

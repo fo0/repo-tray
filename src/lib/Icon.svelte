@@ -23,6 +23,13 @@
     height: number,
     rx = 2,
   ): Shape => ({ tag: 'rect', attributes: { x, y, width, height, rx } });
+  /** The outline of an open eye. */
+  const eyeLid: Shape = {
+    tag: 'path',
+    attributes: {
+      d: 'M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z',
+    },
+  };
 
   const glyphs = {
     heart: [
@@ -146,6 +153,9 @@
         },
       },
     ],
+    // Shows a hidden repository again; struck through, hides it.
+    eye: [eyeLid, ring(12, 12, 2.8)],
+    eyeOff: [eyeLid, ring(12, 12, 2.8), line(4, 4, 20, 20)],
     info: [ring(12, 12, 8.5), line(12, 11, 12, 16), line(12, 8, 12, 8.01)],
     userPlus: [
       ring(10, 8, 4),

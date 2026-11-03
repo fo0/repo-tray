@@ -1,4 +1,5 @@
 // Repository rows: activity, search reach and when each last ran.
+import { isHidden } from './hiddenRepos';
 import { fullRepo } from './model';
 import { isActive, recentRuns, repositoryStatus } from './runs';
 import type { Repo, Run, Snapshot, Workflow } from './types';
@@ -8,7 +9,8 @@ import type { Repo, Run, Snapshot, Workflow } from './types';
  * run, most recently active first (`lastActivity`), recomputed with every
  * snapshot. A search also reaches the account's other repositories by
  * `owner/name`, after every selected match and newest push first: they carry
- * no workflows or runs until opened (`loaded: false`).
+ * no workflows or runs until opened (`loaded: false`). A hidden repository
+ * shows only in a search (ADR-0008), marked `hidden`.
  */
 export function repositoryActivity(
   snapshot: Snapshot,
@@ -19,8 +21,9 @@ export function repositoryActivity(
   const ofAccount = snapshot.repos.filter(
     (repo) => !accountId || repo.accountId === accountId,
   );
+  const hidden = (repo: Repo) => isHidden(snapshot.hiddenRepos, repo);
   const loaded = ofAccount
-    .filter((repo) => repo.selected)
+    .filter((repo) => repo.selected && (!!needle || !hidden(repo)))
     .map((repo) => {
       const runs = snapshot.runs.filter((run) => run.repoId === repo.id);
       const latest = [...runs].sort(
@@ -38,6 +41,7 @@ export function repositoryActivity(
       );
       return {
         repo,
+        hidden: hidden(repo),
         loaded: true,
         runs,
         workflows,
@@ -72,6 +76,7 @@ export function repositoryActivity(
     )
     .map((repo) => ({
       repo,
+      hidden: hidden(repo),
       loaded: false,
       runs: [] as Run[],
       workflows: [] as Workflow[],

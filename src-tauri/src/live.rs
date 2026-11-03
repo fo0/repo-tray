@@ -5,7 +5,8 @@
 //! accounts), `refresh` (catalog, metadata and run orchestration), `schedule` (per-scope
 //! refresh timers), `catalog` (repository and ref listings), `last_run` (the latest run of
 //! workflows without known runs), `browse` (repositories opened from the panel search),
-//! `dispatch` (claimed, exactly-once workflow starts) and `cancel` (run cancellation).
+//! `dispatch` (claimed, exactly-once workflow starts), `cancel` (run cancellation) and
+//! `hidden` (repositories the user hid from the panel lists).
 use crate::{
     auth::NativeKeyring,
     cache::{AppSettings, Cache, CacheError},
@@ -25,6 +26,7 @@ mod cancel;
 mod catalog;
 mod connect;
 mod dispatch;
+mod hidden;
 mod last_run;
 mod refresh;
 mod schedule;
@@ -73,6 +75,7 @@ pub fn empty_snapshot() -> Snapshot {
         stale: false,
         message: Some("Verbinde dein GitHub-Konto in den Einstellungen.".into()),
         uncertain_starts: vec![],
+        hidden_repos: vec![],
     }
 }
 const CACHE_NOTICE: &str = "Lokaler Zwischenspeicher konnte nicht aktualisiert werden.";
@@ -128,6 +131,8 @@ pub struct LiveStore<T: Transport = HttpTransport> {
     clock: fn() -> u64,
     /// The user's refresh interval (`refresh_interval`), read once and kept in step on save.
     refresh_seconds: u64,
+    /// Repositories the user hid (`AppSettings::hidden_repos`), kept in step on save.
+    hidden: Vec<HiddenRepo>,
 }
 impl LiveStore<HttpTransport> {
     pub fn new(cache: Cache, keyring: Arc<dyn NativeKeyring>) -> Result<Self, String> {
@@ -164,12 +169,10 @@ impl<T: Transport> LiveStore<T> {
         let claims = cache
             .uncertain_starts()
             .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
-        // An unreadable preference keeps the default interval.
-        let refresh_seconds = cache
-            .load_app_settings()
-            .map_or(crate::refresh_interval::DEFAULT_SECONDS, |settings| {
-                settings.refresh_interval()
-            });
+        // An unreadable preference keeps the default interval and hides nothing.
+        let settings = cache.load_app_settings().unwrap_or_default();
+        let refresh_seconds = settings.refresh_interval();
+        let hidden = settings.hidden_repos;
         if !data.accounts.is_empty() {
             data.stale = true;
             data.connectivity = Connectivity::Offline;
@@ -189,6 +192,7 @@ impl<T: Transport> LiveStore<T> {
             claims,
             clock: now,
             refresh_seconds,
+            hidden,
         })
     }
     /// A denied repository's open runs are frozen at their last known state; they leave the
@@ -196,6 +200,7 @@ impl<T: Transport> LiveStore<T> {
     pub fn snapshot(&self) -> Snapshot {
         let mut snapshot = self.data.clone();
         snapshot.uncertain_starts = self.claims.clone();
+        snapshot.hidden_repos = self.hidden_of_accounts();
         let denied: BTreeSet<_> = snapshot
             .repos
             .iter()
