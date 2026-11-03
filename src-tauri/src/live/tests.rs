@@ -10,6 +10,8 @@ mod cancel;
 mod connect;
 /// The synthetic GitHub, vault and engine shared by the orchestration and connect tests.
 mod harness;
+/// Repositories the user hid: the freed place, restarts, favorites and disconnects.
+mod hidden;
 /// The latest run of workflows the run history does not show.
 mod last_run;
 mod local_identity;

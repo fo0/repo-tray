@@ -1,7 +1,7 @@
 //! Account-scoped SQLite storage for public preferences and cached metadata only.
 //! Credentials have no column, API, or serialization path in this module.
 
-use crate::models::{DispatchTarget, Pin, Snapshot, UncertainStart};
+use crate::models::{DispatchTarget, HiddenRepo, Pin, Snapshot, UncertainStart};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -66,6 +66,9 @@ pub struct AppSettings {
     /// Seconds between idle refreshes; absent means `refresh_interval::DEFAULT_SECONDS`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refresh_seconds: Option<u64>,
+    /// Repositories the user hid from the panel lists (ADR-0008); not written when empty.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hidden_repos: Vec<HiddenRepo>,
 }
 
 impl AppSettings {

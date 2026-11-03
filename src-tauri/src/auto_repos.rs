@@ -1,6 +1,7 @@
 //! The automatic repository selection: every account shows its most recently pushed
 //! repositories, plus each repository a favorite starts in, so favorites keep working.
-use crate::models::{Pin, Repo};
+//! A repository the user hid gives up its place among the newest (ADR-0008).
+use crate::models::{HiddenRepo, Pin, Repo};
 use chrono::{DateTime, FixedOffset};
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
@@ -13,10 +14,18 @@ pub fn push_time(value: Option<&str>) -> Option<DateTime<FixedOffset>> {
     value.and_then(|text| DateTime::parse_from_rfc3339(text).ok())
 }
 
+/// Whether the user hid this repository of its account.
+pub fn is_hidden(hidden: &[HiddenRepo], repo: &Repo) -> bool {
+    hidden
+        .iter()
+        .any(|entry| entry.matches(&repo.account_id, &repo.id))
+}
+
 /// Selects, per account, the `AUTO_REPOS` repositories with the newest push (a missing or
 /// unreadable push time last, ties by `owner/name`) and every repository of a favorite of
-/// that account. Every other repository is deselected.
-pub fn auto_select(repos: &mut [Repo], pins: &[Pin]) {
+/// that account. A hidden repository takes none of the newest places, so the next one moves
+/// up; a favorite still selects it. Every other repository is deselected.
+pub fn auto_select(repos: &mut [Repo], pins: &[Pin], hidden: &[HiddenRepo]) {
     let mut order: Vec<usize> = (0..repos.len()).collect();
     order.sort_by_cached_key(|&index| {
         let repo = &repos[index];
@@ -30,14 +39,18 @@ pub fn auto_select(repos: &mut [Repo], pins: &[Pin]) {
     let mut shown: BTreeMap<String, usize> = BTreeMap::new();
     for index in order {
         let repo = &mut repos[index];
+        let pinned = pins
+            .iter()
+            .any(|pin| pin.repo_id == repo.id && pin.account_id == repo.account_id);
+        if is_hidden(hidden, repo) {
+            repo.selected = pinned;
+            continue;
+        }
         let count = shown.entry(repo.account_id.clone()).or_default();
         let newest = *count < AUTO_REPOS;
         if newest {
             *count += 1;
         }
-        let pinned = pins
-            .iter()
-            .any(|pin| pin.repo_id == repo.id && pin.account_id == repo.account_id);
         repo.selected = newest || pinned;
     }
 }
@@ -95,7 +108,7 @@ mod tests {
         repos.push(repo("a", "offset", Some("2026-10-13T03:00:00+02:00")));
         // An earlier selection does not count.
         repos[0].selected = true;
-        auto_select(&mut repos, &[]);
+        auto_select(&mut repos, &[], &[]);
         let mut expected: Vec<_> = (3..12).map(|day| format!("a:r{day:02}")).collect();
         expected.push("a:offset".into());
         expected.sort();
@@ -111,7 +124,7 @@ mod tests {
             .map(|index| repo("a", &format!("Name-{index:02}"), same))
             .collect();
         repos.push(repo("b", "lonely", None));
-        auto_select(&mut repos, &[]);
+        auto_select(&mut repos, &[], &[]);
         let picked = selected(&repos);
         assert!(picked.contains(&"a:Name-00") && picked.contains(&"a:Name-09"));
         assert!(!picked.contains(&"a:Name-10") && !picked.contains(&"a:Name-11"));
@@ -129,10 +142,64 @@ mod tests {
         repos.push(repo("a", "old", Some("2020-01-01T00:00:00Z")));
         repos.push(repo("a", "other", None));
         // A favorite of another account never selects this account's repository.
-        auto_select(&mut repos, &[pin("a", "a:old"), pin("b", "a:other")]);
+        auto_select(&mut repos, &[pin("a", "a:old"), pin("b", "a:other")], &[]);
         assert_eq!(selected(&repos).len(), AUTO_REPOS + 1);
         assert!(selected(&repos).contains(&"a:old"));
         assert!(!selected(&repos).contains(&"a:other"));
+    }
+
+    fn hide(account: &str, name: &str) -> HiddenRepo {
+        HiddenRepo {
+            account_id: account.into(),
+            repo_id: format!("{account}:{name}"),
+            owner: "fixture-owner".into(),
+            name: name.into(),
+        }
+    }
+
+    #[test]
+    fn a_hidden_repository_gives_its_place_to_the_next_newest() {
+        let mut repos: Vec<_> = (0..AUTO_REPOS + 2)
+            .map(|day| {
+                let pushed = format!("2026-10-{:02}T08:00:00Z", day + 1);
+                repo("a", &format!("r{day:02}"), Some(&pushed))
+            })
+            .collect();
+        repos.push(repo("b", "r11", Some("2026-10-12T08:00:00Z")));
+        // The newest of account a is hidden; the same name of account b is not.
+        auto_select(&mut repos, &[], &[hide("a", "r11")]);
+        let picked = selected(&repos);
+        assert!(!picked.contains(&"a:r11"));
+        assert!(
+            picked.contains(&"a:r01"),
+            "the 11th newest moves up into the freed place"
+        );
+        assert!(!picked.contains(&"a:r00"));
+        assert!(picked.contains(&"b:r11"), "hiding is per account");
+        assert_eq!(picked.len(), AUTO_REPOS + 1);
+    }
+
+    #[test]
+    fn a_favorite_keeps_a_hidden_repository_polled_without_taking_a_place() {
+        let mut repos: Vec<_> = (0..AUTO_REPOS + 1)
+            .map(|day| {
+                let pushed = format!("2026-10-{:02}T08:00:00Z", day + 1);
+                repo("a", &format!("r{day:02}"), Some(&pushed))
+            })
+            .collect();
+        auto_select(
+            &mut repos,
+            &[pin("a", "a:r10")],
+            &[hide("a", "r10"), hide("a", "r09")],
+        );
+        let picked = selected(&repos);
+        assert!(picked.contains(&"a:r10"), "its favorite keeps working");
+        assert!(!picked.contains(&"a:r09"));
+        assert!(
+            picked.contains(&"a:r00"),
+            "both hidden places went to older ones"
+        );
+        assert_eq!(picked.len(), AUTO_REPOS);
     }
 
     #[test]

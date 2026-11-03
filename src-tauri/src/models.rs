@@ -168,6 +168,26 @@ pub struct Snapshot {
     /// Targets whose last start has an unknown outcome; each stays locked until released explicitly.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub uncertain_starts: Vec<UncertainStart>,
+    /// Repositories the user hid from the panel lists; omitted when none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hidden_repos: Vec<HiddenRepo>,
+}
+
+/// A repository the user hid from the panel lists, by account and repository. Owner and name
+/// keep it nameable in Settings after it left the account's catalog.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HiddenRepo {
+    pub account_id: String,
+    pub repo_id: String,
+    pub owner: String,
+    pub name: String,
+}
+
+impl HiddenRepo {
+    pub fn matches(&self, account_id: &str, repo_id: &str) -> bool {
+        self.account_id == account_id && self.repo_id == repo_id
+    }
 }
 
 /// The scope a dispatch claim locks: one workflow on one ref of one account's repository.

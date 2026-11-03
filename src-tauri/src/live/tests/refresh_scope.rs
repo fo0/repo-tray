@@ -42,7 +42,7 @@ fn failing_account_keeps_its_repositories_while_others_refresh() {
             truncated: false,
         },
     )]);
-    let merged = merge_catalog(&previous, &accounts, listings, &[]);
+    let merged = merge_catalog(&previous, &accounts, listings, &[], &[]);
     let ids: Vec<_> = merged.iter().map(|r| (r.id.as_str(), r.selected)).collect();
     // github-1 refreshed: 11 left, 12 is new, and both listed ones are selected.
     // github-2 failed: its last known repositories and their selection stay as they were.
@@ -76,11 +76,17 @@ fn truncated_listing_keeps_selected_repositories_beyond_the_cut() {
     };
     let ids = |repos: Vec<Repo>| repos.into_iter().map(|r| r.id).collect::<Vec<_>>();
     assert_eq!(
-        ids(merge_catalog(&previous, &accounts, listing(true), &[])),
+        ids(merge_catalog(&previous, &accounts, listing(true), &[], &[])),
         vec!["github-1:10", "github-1:99"]
     );
     assert_eq!(
-        ids(merge_catalog(&previous, &accounts, listing(false), &[])),
+        ids(merge_catalog(
+            &previous,
+            &accounts,
+            listing(false),
+            &[],
+            &[]
+        )),
         vec!["github-1:10"]
     );
 }
