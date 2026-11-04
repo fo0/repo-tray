@@ -7,6 +7,7 @@ import { UNDO_TIMEOUT } from './favorites.svelte';
 import { focusLost, hasDom, landing } from './focus';
 import { errorMessage } from './format';
 import { hiddenKey } from './hiddenRepos';
+import { m } from './i18n/index.svelte';
 import type { RequestEpoch } from './model';
 import type { Notices } from './notices.svelte';
 import { isActive } from './runs';
@@ -83,7 +84,7 @@ export class Actions {
       const value = await this.#bridge.cancelRun(run.repoId, run.id);
       if (!current()) return;
       this.#accept(ticket, value);
-      this.#host.showNotice(`Abbruch von #${run.id} angefordert.`);
+      this.#host.showNotice(m().actions.cancelRequested(run.id));
     } catch (cause) {
       if (!current()) return;
       this.#drop('cancelling', run.id);
@@ -128,14 +129,15 @@ export class Actions {
       );
       this.#accept(ticket, value);
       this.#forget(key);
-      if (!hidden) return this.#host.showNotice(`${repo.name} eingeblendet`);
+      if (!hidden)
+        return this.#host.showNotice(m().actions.repoShown(repo.name));
       this.#undo.add(key);
       this.#host.notices.show({
         key,
-        text: `${repo.name} ausgeblendet`,
+        text: m().actions.repoHidden(repo.name),
         tone: 'subtle',
         timeout: UNDO_TIMEOUT,
-        action: { label: 'Rückgängig', run: () => void this.#restore(repo) },
+        action: { label: m().common.undo, run: () => void this.#restore(repo) },
       });
       if (!hasDom()) return;
       await tick();

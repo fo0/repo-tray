@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { m } from './i18n/index.svelte';
 
   let {
     open,
@@ -28,15 +29,15 @@
 
 <details class="save-pin" {open}>
   <summary
-    ><Icon name="heart" size={14} />Als Favorit speichern<Icon
+    ><Icon name="heart" size={14} />{m().favorites.save.summary}<Icon
       name="down"
       size={13}
     /></summary
   >
   <div class="save-pin-body">
     <label class="field"
-      ><span>Name des Favoriten</span><input
-        aria-label="Name des Favoriten"
+      ><span>{m().favorites.save.name}</span><input
+        aria-label={m().favorites.save.name}
         bind:value={label}
         onkeydown={(event) => {
           if (event.key !== 'Enter') return;
@@ -47,30 +48,27 @@
         }}
         disabled={locked || saving}
         maxlength="80"
-        placeholder="z. B. Windows build"
+        placeholder={m().favorites.save.placeholder}
       /></label
     >
-    <p class="field-help">
-      Speichert Konto, Repository, Workflow, Branch oder Tag und nicht geheime
-      Eingaben lokal.
-    </p>
+    <p class="field-help">{m().favorites.save.help}</p>
     <button
       type="button"
       class="secondary-button compact"
       onclick={() => onSave(false)}
       disabled={!canSave}
       ><Icon name="heart" size={13} />{saving
-        ? 'Speichert …'
+        ? m().favorites.save.saving
         : editing
-          ? 'Favorit aktualisieren'
-          : 'Favorit speichern'}</button
+          ? m().favorites.save.update
+          : m().favorites.save.save}</button
     >
     {#if editing}<button
         type="button"
         class="text-button copy-template"
         onclick={() => onSave(true)}
         disabled={!canSave}
-        >Als neuen Favoriten speichern<Icon name="plus" size={13} /></button
+        >{m().favorites.save.saveAsNew}<Icon name="plus" size={13} /></button
       >{/if}
   </div>
 </details>

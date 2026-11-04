@@ -1,21 +1,18 @@
+import { m } from './i18n/index.svelte';
 import type { DispatchTarget, Snapshot } from './types';
 
-/** One user-facing reason per cause that keeps a start button disabled. */
-export const START_REASONS = {
-  manual: 'Kein manueller Start',
-  readOnly: 'Kein Schreibzugriff auf dieses Repository',
-  offline: 'Offline – Starts sind deaktiviert',
-  forbidden: 'Zugriff verweigert – Starts sind deaktiviert',
-  running: 'Start läuft …',
-  uncertain: 'Startstatus ungeklärt – prüfe die Runs auf GitHub',
-} as const;
+/**
+ * One user-facing reason per cause that keeps a start button disabled, in
+ * the language in effect; read at call time, never kept.
+ */
+export const startReasons = () => m().dispatch.reasons;
 
 /** Why no target can start right now; null while starts are possible. */
 export function blockedReason(snapshot: Snapshot | null): string | null {
   if (snapshot?.connectivity === 'online') return null;
   return snapshot?.connectivity === 'forbidden'
-    ? START_REASONS.forbidden
-    : START_REASONS.offline;
+    ? startReasons().forbidden
+    : startReasons().offline;
 }
 
 export interface StartCauses {
@@ -46,11 +43,12 @@ export function targetCauses(
 
 /** The one reason shown for a disabled start: the most basic cause first. */
 export function startReason(causes: StartCauses): string | null {
-  if (causes.manual) return START_REASONS.manual;
-  if (causes.readOnly) return START_REASONS.readOnly;
+  const reasons = startReasons();
+  if (causes.manual) return reasons.manual;
+  if (causes.readOnly) return reasons.readOnly;
   if (causes.blocked) return causes.blocked;
-  if (causes.running) return START_REASONS.running;
-  if (causes.uncertain) return START_REASONS.uncertain;
+  if (causes.running) return reasons.running;
+  if (causes.uncertain) return reasons.uncertain;
   return null;
 }
 
@@ -63,12 +61,13 @@ export function startReason(causes: StartCauses): string | null {
  */
 export const favoriteNames = (repo: string, label: string) => {
   const name = `${repo} · ${label}`;
+  const names = m().favorites.names;
   return {
-    open: `${name} starten…`,
-    start: `${name} jetzt starten`,
-    edit: `${name} bearbeiten`,
-    remove: `${name} aus Favoriten entfernen`,
-    uncertain: `Startstatus ungeklärt: ${name}`,
+    open: names.open(name),
+    start: names.start(name),
+    edit: names.edit(name),
+    remove: names.remove(name),
+    uncertain: names.uncertain(name),
   };
 };
 
@@ -112,7 +111,7 @@ export interface GateState extends StartCauses {
  */
 export function startGate(state: GateState, control: StartControl): StartGate {
   const running = !!state.running;
-  const openReason = running ? START_REASONS.running : null;
+  const openReason = running ? startReasons().running : null;
   const reason =
     control === 'favorite'
       ? startReason(state)

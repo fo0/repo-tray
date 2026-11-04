@@ -2,6 +2,7 @@
   import EmptyState, { type NextStep } from './EmptyState.svelte';
   import FavoriteTiles from './FavoriteTiles.svelte';
   import Icon from './Icon.svelte';
+  import { m } from './i18n/index.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
   import { lastRun } from './repoActivity';
@@ -54,15 +55,17 @@
 {:else if searching}<EmptyState
     icon="search"
     iconSize={25}
-    title="Keine passenden Favoriten"
-    text="Versuche einen anderen Suchbegriff."
-    action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
+    title={m().favorites.page.noMatch}
+    text={m().favorites.page.noMatchHint}
+    action={{
+      label: m().favorites.page.clearSearch,
+      icon: 'close',
+      run: onClearQuery,
+    }}
   />
 {:else}<div class="empty-pins">
     <Icon name="heart" size={18} /><span
-      >Deine häufigen Starts, einen Klick näher.<small
-        >Klicke in der Übersicht beim Workflow eines Repositorys auf das Herz,
-        um ihn hier zu speichern.</small
+      >{m().favorites.page.empty}<small>{m().favorites.page.emptyHint}</small
       ></span
     >
   </div>{/if}

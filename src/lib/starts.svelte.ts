@@ -1,9 +1,10 @@
 import type { Bridge } from './demo';
 import { errorMessage } from './format';
+import { m } from './i18n/index.svelte';
 import { targetKey, validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
 import {
-  START_REASONS,
+  startReasons,
   startGate,
   targetCauses,
   type StartControl,
@@ -189,7 +190,11 @@ export class Starts {
     if (!panel.snapshot || this.running.has(key)) return null;
     // A locked target is never sent again, whatever the caller checked.
     if (this.claims.has(key))
-      return this.#settle({ error: START_REASONS.uncertain }, payload, options);
+      return this.#settle(
+        { error: startReasons().uncertain },
+        payload,
+        options,
+      );
     const invalid = validateDispatch(panel.snapshot, payload);
     if (invalid) return this.#settle({ error: invalid }, payload, options);
     const seq = ++this.#seq;
@@ -283,7 +288,7 @@ export class Starts {
     const { state, message, runId } = result.outcome;
     const text =
       state === 'rejected'
-        ? `${name}: Start abgelehnt. ${message}`
+        ? m().dispatch.outcome.rejectedNotice(name, message)
         : `${name}: ${message}`;
     const tone =
       state === 'accepted'

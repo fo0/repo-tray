@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import InlineConfirm from './InlineConfirm.svelte';
   import { errorMessage } from './format';
+  import { m } from './i18n/index.svelte';
 
   let {
     releasing,
@@ -60,16 +61,16 @@
     type="button"
     class="text-button"
     bind:this={ask}
-    onclick={open}>Sperre aufheben…</button
+    onclick={open}>{m().dispatch.uncertain.release.ask}</button
   >{#if error}<p class="release-error" role="alert">
       {error}
     </p>{/if}{:else}<InlineConfirm
     id={`release-${uid}`}
     tone="caution"
-    title="Sperre aufheben?"
-    text="Hebe die Sperre nur auf, wenn du auf GitHub geprüft hast, dass dieser Start nicht läuft oder ein erneuter Start gewollt ist. RepoWatch startet dabei nichts."
-    confirmLabel="Ich habe die Runs auf GitHub geprüft – Sperre aufheben"
-    busyLabel="Sperre wird aufgehoben …"
+    title={m().dispatch.uncertain.release.title}
+    text={m().dispatch.uncertain.release.text}
+    confirmLabel={m().dispatch.uncertain.release.confirm}
+    busyLabel={m().dispatch.uncertain.release.busy}
     busy={releasing}
     onConfirm={() => void confirm()}
     onCancel={() => void close()}

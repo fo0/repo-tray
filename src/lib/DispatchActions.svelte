@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { m } from './i18n/index.svelte';
 
   let {
     demo,
@@ -25,8 +26,7 @@
 
 {#if starting}<p class="dialog-alert subtle" id="start-continues" role="status">
     <Icon name="refresh" size={14} /><span
-      >Der Start läuft weiter, auch wenn du den Dialog schließt. Das Ergebnis
-      erscheint dann im Panel.</span
+      >{m().dispatch.actions.continues}</span
     >
   </p>{/if}
 <div class="modal-actions">
@@ -35,7 +35,7 @@
     class="secondary-button"
     onclick={() => onClose()}
     aria-describedby={starting ? 'start-continues' : undefined}
-    >{finished || starting ? 'Schließen' : 'Abbrechen'}</button
+    >{finished || starting ? m().common.close : m().common.cancel}</button
   ><!-- Off via aria-disabled, not disabled: the running start keeps focus
        here instead of dropping it to <body> inside the dialog. --><button
     type="button"
@@ -45,10 +45,10 @@
     title={starting || !canStart ? (reason ?? undefined) : undefined}
     >{starting
       ? demo
-        ? 'Simuliert …'
-        : 'Startet …'
+        ? m().dispatch.actions.simulating
+        : m().dispatch.actions.starting
       : demo
-        ? 'Start simulieren'
-        : 'Workflow starten'}<Icon name="play" size={14} /></button
+        ? m().dispatch.actions.simulate
+        : m().dispatch.actions.start}<Icon name="play" size={14} /></button
   >
 </div>

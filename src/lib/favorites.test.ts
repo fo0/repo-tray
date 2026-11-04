@@ -3,7 +3,7 @@ import { createDemoBridge, type Bridge } from './demo';
 import { RESTART_COOLDOWN, samePin } from './favorites.svelte';
 import { Modals } from './modals.svelte';
 import { Panel } from './panel.svelte';
-import { START_REASONS } from './startReason';
+import { startReasons } from './startReason';
 import type { DispatchRequest, Pin, Snapshot } from './types';
 
 const flush = () => new Promise((done) => setTimeout(done, 0));
@@ -213,7 +213,7 @@ describe('Favorite start', () => {
       ],
     });
     expect(panel.starts.favoriteGate(pin)).toMatchObject({
-      reason: START_REASONS.uncertain,
+      reason: startReasons().uncertain,
       canStart: false,
       canOpen: true,
     });
@@ -236,7 +236,7 @@ describe('Favorite start', () => {
     });
     const pin = panel.snapshot!.pins[0]!;
     panel.favorites.launch(pin);
-    expect(panel.starts.favoriteGate(pin).reason).toBe(START_REASONS.running);
+    expect(panel.starts.favoriteGate(pin).reason).toBe(startReasons().running);
     panel.favorites.launch(pin);
     answer();
     await flush();

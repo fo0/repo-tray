@@ -3,6 +3,7 @@
   import UncertainStartHelp from './UncertainStartHelp.svelte';
   import { minuteClock } from './clock';
   import { lastRunMoment } from './format';
+  import { m } from './i18n/index.svelte';
   import type { LastRun } from './repoActivity';
   import { favoriteNames, type StartGate } from './startReason';
   import type { Pin } from './types';
@@ -81,7 +82,8 @@
             ><Icon name="spinner" size={11} class="pin-spinner" /><Icon
               name="activity"
               size={11}
-            /><span class="pin-running-word">läuft</span></span
+            /><span class="pin-running-word">{m().favorites.tiles.running}</span
+            ></span
           >{/if}</button
       >
       <span class="branch-chip"
@@ -93,7 +95,7 @@
             {demo}
           />{:else}<span
             class="pin-warning"
-            title="Startstatus ungeklärt"
+            title={m().dispatch.uncertain.title}
             role="img"
             aria-label={names.uncertain}><Icon name="warning" size={13} /></span
           >{/if}{/if}
@@ -102,14 +104,14 @@
         onclick={() => can.canOpen && onEdit(pin)}
         aria-disabled={can.canOpen ? undefined : 'true'}
         aria-label={names.edit}
-        title={can.openReason ?? 'Standardwerte bearbeiten'}
+        title={can.openReason ?? m().favorites.tiles.edit}
         ><Icon name="settings" size={14} /></button
       >
       <button
         class="icon-button small pin-heart"
         data-pin-remove
         aria-label={names.remove}
-        title="Favorit entfernen"
+        title={m().favorites.tiles.remove}
         disabled={!can.canRemove}
         onclick={() => onRemove(pin.id)}><Icon name="heart" size={14} /></button
       >
@@ -126,7 +128,8 @@
         }}
         aria-disabled={can.canStart ? undefined : 'true'}
         aria-label={names.start}
-        title={can.reason ?? 'Starten'}><Icon name="play" size={12} /></button
+        title={can.reason ?? m().favorites.tiles.start}
+        ><Icon name="play" size={12} /></button
       >
     </li>
   {/each}
