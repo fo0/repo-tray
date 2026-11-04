@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { m } from './i18n/index.svelte';
   import {
     formatRefresh,
     presetIndex,
     REFRESH_DEFAULT,
-    REFRESH_ERROR,
     REFRESH_MAX,
     REFRESH_MIN,
     REFRESH_PRESETS,
+    refreshError,
   } from './refresh';
   import type { RefreshChoice } from './refresh.svelte';
 
@@ -25,7 +26,7 @@
 
 <section class="refresh-setting" aria-labelledby="refresh-heading">
   <div class="refresh-head">
-    <h3 id="refresh-heading">Aktualisierung</h3>
+    <h3 id="refresh-heading">{m().settings.refresh.heading}</h3>
     <output for="refresh-slider refresh-custom">{formatRefresh(shown)}</output>
   </div>
   <div class="refresh-track">
@@ -38,7 +39,7 @@
       value={presetIndex(shown)}
       aria-labelledby="refresh-heading"
       aria-valuetext={formatRefresh(shown)}
-      title="Empfohlen: 1 min · laufende Runs alle 15 s"
+      title={m().settings.refresh.recommendedHint}
       oninput={(event) =>
         choice.stage(
           REFRESH_PRESETS[event.currentTarget.valueAsNumber] ?? REFRESH_DEFAULT,
@@ -47,12 +48,12 @@
     <span
       class="refresh-tick"
       style:--at={RECOMMENDED / LAST}
-      title="Empfohlen"
+      title={m().settings.refresh.recommended}
       aria-hidden="true"
     ></span>
   </div>
   <label class="refresh-custom">
-    <span>Eigener Wert</span>
+    <span>{m().settings.refresh.custom}</span>
     <input
       id="refresh-custom"
       type="number"
@@ -68,6 +69,6 @@
     <span aria-hidden="true">s</span>
   </label>
   {#if !valid}<p id="refresh-error" class="refresh-error">
-      {REFRESH_ERROR}
+      {refreshError()}
     </p>{/if}
 </section>

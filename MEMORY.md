@@ -33,6 +33,11 @@ Stable project knowledge. **Read at session start.**
 - **Date:** 2026-11-03
 - **Decision (owner, #30):** „Ausblenden“ in a repository row's „⋯“ menu hides it (8 s „Rückgängig“); Settings → App „Ausgeblendete Repositories“ shows it again, staged until „Speichern“. Stored natively in `AppSettings.hiddenRepos` (account + repository ID, owner, name), sent as `Snapshot.hiddenRepos`, changed by `set_repo_hidden`. A hidden repository takes none of the 10 newest places and leaves every list and run list; a favorite keeps it selected and polled, and the search still finds it. Disconnect drops an account's entries. Partly supersedes ADR-0003: [ADR-0008](docs/adr/0008-hidden-repositories.md).
 
+### The app speaks German or English
+
+- **Date:** 2026-11-04
+- **Decision (owner, #34):** Settings → App „Sprache“: System (default, `navigator.languages` → German for German, English otherwise), Deutsch, English; staged, stored in `localStorage` like the theme. Panel texts live in typed per-area catalogs (`src/lib/i18n/{de,en}/`, read via `m()` at render time — never in module-level constants); the panel reports the resolved language to Rust via `set_locale`, which picks native texts with `i18n::tr` / `trf!` and relabels the tray. Tests run German (Playwright `locale: 'de-DE'`). [ADR-0009](docs/adr/0009-app-language.md).
+
 ### Browser / GitHub App sign-in is paused
 
 - **Date:** 2026-10-31

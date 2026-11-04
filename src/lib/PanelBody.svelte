@@ -7,11 +7,12 @@
   import Overview from './Overview.svelte';
   import ReposPage from './ReposPage.svelte';
   import SectionPage from './SectionPage.svelte';
+  import { m } from './i18n/index.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
   import { repositoryActivity } from './repoActivity';
   import { historyRuns, visibleRuns } from './runs';
-  import { PAGE_TITLES, type PanelView } from './view.svelte';
+  import { pageTitle, type PanelView } from './view.svelte';
 
   let {
     panel,
@@ -71,20 +72,17 @@
   const setup = $derived.by((): NextStep | null => {
     const hasAccounts = !!snapshot?.accounts.length;
     if (!panel.needsAccount) return null;
+    const text = m().shell.setup;
     return hasAccounts
       ? {
-          title: 'Wähle ein aktives Konto',
-          text: panel.accountNotice || 'Im Kontomenü oben.',
-          action: { label: 'Konto wählen', icon: 'down', run: onNextStep },
+          title: text.pickTitle,
+          text: panel.accountNotice || text.pickText,
+          action: { label: text.pickAction, icon: 'down', run: onNextStep },
         }
       : {
-          title: 'Verbinde dein GitHub-Konto',
-          text: panel.accountNotice || 'Per Token oder gh-Anmeldung.',
-          action: {
-            label: 'GitHub-Konto verbinden',
-            icon: 'plus',
-            run: onNextStep,
-          },
+          title: text.connectTitle,
+          text: panel.accountNotice || text.connectText,
+          action: { label: text.connectAction, icon: 'plus', run: onNextStep },
         };
   });
 
@@ -100,7 +98,7 @@
 {#if view.page !== 'overview'}{#key view.page}
     <SectionPage
       page={view.page}
-      title={PAGE_TITLES[view.page]}
+      title={pageTitle(view.page)}
       count={view.page === 'runs'
         ? runs.length
         : view.page === 'favorites'
@@ -112,7 +110,8 @@
           class="add-button"
           onclick={() => modals.openDispatch()}
           disabled={!panel.repos.length}
-          ><Icon name="play" size={12} />Workflow starten …</button
+          ><Icon name="play" size={12} />{m().shell.overview
+            .startWorkflow}</button
         >{/if}
     </SectionPage>
   {/key}{/if}
@@ -123,15 +122,15 @@
       icon="tray"
       iconSize={26}
       title={!panel.error
-        ? 'Workflows werden geladen …'
+        ? m().shell.loading.title
         : panel.demo
-          ? 'Demo nicht geladen'
-          : 'Daten konnten nicht geladen werden'}
+          ? m().shell.loading.demoFailed
+          : m().shell.loading.failed}
       text={!panel.error
-        ? 'Dein Überblick ist gleich bereit.'
+        ? m().shell.loading.text
         : panel.demo
-          ? 'Starte die Anwendung neu, um den lokalen Demo-Stand zu laden.'
-          : 'Prüfe deine Verbindung und lade erneut (F5).'}
+          ? m().shell.loading.demoFailedText
+          : m().shell.loading.failedText}
     />
   {:else if view.page === 'overview'}
     <Overview

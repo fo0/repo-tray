@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setLocale } from './i18n/index.svelte';
 import type { DownloadProgress, UpdateInfo } from './types';
 import { Updater } from './updater.svelte';
 import { changelogSummary, releaseDate } from './updates';
@@ -68,6 +69,12 @@ describe('changelogSummary', () => {
     expect(releaseDate('not a date')).toBe('');
     expect(releaseDate(null)).toBe('');
   });
+
+  it('formats release dates in English when English is in effect', () => {
+    setLocale('en');
+    expect(releaseDate('2026-11-01T09:05:00Z')).toBe('11/01/2026');
+  });
+  afterEach(() => setLocale('de'));
 });
 
 const INFO: UpdateInfo = {

@@ -1,8 +1,10 @@
 //! HTTP policy and protocol contracts, with an injected transport and no live adapter.
 //! The desktop MVP cannot reach GitHub through this module by itself.
 
-use crate::auth::{MISSING_CREDENTIAL, VAULT_UNAVAILABLE};
+use crate::auth::{missing_credential, vault_unavailable};
+use crate::i18n::tr;
 use crate::models::Inputs;
+use crate::trf;
 use crate::workflow::{looks_like_credential, sensitive_key};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -30,7 +32,12 @@ impl ApiUrl {
     pub fn parse(value: &str) -> Result<Self, ApiError> {
         let path = value
             .strip_prefix("https://api.github.com/")
-            .ok_or(ApiError::Policy("Nur https://api.github.com ist erlaubt."))?;
+            .ok_or_else(|| {
+                ApiError::Policy(tr(
+                    "Nur https://api.github.com ist erlaubt.",
+                    "Only https://api.github.com is allowed.",
+                ))
+            })?;
         if value.len() > 2048
             || !value.is_ascii()
             || value.bytes().any(|byte| {
@@ -44,16 +51,20 @@ impl ApiUrl {
                 .split('/')
                 .any(|part| part == "." || part == ".." || part.is_empty())
         {
-            return Err(ApiError::Policy("GitHub-API-Adresse ungültig."));
+            return Err(ApiError::Policy(tr(
+                "GitHub-API-Adresse ungültig.",
+                "Invalid GitHub API address.",
+            )));
         }
         if let Some((_, query)) = path.split_once('?') {
             for pair in query.split('&') {
                 let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
                 // Percent-encoded query keys are unnecessary for our API paths and could hide secrets.
                 if name.contains('%') || sensitive_key(name) || looks_like_credential(value) {
-                    return Err(ApiError::Policy(
+                    return Err(ApiError::Policy(tr(
                         "Zugangsdaten sind in API-Adressen nicht erlaubt.",
-                    ));
+                        "Credentials are not allowed in API addresses.",
+                    )));
                 }
             }
         }
@@ -116,7 +127,10 @@ impl ApiRequest {
         validate_segment(owner)?;
         validate_segment(repo)?;
         if workflow_id == 0 || git_ref.trim().is_empty() || inputs.len() > 25 {
-            return Err(ApiError::Policy("Startdaten des Workflows ungültig."));
+            return Err(ApiError::Policy(tr(
+                "Startdaten des Workflows ungültig.",
+                "Invalid workflow start data.",
+            )));
         }
         let url = ApiUrl::parse(&format!(
             "{API_ORIGIN}/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"
@@ -124,7 +138,10 @@ impl ApiRequest {
         let body = serde_json::to_vec(&serde_json::json!({"ref": git_ref, "inputs": inputs}))
             .map_err(|_| ApiError::InvalidResponse)?;
         if body.len() > 64 * 1024 {
-            return Err(ApiError::Policy("Workflow-Eingaben sind zu groß."));
+            return Err(ApiError::Policy(tr(
+                "Workflow-Eingaben sind zu groß.",
+                "Workflow inputs are too large.",
+            )));
         }
         Self::new(account_id, Method::Post, url, Some(body))
     }
@@ -140,7 +157,7 @@ impl ApiRequest {
         validate_segment(owner)?;
         validate_segment(repo)?;
         if run_id == 0 {
-            return Err(ApiError::Policy("Run-ID ungültig."));
+            return Err(ApiError::Policy(tr("Run-ID ungültig.", "Invalid run ID.")));
         }
         let url = ApiUrl::parse(&format!(
             "{API_ORIGIN}/repos/{owner}/{repo}/actions/runs/{run_id}/cancel"
@@ -159,7 +176,10 @@ impl ApiRequest {
             || account_id.chars().any(char::is_control)
             || looks_like_credential(account_id)
         {
-            return Err(ApiError::Policy("Ein Konto ist erforderlich."));
+            return Err(ApiError::Policy(tr(
+                "Ein Konto ist erforderlich.",
+                "An account is required.",
+            )));
         }
         let mut headers = BTreeMap::from([
             ("Accept".into(), "application/vnd.github+json".into()),
@@ -260,22 +280,43 @@ impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Policy(message) => f.write_str(message),
-            Self::Transport(TransportError::NoCredential) => f.write_str(MISSING_CREDENTIAL),
-            Self::Transport(TransportError::VaultUnavailable) => write!(
-                f,
-                "{VAULT_UNAVAILABLE} Der Zugang kann nicht gelesen werden."
-            ),
-            Self::Transport(_) => f.write_str("GitHub nicht erreichbar – prüfe deine Verbindung."),
-            Self::Http(status) => write!(f, "GitHub-Fehler {status}."),
-            Self::RateLimited { retry_at } => write!(
-                f,
-                "GitHub-Limit erreicht – neuer Versuch um {}.",
-                local_time(*retry_at)
-            ),
-            Self::InvalidResponse => f.write_str("GitHub-Antwort ungültig."),
-            Self::CacheMiss => f.write_str("GitHub-Antwort passt nicht zum Zwischenspeicher."),
-            Self::QueueUnavailable => f.write_str("Anfragewarteschlange nicht verfügbar."),
-            Self::Truncated => f.write_str("GitHub-Liste unvollständig – zu viele Einträge."),
+            Self::Transport(TransportError::NoCredential) => f.write_str(missing_credential()),
+            Self::Transport(TransportError::VaultUnavailable) => {
+                let vault = vault_unavailable();
+                f.write_str(&trf!(
+                    "{vault} Der Zugang kann nicht gelesen werden.",
+                    "{vault} The access cannot be read."
+                ))
+            }
+            Self::Transport(_) => f.write_str(tr(
+                "GitHub nicht erreichbar – prüfe deine Verbindung.",
+                "GitHub unreachable – check your connection.",
+            )),
+            Self::Http(status) => {
+                f.write_str(&trf!("GitHub-Fehler {status}.", "GitHub error {status}."))
+            }
+            Self::RateLimited { retry_at } => {
+                let time = local_time(*retry_at);
+                f.write_str(&trf!(
+                    "GitHub-Limit erreicht – neuer Versuch um {time}.",
+                    "GitHub limit reached – retrying at {time}."
+                ))
+            }
+            Self::InvalidResponse => {
+                f.write_str(tr("GitHub-Antwort ungültig.", "Invalid GitHub response."))
+            }
+            Self::CacheMiss => f.write_str(tr(
+                "GitHub-Antwort passt nicht zum Zwischenspeicher.",
+                "GitHub response does not match the cache.",
+            )),
+            Self::QueueUnavailable => f.write_str(tr(
+                "Anfragewarteschlange nicht verfügbar.",
+                "Request queue unavailable.",
+            )),
+            Self::Truncated => f.write_str(tr(
+                "GitHub-Liste unvollständig – zu viele Einträge.",
+                "GitHub list incomplete – too many entries.",
+            )),
         }
     }
 }
@@ -304,7 +345,10 @@ fn validate_segment(value: &str) -> Result<(), ApiError> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
     {
-        return Err(ApiError::Policy("Owner oder Repository-Name ungültig."));
+        return Err(ApiError::Policy(tr(
+            "Owner oder Repository-Name ungültig.",
+            "Invalid owner or repository name.",
+        )));
     }
     Ok(())
 }

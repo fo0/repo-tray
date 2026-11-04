@@ -40,7 +40,7 @@ fn a_connected_account_survives_restart_when_its_full_snapshot_cannot_be_written
     assert!(snapshot
         .message
         .as_deref()
-        .is_some_and(|message| message.contains(CACHE_NOTICE)));
+        .is_some_and(|message| message.contains(cache_notice())));
     assert!(h.vault.holds("github-1"));
     assert_eq!(h.restart().snapshot().accounts, vec![account("github-1")]);
 }
@@ -53,7 +53,7 @@ fn a_connect_whose_account_row_cannot_be_written_stores_no_credential() {
         .live
         .connect_account(account("github-1"), commit("github-1"))
         .unwrap_err();
-    assert_eq!(error, ACCOUNT_SAVE_FAILED);
+    assert_eq!(error, account_save_failed());
     assert!(h.vault.held.lock().unwrap().is_empty());
     assert!(h.live.snapshot().accounts.is_empty());
     assert!(h.remote().requests.is_empty());

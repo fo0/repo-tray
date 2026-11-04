@@ -1,19 +1,6 @@
-<script module lang="ts">
-  import type { InputSpec } from './types';
-
-  /** German hint for each GitHub input type; raw type names never reach the UI. */
-  const TYPE_LABELS: Record<InputSpec['type'], string> = {
-    string: 'Text',
-    number: 'Zahl',
-    choice: 'Auswahl',
-    environment: 'Umgebung',
-    boolean: 'Ja/Nein',
-  };
-</script>
-
 <script lang="ts">
-  import { plural } from './format';
-  import type { InputValue, Workflow } from './types';
+  import { m } from './i18n/index.svelte';
+  import type { InputSpec, InputValue, Workflow } from './types';
 
   let {
     workflow,
@@ -27,6 +14,8 @@
     onChange: (name: string, value: InputValue) => void;
   } = $props();
   const inputs = $derived(workflow?.inputs ?? []);
+  /** Hint for each GitHub input type; raw type names never reach the UI. */
+  const types = $derived(m().dispatch.inputs.types);
 
   /** Text shown in a field; numbers keep their digits, unset values stay empty. */
   const text = (input: InputSpec) => String(values[input.name] ?? '');
@@ -36,15 +25,13 @@
 </script>
 
 {#if inputs.length}<div class="input-heading">
-    <span>EINGABEN</span><span
-      >{plural(inputs.length, 'Eingabe', 'Eingaben')}</span
+    <span>{m().dispatch.inputs.heading}</span><span
+      >{m().dispatch.inputs.count(inputs.length)}</span
     >
   </div>{/if}
 {#each inputs as input (input.name)}
   {#if input.type === 'boolean'}<label class="boolean-field"
-      ><span
-        ><strong>{input.label}</strong><small>{TYPE_LABELS.boolean}</small
-        ></span
+      ><span><strong>{input.label}</strong><small>{types.boolean}</small></span
       ><input
         type="checkbox"
         aria-label={input.label}
@@ -56,14 +43,15 @@
   {:else}<label class="field"
       ><span
         >{input.label}{#if input.required}<span class="required">*</span
-          >{/if}<small>{TYPE_LABELS[input.type]}</small></span
+          >{/if}<small>{types[input.type]}</small></span
       >{#if input.type === 'choice' || input.type === 'environment'}<select
           aria-label={input.label}
           aria-describedby={input.note ? `input-note-${input.name}` : undefined}
           value={text(input)}
           onchange={(event) => onChange(input.name, event.currentTarget.value)}
           {disabled}
-          >{#if !input.required}<option value="">Nicht gesetzt</option
+          >{#if !input.required}<option value=""
+              >{m().dispatch.inputs.unset}</option
             >{/if}{#each input.options as option, index (index)}<option
               value={option}>{option}</option
             >{/each}</select

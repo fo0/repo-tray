@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte';
   import Icon from './Icon.svelte';
+  import { m } from './i18n/index.svelte';
 
   let {
     id,
@@ -139,19 +140,13 @@
   onpointerenter={enter}
   onpointerleave={leave}
 >
-  <strong><Icon name="warning" size={14} />Startstatus ungeklärt</strong>
-  <p>
-    GitHub hat den Start nicht bestätigt. Der Workflow läuft eventuell bereits.
-    Ein erneuter Start für diesen Workflow und Branch bleibt gesperrt.
-  </p>
-  <p>
-    Wähle den Favoriten, dann „Status prüfen“ oder nach der Prüfung auf GitHub
-    „Sperre aufheben…“.
-  </p>
+  <strong
+    ><Icon name="warning" size={14} />{m().dispatch.uncertain.title}</strong
+  >
+  <p>{m().dispatch.uncertain.help.text}</p>
+  <p>{m().dispatch.uncertain.help.next}</p>
   <p class="tip-mode">
-    {demo
-      ? 'Die Beispielsperre hebst du im Startdialog oder mit „Demo zurücksetzen“ auf.'
-      : 'Die Startsperre bleibt auch nach einem Neustart erhalten, bis du sie aufhebst.'}
+    {demo ? m().dispatch.uncertain.help.demo : m().dispatch.uncertain.help.live}
   </p>
 </div>
 

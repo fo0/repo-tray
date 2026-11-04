@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  SHORTCUT_HINT,
   createShortcuts,
   isTypingTarget,
   sectionKey,
   shortcutFor,
+  shortcutHint,
   type ShortcutActions,
 } from './shortcuts';
 
@@ -66,15 +66,15 @@ describe('shortcutFor', () => {
   });
 });
 
-describe('sectionKey and SHORTCUT_HINT', () => {
+describe('sectionKey and shortcutHint', () => {
   it('name the same digit per section as the key map', () => {
     expect(sectionKey('repos')).toBe(1);
     expect(sectionKey('runs')).toBe(2);
     expect(sectionKey('favorites')).toBe(3);
-    expect(SHORTCUT_HINT).toContain(
+    expect(shortcutHint()).toContain(
       'Strg+1, 2, 3 – Repositories, Verlauf, Favoriten',
     );
-    expect(SHORTCUT_HINT).toContain('zurück zur Übersicht');
+    expect(shortcutHint()).toContain('zurück zur Übersicht');
   });
 });
 

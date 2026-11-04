@@ -90,10 +90,11 @@ impl DemoStore {
         let target = start.target();
         match self.uncertain_targets.get(&target) {
             Some(claimed_at) if start.claimed_at.as_ref() != Some(claimed_at) => {
-                return Err(
-                    "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut."
-                        .into(),
+                return Err(crate::i18n::tr(
+                    "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.",
+                    "This workflow has a newer start lock on this branch or tag. Check the runs again.",
                 )
+                .into())
             }
             Some(_) => {
                 self.uncertain_targets.remove(&target);
@@ -206,7 +207,7 @@ impl DemoStore {
             .contains_key(&DispatchTarget::from(&request))
         {
             DispatchOutcome::uncertain(
-                "The previous start for this target is unresolved. Release it after checking, or reset the demo.",
+                "The previous start for this target is uncertain. Unlock it after checking, or reset the demo.",
             )
         } else {
             match self.scenario {
@@ -220,7 +221,7 @@ impl DemoStore {
                     self.uncertain_targets
                         .insert(DispatchTarget::from(&request), Utc::now().to_rfc3339());
                     DispatchOutcome::uncertain(
-                        "Simulated connection loss after sending. The outcome is unknown; do not retry.",
+                        "Simulated connection loss after sending. The outcome is uncertain; do not retry.",
                     )
                 }
                 DemoScenario::Normal => self.create_run(&request),

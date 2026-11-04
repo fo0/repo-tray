@@ -2,6 +2,7 @@ import { tick } from 'svelte';
 import type { Bridge } from './demo';
 import { focusLost, hasDom, landing } from './focus';
 import { errorMessage } from './format';
+import { m } from './i18n/index.svelte';
 import { validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
 import { favoriteDraft, findFavorite, pinRequest } from './pins';
@@ -102,7 +103,7 @@ export class Favorites {
       () => this.#bridge.savePin(pin),
       () => {
         this.saved(pin);
-        panel.showNotice(`„${pin.label}“ als Favorit gespeichert.`);
+        panel.showNotice(m().favorites.notices.saved(pin.label));
       },
     );
   };
@@ -121,7 +122,7 @@ export class Favorites {
       () =>
         pin
           ? this.#offerUndo(pin)
-          : this.#panel.showNotice('Favorit entfernt.'),
+          : this.#panel.showNotice(m().favorites.notices.removed),
     );
     if (!owned || done === null) return;
     await tick();
@@ -194,10 +195,10 @@ export class Favorites {
     this.#removed.set(key, { pin, kept });
     panel.notices.show({
       key,
-      text: `Favorit „${pin.label}“ entfernt.`,
+      text: m().favorites.notices.removedNamed(pin.label),
       tone: 'subtle',
       timeout: UNDO_TIMEOUT,
-      action: { label: 'Rückgängig', run: () => void this.#undo(key) },
+      action: { label: m().common.undo, run: () => void this.#undo(key) },
     });
   }
 
@@ -212,13 +213,13 @@ export class Favorites {
       this.#readds(removed, item),
     );
     if (existing) {
-      panel.showNotice('Favorit ist bereits wieder gespeichert.');
+      panel.showNotice(m().favorites.notices.alreadySaved);
       return this.#focusCard(existing.id);
     }
     // The identical favorite: same id, label and inputs.
     const done = await this.#change(
       () => this.#bridge.savePin(pin),
-      () => panel.showNotice(`Favorit „${pin.label}“ wiederhergestellt.`),
+      () => panel.showNotice(m().favorites.notices.restored(pin.label)),
     );
     if (done !== null) await this.#focusCard(pin.id);
   }

@@ -167,6 +167,16 @@ fn untrusted_verification_url_and_token_shapes_fail_closed() {
     ));
 }
 #[test]
+fn network_error_is_recognised_whichever_language_produced_it() {
+    use crate::i18n::{with_locale, Locale};
+    let english = with_locale(Locale::En, || text::network().to_owned());
+    let german = with_locale(Locale::De, || text::network().to_owned());
+    assert_ne!(english, german);
+    with_locale(Locale::De, || assert!(is_network_error(&english)));
+    with_locale(Locale::En, || assert!(is_network_error(&german)));
+    assert!(!is_network_error(text::invalid()));
+}
+#[test]
 fn rotation_commits_both_tokens_and_preserves_foreign_credentials() {
     let vault = Vault::default();
     vault
@@ -189,7 +199,7 @@ fn rotation_commits_both_tokens_and_preserves_foreign_credentials() {
 #[test]
 fn lost_refresh_response_is_durable_and_never_retried_even_after_restart() {
     let vault = Vault::default();
-    let mut t = fake(vec![Err(NETWORK.into())]);
+    let mut t = fake(vec![Err(text::network().into())]);
     assert!(rotate(&vault, "github-device-42", &mut t, credential(), 30000).is_err());
     assert!(
         BrowserCredential::decode(&vault.read_token("github-device-42").unwrap().unwrap())

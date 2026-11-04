@@ -1,5 +1,6 @@
 //! Main-window lifecycle. Hiding never destroys the webview or cancels a form,
 //! dispatch or browser authentication operation.
+use repowatch_core::i18n::tr;
 use repowatch_core::popup::{DismissAction, Dismissal, Rect, TrayGesture};
 use std::{sync::Mutex, time::Duration};
 #[cfg(not(windows))]
@@ -51,9 +52,19 @@ fn anchor(app: &tauri::AppHandle) -> Option<Rect> {
 pub fn hide(app: &tauri::AppHandle) -> Result<(), String> {
     invalidate(app);
     app.get_webview_window("main")
-        .ok_or("Panel fehlt.")?
+        .ok_or(panel_missing())?
         .hide()
-        .map_err(|_| "Panel konnte nicht ausgeblendet werden.".into())
+        .map_err(|_| {
+            tr(
+                "Panel konnte nicht ausgeblendet werden.",
+                "Panel could not be hidden.",
+            )
+            .into()
+        })
+}
+
+fn panel_missing() -> &'static str {
+    tr("Panel fehlt.", "Panel is missing.")
 }
 
 fn position(window: &tauri::WebviewWindow, icon: Option<Rect>) -> tauri::Result<()> {
@@ -116,7 +127,7 @@ pub fn show(app: &tauri::AppHandle) -> Result<(), String> {
 
 fn show_at(app: &tauri::AppHandle, icon: Option<Rect>) -> Result<(), String> {
     invalidate(app);
-    let window = app.get_webview_window("main").ok_or("Panel fehlt.")?;
+    let window = app.get_webview_window("main").ok_or(panel_missing())?;
     // Position while hidden, before restoring focus. Every open re-queries the
     // icon and its monitor; a remembered desktop position is never authoritative.
     if window.is_minimized().unwrap_or(false) {

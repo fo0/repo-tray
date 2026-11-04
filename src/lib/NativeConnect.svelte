@@ -4,6 +4,7 @@
   import LocalAuth from './LocalAuth.svelte';
   import TokenPermissions from './TokenPermissions.svelte';
   import { ipcErrorMessage } from './format';
+  import { m } from './i18n/index.svelte';
   import { call } from './ipc';
   import type { Account, Snapshot } from './types';
 
@@ -63,10 +64,7 @@
       if (active && ticket === generation) onConnected(snapshot);
     } catch (cause) {
       if (active && ticket === generation)
-        error = ipcErrorMessage(
-          cause,
-          'Verbindung fehlgeschlagen. Token und Netzwerk prüfen.',
-        );
+        error = ipcErrorMessage(cause, m().accounts.connect.failed);
     } finally {
       if (active && ticket === generation) busy = false;
     }
@@ -81,16 +79,18 @@
 {#if step === 'choose'}
   <div class="modal-body connect-step">
     <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
-      Anmeldeart wählen
+      {m().accounts.connect.chooseMethod}
     </h3>
     <ConnectMethods bind:value={method} />
   </div>
   <div class="modal-actions">
     <button type="button" class="secondary-button" onclick={onClose}
-      >Abbrechen</button
+      >{m().common.cancel}</button
     >
     <button type="button" class="primary-button" onclick={() => (step = method)}
-      >{method === 'local' ? 'Lokale Anmeldung prüfen' : 'Weiter'}</button
+      >{method === 'local'
+        ? m().accounts.connect.checkLocal
+        : m().common.next}</button
     >
   </div>
 {:else if step === 'local'}
@@ -104,12 +104,12 @@
   <form onsubmit={connect}>
     <div class="modal-body connect-step">
       <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
-        Mit Token verbinden
+        {m().accounts.connect.token}
       </h3>
       <label class="field"
-        ><span>GitHub-Token</span><input
+        ><span>{m().accounts.connect.githubToken}</span><input
           type="password"
-          aria-label="GitHub-Token"
+          aria-label={m().accounts.connect.githubToken}
           aria-describedby="token-permissions"
           bind:this={input}
           autocomplete="off"
@@ -125,15 +125,17 @@
     </div>
     <div class="modal-actions">
       <button type="button" class="secondary-button" onclick={back}
-        >Zurück</button
+        >{m().common.back}</button
       >
       <!-- Off via aria-disabled: a running check keeps focus here. -->
       <button
         type="submit"
         class="primary-button"
         aria-disabled={busy || !hasToken ? 'true' : undefined}
-        title={busy || hasToken ? undefined : 'Token eingeben'}
-        >{busy ? 'Wird geprüft …' : 'Verbinden'}</button
+        title={busy || hasToken ? undefined : m().accounts.connect.enterToken}
+        >{busy
+          ? m().accounts.connect.checking
+          : m().accounts.connect.connect}</button
       >
     </div>
   </form>

@@ -1,4 +1,5 @@
 // The bridge contract: what the native shell and the browser demo both serve.
+import type { Locale } from './i18n/locale';
 import type {
   DemoScenario,
   DispatchOutcome,
@@ -29,8 +30,10 @@ export interface Bridge {
   ): Promise<Snapshot>;
   /** Seconds between idle refreshes. */
   refreshInterval(): Promise<number>;
-  /** Stores a validated interval (15–3600 s); rejects with a German message. */
+  /** Stores a validated interval (15–3600 s); rejects with a localized message. */
   setRefreshInterval(seconds: number): Promise<number>;
+  /** Tells the native side the language in effect for its own texts. */
+  setLocale(locale: Locale): Promise<void>;
 }
 /** Demo-only controls; the native shell registers no matching command. */
 export interface DemoControls {

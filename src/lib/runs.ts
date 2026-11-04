@@ -1,6 +1,7 @@
 // Run lists, status and duration for the activity and repository views.
 import type { IconName } from './Icon.svelte';
 import { isHidden } from './hiddenRepos';
+import { m } from './i18n/index.svelte';
 import { fullRepo } from './model';
 import type { Run, Snapshot } from './types';
 
@@ -34,14 +35,9 @@ export const runLabel = (run: Run, repo: string) =>
   `${repo} · ${run.name} #${run.id}`;
 
 export function statusLabel(run: Run): string {
-  if (run.status === 'in_progress') return 'Läuft';
-  if (run.status === 'queued') return 'In Warteschlange';
-  if (run.status === 'waiting') return 'Wartet';
-  return {
-    success: 'Erfolgreich',
-    failure: 'Fehlgeschlagen',
-    cancelled: 'Abgebrochen',
-  }[run.conclusion ?? 'cancelled'];
+  const status = m().runs.status;
+  if (run.status !== 'completed') return status[run.status];
+  return status[run.conclusion ?? 'cancelled'];
 }
 
 /**
@@ -85,7 +81,7 @@ export function repositoryStatus(
       tone: active.some((run) => run.status === 'in_progress')
         ? 'run'
         : runTone(active[0]!),
-      label: `${active.length} aktiv`,
+      label: m().runs.active(active.length),
     };
   const run = active[0] ?? latest;
   return run ? { tone: runTone(run), label: statusLabel(run) } : null;
@@ -114,14 +110,14 @@ export function recentRuns(
   return [...Array<null>(Math.max(0, n - recent.length)).fill(null), ...recent];
 }
 
-/** Spoken tone counts, singular and plural, in the order the summary names them. */
-const TONE_WORDS: [RunTone, one: string, many: string][] = [
-  ['ok', 'erfolgreich', 'erfolgreich'],
-  ['fail', 'fehlgeschlagen', 'fehlgeschlagen'],
-  ['cancel', 'abgebrochen', 'abgebrochen'],
-  ['run', 'läuft', 'laufen'],
-  ['wait', 'wartet', 'warten'],
-  ['queue', 'in Warteschlange', 'in Warteschlange'],
+/** The order in which the summary names the tones. */
+const TONE_ORDER: readonly RunTone[] = [
+  'ok',
+  'fail',
+  'cancel',
+  'run',
+  'wait',
+  'queue',
 ];
 
 /**
@@ -133,15 +129,20 @@ export function recentSummary(cells: readonly (Run | null)[]): string {
   const counts = new Map<RunTone, number>();
   for (const run of runs)
     counts.set(runTone(run), (counts.get(runTone(run)) ?? 0) + 1);
-  const words = TONE_WORDS.filter(([tone]) => counts.has(tone));
-  if (runs.length === 0) return 'Noch keine Runs';
-  if (runs.length === 1) return `Letzter Run: ${words[0]![1]}`;
-  return `Letzte ${runs.length} Runs: ${words
-    .map(([tone, one, many]) => {
-      const count = counts.get(tone)!;
-      return `${count} ${count === 1 ? one : many}`;
-    })
-    .join(', ')}`;
+  const text = m().runs.strip;
+  const tones = TONE_ORDER.filter((tone) => counts.has(tone));
+  if (runs.length === 0) return text.none;
+  if (runs.length === 1) return text.last(text.tones[tones[0]!][0]);
+  return text.lastN(
+    runs.length,
+    tones
+      .map((tone) => {
+        const count = counts.get(tone)!;
+        const [one, many] = text.tones[tone];
+        return `${count} ${count === 1 ? one : many}`;
+      })
+      .join(', '),
+  );
 }
 
 export function visibleRuns(
@@ -186,7 +187,7 @@ export function visibleRuns(
     );
 }
 
-/** Run time as `m:ss min` (German UI), e.g. `0:42 min` or `12:05 min`. */
+/** Run time as `m:ss min` (the same in every language), e.g. `0:42 min`. */
 export function duration(run: Run): string {
   const seconds = Math.max(
     0,

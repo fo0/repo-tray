@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoBridge, type Bridge } from './demo';
 import { Panel } from './panel.svelte';
-import { START_REASONS } from './startReason';
+import { startReasons } from './startReason';
 import type { DispatchRequest, Snapshot } from './types';
 
 function deferred<T>() {
@@ -198,10 +198,10 @@ describe('Starts local guard', () => {
     });
     push({ ...panel.snapshot!, uncertainStarts: [claim] });
     expect(await panel.starts.dispatch(request, { owner: () => true })).toEqual(
-      { error: START_REASONS.uncertain },
+      { error: startReasons().uncertain },
     );
     await panel.starts.dispatch(request, { label: 'Vorlage' });
-    expect(texts(panel)).toEqual([`Vorlage: ${START_REASONS.uncertain}`]);
+    expect(texts(panel)).toEqual([`Vorlage: ${startReasons().uncertain}`]);
     expect(dispatched).toBe(0);
   });
 });

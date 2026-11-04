@@ -1,11 +1,12 @@
 <script module lang="ts">
   import type { ActivityFilter, RunTone } from './runs';
 
-  const FILTERS: { id: ActivityFilter; label: string; tone?: RunTone }[] = [
-    { id: 'all', label: 'Alle' },
-    { id: 'active', label: 'Aktiv', tone: 'run' },
-    { id: 'failed', label: 'Fehlgeschlagen', tone: 'fail' },
-    { id: 'recent', label: 'Abgeschlossen' },
+  /** The filter chips; each label comes from the catalog by its id. */
+  const FILTERS: { id: ActivityFilter; tone?: RunTone }[] = [
+    { id: 'all' },
+    { id: 'active', tone: 'run' },
+    { id: 'failed', tone: 'fail' },
+    { id: 'recent' },
   ];
 </script>
 
@@ -15,7 +16,7 @@
   import RunRow from './RunRow.svelte';
   import { minuteClock } from './clock';
   import { focusLost, hasDom } from './focus';
-  import { plural } from './format';
+  import { m } from './i18n/index.svelte';
   import { HISTORY_LIMIT, isActive } from './runs';
   import type { NoticeTone } from './StatusBanners.svelte';
   import type { Run } from './types';
@@ -68,13 +69,14 @@
   /** Aktiv and Fehlgeschlagen name their size; the other chips do not. */
   const count = (id: ActivityFilter) =>
     id === 'active' ? activeRuns : id === 'failed' ? failedRuns : undefined;
+  const text = $derived(m().runs.activity);
   /** Open runs under „Jetzt“, the completed history under „Abgeschlossen“. */
   const groups = $derived(
     [
-      { id: 'now', title: 'Jetzt', runs: runs.filter(isActive) },
+      { id: 'now', title: text.now, runs: runs.filter(isActive) },
       {
         id: 'done',
-        title: 'Abgeschlossen',
+        title: text.done,
         runs: runs.filter((run) => !isActive(run)),
       },
     ].filter((group) => group.runs.length > 0),
@@ -106,18 +108,19 @@
   });
 </script>
 
-<div class="filters" role="group" aria-label="Aktivitätsfilter">
+<div class="filters" role="group" aria-label={text.filters}>
   {#each FILTERS as item (item.id)}
     {@const runCount = count(item.id)}
+    {@const label = text[item.id]}
     <button
       class:chosen={filter === item.id}
       aria-pressed={filter === item.id}
       aria-label={runCount === undefined
         ? undefined
-        : `${item.label}, ${plural(runCount, 'Run', 'Runs')}`}
+        : `${label}, ${m().common.count.runs(runCount)}`}
       onclick={() => onFilter(item.id)}
       >{#if item.tone}<span class="tone-dot" data-tone={item.tone}
-        ></span>{/if}{item.label}{#if runCount !== undefined}<b>{runCount}</b
+        ></span>{/if}{label}{#if runCount !== undefined}<b>{runCount}</b
         >{/if}</button
     >
   {/each}
@@ -127,7 +130,7 @@
     <h3 id={`runs-${group.id}`}>{group.title}</h3>
     <span class="section-count"
       ><span aria-hidden="true">{group.runs.length}</span><span class="sr-only"
-        >{plural(group.runs.length, 'Run', 'Runs')}</span
+        >{m().common.count.runs(group.runs.length)}</span
       ></span
     >
     {#if index === 0}<span class="section-actions"
@@ -135,17 +138,16 @@
           class="icon-button info-button"
           aria-expanded={showNote}
           aria-controls="history-note"
-          aria-label="Hinweis zum Verlauf"
-          title="Hinweis zum Verlauf"
+          aria-label={text.note}
+          title={text.note}
           onclick={() => (showNote = !showNote)}
           ><Icon name="info" size={15} /></button
         ></span
       >{/if}
   </div>
   {#if index === 0}<p class="history-note" id="history-note" hidden={!showNote}>
-      <span class="tone-dot" data-tone="run"></span>Offene Runs werden
-      automatisch aktualisiert.<br />Bis zu {HISTORY_LIMIT} abgeschlossene Runs bleiben
-      im Verlauf.
+      <span class="tone-dot" data-tone="run"></span>{text.noteLive}<br
+      />{text.noteLimit(HISTORY_LIMIT)}
     </p>{/if}
   <div class="run-list" role="group" aria-labelledby={`runs-${group.id}`}>
     {#each group.runs as run (`${run.repoId}:${run.id}`)}
@@ -169,11 +171,9 @@
   {:else}<EmptyState
       icon="activity"
       iconSize={25}
-      title={searching ? 'Keine passenden Runs' : 'Hier ist gerade Ruhe'}
-      text={searching
-        ? 'Versuche einen anderen Suchbegriff.'
-        : 'Für diesen Filter gibt es keine Runs.'}
+      title={searching ? text.noMatches : text.quiet}
+      text={searching ? m().common.tryOtherSearch : text.noneForFilter}
       action={searching
-        ? { label: 'Suche leeren', icon: 'close', run: onClearQuery }
+        ? { label: m().common.clearSearch, icon: 'close', run: onClearQuery }
         : undefined}
     />{/if}{/each}

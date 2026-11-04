@@ -1,4 +1,5 @@
 import { errorMessage } from './format';
+import { m } from './i18n/index.svelte';
 import { call } from './ipc';
 import type { StartupStatus } from './types';
 
@@ -7,16 +8,17 @@ export function startupNote(
   current: StartupStatus | null,
   reading: boolean,
 ): string {
-  if (!current) return reading ? 'Status wird gelesen …' : 'Status unbekannt.';
+  const text = m().settings.startup;
+  if (!current) return reading ? text.reading : text.unknown;
   switch (current.status) {
     case 'disabledByWindows':
-      return 'In Windows deaktiviert – unter Einstellungen → Apps → Autostart einschalten.';
+      return text.disabledByWindows;
     case 'unknownApproval':
-      return 'Windows-Freigabe unbekannt – unter Einstellungen → Apps → Autostart prüfen.';
+      return text.unknownApproval;
     case 'conflict':
-      return 'Ein anderer Eintrag nutzt diesen Autostart. Es wird nichts überschrieben.';
+      return text.conflict;
     case 'unsupported':
-      return 'Windows-Autostart ist nur unter Windows verfügbar.';
+      return text.unsupported;
     default:
       return '';
   }
@@ -91,8 +93,7 @@ export class Autostart {
     const result = await this.#write(enabled);
     if (result.status !== (enabled ? 'enabled' : 'disabled'))
       throw new Error(
-        startupNote(result, false) ||
-          'Windows-Autostart wurde nicht übernommen.',
+        startupNote(result, false) || m().settings.startup.notApplied,
       );
   };
 

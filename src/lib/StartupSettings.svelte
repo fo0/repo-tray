@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
   import { startupNote, type Autostart } from './autostart.svelte';
+  import { m } from './i18n/index.svelte';
 
   // The switch stages a choice; the dialog's „Speichern“ writes it.
   let { native, autostart }: { native: boolean; autostart: Autostart } =
@@ -22,11 +23,9 @@
   aria-labelledby="startup-heading"
   aria-busy={autostart.busy}
 >
-  <h3 id="startup-heading">Autostart</h3>
+  <h3 id="startup-heading">{m().settings.startup.heading}</h3>
   {#if !native}
-    <p class="field-help">
-      Die Browser-Demo ändert keine Windows-Einstellungen.
-    </p>
+    <p class="field-help">{m().settings.startup.demo}</p>
   {:else if status === 'unsupported'}
     <p class="field-help">{note}</p>
   {:else}
@@ -42,8 +41,8 @@
         }}
       />
       <span>
-        <strong>Mit Windows starten</strong>
-        <span>Startet nach der Anmeldung im Tray.</span>
+        <strong>{m().settings.startup.withWindows}</strong>
+        <span>{m().settings.startup.withWindowsHint}</span>
       </span>
     </label>
     {#if note}<p id="startup-status" class="startup-status" role="status">
@@ -55,19 +54,21 @@
           class="secondary-button"
           disabled={autostart.busy}
           onclick={autostart.read}
-          ><Icon name="refresh" size={14} />Status prüfen</button
+          ><Icon name="refresh" size={14} />{m().settings.startup
+            .checkStatus}</button
         >
         {#if vetoed}
           <button
             class="secondary-button"
             disabled={autostart.busy}
             onclick={autostart.openWindowsSettings}
-            >Windows-Autostart öffnen</button
+            >{m().settings.startup.openWindows}</button
           >
           {#if autostart.current?.registered}<button
               class="text-button"
               disabled={autostart.busy}
-              onclick={autostart.remove}>Autostarteintrag entfernen</button
+              onclick={autostart.remove}
+              >{m().settings.startup.removeEntry}</button
             >{/if}
         {/if}
       </div>

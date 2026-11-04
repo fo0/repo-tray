@@ -1,9 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import SectionHeader, {
-    SECTION_ICONS,
-    SECTION_UNITS,
-  } from './SectionHeader.svelte';
+  import SectionHeader, { SECTION_ICONS } from './SectionHeader.svelte';
   import type { SubPage } from './view.svelte';
 
   let {
@@ -33,7 +30,6 @@
     id="page-title"
     {title}
     {count}
-    unit={SECTION_UNITS[page]}
     icon={SECTION_ICONS[page]}
     onMinimize={onBack}>{@render children?.()}</SectionHeader
   >

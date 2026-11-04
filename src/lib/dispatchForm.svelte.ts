@@ -1,4 +1,5 @@
 import type { DispatchSeed } from './DispatchDialog.svelte';
+import { m } from './i18n/index.svelte';
 import { defaultInputs, validateDispatch } from './model';
 import type { Panel } from './panel.svelte';
 import type { DispatchRequest, DispatchTarget, InputValue, Pin } from './types';
@@ -41,7 +42,7 @@ export class DispatchForm {
   validation = $derived.by(() =>
     this.#panel.snapshot && this.repo && this.workflow
       ? validateDispatch(this.#panel.snapshot, this.request('validation'))
-      : 'Wähle Repository und Workflow.',
+      : m().dispatch.dialog.chooseTarget,
   );
 
   constructor(panel: Panel, seed: DispatchSeed, onRetarget: () => void) {

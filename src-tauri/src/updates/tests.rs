@@ -201,13 +201,13 @@ fn rejects_untrusted_tags_statuses_and_bodies() {
     for status in [301, 302, 304, 401, 500, 503] {
         assert_eq!(
             parse_latest_release(status, &release("v9.0.0", false, false), "0.1.0"),
-            Err(CHECK_FAILED.into())
+            Err(check_failed().into())
         );
     }
     for status in [403, 429] {
         assert_eq!(
             parse_latest_release(status, b"", "0.1.0"),
-            Err(RATE_LIMITED.into())
+            Err(rate_limited().into())
         );
     }
     let mut oversized = release("v9.0.0", false, false);

@@ -18,6 +18,9 @@ export default defineConfig({
     // The suite runs in the dark theme, the default design; tests/theme.spec.ts
     // covers the light one and the override.
     colorScheme: 'dark',
+    // „System“ language detection then shows German, the labels specs assert;
+    // tests/language.spec.ts covers English and the override.
+    locale: 'de-DE',
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
       : {},

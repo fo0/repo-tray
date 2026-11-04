@@ -1,5 +1,5 @@
 use super::harness::*;
-use crate::live::hidden::{HIDDEN_TOO_MANY, HIDDEN_UNKNOWN, MAX_HIDDEN_REPOS};
+use crate::live::hidden::{hidden_too_many, hidden_unknown, MAX_HIDDEN_REPOS};
 use crate::live::schedule::METADATA_SECONDS;
 use crate::live::*;
 
@@ -110,7 +110,7 @@ fn only_a_known_repository_of_a_connected_account_can_be_hidden() {
     ] {
         assert_eq!(
             h.live.set_repo_hidden(account.into(), repo.into(), true),
-            Err(HIDDEN_UNKNOWN.into())
+            Err(hidden_unknown().into())
         );
     }
     assert!(h.live.snapshot().hidden_repos.is_empty());
@@ -119,7 +119,7 @@ fn only_a_known_repository_of_a_connected_account_can_be_hidden() {
     assert_eq!(
         h.live
             .set_repo_hidden("github-1".into(), "github-1:1".into(), true),
-        Err(HIDDEN_TOO_MANY.into())
+        Err(hidden_too_many().into())
     );
 }
 

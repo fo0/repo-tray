@@ -1,6 +1,7 @@
 import fixture from '../../fixtures/demo.json';
 import { autoSelect } from './autoRepos';
 import { demoHidden } from './hiddenRepos';
+import { m } from './i18n/index.svelte';
 import { safePin, targetKey, validateDispatch } from './model';
 import { demoRefresh } from './refresh';
 import type { Bridge, DemoControls, PreferenceStorage } from './bridgeTypes';
@@ -110,9 +111,9 @@ export function createDemoBridge(
       ...(hidden.list.length ? { hiddenRepos: hidden.list } : {}),
       message:
         scenario === 'offline'
-          ? 'Offline: Letzter Demo-Stand bleibt sichtbar. Es wurde nichts gestartet.'
+          ? m().demo.offline
           : scenario === 'forbidden'
-            ? 'Zugriff verweigert: Demo simuliert fehlende Berechtigungen.'
+            ? m().demo.forbidden
             : undefined,
     });
   };
@@ -145,10 +146,7 @@ export function createDemoBridge(
       const key = targetKey(request);
       const signature = fingerprint(request);
       const claim = claims.get(request.requestId);
-      if (claim && claim !== signature)
-        return reject(
-          'Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet.',
-        );
+      if (claim && claim !== signature) return reject(m().demo.requestReused);
       const previous = outcomes.get(request.requestId);
       if (previous) return copy(previous);
       const validation = validateDispatch(data, request);
@@ -156,28 +154,19 @@ export function createDemoBridge(
       if (uncertain.has(key))
         return {
           state: 'uncertain',
-          message:
-            'Demo: Der letzte Start für diesen Workflow und Branch ist unbestätigt und wurde nicht erneut gesendet. Setze die Demo zurück, um erneut zu testen.',
+          message: m().demo.stillUncertain,
         };
-      if (pending.has(key))
-        return reject(
-          'Ein Start für diesen Workflow und Branch wird bereits verarbeitet.',
-        );
+      if (pending.has(key)) return reject(m().demo.pending);
       claims.set(request.requestId, signature);
       pending.add(key);
       const ticket = generation;
       try {
         await delay();
-        if (ticket !== generation)
-          return reject('Die Demo wurde zurückgesetzt.');
+        if (ticket !== generation) return reject(m().demo.wasReset);
         const changed = validateDispatch(data, request);
         if (changed) return reject(changed);
-        if (scenario === 'offline')
-          return reject('Offline: Kein simulierter Start möglich.');
-        if (scenario === 'forbidden')
-          return reject(
-            'Zugriff verweigert: Die Token-Berechtigung „Actions: Lesen und Schreiben“ fehlt.',
-          );
+        if (scenario === 'offline') return reject(m().demo.offlineStart);
+        if (scenario === 'forbidden') return reject(m().demo.forbiddenStart);
         if (scenario === 'uncertain') {
           const { accountId, repoId, workflowId, ref } = request;
           uncertain.set(key, {
@@ -189,8 +178,7 @@ export function createDemoBridge(
           });
           const outcome: DispatchOutcome = {
             state: 'uncertain',
-            message:
-              'Demo: Antwort unterbrochen. Der Start ist unbestätigt und läuft eventuell bereits. Ein erneuter Start für diesen Workflow und Branch bleibt gesperrt.',
+            message: m().demo.uncertain,
           };
           outcomes.set(request.requestId, outcome);
           return copy(outcome);
@@ -217,7 +205,7 @@ export function createDemoBridge(
         const outcome: DispatchOutcome = {
           state: 'accepted',
           runId,
-          message: `Simulierter Start angenommen · Demo-Run #${runId}. Dies ist keine Build-Erfolgsmeldung.`,
+          message: m().demo.accepted(runId),
         };
         outcomes.set(request.requestId, outcome);
         return copy(outcome);
@@ -229,17 +217,11 @@ export function createDemoBridge(
       await delay();
       const run = data.runs.find((r) => r.id === runId && r.repoId === repoId);
       const repo = data.repos.find((r) => r.id === repoId && r.selected);
-      if (!run || !repo) throw new Error('Run nicht gefunden.');
-      if (run.status === 'completed')
-        throw new Error('Run ist bereits beendet.');
-      if (repo.permission !== 'write')
-        throw new Error('Für dieses Repository fehlt der Schreibzugriff.');
-      if (scenario === 'offline')
-        throw new Error('Offline: Kein simulierter Abbruch möglich.');
-      if (scenario === 'forbidden')
-        throw new Error(
-          'Abbrechen nicht erlaubt – der Zugang braucht „Actions: Lesen und Schreiben“.',
-        );
+      if (!run || !repo) throw new Error(m().demo.runNotFound);
+      if (run.status === 'completed') throw new Error(m().demo.runFinished);
+      if (repo.permission !== 'write') throw new Error(m().demo.noWriteAccess);
+      if (scenario === 'offline') throw new Error(m().demo.offlineCancel);
+      if (scenario === 'forbidden') throw new Error(m().demo.forbiddenCancel);
       simulated.delete(run.id);
       run.status = 'completed';
       run.conclusion = 'cancelled';
@@ -250,7 +232,7 @@ export function createDemoBridge(
     async openRepository(repoId) {
       await delay();
       const repo = data.repos.find((r) => r.id === repoId);
-      if (!repo) throw new Error('Repository nicht gefunden.');
+      if (!repo) throw new Error(m().demo.repoNotFound);
       repo.selected = true;
       return snapshot();
     },
@@ -264,13 +246,13 @@ export function createDemoBridge(
       const key = targetKey(start);
       const current = uncertain.get(key);
       if (current && current.claimedAt !== start.claimedAt)
-        throw new Error(
-          'Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.',
-        );
+        throw new Error(m().demo.newerLock);
       uncertain.delete(key);
       return snapshot();
     },
     ...demoRefresh(storage),
+    // The demo has no native texts; the panel switches by itself.
+    setLocale: () => Promise.resolve(),
     async setDemoScenario(next) {
       scenario = next;
       return snapshot();

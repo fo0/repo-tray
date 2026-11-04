@@ -5,6 +5,8 @@ use crate::auth::{
 use serde::{Deserialize, Serialize};
 use std::{io::Read, sync::Mutex, time::Duration};
 
+mod text;
+
 // Temporarily paused until the publisher is ready to support GitHub App sign-in.
 // Existing stored browser credentials keep their normal lifecycle.
 pub const SIGN_IN_ENABLED: bool = false;
@@ -12,15 +14,10 @@ pub fn ensure_sign_in_enabled() -> Result<(), String> {
     if SIGN_IN_ENABLED {
         Ok(())
     } else {
-        Err("Die Browser-Anmeldung / GitHub App ist vorübergehend deaktiviert. Nutze gh CLI oder einen Token.".into())
+        Err(text::sign_in_disabled().into())
     }
 }
 pub const VERIFY_URL: &str = "https://github.com/login/device";
-const REAUTH: &str =
-    "Browser-Anmeldung abgelaufen oder nicht sicher erneuerbar. Melde dich erneut mit GitHub an.";
-const INVALID: &str = "GitHub hat eine ungültige Anmeldeantwort geliefert.";
-const NETWORK: &str =
-    "GitHub ist gerade nicht erreichbar. RepoWatch versucht es weiter, solange der Code gültig ist.";
 // Serialize entire read/refresh/replace/delete transactions across all native callers.
 static CREDENTIALS: Mutex<()> = Mutex::new(());
 
@@ -51,7 +48,7 @@ fn validate_publisher(id: &str, slug: &str) -> Result<(), String> {
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
     {
-        return Err("Browser-Anmeldung ist noch nicht eingerichtet. Die Herausgeber-App und ihre öffentliche Client-ID fehlen.".into());
+        return Err(text::not_configured().into());
     }
     Ok(())
 }
@@ -109,7 +106,7 @@ impl NativeOAuthTransport {
                 .redirect(reqwest::redirect::Policy::none())
                 .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
                 .build()
-                .map_err(|_| "Anmeldedienst nicht verfügbar.")?,
+                .map_err(|_| text::service_unavailable())?,
         })
     }
     fn response(response: reqwest::blocking::Response) -> Result<OAuthResponse, String> {
@@ -121,9 +118,9 @@ impl NativeOAuthTransport {
         response
             .take(32 * 1024 + 1)
             .read_to_end(&mut result.body)
-            .map_err(|_| NETWORK)?;
+            .map_err(|_| text::network())?;
         if result.body.len() > 32 * 1024 {
-            return Err(INVALID.into());
+            return Err(text::invalid().into());
         }
         Ok(result)
     }
@@ -141,7 +138,7 @@ impl OAuthTransport for NativeOAuthTransport {
             .header("Accept", "application/json")
             .form(form)
             .send()
-            .map_err(|_| NETWORK)?;
+            .map_err(|_| text::network())?;
         Self::response(response)
     }
     fn identity(&mut self, token: &SecretToken) -> Result<(u64, String), String> {
@@ -153,17 +150,17 @@ impl OAuthTransport for NativeOAuthTransport {
         let response = token
             .with_secret(|v| request.bearer_auth(v))
             .send()
-            .map_err(|_| NETWORK)?;
+            .map_err(|_| text::network())?;
         let response = Self::response(response)?;
         if response.status != 200 {
-            return Err("GitHub-Konto konnte nicht bestätigt werden. Prüfe Organisationsfreigabe und melde dich erneut an.".into());
+            return Err(text::account_unconfirmed().into());
         }
         #[derive(Deserialize)]
         struct User {
             id: u64,
             login: String,
         }
-        let user: User = serde_json::from_slice(&response.body).map_err(|_| INVALID)?;
+        let user: User = serde_json::from_slice(&response.body).map_err(|_| text::invalid())?;
         if user.id == 0
             || user.login.is_empty()
             || user.login.len() > 100
@@ -172,7 +169,7 @@ impl OAuthTransport for NativeOAuthTransport {
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         {
-            return Err(INVALID.into());
+            return Err(text::invalid().into());
         }
         Ok((user.id, user.login))
     }
@@ -211,9 +208,10 @@ fn valid_secret(s: &str) -> bool {
 }
 fn tokens(response: &OAuthResponse, now: u64) -> Result<BrowserTokens, String> {
     if response.status != 200 {
-        return Err(INVALID.into());
+        return Err(text::invalid().into());
     }
-    let mut wire: WireTokens = serde_json::from_slice(&response.body).map_err(|_| INVALID)?;
+    let mut wire: WireTokens =
+        serde_json::from_slice(&response.body).map_err(|_| text::invalid())?;
     if !valid_secret(&wire.access_token)
         || !valid_secret(&wire.refresh_token)
         || !wire.token_type.eq_ignore_ascii_case("bearer")
@@ -222,7 +220,7 @@ fn tokens(response: &OAuthResponse, now: u64) -> Result<BrowserTokens, String> {
         || wire.refresh_token_expires_in <= wire.expires_in
         || wire.refresh_token_expires_in > 366 * 86400
     {
-        return Err(INVALID.into());
+        return Err(text::invalid().into());
     }
     Ok(BrowserTokens {
         access: SecretToken::new(std::mem::take(&mut wire.access_token)),
@@ -248,14 +246,13 @@ pub fn begin(
         interval: u64,
     }
     if response.status != 200 {
-        return Err("GitHub-Anmeldung konnte nicht gestartet werden. Prüfe Herausgeberkonfiguration und Netzwerk.".into());
+        return Err(text::start_failed().into());
     }
-    let wire: Wire = serde_json::from_slice(&response.body).map_err(|_| {
-        "GitHub-App nicht für Gerätecodes eingerichtet oder Anmeldeantwort ungültig."
-    })?;
+    let wire: Wire =
+        serde_json::from_slice(&response.body).map_err(|_| text::device_codes_unsupported())?;
     let device_code = SecretToken::new(wire.device_code);
     if !device_code.with_secret(valid_secret) || wire.verification_uri != VERIFY_URL {
-        return Err(INVALID.into());
+        return Err(text::invalid().into());
     }
     Ok(DeviceAuthorization {
         device_code,
@@ -286,13 +283,13 @@ pub fn poll(
         )
     })?;
     if response.status >= 500 || response.status == 429 {
-        return Err(NETWORK.into());
+        return Err(text::network().into());
     }
     #[derive(Deserialize)]
     struct ErrorBody {
         error: Option<String>,
     }
-    let error: ErrorBody = serde_json::from_slice(&response.body).map_err(|_| INVALID)?;
+    let error: ErrorBody = serde_json::from_slice(&response.body).map_err(|_| text::invalid())?;
     if let Some(error) = error.error {
         let status = match error.as_str() {
             "authorization_pending" => DevicePollResult::AuthorizationPending,
@@ -300,11 +297,9 @@ pub fn poll(
             "access_denied" => DevicePollResult::AccessDenied,
             "expired_token" | "token_expired" => DevicePollResult::ExpiredToken,
             "device_flow_disabled" | "incorrect_client_credentials" => {
-                return Err(
-                    "Die Herausgeber-App ist nicht für diese Anmeldung eingerichtet.".into(),
-                )
+                return Err(text::app_not_set_up().into())
             }
-            _ => return Err("GitHub hat die Anmeldung beendet. Starte sie neu.".into()),
+            _ => return Err(text::ended().into()),
         };
         return Ok(PollOutcome::Status(status));
     }
@@ -342,7 +337,7 @@ impl BrowserCredential {
                     rotation_pending: self.rotation_pending,
                 })
                 .map(SecretToken::new)
-                .map_err(|_| INVALID.into())
+                .map_err(|_| text::invalid().into())
             })
         })
     }
@@ -365,9 +360,9 @@ impl BrowserCredential {
         }
         let mut r: Record = secret
             .with_secret(|s| serde_json::from_str(s))
-            .map_err(|_| REAUTH)?;
+            .map_err(|_| text::reauth())?;
         if !valid_secret(&r.access_token) || !valid_secret(&r.refresh_token) || r.user_id == 0 {
-            return Err(REAUTH.into());
+            return Err(text::reauth().into());
         }
         Ok(Self {
             tokens: BrowserTokens {
@@ -388,7 +383,7 @@ pub fn access_token(
     transport: &mut impl OAuthTransport,
     now: u64,
 ) -> Result<SecretToken, CredentialError> {
-    let _guard = CREDENTIALS.lock().map_err(|_| REAUTH)?;
+    let _guard = CREDENTIALS.lock().map_err(|_| text::reauth())?;
     let stored = keyring
         .read_token(account)
         .map_err(|_| CredentialError::VaultUnavailable)?
@@ -398,17 +393,17 @@ pub fn access_token(
     }
     let credential = BrowserCredential::decode(&stored)?;
     if account_id(credential.user_id) != account || credential.rotation_pending {
-        return Err(REAUTH.into());
+        return Err(text::reauth().into());
     }
     if now.saturating_add(60) < credential.tokens.expires_at {
         return Ok(credential.tokens.access);
     }
     if now.saturating_add(60) >= credential.tokens.refresh_expires_at {
-        return Err(REAUTH.into());
+        return Err(text::reauth().into());
     }
     let (id, _) = publisher()?;
     if credential.client_id != id {
-        return Err(REAUTH.into());
+        return Err(text::reauth().into());
     }
     Ok(rotate(keyring, account, transport, credential, now)?)
 }
@@ -421,34 +416,34 @@ pub fn commit_credential(
     credential: &SecretToken,
     still_current: impl Fn() -> bool,
 ) -> Result<(), String> {
-    let _guard = CREDENTIALS.lock().map_err(|_| REAUTH)?;
+    let _guard = CREDENTIALS.lock().map_err(|_| text::reauth())?;
     if !still_current() {
-        return Err("Anmeldung wurde abgebrochen.".into());
+        return Err(text::cancelled().into());
     }
     let previous = keyring
         .read_token(account)
-        .map_err(|_| "Betriebssystem-Tresor nicht verfügbar.")?;
+        .map_err(|_| text::vault_unavailable())?;
     keyring
         .write_token(account, credential)
-        .map_err(|_| "Betriebssystem-Tresor nicht verfügbar. Anmeldung wurde nicht gespeichert.")?;
+        .map_err(|_| text::not_saved())?;
     if !still_current() {
         let rollback = if let Some(previous) = previous {
             keyring.write_token(account, &previous)
         } else {
             keyring.delete_token(account)
         };
-        rollback.map_err(|_| "Anmeldung abgebrochen; der vorherige Tresoreintrag konnte nicht wiederhergestellt werden. Verbinde das Konto erneut oder trenne es.")?;
-        return Err("Anmeldung wurde abgebrochen.".into());
+        rollback.map_err(|_| text::rollback_failed())?;
+        return Err(text::cancelled().into());
     }
     Ok(())
 }
 /// A refresh already in progress finishes before deletion; it can never recreate
 /// a credential after this operation completes. New sign-ins use the same lock.
 pub fn disconnect_credential(keyring: &dyn NativeKeyring, account: &str) -> Result<(), String> {
-    let _guard = CREDENTIALS.lock().map_err(|_| REAUTH)?;
+    let _guard = CREDENTIALS.lock().map_err(|_| text::reauth())?;
     keyring
         .delete_token(account)
-        .map_err(|_| "Token konnte nicht aus dem Betriebssystem-Tresor entfernt werden.".into())
+        .map_err(|_| text::delete_failed().into())
 }
 fn rotate(
     keyring: &dyn NativeKeyring,
@@ -461,7 +456,7 @@ fn rotate(
     credential.rotation_pending = true;
     keyring
         .write_token(account, &credential.encode()?)
-        .map_err(|_| REAUTH)?;
+        .map_err(|_| text::reauth())?;
     let response = credential
         .tokens
         .refresh
@@ -475,24 +470,25 @@ fn rotate(
                 ],
             )
         })
-        .map_err(|_| REAUTH)?;
-    let replacement = tokens(&response, now).map_err(|_| REAUTH)?;
+        .map_err(|_| text::reauth())?;
+    let replacement = tokens(&response, now).map_err(|_| text::reauth())?;
     let (id, _) = transport
         .identity(&replacement.access)
-        .map_err(|_| REAUTH)?;
+        .map_err(|_| text::reauth())?;
     if id != credential.user_id {
-        return Err(REAUTH.into());
+        return Err(text::reauth().into());
     }
     credential.tokens = replacement;
     credential.rotation_pending = false;
     keyring
         .write_token(account, &credential.encode()?)
-        .map_err(|_| REAUTH)?;
+        .map_err(|_| text::reauth())?;
     Ok(credential.tokens.access)
 }
 
+/// Whether a poll error is the transient "GitHub unreachable" one, in either language.
 pub fn is_network_error(message: &str) -> bool {
-    message == NETWORK
+    text::is_network(message)
 }
 
 #[cfg(test)]

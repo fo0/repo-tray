@@ -4,6 +4,7 @@ use crate::{
     auto_repos::{auto_select, push_time},
     browser_auth,
     github::{ApiClient, Transport},
+    i18n::tr,
     models::*,
     run_history::{Cause, ScopeError},
 };
@@ -50,11 +51,12 @@ fn list_sorted<T: Transport>(
     let pages = client.get_pages_limited(account, url(path, &query)?, now, max_pages)?;
     let mut all = vec![];
     for body in &pages.bodies {
-        let page: Value = serde_json::from_slice(body).map_err(|_| "GitHub-Antwort ungültig.")?;
+        let page: Value = serde_json::from_slice(body)
+            .map_err(|_| tr("GitHub-Antwort ungültig.", "Invalid GitHub response."))?;
         all.extend(
             key.map_or(&page, |k| &page[k])
                 .as_array()
-                .ok_or("GitHub-Liste ungültig.")?
+                .ok_or(tr("GitHub-Liste ungültig.", "Invalid GitHub list."))?
                 .iter()
                 .cloned(),
         );

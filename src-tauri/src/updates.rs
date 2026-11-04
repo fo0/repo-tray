@@ -3,6 +3,7 @@
 //! Builds with a compiled-in updater public key install Tauri-signed packages; the standard
 //! unsigned builds install the release's NSIS EXE after checking its exact name, URL, size
 //! and the SHA-256 digest GitHub publishes for the asset (`installer`).
+use crate::i18n::tr;
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use std::{io::Read, time::Duration};
@@ -16,18 +17,42 @@ pub use installer::Installer;
 pub const ENDPOINT: &str = "https://github.com/fo0/repo-watch/releases/latest/download/latest.json";
 /// Shown when the signed feed above yields no manifest. The updater plugin reports every
 /// non-success status (404, 403, 429, 5xx) as `ReleaseNotFound`, so the text stays neutral.
-pub const NO_SIGNED_FEED: &str =
-    "Kein Update-Feed für signierte Updates erreichbar oder veröffentlicht.";
+pub fn no_signed_feed() -> &'static str {
+    tr(
+        "Kein Update-Feed für signierte Updates erreichbar oder veröffentlicht.",
+        "No update feed for signed updates is reachable or published.",
+    )
+}
 /// Public release metadata, read without a token.
 pub const LATEST_RELEASE_API: &str = "https://api.github.com/repos/fo0/repo-watch/releases/latest";
 const MAX_RELEASE_BYTES: usize = 1024 * 1024;
 const MAX_NOTES_CHARS: usize = 4000;
 const MAX_VERSION_CHARS: usize = 48;
 /// Shown for a failed check, here and by the desktop shell.
-pub const CHECK_FAILED: &str = "Update-Prüfung fehlgeschlagen – Verbindung prüfen.";
-const RATE_LIMITED: &str = "GitHub begrenzt gerade die Update-Prüfung. Versuche es später erneut.";
-const INVALID_RELEASE: &str = "Die Angaben zur neuesten Version konnten nicht gelesen werden.";
-const NO_INSTALLER: &str = "Für diese Version fehlt ein prüfbarer Windows-Installer.";
+pub fn check_failed() -> &'static str {
+    tr(
+        "Update-Prüfung fehlgeschlagen – Verbindung prüfen.",
+        "Update check failed – check the connection.",
+    )
+}
+fn rate_limited() -> &'static str {
+    tr(
+        "GitHub begrenzt gerade die Update-Prüfung. Versuche es später erneut.",
+        "GitHub is limiting the update check right now. Try again later.",
+    )
+}
+fn invalid_release() -> &'static str {
+    tr(
+        "Die Angaben zur neuesten Version konnten nicht gelesen werden.",
+        "The details of the latest version could not be read.",
+    )
+}
+fn no_installer() -> &'static str {
+    tr(
+        "Für diese Version fehlt ein prüfbarer Windows-Installer.",
+        "This version lacks a verifiable Windows installer.",
+    )
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -56,7 +81,8 @@ fn stable_version(value: &str) -> Option<semver::Version> {
 }
 
 fn newer_than(version: &semver::Version, current: &str) -> Result<bool, String> {
-    let current = semver::Version::parse(current).map_err(|_| "App-Version ungültig.")?;
+    let current = semver::Version::parse(current)
+        .map_err(|_| tr("App-Version ungültig.", "Invalid app version."))?;
     Ok(*version > current)
 }
 
@@ -67,11 +93,20 @@ pub fn validate_download_url(url: &str, version: &str) -> bool {
 
 pub fn validate_update(url: &str, version: &str, current: &str) -> Result<(), String> {
     if !validate_download_url(url, version) {
-        return Err("Das Update gehört nicht zu einem stabilen RepoWatch-Release.".into());
+        return Err(tr(
+            "Das Update gehört nicht zu einem stabilen RepoWatch-Release.",
+            "The update does not belong to a stable RepoWatch release.",
+        )
+        .into());
     }
-    let version = semver::Version::parse(version).map_err(|_| "Update-Version ungültig.")?;
+    let version = semver::Version::parse(version)
+        .map_err(|_| tr("Update-Version ungültig.", "Invalid update version."))?;
     if !newer_than(&version, current)? {
-        return Err("Das Update ist nicht neuer als die installierte Version.".into());
+        return Err(tr(
+            "Das Update ist nicht neuer als die installierte Version.",
+            "The update is not newer than the installed version.",
+        )
+        .into());
     }
     Ok(())
 }
@@ -108,11 +143,11 @@ pub fn parse_latest_release(
         200 => {}
         // GitHub answers 404 while no published, non-prerelease release exists.
         404 => return Ok(None),
-        403 | 429 => return Err(RATE_LIMITED.into()),
-        _ => return Err(CHECK_FAILED.into()),
+        403 | 429 => return Err(rate_limited().into()),
+        _ => return Err(check_failed().into()),
     }
     if body.len() > MAX_RELEASE_BYTES {
-        return Err(INVALID_RELEASE.into());
+        return Err(invalid_release().into());
     }
     #[derive(Deserialize)]
     struct Latest {
@@ -134,7 +169,7 @@ pub fn parse_latest_release(
         #[serde(default)]
         digest: Option<String>,
     }
-    let release: Latest = serde_json::from_slice(body).map_err(|_| INVALID_RELEASE)?;
+    let release: Latest = serde_json::from_slice(body).map_err(|_| invalid_release())?;
     if release.draft || release.prerelease {
         return Ok(None);
     }
@@ -142,7 +177,7 @@ pub fn parse_latest_release(
         .tag_name
         .strip_prefix('v')
         .and_then(stable_version)
-        .ok_or(INVALID_RELEASE)?;
+        .ok_or(invalid_release())?;
     if !newer_than(&version, current)? {
         return Ok(None);
     }
@@ -152,14 +187,14 @@ pub fn parse_latest_release(
         .assets
         .iter()
         .find(|asset| asset.name == name)
-        .ok_or(NO_INSTALLER)?;
+        .ok_or(no_installer())?;
     let installer = Installer::new(
         &version,
         &asset.browser_download_url,
         asset.size,
         asset.digest.as_deref().unwrap_or_default(),
     )
-    .ok_or(NO_INSTALLER)?;
+    .ok_or(no_installer())?;
     Ok(Some(Release {
         info: UpdateInfo {
             version,
@@ -179,19 +214,19 @@ pub fn fetch_latest_release(current: &str) -> Result<Option<Release>, String> {
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|_| CHECK_FAILED)?;
+        .map_err(|_| check_failed())?;
     let response = client
         .get(LATEST_RELEASE_API)
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", crate::github::API_VERSION)
         .send()
-        .map_err(|_| CHECK_FAILED)?;
+        .map_err(|_| check_failed())?;
     let status = response.status().as_u16();
     let mut body = Vec::new();
     response
         .take(MAX_RELEASE_BYTES as u64 + 1)
         .read_to_end(&mut body)
-        .map_err(|_| CHECK_FAILED)?;
+        .map_err(|_| check_failed())?;
     parse_latest_release(status, &body, current)
 }
 

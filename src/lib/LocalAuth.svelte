@@ -1,10 +1,12 @@
 <script lang="ts">
+  const GH_MISSING = /^gh CLI (nicht gefunden|not found)/;
   import { onDestroy, onMount } from 'svelte';
   import LocalAccountImport, {
     importable,
     localKey,
   } from './LocalAccountImport.svelte';
   import { ipcErrorMessage } from './format';
+  import { m } from './i18n/index.svelte';
   import { call } from './ipc';
   import type { Account, LocalAccount, Snapshot } from './types';
 
@@ -54,13 +56,15 @@
       const result = await call('discover_local_auth');
       if (!active || ticket !== generation) return;
       accounts = result.accounts;
-      ghMissing = result.notices.some((n) => n.startsWith('gh CLI nicht'));
+      // Matches the shell's notice text (local_auth/text.rs) in either
+      // language, since a language switch can race the discovery.
+      ghMissing = result.notices.some((n) => GH_MISSING.test(n));
       const found = result.accounts.filter(importable);
       if (found.length === 1 && found[0]) selected = localKey(found[0]);
     } catch (cause) {
       if (!active || ticket !== generation) return;
       failed = true;
-      error = ipcErrorMessage(cause, 'Prüfung fehlgeschlagen.');
+      error = ipcErrorMessage(cause, m().accounts.local.scanFailed);
     } finally {
       if (ticket === generation) inFlight = false;
       if (active && ticket === generation) phase = 'done';
@@ -80,7 +84,7 @@
       if (active && ticket === generation) onConnected(snapshot);
     } catch (cause) {
       if (active && ticket === generation)
-        error = ipcErrorMessage(cause, 'Übernahme fehlgeschlagen.');
+        error = ipcErrorMessage(cause, m().accounts.local.importFailed);
     } finally {
       if (ticket === generation) inFlight = false;
       if (active && ticket === generation) phase = 'done';
@@ -107,18 +111,18 @@
 
 <div class="modal-body connect-step" aria-busy={phase !== 'done'}>
   <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
-    Anmeldung von diesem PC
+    {m().accounts.local.heading}
   </h3>
   <div aria-live="polite">
     {#if phase === 'scanning'}
-      <p class="step-line">GitHub CLI wird geprüft …</p>
+      <p class="step-line">{m().accounts.local.scanning}</p>
     {:else if failed}
       <div class="alert warning" role="alert">{error}</div>
     {:else}
       {#if !usable.length}<p class="step-line">
           {ghMissing
-            ? 'GitHub CLI (gh) nicht gefunden. Nach der Installation RepoWatch neu starten.'
-            : 'Keine gh-Anmeldung gefunden. Im Terminal mit „gh auth login“ anmelden.'}
+            ? m().accounts.local.ghMissing
+            : m().accounts.local.noSignIn}
         </p>{/if}
       {#if accounts.length}<LocalAccountImport
           {accounts}
@@ -131,26 +135,29 @@
           type="button"
           class="text-button rescan"
           aria-disabled={phase !== 'done' ? 'true' : undefined}
-          onclick={rescan}>Erneut prüfen</button
+          onclick={rescan}>{m().accounts.local.rescan}</button
         >{/if}
     {/if}
   </div>
 </div>
 <div class="modal-actions">
-  <button type="button" class="secondary-button" onclick={onBack}>Zurück</button
+  <button type="button" class="secondary-button" onclick={onBack}
+    >{m().common.back}</button
   ><!-- One element for every phase, off via aria-disabled: it keeps focus. --><button
     type="button"
     class="primary-button"
     aria-disabled={blocked ? 'true' : undefined}
-    title={phase === 'done' && blocked ? 'Konto auswählen' : undefined}
+    title={phase === 'done' && blocked
+      ? m().accounts.local.chooseAccount
+      : undefined}
     aria-describedby={chosen ? 'local-consent' : undefined}
     onclick={primary}
     >{phase === 'scanning'
-      ? 'Wird geprüft …'
+      ? m().accounts.connect.checking
       : phase === 'importing'
-        ? 'Wird übernommen …'
+        ? m().accounts.local.importing
         : usable.length
-          ? 'Übernehmen'
-          : 'Erneut prüfen'}</button
+          ? m().accounts.local.import
+          : m().accounts.local.rescan}</button
   >
 </div>

@@ -1,6 +1,7 @@
 // Repositories the user hid from the lists (ADR-0008): matching, and the
 // browser demo's stored copy of the native setting.
 import type { PreferenceStorage } from './bridgeTypes';
+import { m } from './i18n/index.svelte';
 import type { HiddenRepo, Repo } from './types';
 
 /** The demo's hidden repositories; the native shell keeps its own. */
@@ -68,7 +69,7 @@ export function changeHidden(
   const repo = repos.find(
     (item) => item.id === repoId && item.accountId === accountId,
   );
-  if (!repo) throw new Error('Repository nicht gefunden.');
+  if (!repo) throw new Error(m().settings.hidden.notFound);
   return [...hidden, { accountId, repoId, owner: repo.owner, name: repo.name }];
 }
 

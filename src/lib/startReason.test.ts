@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { setLocale } from './i18n/index.svelte';
 import {
   blockedReason,
   favoriteNames,
-  START_REASONS,
+  startReasons,
   startGate,
   startReason,
 } from './startReason';
@@ -10,7 +11,7 @@ import type { Snapshot } from './types';
 
 describe('startReason', () => {
   it('names one cause, the most basic first', () => {
-    const blocked = START_REASONS.offline;
+    const blocked = startReasons().offline;
     expect(
       startReason({
         manual: true,
@@ -39,9 +40,9 @@ describe('startReason', () => {
     const snapshot = (connectivity: Snapshot['connectivity']) =>
       ({ connectivity }) as Snapshot;
     expect(blockedReason(snapshot('online'))).toBe(null);
-    expect(blockedReason(snapshot('offline'))).toBe(START_REASONS.offline);
-    expect(blockedReason(snapshot('forbidden'))).toBe(START_REASONS.forbidden);
-    expect(blockedReason(null)).toBe(START_REASONS.offline);
+    expect(blockedReason(snapshot('offline'))).toBe(startReasons().offline);
+    expect(blockedReason(snapshot('forbidden'))).toBe(startReasons().forbidden);
+    expect(blockedReason(null)).toBe(startReasons().offline);
   });
 });
 
@@ -65,24 +66,24 @@ describe('favoriteNames', () => {
 });
 
 describe('startGate', () => {
-  const blocked = START_REASONS.offline;
+  const blocked = startReasons().offline;
 
   it('refuses a favorite’s direct start for every cause, the lock included', () => {
     expect(startGate({ uncertain: true }, 'favorite')).toMatchObject({
-      reason: START_REASONS.uncertain,
+      reason: startReasons().uncertain,
       canStart: false,
       canOpen: true,
     });
     expect(startGate({ blocked }, 'favorite').reason).toBe(blocked);
     expect(startGate({ readOnly: true }, 'favorite').reason).toBe(
-      START_REASONS.readOnly,
+      startReasons().readOnly,
     );
     expect(startGate({}, 'favorite').canStart).toBe(true);
   });
 
   it('refuses a workflow row’s „Starten…“ for every cause but the lock', () => {
     expect(startGate({ manual: true }, 'workflow').reason).toBe(
-      START_REASONS.manual,
+      startReasons().manual,
     );
     expect(startGate({ blocked, uncertain: true }, 'workflow').reason).toBe(
       blocked,
@@ -98,7 +99,7 @@ describe('startGate', () => {
       startGate({ blocked, readOnly: true, uncertain: true }, 'favorite'),
     ).toMatchObject({ canStart: false, canOpen: true, openReason: null });
     expect(startGate({ running: true }, 'favorite')).toMatchObject({
-      reason: START_REASONS.running,
+      reason: startReasons().running,
       canOpen: false,
     });
   });
@@ -106,7 +107,7 @@ describe('startGate', () => {
   it('closes the dialog and the favorite change only while the target starts', () => {
     expect(startGate({ running: true, blocked }, 'workflow')).toMatchObject({
       canOpen: false,
-      openReason: START_REASONS.running,
+      openReason: startReasons().running,
       canRemove: false,
     });
     expect(startGate({ blocked, uncertain: true }, 'favorite')).toMatchObject({
@@ -115,5 +116,27 @@ describe('startGate', () => {
       canRemove: true,
     });
     expect(startGate({ busy: true }, 'favorite').canRemove).toBe(false);
+  });
+});
+
+describe('in English', () => {
+  afterEach(() => setLocale('de'));
+
+  it('names the reason and the favorite controls in the language in effect', () => {
+    setLocale('en');
+    expect(startReason({ uncertain: true })).toBe(
+      'Start status uncertain – check the runs on GitHub',
+    );
+    expect(blockedReason(null)).toBe('Offline – starts are disabled');
+    expect(startGate({ running: true }, 'workflow').openReason).toBe(
+      'Starting…',
+    );
+    expect(favoriteNames('launch-kit-demo', 'Release')).toEqual({
+      open: 'Start launch-kit-demo · Release…',
+      start: 'Start launch-kit-demo · Release now',
+      edit: 'Edit launch-kit-demo · Release',
+      remove: 'Remove launch-kit-demo · Release from favorites',
+      uncertain: 'Start status uncertain: launch-kit-demo · Release',
+    });
   });
 });

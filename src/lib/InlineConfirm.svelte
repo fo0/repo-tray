@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { m } from './i18n/index.svelte';
 
   let {
     id,
@@ -7,7 +8,7 @@
     text,
     warning,
     confirmLabel,
-    cancelLabel = 'Abbrechen',
+    cancelLabel,
     busyLabel,
     busy = false,
     tone = 'danger',
@@ -22,7 +23,8 @@
     warning?: string | undefined;
     /** The action asked for; styled as danger unless `tone` says otherwise. */
     confirmLabel: string;
-    cancelLabel?: string;
+    /** Defaults to „Abbrechen“ in the language in effect. */
+    cancelLabel?: string | undefined;
     /** Confirm label while the action runs. */
     busyLabel?: string;
     busy?: boolean;
@@ -78,7 +80,7 @@
       class="secondary-button"
       bind:this={cancel}
       aria-disabled={busy ? 'true' : undefined}
-      onclick={unlessBusy(onCancel)}>{cancelLabel}</button
+      onclick={unlessBusy(onCancel)}>{cancelLabel ?? m().common.cancel}</button
     >
     <button
       type="button"

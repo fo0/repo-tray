@@ -11,13 +11,13 @@ use std::{
 };
 
 mod gh;
+mod text;
 
 use gh::{gh_help, gh_status, valid_login};
+use text::{cancelled, failed};
 
 const LIMIT: u64 = 64 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(20);
-const FAILED: &str = "gh CLI konnte nicht geprüft werden. Prüfe im Terminal mit gh auth status, ob du bei github.com angemeldet bist; prüfe auch Verbindung und gh-Version.";
-const CANCELLED: &str = "Lokale Prüfung wurde abgebrochen.";
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -79,7 +79,7 @@ fn run_process(
     timeout: Duration,
 ) -> Result<Output, String> {
     if !program.is_absolute() || !current() {
-        return Err(CANCELLED.into());
+        return Err(cancelled().into());
     }
     let mut command = Command::new(program);
     command
@@ -115,9 +115,7 @@ fn run_process(
     // Honor the user's explicitly configured gh store; never substitute a different account store.
     if let Some(directory) = std::env::var_os("GH_CONFIG_DIR") {
         if !Path::new(&directory).is_absolute() {
-            return Err(
-                "GH_CONFIG_DIR muss ein absoluter Pfad sein. Prüfe die gh-Konfiguration.".into(),
-            );
+            return Err(text::config_dir_relative().into());
         }
         command.env("GH_CONFIG_DIR", directory);
     }
@@ -138,7 +136,7 @@ fn run_process(
             let system = PathBuf::from(root).join("System32");
             command.env("PATH", &system).current_dir(system);
         } else {
-            return Err(FAILED.into());
+            return Err(failed().into());
         }
         // GCM itself locates Git to read configuration. Supply only the validated
         // installed executable directory, never an inherited GIT_EXEC_PATH or PATH.
@@ -152,9 +150,9 @@ fn run_process(
     }
     #[cfg(not(windows))]
     command.env("PATH", "/usr/bin:/bin").current_dir("/");
-    let mut child = command.spawn().map_err(|_| FAILED.to_string())?;
-    let stdout = child.stdout.take().ok_or(FAILED)?;
-    let stderr = child.stderr.take().ok_or(FAILED)?;
+    let mut child = command.spawn().map_err(|_| failed().to_string())?;
+    let stdout = child.stdout.take().ok_or(failed())?;
+    let stderr = child.stderr.take().ok_or(failed())?;
     let (send, receive) = mpsc::sync_channel(2);
     capture(stdout, send.clone(), false);
     capture(stderr, send, true);
@@ -166,9 +164,9 @@ fn run_process(
             let _ = child.kill();
             let _ = child.wait();
             return Err(if !current() {
-                CANCELLED
+                cancelled()
             } else {
-                "Zeitlimit bei lokaler Quelle erreicht."
+                text::timed_out()
             }
             .into());
         }
@@ -178,26 +176,26 @@ fn run_process(
             Ok((_, None)) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(FAILED.into());
+                return Err(failed().into());
             }
             Err(mpsc::TryRecvError::Disconnected) if output.is_none() || diagnostics.is_none() => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(FAILED.into());
+                return Err(failed().into());
             }
             _ => {}
         }
         match child.try_wait() {
             Ok(Some(status)) if output.is_some() && diagnostics.is_some() => {
-                let mut value = output.take().ok_or(FAILED)?;
-                value.stderr = std::mem::take(&mut diagnostics.take().ok_or(FAILED)?.bytes);
+                let mut value = output.take().ok_or(failed())?;
+                value.stderr = std::mem::take(&mut diagnostics.take().ok_or(failed())?.bytes);
                 value.success = status.success();
                 return Ok(value);
             }
             Err(_) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(FAILED.into());
+                return Err(failed().into());
             }
             _ => std::thread::sleep(Duration::from_millis(20)),
         }
@@ -368,34 +366,28 @@ pub fn discover(
     current: &dyn Fn() -> bool,
 ) -> Result<LocalDiscovery, String> {
     if !current() {
-        return Err(CANCELLED.into());
+        return Err(cancelled().into());
     }
     let mut result = LocalDiscovery {
         accounts: Vec::new(),
         notices: Vec::new(),
     };
     if let Some(gh) = &programs.gh {
-        result
-            .notices
-            .push("gh CLI gefunden. Erkennung verbindet noch kein Konto mit RepoWatch.".into());
+        result.notices.push(text::gh_found().into());
         match gh_status(gh, runner, current) {
             Ok((accounts, legacy)) => {
                 if legacy {
-                    result.notices.push("Diese gh-Version zeigt nur das dort aktive Konto. Für die Auswahl aller gespeicherten gh-Konten aktualisiere die GitHub CLI.".into());
+                    result.notices.push(text::gh_legacy().into());
                 }
                 if accounts.is_empty() {
-                    result
-                        .notices
-                        .push("gh CLI: keine gespeicherte GitHub.com-Anmeldung gefunden.".into());
+                    result.notices.push(text::gh_no_accounts().into());
                 }
                 result.accounts.extend(accounts);
             }
             Err(error) => result.notices.push(error),
         }
     } else {
-        result
-            .notices
-            .push("gh CLI nicht gefunden. Installiere GitHub CLI (gh), starte RepoWatch danach neu und prüfe im Terminal gh auth status. Git allein reicht nicht.".into());
+        result.notices.push(text::gh_missing().into());
     }
     if let Some(gcm) = &programs.gcm {
         match runner.run(
@@ -417,26 +409,41 @@ pub fn discover(
                     .filter(|v| valid_login(v))
                     .take(50)
                 {
-                    result.accounts.push(LocalAccount { source: "gcm".into(), host: "github.com".into(), login: login.into(), usable: false, active: false,
-                        detail: "Git Credential Manager: gespeichertes Git-Konto; API-Übernahme hier nicht unterstützt.".into(),
-                        actions_read: "Git-Anmeldung belegt keine API-Rechte für Workflows.".into(), actions_write: "Workflows starten: nicht nachgewiesen.".into() });
+                    result.accounts.push(LocalAccount {
+                        source: "gcm".into(),
+                        host: "github.com".into(),
+                        login: login.into(),
+                        usable: false,
+                        active: false,
+                        detail: text::gcm_account_detail().into(),
+                        actions_read: text::gcm_actions_read().into(),
+                        actions_write: text::gcm_actions_write().into(),
+                    });
                 }
-                result.notices.push(if result.accounts.len() == before {
-                    "GCM erkannt; keine lesbaren Kontonamen verfügbar. Keine API-Anmeldung nachgewiesen. Nutze gh CLI oder einen API-Token."
-                } else { "GCM erkannt. Nur Kontonamen geprüft; Git-Credentials werden nicht exportiert. Nutze gh CLI oder einen API-Token." }.into());
+                result.notices.push(
+                    if result.accounts.len() == before {
+                        text::gcm_no_names()
+                    } else {
+                        text::gcm_names()
+                    }
+                    .into(),
+                );
             }
-            _ => result.notices.push(
-                "GCM erkannt; Kontoliste nicht verfügbar. Keine API-Anmeldung nachgewiesen.".into(),
-            ),
+            _ => result.notices.push(text::gcm_list_unavailable().into()),
         }
     } else {
-        result.notices.push(
-            "Git Credential Manager: an unterstützten Installationsorten nicht gefunden.".into(),
-        );
+        result.notices.push(text::gcm_missing().into());
     }
-    result.notices.push(if programs.git.is_some() { "Git erkannt. Binary, Remote und SSH-Anmeldung belegen keine GitHub-API-Anmeldung." } else { "Git: an unterstützten Installationsorten nicht gefunden. Git allein ist keine API-Anmeldequelle." }.into());
+    result.notices.push(
+        if programs.git.is_some() {
+            text::git_found()
+        } else {
+            text::git_missing()
+        }
+        .into(),
+    );
     if !current() {
-        return Err(CANCELLED.into());
+        return Err(cancelled().into());
     }
     Ok(result)
 }
@@ -449,31 +456,25 @@ pub fn selected_token(
     current: &dyn Fn() -> bool,
 ) -> Result<SecretToken, String> {
     if !valid_login(login) {
-        return Err(
-            "Lokales Konto ungültig. Suche erneut nach gh-Konten und wähle eines aus der Liste."
-                .into(),
-        );
+        return Err(text::invalid_login().into());
     }
     if !current() {
-        return Err(CANCELLED.into());
+        return Err(cancelled().into());
     }
-    let gh = programs.gh.as_deref().ok_or(FAILED)?;
+    let gh = programs.gh.as_deref().ok_or(failed())?;
     if !gh_status(gh, runner, current)?
         .0
         .iter()
         .any(|a| a.login == login && a.usable)
     {
-        return Err("Gewählte lokale Anmeldung ist nicht mehr verfügbar. Prüfe die lokalen Anmeldungen erneut.".into());
+        return Err(text::selection_gone().into());
     }
     if !current() {
-        return Err(CANCELLED.into());
+        return Err(cancelled().into());
     }
     let help = gh_help(gh, "token", runner, current)?;
     if !help.contains("--user") {
-        return Err(
-            "Diese gh-Version unterstützt keine sichere Kontoauswahl. Aktualisiere die GitHub CLI."
-                .into(),
-        );
+        return Err(text::no_safe_selection().into());
     }
     let mut args = vec!["auth", "token", "--hostname", "github.com", "--user", login];
     if help.contains("--no-refresh") {
@@ -481,10 +482,10 @@ pub fn selected_token(
     }
     let out = runner.run(gh, &args, current)?;
     if !out.success || !current() {
-        return Err(FAILED.into());
+        return Err(failed().into());
     }
     let token = std::str::from_utf8(&out.bytes)
-        .map_err(|_| FAILED)?
+        .map_err(|_| failed())?
         .trim_end_matches(['\r', '\n']);
     if token.is_empty()
         || token.len() > 2048
@@ -492,7 +493,7 @@ pub fn selected_token(
             .bytes()
             .any(|b| b.is_ascii_whitespace() || b.is_ascii_control())
     {
-        return Err(FAILED.into());
+        return Err(failed().into());
     }
     Ok(SecretToken::new(token.to_owned()))
 }

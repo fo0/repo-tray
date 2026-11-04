@@ -4,6 +4,7 @@
   import RunLink, { copyLink } from './RunLink.svelte';
   import { ArmedConfirm } from './armedConfirm.svelte';
   import { clockTime, runDuration, runMoment } from './format';
+  import { m } from './i18n/index.svelte';
   import {
     isActive,
     runLabel,
@@ -51,19 +52,11 @@
   } = $props();
 
   const linkError = (message: string) => onNotice(message, 'warning');
-  const noLink = $derived(
-    demo
-      ? 'Demo-Runs haben keinen GitHub-Link'
-      : 'Für diesen Run gibt es keinen gültigen GitHub-Link',
-  );
+  const text = $derived(m().runs.row);
+  const cancelText = $derived(m().runs.cancel);
+  const noLink = $derived(demo ? text.noLinkDemo : text.noLink);
 
-  const copy = () =>
-    runUrl &&
-    copyLink(
-      runUrl,
-      onNotice,
-      'Link konnte nicht kopiert werden. Öffne den Run auf GitHub und kopiere ihn dort.',
-    );
+  const copy = () => runUrl && copyLink(runUrl, onNotice, text.copyFailed);
 
   // One status icon and colour per tone everywhere, as in „Läuft gerade“.
   const tone = $derived(runTone(run));
@@ -113,56 +106,53 @@
       ><span class="run-status tone-dot" data-tone={tone}
         >{statusLabel(run)}</span
       ><time class="run-time" datetime={moment.datetime} title={moment.title}
-        >{open ? `seit ${elapsed}` : moment.relative}</time
+        >{open ? text.since(elapsed) : moment.relative}</time
       ></span
     >
   </button>
   {#if expanded}<div class="run-details">
       <div class="run-fact">
-        <span>Konto</span><strong>{account}</strong>
+        <span>{text.account}</span><strong>{account}</strong>
       </div>
       <div class="run-fact">
-        <span>Aktualisiert</span><strong
-          >{clockTime(run.updatedAt)}{demo ? ' · Demo-Zeit' : ''}</strong
+        <span>{text.updated}</span><strong
+          >{clockTime(run.updatedAt)}{demo ? m().common.demoTime : ''}</strong
         >
       </div>
       <div class="run-fact">
-        <span>Status</span><strong>{statusLabel(run)}</strong>
+        <span>{text.status}</span><strong>{statusLabel(run)}</strong>
       </div>
       <!-- The actions of a run appear with its details, never on the row. -->
       <div class="run-links">
         {#if runUrl}<RunLink
             url={runUrl}
-            label="Auf GitHub öffnen"
+            label={text.open}
             {native}
             onError={linkError}
             button
           />{:else}<button
             class="secondary-button compact"
             disabled
-            title={noLink}
-            ><Icon name="external" size={13} />Auf GitHub öffnen</button
+            title={noLink}><Icon name="external" size={13} />{text.open}</button
           >{/if}<button
           class="secondary-button compact"
           disabled={!runUrl}
           title={runUrl ? undefined : noLink}
           onclick={() => void copy()}
-          ><Icon name="copy" size={13} />Link kopieren</button
+          ><Icon name="copy" size={13} />{text.copy}</button
         >{#if canCancel}<button
             class="secondary-button compact run-cancel"
             class:armed={confirm.is(true)}
             aria-disabled={cancelling ? 'true' : undefined}
-            title={confirm.is(true)
-              ? 'Zum Abbrechen erneut klicken'
-              : undefined}
+            title={confirm.is(true) ? cancelText.confirmTitle : undefined}
             onclick={() =>
               !cancelling && confirm.press(true, () => onCancel?.())}
             onblur={confirm.disarm}
             ><Icon name="stop" size={13} />{cancelling
-              ? 'Wird abgebrochen …'
+              ? cancelText.pendingTitle
               : confirm.is(true)
-                ? 'Wirklich abbrechen?'
-                : 'Run abbrechen'}</button
+                ? cancelText.armedLong
+                : cancelText.run}</button
           >{/if}
         {#if !runUrl}<span class="run-link-note">{noLink}.</span>{/if}
       </div>

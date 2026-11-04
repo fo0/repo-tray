@@ -1,0 +1,58 @@
+import type { common as German } from '../de/common';
+
+/** English texts used across areas. Same shape as the German catalog. */
+export const common: typeof German = {
+  cancel: 'Cancel',
+  save: 'Save',
+  saving: 'Saving…',
+  close: 'Close',
+  retry: 'Try again',
+  undo: 'Undo',
+  back: 'Back',
+  next: 'Next',
+  fallbackError: 'The operation could not be completed. Try again.',
+  linkCopied: 'Link copied.',
+  repoUnavailable: 'Repository unavailable',
+  noActiveAccount: 'No active account',
+  showInHistory: 'Show in history',
+  clearSearch: 'Clear search',
+  tryOtherSearch: 'Try a different search term.',
+  demoTime: ' · demo time',
+  count: {
+    runs: (n: number) => (n === 1 ? '1 run' : `${n} runs`),
+    favorites: (n: number) => (n === 1 ? '1 favorite' : `${n} favorites`),
+    repos: (n: number) => (n === 1 ? '1 repository' : `${n} repositories`),
+  },
+  relative: {
+    justNow: 'just now',
+    minutes: (n: number) => `${n} min ago`,
+    hours: (n: number) => `${n} h ago`,
+    yesterday: 'yesterday',
+    days: (n: number) => `${n} days ago`,
+  },
+  moment: {
+    started: 'Started',
+    finished: 'Finished',
+    spoken: (verb: string, relative: string, isDate: boolean) =>
+      `${verb.toLowerCase()} ${isDate ? 'on ' : ''}${relative}`,
+    lastRun: (at: string) => `Last run: ${at}`,
+    runningNow: (title: string) => `Running now · ${title}`,
+  },
+  validation: {
+    accountMismatch: 'Account and repository do not match.',
+    repoNotInTray: 'Repository not in the tray.',
+    noWriteAccess: 'No write access to this repository.',
+    noDispatch: 'This workflow offers no manual start on the default branch.',
+    noDefaultBranchDispatch: 'No manual start available on the default branch.',
+    refUnavailable: 'This branch or tag is not available.',
+    requestId: 'The request needs a unique ID.',
+    unknownInput: 'Unknown workflow input.',
+    required: (label: string) => `${label} is required.`,
+    boolean: (label: string) => `${label} must be yes or no.`,
+    number: (label: string) => `${label} must be a number.`,
+    text: (label: string) => `${label} must be text.`,
+    option: (label: string) => `${label}: choose an available value.`,
+    favoriteName: 'Give the favorite a name.',
+    secretInputs: 'Secret inputs are not saved in favorites.',
+  },
+};

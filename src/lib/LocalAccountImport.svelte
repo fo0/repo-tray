@@ -10,6 +10,7 @@
 </script>
 
 <script lang="ts">
+  import { m } from './i18n/index.svelte';
   import type { Account } from './types';
 
   let {
@@ -36,14 +37,18 @@
   const source = (account: LocalAccount) =>
     `${account.source === 'gcm' ? 'Git Credential Manager' : 'GitHub CLI'}${
       !importable(account)
-        ? ' · nicht übernehmbar'
+        ? m().accounts.local.notImportable
         : known(account)
-          ? ' · bereits verbunden'
+          ? m().accounts.local.alreadyConnected
           : ''
     }`;
 </script>
 
-<div class="choice-list" role="radiogroup" aria-label="Gefundene Konten">
+<div
+  class="choice-list"
+  role="radiogroup"
+  aria-label={m().accounts.local.found}
+>
   {#each accounts as account, index (index)}
     <label class="choice-card compact">
       <input
@@ -61,6 +66,6 @@
 </div>
 <!-- Consent: only the click on „Übernehmen“ right below imports this token. -->
 {#if chosen}<p class="consent-line" id="local-consent">
-    Das Token von <strong>{chosen.login}</strong> wird aus der GitHub CLI übernommen
-    und im Windows-Tresor gespeichert.
+    {m().accounts.local.consentBefore}<strong>{chosen.login}</strong>{m()
+      .accounts.local.consentAfter}
   </p>{/if}

@@ -1,5 +1,6 @@
 import { tick } from 'svelte';
 import { focusRevealedRun, hasDom, landing, usable } from './focus';
+import { m } from './i18n/index.svelte';
 import type { Notices } from './notices.svelte';
 import type { ActivityFilter } from './runs';
 
@@ -10,12 +11,8 @@ export type Page = 'overview' | SectionPage;
 /** Every page with its own header and way back. */
 export type SubPage = Exclude<Page, 'overview'>;
 
-/** Titles of the pages; the runs section reads „Läuft gerade“. */
-export const PAGE_TITLES: Record<SubPage, string> = {
-  runs: 'Verlauf',
-  favorites: 'Favoriten',
-  repos: 'Repositories',
-};
+/** A page's title in the language in effect; the runs section reads „Läuft gerade“. */
+export const pageTitle = (page: SubPage) => m().shell.pages[page];
 
 /** The panel state „Im Verlauf anzeigen“ changes: expanded run and notices. */
 export interface RunReveal {

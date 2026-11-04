@@ -3,13 +3,29 @@
 use super::LiveStore;
 use crate::{
     github::{ApiError, ApiRequest, Transport, TransportError},
+    i18n::tr,
     models::*,
+    trf,
 };
 
-const CANCEL_UNCONFIRMED: &str = "Abbruch nicht bestätigt – prüfe den Run auf GitHub.";
-const CANCEL_FINISHED: &str = "Run lässt sich nicht mehr abbrechen – er ist bereits beendet.";
-const CANCEL_FORBIDDEN: &str =
-    "Abbrechen nicht erlaubt – der Zugang braucht „Actions: Lesen und Schreiben“.";
+fn cancel_unconfirmed() -> &'static str {
+    tr(
+        "Abbruch nicht bestätigt – prüfe den Run auf GitHub.",
+        "Cancellation not confirmed – check the run on GitHub.",
+    )
+}
+fn cancel_finished() -> &'static str {
+    tr(
+        "Run lässt sich nicht mehr abbrechen – er ist bereits beendet.",
+        "The run can no longer be cancelled – it has already finished.",
+    )
+}
+fn cancel_forbidden() -> &'static str {
+    tr(
+        "Abbrechen nicht erlaubt – der Zugang braucht „Actions: Lesen und Schreiben“.",
+        "Cancelling not allowed – the access needs “Actions: Read and write”.",
+    )
+}
 
 impl<T: Transport> LiveStore<T> {
     /// Asks GitHub once to cancel an open run of a selected repository with write access.
@@ -21,39 +37,50 @@ impl<T: Transport> LiveStore<T> {
             .runs
             .iter()
             .find(|run| run.id == run_id && run.repo_id == repo_id)
-            .ok_or("Run nicht gefunden.")?;
+            .ok_or(tr("Run nicht gefunden.", "Run not found."))?;
         if run.status == RunStatus::Completed {
-            return Err("Run ist bereits beendet.".into());
+            return Err(tr("Run ist bereits beendet.", "Run has already finished.").into());
         }
         let repo = self
             .data
             .repos
             .iter()
             .find(|repo| repo.id == repo_id && repo.selected)
-            .ok_or("Repository nicht im Tray.")?;
+            .ok_or(tr(
+                "Repository nicht im Tray.",
+                "Repository not in the tray.",
+            ))?;
         if repo.permission != Permission::Write {
-            return Err("Für dieses Repository fehlt der Schreibzugriff.".into());
+            return Err(tr(
+                "Für dieses Repository fehlt der Schreibzugriff.",
+                "Write access to this repository is missing.",
+            )
+            .into());
         }
         let request = ApiRequest::cancel_run(&repo.account_id, &repo.owner, &repo.name, run_id)
             .map_err(|error| error.to_string())?;
-        let refused = match self.client.post(&request, (self.clock)()) {
-            Ok(response) if response.status == 202 => None,
-            Ok(response) => Some(match response.status {
-                409 => CANCEL_FINISHED.to_owned(),
-                401 => format!(
-                    "Zugang von {} abgelaufen oder widerrufen – verbinde das Konto neu.",
-                    self.login(&repo.account_id)
-                ),
-                403 | 404 => CANCEL_FORBIDDEN.to_owned(),
-                status => format!("GitHub-Fehler {status} beim Abbrechen."),
-            }),
+        let status = match self.client.post(&request, (self.clock)()) {
+            Ok(response) => response.status,
             Err(error) => return Err(cancel_failed(error)),
         };
+        let refused = match status {
+            202 => None,
+            status => Some(match status {
+                409 => cancel_finished().to_owned(),
+                401 => trf!(
+                    "Zugang von {} abgelaufen oder widerrufen – verbinde das Konto neu.",
+                    "Access of {} expired or revoked – reconnect the account.",
+                    self.login(&repo.account_id)
+                ),
+                403 | 404 => cancel_forbidden().to_owned(),
+                status => trf!(
+                    "GitHub-Fehler {status} beim Abbrechen.",
+                    "GitHub error {status} while cancelling."
+                ),
+            }),
+        };
         // Accepted, or already finished on GitHub: the next refresh polls the real status.
-        if refused
-            .as_deref()
-            .is_none_or(|text| text == CANCEL_FINISHED)
-        {
+        if matches!(status, 202 | 409) {
             self.poll_at.remove(&repo_id);
         }
         match refused {
@@ -63,13 +90,13 @@ impl<T: Transport> LiveStore<T> {
     }
 }
 
-/// A rate limit (throttling 403/429 or an armed backoff) keeps the client's German text, as
+/// A rate limit (throttling 403/429 or an armed backoff) keeps the client's own text, as
 /// do a credential the vault cannot give and a request that never left (`BeforeSend`: „GitHub
 /// nicht erreichbar“); only a request whose answer never arrived may still have reached GitHub.
 fn cancel_failed(error: ApiError) -> String {
     match error {
         ApiError::Transport(TransportError::OutcomeUnknown) | ApiError::InvalidResponse => {
-            CANCEL_UNCONFIRMED.into()
+            cancel_unconfirmed().into()
         }
         other => other.to_string(),
     }

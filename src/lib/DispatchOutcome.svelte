@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte';
   import ReleaseLock from './ReleaseLock.svelte';
   import RunLink from './RunLink.svelte';
+  import { m } from './i18n/index.svelte';
   import { safeGitHubUrl } from './safeGitHubUrl';
   import type { DispatchOutcome, UncertainStart } from './types';
 
@@ -80,7 +81,11 @@
     type="button"
     class="text-button"
     onclick={() => onCheckStatus()}
-    disabled={checking}>Status prüfen<Icon name="refresh" size={12} /></button
+    disabled={checking}
+    >{m().dispatch.uncertain.checkStatus}<Icon
+      name="refresh"
+      size={12}
+    /></button
   >{#if releasable}<ReleaseLock
       {releasing}
       {claim}
@@ -101,18 +106,18 @@
       <strong
         >{outcome.state === 'accepted'
           ? demo
-            ? 'Simulierter Start angenommen'
-            : 'GitHub hat den Start angenommen'
+            ? m().dispatch.outcome.acceptedDemo
+            : m().dispatch.outcome.accepted
           : outcome.state === 'uncertain'
-            ? 'Startstatus ungeklärt'
-            : 'Start abgelehnt'}</strong
+            ? m().dispatch.uncertain.title
+            : m().dispatch.outcome.rejected}</strong
       >
       <p>{outcome.message}</p>
       {#if outcome.state === 'accepted' && outcome.runId}
         {@const runId = outcome.runId}
         {#if runUrl}<RunLink
             url={runUrl}
-            label={`Run #${runId} auf GitHub ansehen`}
+            label={m().dispatch.outcome.viewRun(runId)}
             {native}
             onError={onLinkError}
           />{/if}
@@ -120,7 +125,10 @@
           type="button"
           class="text-button"
           onclick={() => onShowRun(runId)}
-          >Im Verlauf anzeigen<Icon name="arrow" size={13} /></button
+          >{m().dispatch.outcome.showInHistory}<Icon
+            name="arrow"
+            size={13}
+          /></button
         >
       {/if}
       {#if outcome.state === 'uncertain'}{@render checkStatus()}{/if}
@@ -129,12 +137,8 @@
 {:else if uncertain}<div class="outcome uncertain" role="status">
     <Icon name="warning" size={18} />
     <div>
-      <strong>Startstatus ungeklärt</strong>
-      <p>
-        GitHub hat den letzten Start für diesen Workflow und Branch nicht
-        bestätigt. Er läuft eventuell bereits. Prüfe die Runs auf GitHub. Ein
-        erneuter Start bleibt gesperrt, bis du die Sperre aufhebst.
-      </p>
+      <strong>{m().dispatch.uncertain.title}</strong>
+      <p>{m().dispatch.uncertain.locked}</p>
       {@render checkStatus()}
     </div>
   </div>{/if}

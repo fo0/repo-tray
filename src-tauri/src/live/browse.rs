@@ -46,7 +46,7 @@ impl<T: Transport> LiveStore<T> {
             .repos
             .iter_mut()
             .find(|repo| repo.id == repo_id && accounts.contains(repo.account_id.as_str()))
-            .ok_or("Repository nicht gefunden.")?;
+            .ok_or(super::hidden::hidden_unknown())?;
         if !repo.selected {
             repo.selected = true;
             self.browsed.visit(&repo_id);

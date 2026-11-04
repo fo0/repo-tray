@@ -6,6 +6,7 @@
   import Icon from './Icon.svelte';
   import NoticeBanner from './NoticeBanner.svelte';
   import { focusAfterNotice, neighbourNotice } from './focus';
+  import { m } from './i18n/index.svelte';
   import type { Notice } from './notices.svelte';
   import type { Snapshot } from './types';
   import type { UpdateInfo } from './types';
@@ -54,11 +55,12 @@
     role="status"
   >
     <Icon name="refresh" size={16} /><span
-      >Update {update.version} verfügbar</span
-    ><button class="text-button" onclick={() => onShowUpdate()}>Ansehen</button
+      >{m().shell.banners.update(update.version)}</span
+    ><button class="text-button" onclick={() => onShowUpdate()}
+      >{m().shell.banners.view}</button
     ><button
       class="icon-button small"
-      aria-label="Hinweis schließen"
+      aria-label={m().shell.banners.closeHint}
       onclick={(event) => dismissUpdate(event, update.version)}
       ><Icon name="close" size={13} /></button
     >
@@ -70,8 +72,8 @@
     <Icon name="warning" size={16} /><span
       >{snapshot.message ??
         (demo
-          ? 'Demo-Status nicht verfügbar.'
-          : 'GitHub-Daten sind nicht aktuell. Klicke auf Aktualisieren.')}</span
+          ? m().shell.banners.demoUnavailable
+          : m().shell.banners.stale)}</span
     >
   </div>{/if}
 {#if error}<div class="alert danger" role="alert">
@@ -86,7 +88,7 @@
     text={notice.text}
     tone={notice.tone}
     actionLabel={notice.action?.label ??
-      (runId ? 'Im Verlauf anzeigen' : undefined)}
+      (runId ? m().common.showInHistory : undefined)}
     onAction={notice.action?.run ??
       (runId ? () => onShowRun(runId) : undefined)}
     navigates={!notice.action}

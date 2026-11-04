@@ -1,4 +1,4 @@
-import { clockTime, errorMessage } from './format';
+import { errorMessage } from './format';
 import { call, channel } from './ipc';
 import type { DownloadProgress, UpdateInfo } from './types';
 import type { UpdatePhase } from './updates';
@@ -28,7 +28,8 @@ export class Updater {
     stage: 'downloading',
   });
   #message = $state('');
-  #checkedAt = $state('');
+  /** When the last check succeeded (epoch ms); formatted where it shows. */
+  #checkedAt = $state<number | null>(null);
   #busy = $derived(BUSY_PHASES.includes(this.#phase));
   #enabled: boolean;
 
@@ -61,7 +62,7 @@ export class Updater {
     this.#message = '';
     try {
       this.#info = await call('check_update');
-      this.#checkedAt = clockTime();
+      this.#checkedAt = Date.now();
       this.#phase = this.#info ? 'available' : 'current';
     } catch (cause) {
       this.#info = null;

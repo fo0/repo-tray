@@ -1,6 +1,6 @@
 //! What may be written: account scoping, credential redaction and rejection, identifier
 //! checks and size-bounded JSON encoding.
-use super::{CacheError, APP_SETTINGS_KEY, MAX_CACHE_BYTES, REDACTED};
+use super::{redacted, CacheError, APP_SETTINGS_KEY, MAX_CACHE_BYTES};
 use crate::models::{DispatchTarget, InputValue, Pin, Snapshot};
 use crate::workflow::{looks_like_credential, sensitive_key, validate_non_secret_inputs};
 use serde::Serialize;
@@ -55,7 +55,7 @@ pub(super) fn public_snapshot(
 fn redact_credential_strings(value: &mut serde_json::Value) {
     match value {
         serde_json::Value::String(text) if looks_like_credential(text) => {
-            *text = REDACTED.into();
+            *text = redacted().into();
         }
         serde_json::Value::Array(values) => values.iter_mut().for_each(redact_credential_strings),
         serde_json::Value::Object(values) => {

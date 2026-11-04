@@ -2,13 +2,14 @@
   import { tick } from 'svelte';
   import ConnectedAccounts from './ConnectedAccounts.svelte';
   import Icon from './Icon.svelte';
+  import { m } from './i18n/index.svelte';
   import type { DemoScenario, Snapshot } from './types';
 
-  const scenarios: { value: DemoScenario; label: string }[] = [
-    { value: 'normal', label: 'Normal · lokale Simulation' },
-    { value: 'offline', label: 'Offline · letzter Stand' },
-    { value: 'forbidden', label: 'Keine Berechtigung · 403' },
-    { value: 'uncertain', label: 'Unklare Antwort · Start gesperrt' },
+  const SCENARIOS: DemoScenario[] = [
+    'normal',
+    'offline',
+    'forbidden',
+    'uncertain',
   ];
 
   let {
@@ -60,21 +61,21 @@
   }
 
   function chooseScenario(value: string) {
-    const next = scenarios.find((item) => item.value === value);
-    if (next) onScenario(next.value);
+    const next = SCENARIOS.find((item) => item === value);
+    if (next) onScenario(next);
   }
 </script>
 
 {#if native && !accounts.length}
   <section class="account-empty" aria-labelledby="account-empty-heading">
     <span class="account-empty-icon"><Icon name="github" size={24} /></span>
-    <h3 id="account-empty-heading">Noch kein Konto verbunden</h3>
-    <p>Zugangsdaten bleiben im Windows-Tresor.</p>
+    <h3 id="account-empty-heading">{m().accounts.tab.emptyHeading}</h3>
+    <p>{m().accounts.tab.emptyHint}</p>
     <button
       class="primary-button"
       bind:this={connectButton}
       onclick={() => onConnect()}
-      >GitHub-Konto verbinden<Icon name="plus" size={14} /></button
+      >{m().accounts.tab.connectGithub}<Icon name="plus" size={14} /></button
     >
   </section>
 {:else if native}
@@ -82,7 +83,7 @@
     class="active-account-settings"
     aria-labelledby="active-account-heading"
   >
-    <h3 id="active-account-heading">Aktives Konto</h3>
+    <h3 id="active-account-heading">{m().accounts.tab.activeHeading}</h3>
     {#if accountNotice}<p class="account-selection-notice" role="status">
         {accountNotice}
       </p>{/if}
@@ -97,38 +98,38 @@
       onDisconnect={disconnect}
     />
     <button class="secondary-button add-account" onclick={() => onConnect()}
-      ><Icon name="plus" size={14} />Konto hinzufügen</button
+      ><Icon name="plus" size={14} />{m().accounts.tab.add}</button
     >
   </section>
 {/if}
 {#if demo}
   <div class="settings-section">
-    <h3>Verbindung</h3>
+    <h3>{m().accounts.tab.connection}</h3>
     <div class="connection-card">
       <Icon name="github" size={22} />
       <div>
-        <strong>Demo-Modus</strong>
-        <p>Starts sind nur simuliert.</p>
+        <strong>{m().accounts.tab.demoMode}</strong>
+        <p>{m().accounts.tab.demoHint}</p>
       </div>
       <button class="text-button" onclick={() => onConnect()}
-        >Konto hinzufügen<Icon name="chevron" size={13} /></button
+        >{m().accounts.tab.add}<Icon name="chevron" size={13} /></button
       >
     </div>
   </div>
   <div class="settings-section">
     <label class="field"
-      ><span>Demo-Szenario</span><select
-        aria-label="Demo-Szenario"
+      ><span>{m().accounts.tab.scenario}</span><select
+        aria-label={m().accounts.tab.scenario}
         value={scenario}
         onchange={(event) => chooseScenario(event.currentTarget.value)}
-        >{#each scenarios as item (item.value)}<option value={item.value}
-            >{item.label}</option
+        >{#each SCENARIOS as item (item)}<option value={item}
+            >{m().accounts.tab.scenarios[item]}</option
           >{/each}</select
       ></label
     >
     <button class="reset-button" onclick={() => onReset()} disabled={busy}
-      ><Icon name="refresh" size={13} />Demo zurücksetzen<span
-        >Setzt auch Favoriten zurück</span
+      ><Icon name="refresh" size={13} />{m().accounts.tab.reset}<span
+        >{m().accounts.tab.resetHint}</span
       ></button
     >
   </div>

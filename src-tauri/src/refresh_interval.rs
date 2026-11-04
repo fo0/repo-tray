@@ -1,5 +1,6 @@
 //! The user's refresh interval: how often idle repositories, the desktop worker and the
 //! account catalogs read GitHub again. An open run is always followed every 15 seconds.
+use crate::i18n::tr;
 use std::time::Duration;
 
 /// Without a saved preference.
@@ -11,14 +12,19 @@ pub const OPEN_RUN_SECONDS: u64 = 15;
 /// The account catalog (which repositories, their push times) never reads more often.
 pub const CATALOG_FLOOR_SECONDS: u64 = 60;
 
-const OUT_OF_RANGE: &str = "Aktualisierung muss zwischen 15 s und 60 min liegen.";
+fn out_of_range() -> &'static str {
+    tr(
+        "Aktualisierung muss zwischen 15 s und 60 min liegen.",
+        "Refresh must be between 15 s and 60 min.",
+    )
+}
 
 /// A value the user chose; out of range is refused, never silently changed.
 pub fn validate(seconds: u64) -> Result<u64, String> {
     if (MIN_SECONDS..=MAX_SECONDS).contains(&seconds) {
         Ok(seconds)
     } else {
-        Err(OUT_OF_RANGE.into())
+        Err(out_of_range().into())
     }
 }
 
@@ -76,9 +82,9 @@ mod tests {
     fn a_chosen_value_outside_the_range_is_refused() {
         assert_eq!(validate(15), Ok(15));
         assert_eq!(validate(3600), Ok(3600));
-        assert_eq!(validate(14), Err(OUT_OF_RANGE.into()));
-        assert_eq!(validate(3601), Err(OUT_OF_RANGE.into()));
-        assert_eq!(validate(0), Err(OUT_OF_RANGE.into()));
+        assert_eq!(validate(14), Err(out_of_range().into()));
+        assert_eq!(validate(3601), Err(out_of_range().into()));
+        assert_eq!(validate(0), Err(out_of_range().into()));
     }
 
     #[test]

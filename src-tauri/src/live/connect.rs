@@ -1,16 +1,22 @@
 //! Adding and removing accounts: a token, a gh CLI import or a browser sign-in.
 use super::{
-    empty_snapshot, now, number, text, url, with_notice, HttpTransport, LiveStore,
-    ACCOUNT_SAVE_FAILED,
+    account_save_failed, empty_snapshot, now, number, text, url, with_notice, HttpTransport,
+    LiveStore,
 };
 use crate::{
     auth::{NativeKeyring, SecretToken},
     browser_auth::{self, BrowserCredential, BrowserTokens, NativeOAuthTransport, OAuthTransport},
     github::{ApiClient, ApiRequest, Transport},
+    i18n::tr,
     models::*,
+    trf,
 };
 use serde_json::Value;
 use std::collections::BTreeSet;
+
+fn sign_in_cancelled() -> String {
+    tr("Anmeldung wurde abgebrochen.", "Sign-in was cancelled.").into()
+}
 
 impl LiveStore<HttpTransport> {
     pub fn connect_token(
@@ -35,7 +41,7 @@ impl LiveStore<HttpTransport> {
         still_current: impl Fn() -> bool,
     ) -> Result<Snapshot, String> {
         if !still_current() {
-            return Err("Anmeldung wurde abgebrochen.".into());
+            return Err(sign_in_cancelled());
         }
         let mut transport = HttpTransport::new(self.keyring.clone())?;
         token.with_secret(|v| {
@@ -44,41 +50,57 @@ impl LiveStore<HttpTransport> {
                 || v.bytes()
                     .any(|b| b.is_ascii_control() || b.is_ascii_whitespace())
             {
-                Err("Token ist ungültig. Füge den Token ohne Leerzeichen oder Zeilenumbrüche ein.")
+                Err(tr(
+                    "Token ist ungültig. Füge den Token ohne Leerzeichen oder Zeilenumbrüche ein.",
+                    "Token is invalid. Paste the token without spaces or line breaks.",
+                ))
             } else {
                 Ok(())
             }
         })?;
         transport.bootstrap = Some(token);
         let client = ApiClient::new(transport);
-        let request =
-            ApiRequest::get("pending", url(&["user"], &[])?).map_err(|_| "Anfrage ungültig.")?;
-        let response = client
-            .execute(&request, now())
-            .map_err(|_| "GitHub nicht erreichbar. Token wurde nicht gespeichert – prüfe deine Verbindung und versuche es erneut.")?;
+        let request = ApiRequest::get("pending", url(&["user"], &[])?)
+            .map_err(|_| tr("Anfrage ungültig.", "Invalid request."))?;
+        let response = client.execute(&request, now()).map_err(|_| {
+            tr(
+                "GitHub nicht erreichbar. Token wurde nicht gespeichert – prüfe deine Verbindung und versuche es erneut.",
+                "GitHub unreachable. Token was not saved – check your connection and try again.",
+            )
+        })?;
         if response.status != 200 {
-            return Err("Token wurde von GitHub nicht bestätigt. Prüfe Gültigkeit und Organisationsfreigabe.".into());
+            return Err(tr(
+                "Token wurde von GitHub nicht bestätigt. Prüfe Gültigkeit und Organisationsfreigabe.",
+                "GitHub did not confirm the token. Check its validity and organization approval.",
+            )
+            .into());
         }
-        let user: Value =
-            serde_json::from_slice(&response.body).map_err(|_| "GitHub-Konto ungültig.")?;
+        let user: Value = serde_json::from_slice(&response.body)
+            .map_err(|_| tr("GitHub-Konto ungültig.", "Invalid GitHub account."))?;
         let login = text(&user, "login")?.to_string();
         verify_local_identity(expected_login, &login)?;
         // Separate app-owned imports from PAT entries. Disconnect only deletes our copy;
         // it never changes, deletes or revokes the gh CLI's credential or active account.
         let id = credential_account_id(number(&user, "id")?, expected_login.is_some());
         // Consume the verified temporary token without serialization or UI round-trip.
-        let mut guard = client
-            .into_transport()
-            .map_err(|_| "Anmeldung konnte nicht abgeschlossen werden.")?;
-        let token = guard.bootstrap.take().ok_or("Token fehlt.")?;
+        let mut guard = client.into_transport().map_err(|_| {
+            tr(
+                "Anmeldung konnte nicht abgeschlossen werden.",
+                "Sign-in could not be completed.",
+            )
+        })?;
+        let token = guard
+            .bootstrap
+            .take()
+            .ok_or(tr("Token fehlt.", "Token is missing."))?;
         if !still_current() {
-            return Err("Anmeldung wurde abgebrochen.".into());
+            return Err(sign_in_cancelled());
         }
         let account = Account {
             id: id.clone(),
             login,
             label: if expected_login.is_some() {
-                "GitHub · gh CLI (Kopie)"
+                tr("GitHub · gh CLI (Kopie)", "GitHub · gh CLI (copy)")
             } else {
                 "GitHub · Token"
             }
@@ -94,7 +116,7 @@ impl LiveStore<HttpTransport> {
         still_current: impl Fn() -> bool,
     ) -> Result<Snapshot, String> {
         if !still_current() {
-            return Err("Anmeldung wurde abgebrochen.".into());
+            return Err(sign_in_cancelled());
         }
         let (user_id, login) = NativeOAuthTransport::new()?.identity(&tokens.access)?;
         let id = browser_auth::account_id(user_id);
@@ -105,7 +127,7 @@ impl LiveStore<HttpTransport> {
             rotation_pending: false,
         };
         if !still_current() {
-            return Err("Anmeldung wurde abgebrochen.".into());
+            return Err(sign_in_cancelled());
         }
         let encoded = credential.encode()?;
         let account = Account {
@@ -132,7 +154,7 @@ impl<T: Transport> LiveStore<T> {
         let stored = self
             .cache
             .account_ids()
-            .map_err(|_| ACCOUNT_SAVE_FAILED)?
+            .map_err(|_| account_save_failed())?
             .contains(&id);
         if !stored {
             let mut minimal = empty_snapshot();
@@ -140,7 +162,7 @@ impl<T: Transport> LiveStore<T> {
             minimal.message = None;
             self.cache
                 .save_snapshot(&id, &minimal)
-                .map_err(|_| ACCOUNT_SAVE_FAILED)?;
+                .map_err(|_| account_save_failed())?;
         }
         if let Err(error) = commit(self.keyring.as_ref()) {
             return Err(if stored {
@@ -170,10 +192,15 @@ impl<T: Transport> LiveStore<T> {
             let _ = self.cache.delete_snapshot(&account.id);
             return error;
         }
-        let notice = format!(
-            "Der Zugang von {} liegt {}noch im Tresor – trenne das Konto, um ihn zu entfernen.",
-            account.login,
-            if read.is_ok() { "" } else { "möglicherweise " }
+        let maybe = if read.is_ok() {
+            ""
+        } else {
+            tr("möglicherweise ", "possibly ")
+        };
+        let notice = trf!(
+            "Der Zugang von {} liegt {maybe}noch im Tresor – trenne das Konto, um ihn zu entfernen.",
+            "The access of {} is {maybe}still in the vault – disconnect the account to remove it.",
+            account.login
         );
         self.data.accounts.retain(|known| known.id != account.id);
         self.data.accounts.push(account);
@@ -182,12 +209,15 @@ impl<T: Transport> LiveStore<T> {
     }
     pub fn disconnect(&mut self, account: &str) -> Result<Snapshot, String> {
         if !self.data.accounts.iter().any(|a| a.id == account) {
-            return Err("Konto unbekannt.".into());
+            return Err(tr("Konto unbekannt.", "Unknown account.").into());
         }
         browser_auth::disconnect_credential(self.keyring.as_ref(), account)?;
-        self.cache
-            .delete_account(account)
-            .map_err(|_| "Kontometadaten konnten nicht entfernt werden.")?;
+        self.cache.delete_account(account).map_err(|_| {
+            tr(
+                "Kontometadaten konnten nicht entfernt werden.",
+                "Account metadata could not be removed.",
+            )
+        })?;
         self.schedule.forget_account(account, &self.data.repos);
         self.claims.retain(|claim| claim.account_id != account);
         self.forget_hidden(account);
@@ -211,9 +241,11 @@ pub(super) fn credential_account_id(id: u64, local_import: bool) -> String {
 
 pub(super) fn verify_local_identity(expected: Option<&str>, actual: &str) -> Result<(), String> {
     if expected.is_some_and(|login| !login.eq_ignore_ascii_case(actual)) {
-        return Err(
-            "GitHub hat ein anderes Konto gemeldet. Prüfe die lokale Anmeldung erneut.".into(),
-        );
+        return Err(tr(
+            "GitHub hat ein anderes Konto gemeldet. Prüfe die lokale Anmeldung erneut.",
+            "GitHub reported a different account. Check the local sign-in again.",
+        )
+        .into());
     }
     Ok(())
 }

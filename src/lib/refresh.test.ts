@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createDemoBridge, type PreferenceStorage } from './demo';
+import { setLocale } from './i18n/index.svelte';
 import {
   demoRefresh,
   formatRefresh,
   presetIndex,
   REFRESH_DEFAULT,
-  REFRESH_ERROR,
+  refreshError,
   REFRESH_KEY,
   REFRESH_PRESETS,
   validRefresh,
@@ -24,6 +25,8 @@ function memory(seed: Record<string, string> = {}): PreferenceStorage & {
   };
 }
 
+afterEach(() => setLocale('de'));
+
 describe('refresh interval values', () => {
   it('accepts whole seconds from 15 to 3600 only', () => {
     for (const value of [15, 60, 90, 3600])
@@ -36,6 +39,17 @@ describe('refresh interval values', () => {
     expect(formatRefresh(60)).toBe('1 min');
     expect(formatRefresh(90)).toBe('1 min 30 s');
     expect(formatRefresh(1800)).toBe('30 min');
+  });
+  it('refuses an out-of-range value in the language in effect', async () => {
+    expect(refreshError()).toBe(
+      'Aktualisierung muss zwischen 15 s und 60 min liegen.',
+    );
+    setLocale('en');
+    const choice = new RefreshChoice(createDemoBridge(memory(), 0));
+    choice.stage(14);
+    await expect(choice.apply()).rejects.toThrow(
+      'Refresh must be between 15 s and 60 min.',
+    );
   });
   it('puts a value on its preset or the nearest one', () => {
     expect(REFRESH_PRESETS[presetIndex(REFRESH_DEFAULT)]).toBe(60);
@@ -50,9 +64,9 @@ describe('demo refresh interval', () => {
     const storage = memory();
     const bridge = createDemoBridge(storage, 0);
     expect(await bridge.refreshInterval()).toBe(REFRESH_DEFAULT);
-    await expect(bridge.setRefreshInterval(14)).rejects.toThrow(REFRESH_ERROR);
+    await expect(bridge.setRefreshInterval(14)).rejects.toThrow(refreshError());
     await expect(bridge.setRefreshInterval(3601)).rejects.toThrow(
-      REFRESH_ERROR,
+      refreshError(),
     );
     expect(await bridge.setRefreshInterval(300)).toBe(300);
     expect(await createDemoBridge(storage, 0).refreshInterval()).toBe(300);
@@ -104,7 +118,7 @@ describe('RefreshChoice', () => {
     expect(choice.invalid).toBe(true);
     choice.stage(5);
     expect(choice.invalid).toBe(true);
-    await expect(choice.apply()).rejects.toThrow(REFRESH_ERROR);
+    await expect(choice.apply()).rejects.toThrow(refreshError());
     expect(sent).toBe(0);
     choice.stage(45);
     expect(choice.invalid).toBe(false);

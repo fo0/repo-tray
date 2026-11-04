@@ -26,6 +26,7 @@
   import WorkflowInputs from './WorkflowInputs.svelte';
   import { DispatchForm } from './dispatchForm.svelte';
   import { accountLabel, errorMessage } from './format';
+  import { m } from './i18n/index.svelte';
   import { RequestEpoch, targetKey } from './model';
   import { blockedReason, startReason } from './startReason';
   import type { Panel } from './panel.svelte';
@@ -77,8 +78,7 @@
       }),
   );
   if (untrack(() => seed.favorite === 'add'))
-    notice =
-      'Ergänze die benötigten Angaben und speichere den Workflow als Favorit.';
+    notice = m().dispatch.dialog.completeFavorite;
 
   const target = $derived(form.target);
   const uncertain = $derived(panel.starts.isQuarantined(target));
@@ -111,9 +111,9 @@
       uncertain: uncertain || shownOutcome?.state === 'uncertain',
     }) ??
       (shownOutcome?.state === 'accepted'
-        ? 'Bereits gestartet – öffne den Dialog erneut für einen weiteren Start'
+        ? m().dispatch.dialog.alreadyStarted
         : panel.templateBusy
-          ? 'Favorit wird gespeichert …'
+          ? m().dispatch.dialog.savingFavorite
           : form.validation),
   );
 
@@ -138,13 +138,11 @@
     if (!alive || targetKey(target) !== key) return;
     if (!latest || latest.stale || latest.connectivity !== 'online') {
       notice = '';
-      error =
-        'Status konnte nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut. Starts bleiben gesperrt.';
+      error = m().dispatch.uncertain.checkFailed;
     } else {
       error = '';
       noticeTone = 'warning';
-      notice =
-        'Status geprüft. GitHub hat den Start weiterhin nicht bestätigt. Ein erneuter Start bleibt gesperrt.';
+      notice = m().dispatch.uncertain.stillUnconfirmed;
     }
   }
   /**
@@ -161,7 +159,7 @@
     watched = null;
     error = '';
     noticeTone = 'subtle';
-    notice = 'Sperre aufgehoben. Du kannst den Workflow wieder starten.';
+    notice = m().dispatch.uncertain.released;
     await tick();
     result?.focus();
   }
@@ -176,7 +174,7 @@
         return;
       form.editingPinId = pin.id;
       noticeTone = 'subtle';
-      notice = `„${pin.label.trim()}“ als Favorit gespeichert.`;
+      notice = m().favorites.notices.saved(pin.label.trim());
     } catch (cause) {
       if (alive && epoch.current(ticket)) error = errorMessage(cause);
     }
@@ -184,7 +182,7 @@
 </script>
 
 <Modal
-  title="Workflow starten"
+  title={m().dispatch.dialog.title}
   eyebrow={`REPOWATCH · ${demo ? 'DEMO' : 'GITHUB'}`}
   {returnFocus}
   {onClose}
@@ -199,8 +197,8 @@
       <div class="simulation-note">
         <Icon name="shield" size={15} /><span
           >{demo
-            ? 'Lokale Simulation · kein echter Workflow-Start'
-            : 'Echter GitHub-Workflow-Start · Konto und Ziel prüfen'}</span
+            ? m().dispatch.dialog.demoNote
+            : m().dispatch.dialog.liveNote}</span
         >
       </div>
       <DispatchTargetFields
@@ -231,8 +229,8 @@
       {#if panel.blocked}<div class="alert warning">
           <Icon name="warning" size={16} /><span
             >{snapshot?.connectivity === 'offline'
-              ? 'Offline. Starts sind deaktiviert; der letzte Stand bleibt sichtbar.'
-              : 'Zugriff verweigert. Prüfe die Token-Berechtigung „Actions: Lesen und Schreiben“. Starts sind deaktiviert.'}</span
+              ? m().dispatch.dialog.offline
+              : m().dispatch.dialog.forbidden}</span
           >
         </div>{/if}
       <SavePinPanel

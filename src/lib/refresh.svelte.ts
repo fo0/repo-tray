@@ -1,5 +1,5 @@
 import type { Bridge } from './demo';
-import { REFRESH_DEFAULT, REFRESH_ERROR, validRefresh } from './refresh';
+import { REFRESH_DEFAULT, refreshError, validRefresh } from './refresh';
 
 type RefreshPort = Pick<Bridge, 'refreshInterval' | 'setRefreshInterval'>;
 
@@ -47,11 +47,11 @@ export class RefreshChoice {
     if (this.draft === this.saved) this.draft = null;
   };
 
-  /** Writes the staged value; a refusal rejects with the shell's German message. */
+  /** Writes the staged value; a refusal rejects with the shell's user-facing message. */
   apply = async () => {
     const seconds = this.draft;
     if (seconds === null) return;
-    if (!validRefresh(seconds)) throw new Error(REFRESH_ERROR);
+    if (!validRefresh(seconds)) throw new Error(refreshError());
     this.saved = await this.#port.setRefreshInterval(seconds);
     this.draft = null;
   };

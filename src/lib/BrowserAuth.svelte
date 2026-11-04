@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import Icon from './Icon.svelte';
   import { ipcErrorMessage } from './format';
+  import { intlLocale, m } from './i18n/index.svelte';
   import { call } from './ipc';
   import type { DeviceFlowStatus, Snapshot } from './types';
   /** The native flow status plus the panel's own starting and error states. */
@@ -70,10 +71,7 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message = ipcErrorMessage(
-        cause,
-        'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.',
-      );
+      message = ipcErrorMessage(cause, m().accounts.browser.pollFailed);
       setBusy(false);
       void call('cancel_connect').catch(() => {});
     }
@@ -83,10 +81,7 @@
       await call('open_browser_auth', { flowId });
     } catch (cause) {
       if (active)
-        message = ipcErrorMessage(
-          cause,
-          'Öffne github.com/login/device und gib den Code ein.',
-        );
+        message = ipcErrorMessage(cause, m().accounts.browser.openFailed);
     }
   }
   async function begin() {
@@ -107,10 +102,7 @@
     } catch (cause) {
       if (!active || ticket !== generation) return;
       status = { state: 'error' };
-      message = ipcErrorMessage(
-        cause,
-        'Anmeldung konnte nicht gestartet werden.',
-      );
+      message = ipcErrorMessage(cause, m().accounts.browser.startFailed);
       setBusy(false);
     }
   }
@@ -124,9 +116,7 @@
     try {
       await call('cancel_connect');
     } catch {
-      if (active)
-        message =
-          'Abbruch nicht bestätigt. Dialog vor neuem Versuch schließen.';
+      if (active) message = m().accounts.browser.cancelUnconfirmed;
       return;
     }
     if (active) setBusy(false);
@@ -137,7 +127,7 @@
       await navigator.clipboard.writeText(status.userCode);
       if (active) copied = true;
     } catch {
-      if (active) message = 'Code bitte markieren und kopieren.';
+      if (active) message = m().accounts.browser.copyFailed;
     }
   }
   async function install() {
@@ -145,10 +135,7 @@
       await call('open_browser_installation');
     } catch (cause) {
       if (active)
-        message = ipcErrorMessage(
-          cause,
-          'GitHub konnte nicht geöffnet werden.',
-        );
+        message = ipcErrorMessage(cause, m().accounts.browser.githubFailed);
     }
   }
   onDestroy(() => {
@@ -162,43 +149,51 @@
 
 <div class="browser-auth" aria-live="polite">
   {#if status.state === 'starting'}
-    <p role="status">GitHub-Anmeldung wird vorbereitet …</p>
+    <p role="status">{m().accounts.browser.preparing}</p>
     <button type="button" class="secondary-button" onclick={cancel}
-      >Anmeldung abbrechen</button
+      >{m().accounts.browser.cancel}</button
     >
   {:else if status.state === 'awaitingAuthorization'}
-    <h4>Im Browser bestätigen</h4>
-    <p>Code auf <strong>github.com/login/device</strong> eingeben:</p>
+    <h4>{m().accounts.browser.confirmHeading}</h4>
+    <p>
+      {m().accounts.browser.enterCodeBefore}<strong
+        >github.com/login/device</strong
+      >{m().accounts.browser.enterCodeAfter}
+    </p>
     <div class="auth-code">
-      <span>GitHub-Bestätigungscode</span><code>{status.userCode}</code>
+      <span>{m().accounts.browser.code}</span><code>{status.userCode}</code>
       <button type="button" class="text-button" onclick={copyCode}
-        >{copied ? 'Code kopiert' : 'Code kopieren'}</button
+        >{copied
+          ? m().accounts.browser.copied
+          : m().accounts.browser.copy}</button
       >
       <small
-        >Gültig bis {new Date(
-          (status.expiresAt ?? 0) * 1000,
-        ).toLocaleTimeString('de-DE', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}</small
+        >{m().accounts.browser.validUntil(
+          new Date((status.expiresAt ?? 0) * 1000).toLocaleTimeString(
+            intlLocale(),
+            { hour: '2-digit', minute: '2-digit' },
+          ),
+        )}</small
       >
     </div>
-    <p class="field-help">Warte auf GitHub …</p>
+    <p class="field-help">{m().accounts.browser.waiting}</p>
     <div class="browser-actions">
       <button type="button" class="secondary-button" onclick={openBrowser}
-        >GitHub erneut öffnen<Icon name="external" size={14} /></button
+        >{m().accounts.browser.reopen}<Icon name="external" size={14} /></button
       >
       <button type="button" class="text-button" onclick={cancel}
-        >Anmeldung abbrechen</button
+        >{m().accounts.browser.cancel}</button
       >
     </div>
   {:else}
     {#if status.state === 'cancelled'}<p role="status">
-        Anmeldung abgebrochen.
+        {m().accounts.browser.cancelled}
       </p>
-    {:else if status.state === 'expired'}<p role="status">Code abgelaufen.</p>
+    {:else if status.state === 'expired'}<p role="status">
+        {m().accounts.browser.expired}
+      </p>
     {:else if status.state === 'denied'}<p role="status">
-        Freigabe bei GitHub abgelehnt.
+        {m().accounts.browser.denied}
       </p>{/if}
     <button
       type="button"
@@ -207,17 +202,17 @@
       onclick={begin}
     >
       <Icon name="github" size={16} />{!loaded
-        ? 'Anmeldung wird geprüft …'
+        ? m().accounts.browser.loading
         : !configured
-          ? 'Mit GitHub anmelden · noch nicht eingerichtet'
+          ? m().accounts.browser.notConfiguredButton
           : status.state === 'idle'
-            ? 'Mit GitHub anmelden'
-            : 'Erneut mit GitHub anmelden'}
+            ? m().accounts.browser.signIn
+            : m().accounts.browser.signInAgain}
     </button>
     <p class="field-help">
       {configured
-        ? 'Öffnet GitHub im Browser.'
-        : 'In dieser Version nicht eingerichtet.'}
+        ? m().accounts.browser.opensBrowser
+        : m().accounts.browser.notConfigured}
     </p>
     {#if configured}
       <button
@@ -225,7 +220,7 @@
         class="text-button"
         disabled={busy || disabled}
         onclick={install}
-        >Repository-Zugriff auf GitHub einrichten<Icon
+        >{m().accounts.browser.install}<Icon
           name="external"
           size={14}
         /></button

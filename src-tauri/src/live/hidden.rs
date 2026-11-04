@@ -2,6 +2,7 @@
 //! row (`AppSettings::hidden_repos`); a hidden repository gives up its automatic place, and
 //! only a favorite keeps it selected.
 use super::LiveStore;
+use crate::i18n::tr;
 use crate::{auto_repos::auto_select, cache::AppSettings, github::Transport, models::*};
 use std::collections::BTreeSet;
 
@@ -9,9 +10,21 @@ use std::collections::BTreeSet;
 pub(super) const MAX_HIDDEN_REPOS: usize = 1000;
 /// Longest account or repository ID a request may name.
 const MAX_ID_CHARS: usize = 200;
-pub(super) const HIDDEN_SAVE_FAILED: &str = "Einstellung konnte nicht gespeichert werden.";
-pub(super) const HIDDEN_TOO_MANY: &str = "Zu viele ausgeblendete Repositories.";
-pub(super) const HIDDEN_UNKNOWN: &str = "Repository nicht gefunden.";
+pub(super) fn hidden_save_failed() -> &'static str {
+    tr(
+        "Einstellung konnte nicht gespeichert werden.",
+        "Setting could not be saved.",
+    )
+}
+pub(super) fn hidden_too_many() -> &'static str {
+    tr(
+        "Zu viele ausgeblendete Repositories.",
+        "Too many hidden repositories.",
+    )
+}
+pub(super) fn hidden_unknown() -> &'static str {
+    tr("Repository nicht gefunden.", "Repository not found.")
+}
 
 fn valid_id(value: &str) -> bool {
     !value.trim().is_empty()
@@ -31,7 +44,7 @@ impl<T: Transport> LiveStore<T> {
         hidden: bool,
     ) -> Result<Snapshot, String> {
         if !valid_id(&account_id) || !valid_id(&repo_id) {
-            return Err(HIDDEN_UNKNOWN.into());
+            return Err(hidden_unknown().into());
         }
         let known = self
             .hidden
@@ -47,9 +60,9 @@ impl<T: Transport> LiveStore<T> {
                     .iter()
                     .find(|repo| repo.id == repo_id && repo.account_id == account_id)
                     .filter(|repo| self.data.accounts.iter().any(|a| a.id == repo.account_id))
-                    .ok_or(HIDDEN_UNKNOWN)?;
+                    .ok_or(hidden_unknown())?;
                 if next.len() >= MAX_HIDDEN_REPOS {
-                    return Err(HIDDEN_TOO_MANY.into());
+                    return Err(hidden_too_many().into());
                 }
                 next.push(HiddenRepo {
                     account_id,
@@ -109,7 +122,7 @@ impl<T: Transport> LiveStore<T> {
         settings.hidden_repos = hidden;
         self.cache
             .save_app_settings(&settings)
-            .map_err(|_| HIDDEN_SAVE_FAILED)?;
+            .map_err(|_| hidden_save_failed())?;
         self.hidden = settings.hidden_repos;
         Ok(())
     }

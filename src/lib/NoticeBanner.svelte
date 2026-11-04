@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte';
   import type { NoticeTone } from './StatusBanners.svelte';
   import { focusAfterNotice, focusLost, neighbourNotice } from './focus';
+  import { m } from './i18n/index.svelte';
 
   let {
     text,
@@ -120,7 +121,7 @@
       >{actionLabel}{#if navigates}<Icon name="arrow" size={13} />{/if}</button
     >{/if}<button
     class="icon-button small"
-    aria-label="Meldung schließen"
+    aria-label={m().shell.closeNotice}
     onclick={close}><Icon name="close" size={13} /></button
   >
 </div>

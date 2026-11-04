@@ -26,6 +26,7 @@ const nativeBridge: Bridge = {
     call('set_repo_hidden', { accountId, repoId, hidden }),
   refreshInterval: () => call('refresh_interval'),
   setRefreshInterval: (seconds) => call('set_refresh_interval', { seconds }),
+  setLocale: (locale) => call('set_locale', { locale }),
 };
 
 export const bridge: Bridge & Partial<DemoControls> = native

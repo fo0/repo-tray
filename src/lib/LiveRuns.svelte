@@ -4,6 +4,7 @@
   import { ArmedConfirm } from './armedConfirm.svelte';
   import { minuteClock } from './clock';
   import { runDuration } from './format';
+  import { m } from './i18n/index.svelte';
   import { runLabel, runTone, shortRepo, statusLabel, TONE_ICON } from './runs';
   import type { Run } from './types';
 
@@ -46,13 +47,14 @@
     {@const elapsed = runDuration(run, $minuteClock, !demo)}
     {@const tone = runTone(run)}
     {@const stopping = isCancelling(run)}
+    {@const text = m().runs.cancel}
     <li class="live-row">
       <!-- The key finds the rebuilt row when focus comes back from the Verlauf. -->
       <button
         class="live-run"
         data-focus-key={`run:${run.repoId}:${run.id}`}
-        aria-label={`${runLabel(run, repo)} · ${stopping ? 'Wird abgebrochen' : statusLabel(run)} · ${elapsed}`}
-        title="Im Verlauf anzeigen"
+        aria-label={`${runLabel(run, repo)} · ${stopping ? text.pending : statusLabel(run)} · ${elapsed}`}
+        title={m().common.showInHistory}
         onclick={() => onShow(run.id)}
       >
         <span class="status-tile" data-tone={tone}
@@ -76,23 +78,23 @@
           class:armed={confirm.is(run.id)}
           data-cancel-run={run.id}
           aria-label={stopping
-            ? `${runLabel(run, repo)} wird abgebrochen`
+            ? text.pendingLabel(runLabel(run, repo))
             : confirm.is(run.id)
-              ? `${runLabel(run, repo)} wirklich abbrechen?`
-              : `${runLabel(run, repo)} abbrechen`}
+              ? text.armedLabel(runLabel(run, repo))
+              : text.label(runLabel(run, repo))}
           aria-disabled={stopping ? 'true' : undefined}
           title={stopping
-            ? 'Wird abgebrochen …'
+            ? text.pendingTitle
             : confirm.is(run.id)
-              ? 'Zum Abbrechen erneut klicken'
-              : 'Run abbrechen'}
+              ? text.confirmTitle
+              : text.run}
           onclick={() => press(run)}
           onblur={() => confirm.is(run.id) && confirm.disarm()}
           >{#if stopping}<Icon
               name="spinner"
               size={13}
               class="cancel-spinner"
-            />{:else if confirm.is(run.id)}Abbrechen?{:else}<Icon
+            />{:else if confirm.is(run.id)}{text.armed}{:else}<Icon
               name="stop"
               size={15}
             />{/if}</button

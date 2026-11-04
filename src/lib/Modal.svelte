@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import Icon from './Icon.svelte';
   import { trapFocus } from './focus';
+  import { m } from './i18n/index.svelte';
 
   let {
     title,
@@ -47,7 +48,7 @@
       </div>
       <button
         class="icon-button"
-        aria-label="Dialog schließen"
+        aria-label={m().shell.closeDialog}
         onclick={() => onClose()}><Icon name="close" size={19} /></button
       >
     </div>

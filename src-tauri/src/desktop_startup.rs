@@ -1,20 +1,25 @@
 //! Windows' per-user Run value, scoped to the installed executable. We use the
 //! documented Run mechanism directly so ownership checks precede every mutation
 //! and no plugin can fall back to HKLM or override Windows' startup veto.
+use repowatch_core::i18n::tr;
 use repowatch_core::startup::StartupStatus;
 #[cfg(not(windows))]
 use repowatch_core::startup::Status;
 use std::sync::Mutex;
+
+fn service_unavailable() -> &'static str {
+    tr(
+        "Autostartdienst nicht verfügbar.",
+        "Autostart service unavailable.",
+    )
+}
 
 #[derive(Default)]
 pub struct StartupState(Mutex<()>);
 
 #[tauri::command]
 pub fn autostart_status(state: tauri::State<'_, StartupState>) -> Result<StartupStatus, String> {
-    let _guard = state
-        .0
-        .lock()
-        .map_err(|_| "Autostartdienst nicht verfügbar.")?;
+    let _guard = state.0.lock().map_err(|_| service_unavailable())?;
     status()
 }
 
@@ -23,10 +28,7 @@ pub fn set_autostart(
     state: tauri::State<'_, StartupState>,
     enabled: bool,
 ) -> Result<StartupStatus, String> {
-    let _guard = state
-        .0
-        .lock()
-        .map_err(|_| "Autostartdienst nicht verfügbar.")?;
+    let _guard = state.0.lock().map_err(|_| service_unavailable())?;
     #[cfg(windows)]
     {
         let expected = windows::expected()?;
@@ -61,17 +63,28 @@ pub fn open_startup_settings(app: tauri::AppHandle) -> Result<(), String> {
     {
         use tauri_plugin_opener::OpenerExt;
         app.opener().open_url("ms-settings:startupapps", None::<&str>)
-            .map_err(|_| "Windows-Autostart konnte nicht geöffnet werden. Öffne Windows-Einstellungen → Apps → Autostart.".into())
+            .map_err(|_| {
+                tr(
+                    "Windows-Autostart konnte nicht geöffnet werden. Öffne Windows-Einstellungen → Apps → Autostart.",
+                    "Windows autostart could not be opened. Open Windows Settings → Apps → Startup.",
+                )
+                .into()
+            })
     }
     #[cfg(not(windows))]
     {
         let _ = app;
-        Err("Windows-Autostart ist nur unter Windows verfügbar.".into())
+        Err(tr(
+            "Windows-Autostart ist nur unter Windows verfügbar.",
+            "Windows autostart is available on Windows only.",
+        )
+        .into())
     }
 }
 
 #[cfg(windows)]
 mod windows {
+    use repowatch_core::i18n::tr;
     use repowatch_core::startup::{self, Approval, Registration, VALUE_NAME};
     use std::{io, path::Path};
     use winreg::{enums::*, RegKey};
@@ -80,20 +93,27 @@ mod windows {
     const APPROVAL: &str =
         r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
 
+    fn path_unreadable() -> &'static str {
+        tr(
+            "Installationspfad konnte nicht gelesen werden.",
+            "Install path could not be read.",
+        )
+    }
+
     pub(super) fn expected() -> Result<String, String> {
-        let executable = std::env::current_exe()
-            .map_err(|_| "Installationspfad konnte nicht gelesen werden.")?;
+        let executable = std::env::current_exe().map_err(|_| path_unreadable())?;
         command_for_path(&executable)
     }
 
     fn command_for_path(path: &Path) -> Result<String, String> {
         if !path.is_absolute() {
-            return Err("Windows-Autostart benötigt einen absoluten Installationspfad.".into());
+            return Err(tr(
+                "Windows-Autostart benötigt einen absoluten Installationspfad.",
+                "Windows autostart needs an absolute install path.",
+            )
+            .into());
         }
-        startup::registration_command(
-            path.to_str()
-                .ok_or("Installationspfad konnte nicht gelesen werden.")?,
-        )
+        startup::registration_command(path.to_str().ok_or(path_unreadable())?)
     }
 
     pub(super) struct Registry {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { clockTime } from './format';
+  import { m } from './i18n/index.svelte';
   import type { Snapshot } from './types';
 
   let {
@@ -28,19 +29,20 @@
     canRefresh: boolean;
     onRefresh: () => void;
   } = $props();
+  const text = $derived(m().shell.footer);
   const stamp = $derived(
-    updatedAt !== undefined ? `Stand ${clockTime(updatedAt)}` : '',
+    updatedAt !== undefined ? text.stamp(clockTime(updatedAt)) : '',
   );
   const status = $derived(
     connectivity === 'offline'
-      ? 'Offline'
+      ? text.offline
       : connectivity === 'forbidden'
-        ? 'Kein Zugriff'
+        ? text.forbidden
         : !demo && accountCount
-          ? 'Verbunden'
+          ? text.connected
           : demoAccountConnected
-            ? 'demo-dev · simuliert'
-            : 'Nicht verbunden',
+            ? text.demoSimulated
+            : text.disconnected,
   );
 </script>
 
@@ -48,10 +50,8 @@
   <div
     class="connection"
     role="status"
-    aria-label="Verbindungsstatus"
-    title={demo
-      ? 'Demo-Modus: keine echte GitHub-Verbindung. Alle Daten und Starts sind simuliert.'
-      : 'GitHub-Verbindung · Token im Betriebssystem-Tresor'}
+    aria-label={text.connection}
+    title={demo ? text.demoTitle : text.liveTitle}
   >
     <span
       class="connection-dot"
@@ -65,19 +65,19 @@
     >
   </div>
   {#if stale}<span class="footer-stale"
-      >{demo ? 'Veralteter Demo-Stand' : 'Veralteter Stand'}</span
+      >{demo ? text.staleDemo : text.stale}</span
     >{/if}
   <button
     onclick={() => onRefresh()}
     disabled={refreshing || !canRefresh}
-    title={demo ? 'Demo-Status aktualisieren' : 'GitHub-Status aktualisieren'}
-    aria-label={!refreshing && stamp ? `Aktualisieren · ${stamp}` : undefined}
+    title={demo ? text.refreshDemo : text.refreshLive}
+    aria-label={!refreshing && stamp ? text.refreshStamp(stamp) : undefined}
     >{refreshing
-      ? 'Aktualisiert …'
+      ? text.refreshing
       : stamp
         ? stamp
         : canRefresh
-          ? 'Erneut laden'
-          : 'Lädt …'}<Icon name="refresh" size={12} /></button
+          ? text.reload
+          : text.loading}<Icon name="refresh" size={12} /></button
   >
 </footer>

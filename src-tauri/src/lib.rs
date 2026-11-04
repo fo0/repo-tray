@@ -5,6 +5,7 @@ pub mod auto_repos;
 pub mod cache;
 pub mod demo;
 pub mod github;
+pub mod i18n;
 pub mod local_auth;
 pub mod models;
 pub mod popup;

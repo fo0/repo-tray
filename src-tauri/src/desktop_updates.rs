@@ -2,7 +2,8 @@
 //! the release's NSIS EXE after verifying its published size and SHA-256; builds with a
 //! compiled-in updater key install Tauri-signed packages instead. Either way one
 //! `install_update` call downloads, verifies and starts the installer, then RepoWatch exits.
-use repowatch_core::updates::{self, installer, Installer, UpdateInfo, CHECK_FAILED};
+use repowatch_core::i18n::tr;
+use repowatch_core::updates::{self, check_failed, installer, Installer, UpdateInfo};
 use serde::Serialize;
 use std::{
     process::{Command, Stdio},
@@ -33,14 +34,16 @@ impl UpdateState {
     fn begin(&self) -> Result<Busy<'_>, String> {
         self.busy
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .map_err(|_| "Eine Update-Aufgabe läuft bereits.")?;
+            .map_err(|_| {
+                tr(
+                    "Eine Update-Aufgabe läuft bereits.",
+                    "An update task is already running.",
+                )
+            })?;
         Ok(Busy(&self.busy))
     }
     fn set(&self, candidate: Option<Candidate>) -> Result<(), String> {
-        *self
-            .pending
-            .lock()
-            .map_err(|_| "Update-Dienst nicht verfügbar.")? = candidate;
+        *self.pending.lock().map_err(|_| service_unavailable())? = candidate;
         Ok(())
     }
 }
@@ -67,14 +70,32 @@ impl DownloadProgress {
     }
 }
 
-const SERVICE_UNAVAILABLE: &str = "Update-Dienst nicht verfügbar.";
-const START_FAILED: &str = "Installation konnte nicht gestartet werden.";
+fn service_unavailable() -> &'static str {
+    tr(
+        "Update-Dienst nicht verfügbar.",
+        "Update service unavailable.",
+    )
+}
+fn start_failed() -> &'static str {
+    tr(
+        "Installation konnte nicht gestartet werden.",
+        "Installation could not be started.",
+    )
+}
+
+fn invalid_address() -> &'static str {
+    tr("Update-Adresse ungültig.", "Invalid update address.")
+}
 
 fn supported() -> Result<(), String> {
     if cfg!(all(windows, target_arch = "x86_64")) {
         Ok(())
     } else {
-        Err("App-Updates stehen für die Windows-x64-Version bereit.".into())
+        Err(tr(
+            "App-Updates stehen für die Windows-x64-Version bereit.",
+            "App updates are available for the Windows x64 version.",
+        )
+        .into())
     }
 }
 
@@ -92,7 +113,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
                 updates::fetch_latest_release(env!("CARGO_PKG_VERSION"))
             })
             .await
-            .map_err(|_| CHECK_FAILED.to_string())??;
+            .map_err(|_| check_failed().to_string())??;
             match release {
                 Some(release) => (
                     Some(release.info),
@@ -120,15 +141,15 @@ async fn check_signed(
         .pubkey(key)
         .endpoints(vec![updates::ENDPOINT
             .parse()
-            .map_err(|_| "Update-Adresse ungültig.")?])
-        .map_err(|_| "Update-Adresse ungültig.")?
+            .map_err(|_| invalid_address())?])
+        .map_err(|_| invalid_address())?
         .timeout(Duration::from_secs(25))
         .build()
-        .map_err(|_| SERVICE_UNAVAILABLE)?;
+        .map_err(|_| service_unavailable())?;
     let update = updater.check().await.map_err(|error| match error {
         // A missing manifest (404) is a publishing gap, not a connection problem.
-        tauri_plugin_updater::Error::ReleaseNotFound => updates::NO_SIGNED_FEED.to_string(),
-        _ => CHECK_FAILED.to_string(),
+        tauri_plugin_updater::Error::ReleaseNotFound => updates::no_signed_feed().to_string(),
+        _ => check_failed().to_string(),
     })?;
     let Some(mut update) = update else {
         return Ok((None, None));
@@ -139,7 +160,11 @@ async fn check_signed(
         env!("CARGO_PKG_VERSION"),
     )?;
     if update.signature.trim().is_empty() {
-        return Err("Signatur fehlt – Update wird nicht installiert.".into());
+        return Err(tr(
+            "Signatur fehlt – Update wird nicht installiert.",
+            "Signature missing – the update is not installed.",
+        )
+        .into());
     }
     update.timeout = Some(Duration::from_secs(300));
     let info = UpdateInfo {
@@ -165,9 +190,9 @@ pub async fn install_update(
     let candidate = state
         .pending
         .lock()
-        .map_err(|_| SERVICE_UNAVAILABLE)?
+        .map_err(|_| service_unavailable())?
         .clone()
-        .ok_or("Prüfe zuerst auf Updates.")?;
+        .ok_or(tr("Prüfe zuerst auf Updates.", "Check for updates first."))?;
     match candidate {
         Candidate::Release(asset) => install_release(&app, asset, on_progress).await,
         Candidate::Signed(update) => install_signed(*update, on_progress).await,
@@ -203,10 +228,10 @@ async fn install_release(
             .stderr(Stdio::null())
             .spawn()
             .map(drop)
-            .map_err(|_| START_FAILED.to_string())
+            .map_err(|_| start_failed().to_string())
     })
     .await
-    .map_err(|_| START_FAILED.to_string())??;
+    .map_err(|_| start_failed().to_string())??;
     // Nothing prevents `ExitRequested`, so this ends the process and frees the EXE; the
     // passive installer would otherwise close the running app itself.
     app.exit(0);
@@ -239,13 +264,17 @@ async fn install_signed(
         )
         .await
         .map_err(|_| {
-            "Download oder Signaturprüfung fehlgeschlagen – nichts installiert.".to_string()
+            tr(
+                "Download oder Signaturprüfung fehlgeschlagen – nichts installiert.",
+                "Download or signature check failed – nothing installed.",
+            )
+            .to_string()
         })?;
     // download() verifies the complete package before returning installable bytes.
     let _ = on_progress.send(DownloadProgress::stage("installing"));
     // On Windows the plugin starts the installer and exits the process itself.
     tauri::async_runtime::spawn_blocking(move || update.install(bytes))
         .await
-        .map_err(|_| START_FAILED)?
-        .map_err(|_| START_FAILED.to_string())
+        .map_err(|_| start_failed())?
+        .map_err(|_| start_failed().to_string())
 }

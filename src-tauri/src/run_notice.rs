@@ -1,6 +1,7 @@
 //! Text of the desktop notification shown when a watched run completes.
 
 use crate::models::{Repo, Run};
+use crate::trf;
 
 /// Title and body for a completed `run`: the title names the repository as `owner/name`,
 /// the body the workflow. Falls back to the app name when the run's repository is not
@@ -13,7 +14,8 @@ pub fn completion_notice(run: &Run, repos: &[Repo]) -> (String, String) {
             || "RepoWatch".to_owned(),
             |repo| format!("{}/{}", repo.owner, repo.name),
         );
-    (title, format!("{}: Run beendet.", run.name))
+    let name = &run.name;
+    (title, trf!("{name}: Run beendet.", "{name}: run finished."))
 }
 
 #[cfg(test)]
@@ -67,5 +69,13 @@ mod tests {
             completion_notice(&run("missing"), &[]),
             ("RepoWatch".into(), "Build: Run beendet.".into())
         );
+    }
+
+    #[test]
+    fn speaks_english_when_chosen() {
+        let notice = crate::i18n::with_locale(crate::i18n::Locale::En, || {
+            completion_notice(&run("missing"), &[])
+        });
+        assert_eq!(notice.1, "Build: run finished.");
     }
 }

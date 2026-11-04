@@ -4,6 +4,7 @@ use crate::{
     auth::{CredentialError, NativeKeyring, SecretToken},
     browser_auth::{self, NativeOAuthTransport, OAuthEndpoint, OAuthResponse, OAuthTransport},
     github::{ApiRequest, ApiResponse, Method, Transport, TransportError},
+    i18n::tr,
 };
 use std::{io::Read, sync::Arc, time::Duration};
 
@@ -20,7 +21,12 @@ impl HttpTransport {
             .redirect(reqwest::redirect::Policy::none())
             .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
             .build()
-            .map_err(|_| "HTTP-Dienst konnte nicht gestartet werden.")?;
+            .map_err(|_| {
+                tr(
+                    "HTTP-Dienst konnte nicht gestartet werden.",
+                    "HTTP service could not be started.",
+                )
+            })?;
         Ok(Self {
             client,
             keyring,
@@ -111,9 +117,13 @@ impl OAuthClient {
         Ok(self)
     }
     fn native(&mut self) -> Result<&mut NativeOAuthTransport, String> {
-        self.0
-            .as_mut()
-            .ok_or_else(|| "Anmeldedienst nicht verfügbar.".into())
+        self.0.as_mut().ok_or_else(|| {
+            tr(
+                "Anmeldedienst nicht verfügbar.",
+                "Sign-in service unavailable.",
+            )
+            .into()
+        })
     }
 }
 impl OAuthTransport for OAuthClient {

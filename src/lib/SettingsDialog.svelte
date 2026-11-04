@@ -2,18 +2,24 @@
   import { onDestroy, untrack } from 'svelte';
   import AccountsTab from './AccountsTab.svelte';
   import HiddenReposSetting from './HiddenReposSetting.svelte';
+  import LanguageSetting from './LanguageSetting.svelte';
   import Modal from './Modal.svelte';
   import RefreshSetting from './RefreshSetting.svelte';
   import StartupSettings from './StartupSettings.svelte';
   import ThemeSetting from './ThemeSetting.svelte';
   import UpdatePanel from './UpdatePanel.svelte';
+  import { AppearanceChoice } from './appearanceChoice.svelte';
   import { Autostart } from './autostart.svelte';
   import { bridge } from './bridge';
   import { errorMessage } from './format';
   import { HiddenChoice } from './hiddenChoice.svelte';
+  import { m } from './i18n/index.svelte';
   import { RefreshChoice } from './refresh.svelte';
-  import { SETTINGS_TABS, type SettingsTab } from './settingsTabs';
-  import { appliedTheme, applyTheme, rememberTheme } from './theme';
+  import {
+    SETTINGS_TABS,
+    settingsTabLabel,
+    type SettingsTab,
+  } from './settingsTabs';
   import type { DemoScenario, HiddenRepo, Snapshot } from './types';
   import type { Updater } from './updater.svelte';
 
@@ -71,11 +77,7 @@
   /** null: untouched, the setting in effect shows. */
   let accountChoice = $state<string | null>(null);
   let scenarioChoice = $state<DemoScenario | null>(null);
-  // main.ts applied the saved theme; the choice only previews until saved.
-  let savedTheme = $state(appliedTheme());
-  /** Plain copy for the teardown, which reads state as it was before close. */
-  let keptTheme = untrack(() => savedTheme);
-  let theme = $state(untrack(() => savedTheme));
+  const appearance = new AppearanceChoice(bridge);
   const autostart = new Autostart(untrack(() => native));
   const refresh = new RefreshChoice(bridge);
   const hidden = new HiddenChoice();
@@ -83,7 +85,7 @@
     alive = false;
     autostart.dispose();
     // Closing without „Speichern“ drops the preview.
-    if (appliedTheme() !== keptTheme) applyTheme(keptTheme);
+    appearance.restore();
   });
   /** A staged account that was disconnected meanwhile falls back. */
   const account = $derived(
@@ -96,7 +98,8 @@
   const changed = $derived({
     account: native && account !== accountId,
     scenario: demo && draftScenario !== scenario,
-    theme: theme !== savedTheme,
+    theme: appearance.themePending,
+    language: appearance.languagePending,
     autostart: autostart.pending !== null,
     refresh: refresh.pending,
     hidden: hidden.pendingIn(snapshot?.hiddenRepos ?? []),
@@ -105,7 +108,7 @@
   const saveBlocked = $derived(!dirty || saving || busy || refresh.invalid);
   /** Why „Speichern“ is off although something changed, if a value is invalid. */
   const invalidReason = $derived(
-    refresh.invalid ? 'Aktualisierung ungültig' : null,
+    refresh.invalid ? m().settings.refresh.invalid : null,
   );
   /**
    * Tab states: a dot whose text is part of the tab's name, like the activity
@@ -115,7 +118,9 @@
   const badges = $derived<
     Partial<Record<SettingsTab, { text: string; tone?: 'danger' }>>
   >({
-    ...(updater.info && { updates: { text: 'Update verfügbar' } }),
+    ...(updater.info && {
+      updates: { text: m().settings.dialog.updateAvailable },
+    }),
     ...(invalidReason && { app: { text: invalidReason, tone: 'danger' } }),
   });
 
@@ -156,14 +161,8 @@
         // The choice holds for this session, but could not be remembered.
         if (accountNotice) throw new Error(accountNotice);
       }
-      if (pending.theme) {
-        const value = theme;
-        savedTheme = keptTheme = value;
-        if (!rememberTheme(value))
-          throw new Error(
-            'Darstellung ließ sich nicht speichern und gilt bis zum nächsten Start.',
-          );
-      }
+      if (pending.theme) appearance.applyTheme();
+      if (pending.language) appearance.applyLanguage();
       if (pending.refresh) await refresh.apply();
       if (pending.hidden)
         await hidden.apply(snapshot?.hiddenRepos ?? [], onUnhide);
@@ -182,7 +181,7 @@
     if (!direction && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
     const count = SETTINGS_TABS.length;
-    const index = SETTINGS_TABS.findIndex((item) => item.id === tab);
+    const index = SETTINGS_TABS.indexOf(tab);
     const next =
       event.key === 'Home'
         ? 0
@@ -191,7 +190,7 @@
           : (index + direction + count) % count;
     const target = SETTINGS_TABS[next];
     if (!target) return;
-    tab = target.id;
+    tab = target;
     event.currentTarget
       .querySelectorAll<HTMLButtonElement>('[role=tab]')
       [next]?.focus();
@@ -199,7 +198,7 @@
 </script>
 
 <Modal
-  title="Einstellungen"
+  title={m().settings.dialog.title}
   eyebrow={`REPOWATCH · ${demo ? 'DEMO' : 'GITHUB'}`}
   wide
   {returnFocus}
@@ -209,23 +208,23 @@
     class="settings-tabs"
     role="tablist"
     tabindex="-1"
-    aria-label="Einstellungsbereiche"
+    aria-label={m().settings.dialog.tabsLabel}
     onkeydown={tabKey}
   >
-    {#each SETTINGS_TABS as item (item.id)}
+    {#each SETTINGS_TABS as item (item)}
       <button
-        id={`settings-tab-${item.id}`}
+        id={`settings-tab-${item}`}
         role="tab"
-        aria-selected={tab === item.id}
+        aria-selected={tab === item}
         aria-controls="settings-panel"
-        tabindex={tab === item.id ? 0 : -1}
-        onclick={() => (tab = item.id)}
-        >{item.label}{#if badges[item.id]}<span
+        tabindex={tab === item ? 0 : -1}
+        onclick={() => (tab = item)}
+        >{settingsTabLabel(item)}{#if badges[item]}<span
             class="tab-update-dot"
-            data-tone={badges[item.id]?.tone}
+            data-tone={badges[item]?.tone}
             role="img"
-            aria-label={badges[item.id]?.text}
-            title={badges[item.id]?.text}
+            aria-label={badges[item]?.text}
+            title={badges[item]?.text}
           ></span>{/if}</button
       >
     {/each}
@@ -254,7 +253,8 @@
         onDisconnect={disconnect}
       />
     {:else if tab === 'app'}
-      <ThemeSetting bind:value={theme} />
+      <LanguageSetting bind:value={appearance.language} />
+      <ThemeSetting bind:value={appearance.theme} />
       <RefreshSetting choice={refresh} />
       <HiddenReposSetting {snapshot} choice={hidden} />
       <StartupSettings {native} {autostart} />
@@ -280,15 +280,15 @@
       type="button"
       class="secondary-button"
       disabled={saving}
-      onclick={() => onClose()}>Abbrechen</button
+      onclick={() => onClose()}>{m().common.cancel}</button
     ><!-- Off via aria-disabled: it keeps focus while saving. --><button
       type="button"
       class="primary-button"
       aria-disabled={saveBlocked ? 'true' : undefined}
       title={invalidReason ??
-        (dirty || saving ? undefined : 'Keine Änderungen')}
+        (dirty || saving ? undefined : m().settings.dialog.noChanges)}
       onclick={() => void save()}
-      >{saving ? 'Wird gespeichert …' : 'Speichern'}</button
+      >{saving ? m().common.saving : m().common.save}</button
     >
   </div>
 </Modal>

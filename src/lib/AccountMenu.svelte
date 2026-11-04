@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { avatarLetter } from './format';
+  import { m } from './i18n/index.svelte';
   import { menu, openingFocus, type MenuFocus } from './menu';
   import type { Account, Snapshot } from './types';
 
@@ -43,8 +44,8 @@
     active
       ? accountName(active.id)
       : native
-        ? 'Kein aktives Konto'
-        : 'Alle Konten',
+        ? m().common.noActiveAccount
+        : m().accounts.menu.all,
   );
   const letter = $derived(
     active ? avatarLetter(active.login, '?') : native ? '' : 'A',
@@ -116,7 +117,11 @@
 {/snippet}
 
 <div class="account-menu">
-  <div class="account-status" role="status" aria-label="Aktives Konto">
+  <div
+    class="account-status"
+    role="status"
+    aria-label={m().accounts.menu.active}
+  >
     <button
       bind:this={trigger}
       type="button"
@@ -125,7 +130,9 @@
       aria-haspopup="menu"
       aria-expanded={open}
       aria-controls={open ? `${id}-menu` : undefined}
-      aria-label={`${active || !native ? `Konto: ${label}` : label} – Konto wechseln`}
+      aria-label={m().accounts.menu.switchTo(
+        active || !native ? m().accounts.menu.named(label) : label,
+      )}
       title={label}
       {disabled}
       onclick={() => (open ? (open = false) : show('first'))}
@@ -151,16 +158,16 @@
       class="menu account-list"
       role="menu"
       tabindex="-1"
-      aria-label="Konto wechseln"
+      aria-label={m().accounts.menu.switch}
       use:menu={{ trigger, initial, onClose: () => (open = false) }}
     >
       <!-- Natively without a connected account there is nothing to choose. -->
       {#if !native || accounts.length}
         <div class="menu-label" id={`${id}-accounts`} aria-hidden="true">
-          Konto
+          {m().accounts.menu.group}
         </div>
         <div role="group" aria-labelledby={`${id}-accounts`}>
-          {#if !native}{@render item('', 'Alle Konten', 'A')}{/if}
+          {#if !native}{@render item('', m().accounts.menu.all, 'A')}{/if}
           {#each accounts as account (account.id)}
             {@render item(
               account.id,
@@ -177,7 +184,7 @@
         role="menuitem"
         tabindex="-1"
         onclick={() => run(onConnect)}
-        ><Icon name="userPlus" size={16} />Konto verbinden …</button
+        ><Icon name="userPlus" size={16} />{m().accounts.menu.connect}</button
       >
       <button
         type="button"
@@ -185,7 +192,7 @@
         role="menuitem"
         tabindex="-1"
         onclick={() => run(onManage)}
-        ><Icon name="settings" size={16} />Konten verwalten …</button
+        ><Icon name="settings" size={16} />{m().accounts.menu.manage}</button
       >
     </div>
   {/if}

@@ -13,6 +13,7 @@
   import appPackage from '../package.json';
   import { bridge, native, observeSnapshots } from './lib/bridge';
   import { accountLabel, repoLabel } from './lib/format';
+  import { m } from './lib/i18n/index.svelte';
   import { Modals } from './lib/modals.svelte';
   import { Panel } from './lib/panel.svelte';
   import { createShortcuts } from './lib/shortcuts';
@@ -95,13 +96,13 @@
     if (account && !known.has(account.id)) view.home();
     // Success closes the dialog by itself; the notice confirms it.
     modals.close();
-    if (account) panel.showNotice(`Konto ${account.login} verbunden.`);
+    if (account) panel.showNotice(m().shell.connect.connected(account.login));
     void updater.check(true);
   }
   function connectedDemo() {
     demoAccountConnected = true;
     modals.close();
-    panel.showNotice('demo-dev simuliert verbunden.');
+    panel.showNotice(m().shell.connect.demoConnected);
     void tick().then(() => appBar?.focusAccount());
   }
 
@@ -218,7 +219,7 @@
   />
 {:else if modals.kind === 'connect'}
   <Modal
-    title="GitHub verbinden"
+    title={m().shell.connect.title}
     eyebrow={`REPOWATCH · ${demo ? 'DEMO' : 'GITHUB'}`}
     returnFocus={modals.returnFocus}
     onClose={modals.close}

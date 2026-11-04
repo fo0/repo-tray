@@ -1,14 +1,15 @@
 import { accountTitle } from './accountSelection';
+import { intlLocale, m } from './i18n/index.svelte';
 import { fullRepo } from './model';
 import type { LastRun } from './repoActivity';
 import { duration, isActive } from './runs';
 import type { Run, Snapshot } from './types';
 
-export const FALLBACK_ERROR =
-  'Der Vorgang konnte nicht abgeschlossen werden. Versuche es erneut.';
+/** The generic failure text, in the language in effect. */
+export const fallbackError = () => m().common.fallbackError;
 
 /** User-facing text for a rejection: an Error's message, an IPC error string, or a fallback. */
-export function errorMessage(cause: unknown, fallback = FALLBACK_ERROR) {
+export function errorMessage(cause: unknown, fallback = fallbackError()) {
   return cause instanceof Error
     ? cause.message
     : typeof cause === 'string'
@@ -18,31 +19,35 @@ export function errorMessage(cause: unknown, fallback = FALLBACK_ERROR) {
 
 /**
  * User-facing text for a rejected native command. Tauri rejects with the Rust
- * error string (German, written for the user); an `Error` can only come from
- * JavaScript internals and would surface English internals, so it and any
- * other value get the fallback. The demo bridge throws German `Error`s and
- * keeps `errorMessage`.
+ * error string (written for the user); an `Error` can only come from
+ * JavaScript internals and would surface internals, so it and any other value
+ * get the fallback. The demo bridge throws user-facing `Error`s and keeps
+ * `errorMessage`.
  */
-export function ipcErrorMessage(cause: unknown, fallback = FALLBACK_ERROR) {
+export function ipcErrorMessage(cause: unknown, fallback = fallbackError()) {
   return typeof cause === 'string' && cause.trim() ? cause : fallback;
 }
 
-/** A count with its German noun form, e.g. `1 Repository` or `3 Repositories`. */
+/**
+ * A count with the noun form the caller passes, e.g. `1 Repository` or
+ * `3 Repositories`. Callers pass catalog texts; `m().common.count` covers
+ * runs, favorites and repositories.
+ */
 export function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** Local wall-clock time as `HH:MM` (de-DE); defaults to now. */
+/** Local wall-clock time, e.g. `09:42` (de-DE); defaults to now. */
 export function clockTime(value: string | number | Date = new Date()) {
-  return new Date(value).toLocaleTimeString('de-DE', {
+  return new Date(value).toLocaleTimeString(intlLocale(), {
     hour: '2-digit',
     minute: '2-digit',
   });
 }
 
-/** Local date and time as `01.11.2026, 09:42` (de-DE). */
+/** Local date and time, e.g. `01.11.2026, 09:42` (de-DE). */
 export function dateTime(value: string | number | Date) {
-  return new Date(value).toLocaleString('de-DE', {
+  return new Date(value).toLocaleString(intlLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -57,46 +62,58 @@ const DAY = 24 * HOUR;
 const dayStart = (time: number) => new Date(time).setHours(0, 0, 0, 0);
 
 /**
- * German relative time: „gerade eben“, „vor 3 Min.“, „vor 2 Std.“ (under a
- * day, or earlier the same calendar day: a 25-hour DST day reaches „vor 24
- * Std.“), „gestern“ (the previous calendar day), „vor 2 Tagen“ up to „vor 6
- * Tagen“ (calendar days), then the date. A time ahead of `now` (clock skew,
- * a stale tick) reads „gerade eben“.
+ * Relative time and whether it fell back to a date. German reads „gerade
+ * eben“, „vor 3 Min.“, „vor 2 Std.“ (under a day, or earlier the same
+ * calendar day: a 25-hour DST day reaches „vor 24 Std.“), „gestern“ (the
+ * previous calendar day), „vor 2 Tagen“ up to „vor 6 Tagen“ (calendar days),
+ * then the date. A time ahead of `now` (clock skew, a stale tick) reads
+ * „gerade eben“.
  */
+function relative(value: string | number | Date, now: number) {
+  const time = new Date(value).getTime();
+  const text = m().common.relative;
+  const words = (word: string) => ({ text: word, date: false });
+  if (Number.isNaN(time)) return words('');
+  const elapsed = now - time;
+  if (elapsed < MINUTE) return words(text.justNow);
+  if (elapsed < HOUR) return words(text.minutes(Math.floor(elapsed / MINUTE)));
+  if (elapsed < DAY || dayStart(time) === dayStart(now))
+    return words(text.hours(Math.floor(elapsed / HOUR)));
+  // Calendar days between both midnights; rounding absorbs a DST hour.
+  const days = Math.round((dayStart(now) - dayStart(time)) / DAY);
+  if (days <= 1) return words(text.yesterday);
+  if (days <= 6) return words(text.days(days));
+  return {
+    text: new Date(time).toLocaleDateString(intlLocale(), {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }),
+    date: true,
+  };
+}
+
+/** Relative time in the language in effect; see `relative`. */
 export function relativeTime(
   value: string | number | Date,
   now: number = Date.now(),
 ) {
-  const time = new Date(value).getTime();
-  if (Number.isNaN(time)) return '';
-  const elapsed = now - time;
-  if (elapsed < MINUTE) return 'gerade eben';
-  if (elapsed < HOUR) return `vor ${Math.floor(elapsed / MINUTE)} Min.`;
-  if (elapsed < DAY || dayStart(time) === dayStart(now))
-    return `vor ${Math.floor(elapsed / HOUR)} Std.`;
-  // Calendar days between both midnights; rounding absorbs a DST hour.
-  const days = Math.round((dayStart(now) - dayStart(time)) / DAY);
-  if (days <= 1) return 'gestern';
-  if (days <= 6) return `vor ${days} Tagen`;
-  return new Date(time).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  return relative(value, now).text;
 }
 
 /** When an open run started or a completed run finished, for a `<time>` element. */
 export function runMoment(run: Run, now: number, demo = false) {
   const active = isActive(run);
   const at = active ? run.createdAt : run.updatedAt;
-  const relative = relativeTime(at, now);
-  const verb = active ? 'Gestartet' : 'Beendet';
+  const when = relative(at, now);
+  const text = m().common;
+  const verb = active ? text.moment.started : text.moment.finished;
   return {
     datetime: at,
-    relative,
-    title: `${verb}: ${dateTime(at)}${demo ? ' · Demo-Zeit' : ''}`,
+    relative: when.text,
+    title: `${verb}: ${dateTime(at)}${demo ? text.demoTime : ''}`,
     /** For the row's accessible name, e.g. „gestartet vor 3 Min.“. */
-    spoken: `${verb.toLowerCase()} ${/^\d/.test(relative) ? 'am ' : ''}${relative}`,
+    spoken: text.moment.spoken(verb, when.text, when.date),
   };
 }
 
@@ -106,12 +123,15 @@ export function runMoment(run: Run, now: number, demo = false) {
  * its accessible description, e.g. „Läuft gerade · Letzter Run: …“.
  */
 export function lastRunMoment(last: LastRun, now: number, demo = false) {
-  const title = `Letzter Run: ${dateTime(last.at)}${demo ? ' · Demo-Zeit' : ''}`;
+  const text = m().common;
+  const title = text.moment.lastRun(
+    `${dateTime(last.at)}${demo ? text.demoTime : ''}`,
+  );
   return {
     datetime: last.at,
     relative: relativeTime(last.at, now),
     title,
-    summary: last.active ? `Läuft gerade · ${title}` : title,
+    summary: last.active ? text.moment.runningNow(title) : title,
   };
 }
 
@@ -134,7 +154,7 @@ export function repoLabel(
   id: string,
 ) {
   const repo = snapshot?.repos.find((item) => item.id === id);
-  return repo ? fullRepo(repo) : 'Repository nicht verfügbar';
+  return repo ? fullRepo(repo) : m().common.repoUnavailable;
 }
 
 /** Native shows login and sign-in source; the demo shows the bare login. */
@@ -148,7 +168,7 @@ export function accountLabel(
     ? native
       ? accountTitle(account)
       : account.login
-    : 'Kein aktives Konto';
+    : m().common.noActiveAccount;
 }
 
 /** First letter of a login for avatar badges; an empty or missing login gets the fallback. */

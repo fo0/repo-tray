@@ -5,7 +5,8 @@
   import RunStrip from './RunStrip.svelte';
   import type { NoticeTone } from './StatusBanners.svelte';
   import { minuteClock } from './clock';
-  import { dateTime, lastRunMoment, plural, relativeTime } from './format';
+  import { dateTime, lastRunMoment, relativeTime } from './format';
+  import { m } from './i18n/index.svelte';
   import { fullRepo } from './model';
   import { workflowTarget } from './pins';
   import { lastRun, type repositoryActivity } from './repoActivity';
@@ -68,7 +69,7 @@
 {#snippet when(at: string, label: string, prefix = '')}<time
     class="repository-when"
     datetime={at}
-    title={`${label}: ${dateTime(at)}${demo ? ' · Demo-Zeit' : ''}`}
+    title={`${label}: ${dateTime(at)}${demo ? m().common.demoTime : ''}`}
     >{prefix}{relativeTime(at, $minuteClock)}</time
   >{/snippet}
 
@@ -108,24 +109,20 @@
                   class="repository-slash">/</span
                 ><span class="repository-short">{group.repo.name}</span></strong
               >{#if repoLocked}{@render warning(
-                  'Startstatus ungeklärt in diesem Repository',
+                  m().repos.list.repoUncertain,
                 )}{/if}</span
             >
             <small class="repository-meta"
               >{#if !group.loaded}{#if group.repo.pushedAt}{@render when(
                     group.repo.pushedAt,
-                    'Letzter Push',
-                    'Push ',
+                    m().repos.lastPush,
+                    m().repos.pushPrefix,
                   )}{/if}{:else}<!-- With a last run the count goes to assistive tech only: the
                      time is what the row is for, and the expanded card
                      lists the workflows. --><span
                   class="repository-count"
                   class:sr-only={!!group.last}
-                  >{plural(
-                    group.workflows.length,
-                    'Workflow',
-                    'Workflows',
-                  )}</span
+                  >{m().repos.list.workflows(group.workflows.length)}</span
                 >{#if status}{#if !group.last}{@render dot()}{/if}<span
                     class="repository-status"
                     data-tone={status.tone}
@@ -133,17 +130,18 @@
                       >{status.label}</span
                     ></span
                   >{:else if !group.last}{@render dot()}<span
-                    class="repository-status"><span>Noch keine Runs</span></span
+                    class="repository-status"
+                    ><span>{m().repos.list.noRunsYet}</span></span
                   >{/if}{#if group.repo.permission !== 'write'}<span
                     class="repository-tag"
                     >{group.repo.permission === 'read'
-                      ? 'Nur Lesen'
-                      : 'Kein Zugriff'}</span
+                      ? m().repos.list.readOnly
+                      : m().repos.list.noAccess}</span
                   >{/if}{#if group.last}<span class="repository-last"
                     ><span
                       >{@render dot()}{@render when(
                         group.last.at,
-                        'Letzter Run',
+                        m().repos.list.lastRun,
                       )}</span
                     ></span
                   >{/if}{/if}</small
@@ -175,7 +173,7 @@
             {onNotice}
           />{/if}
         {#if !group.loaded}<p class="repository-no-actions">
-            Workflows werden geladen …
+            {m().repos.list.loadingWorkflows}
           </p>{:else}{#each group.workflows as workflow (workflow.id)}
             {@const pin = favorite(workflow)}
             {@const locked = uncertainRefs({
@@ -187,9 +185,9 @@
             {@const unavailable =
               !workflow.dispatch || group.repo.permission !== 'write'}
             {@const detail = !workflow.dispatch
-              ? 'Kein manueller Start'
+              ? m().repos.list.noManualStart
               : group.repo.permission !== 'write'
-                ? 'Nur Lesen'
+                ? m().repos.list.readOnly
                 : group.repo.defaultBranch}
             {@const last = lastRun(group, id, workflow.id)}
             {@const moment = last && lastRunMoment(last, $minuteClock, demo)}
@@ -197,7 +195,7 @@
               <button
                 class="action-copy"
                 onclick={() => onopen(workflow)}
-                aria-label={`${workflow.name} · ${detail}${locked.length ? ` · Startstatus ungeklärt (${locked.join(', ')})` : ''}`}
+                aria-label={`${workflow.name} · ${detail}${locked.length ? ` · ${m().repos.list.uncertain} (${locked.join(', ')})` : ''}`}
                 title={can.openReason ??
                   `${workflow.name} · ${detail}${moment ? ` · ${moment.summary}` : ''}`}
                 disabled={!can.canOpen}
@@ -206,12 +204,12 @@
                 <span
                   ><strong
                     >{workflow.name}{#if locked.length}{@render warning(
-                        `Startstatus ungeklärt · ${locked.join(', ')}`,
+                        `${m().repos.list.uncertain} · ${locked.join(', ')}`,
                       )}{/if}</strong
                   ><small
                     >{detail}{#if last && moment}&nbsp;·&nbsp;{#if last.active}<span
                           class="tone-dot action-running"
-                          data-tone="run">läuft</span
+                          data-tone="run">{m().repos.list.running}</span
                         >{:else}<time datetime={moment.datetime}
                           >{moment.relative}</time
                         >{/if}{/if}</small
@@ -221,13 +219,15 @@
               <button
                 class="icon-button favorite-button"
                 aria-pressed={!!pin}
-                aria-label={`${workflow.name} ${pin ? 'aus Favoriten entfernen' : 'als Favorit speichern'}`}
+                aria-label={pin
+                  ? m().repos.list.removeFavorite(workflow.name)
+                  : m().repos.list.saveFavorite(workflow.name)}
                 title={unavailable
-                  ? 'Favoriten brauchen einen manuell startbaren Workflow mit Schreibzugriff'
+                  ? m().repos.list.favoriteUnavailable
                   : (can.openReason ??
                     (pin
-                      ? `Favorit „${pin.label}“ entfernen`
-                      : 'Mit Standardwerten als Favorit speichern'))}
+                      ? m().repos.list.removeFavoriteTitle(pin.label)
+                      : m().repos.list.saveFavoriteTitle))}
                 disabled={!can.canRemove || unavailable}
                 onclick={() => onfavorite(workflow)}
               >
@@ -236,15 +236,15 @@
               <button
                 class="action-start"
                 onclick={() => onopen(workflow)}
-                aria-label={`${workflow.name} starten…`}
-                title={can.reason ?? 'Branch oder Tag und Eingaben wählen'}
+                aria-label={m().repos.list.startLabel(workflow.name)}
+                title={can.reason ?? m().repos.list.startTitle}
                 disabled={!can.canStart}
               >
-                <Icon name="play" size={12} />Starten…
+                <Icon name="play" size={12} />{m().repos.list.start}
               </button>
             </div>
           {:else}<p class="repository-no-actions">
-              Keine passenden Workflows.
+              {m().repos.list.noMatchingWorkflows}
             </p>{/each}{/if}
       </div>
     </section>

@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { m } from './i18n/index.svelte';
   import { applyTheme, type ThemePreference } from './theme';
 
-  const OPTIONS: { value: ThemePreference; label: string }[] = [
-    { value: 'system', label: 'System' },
-    { value: 'light', label: 'Hell' },
-    { value: 'dark', label: 'Dunkel' },
-  ];
+  const options = $derived<{ value: ThemePreference; label: string }[]>([
+    { value: 'system', label: m().settings.theme.system },
+    { value: 'light', label: m().settings.theme.light },
+    { value: 'dark', label: m().settings.theme.dark },
+  ]);
 
   // A choice previews at once; the dialog's „Speichern“ keeps it and
   // „Abbrechen“ restores the saved one.
@@ -18,9 +19,9 @@
 </script>
 
 <section class="theme-setting" aria-labelledby="theme-heading">
-  <h3 id="theme-heading">Darstellung</h3>
+  <h3 id="theme-heading">{m().settings.theme.heading}</h3>
   <div class="theme-options" role="radiogroup" aria-labelledby="theme-heading">
-    {#each OPTIONS as option (option.value)}
+    {#each options as option (option.value)}
       <label class="theme-option">
         <input
           type="radio"
