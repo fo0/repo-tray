@@ -1,4 +1,5 @@
 // Dispatch targets, workflow inputs and favorites, and their validation.
+import { m } from './i18n/index.svelte';
 import type {
   DispatchRequest,
   DispatchTarget,
@@ -39,56 +40,53 @@ export function validateDispatch(
   snapshot: Snapshot,
   request: DispatchRequest,
 ): string | null {
+  const text = m().common.validation;
   const repo = snapshot.repos.find((item) => item.id === request.repoId);
   if (
     !snapshot.accounts.some((account) => account.id === request.accountId) ||
     !repo ||
     repo.accountId !== request.accountId
   )
-    return 'Konto und Repository passen nicht zusammen.';
-  if (!repo.selected) return 'Repository nicht im Tray.';
-  if (repo.permission !== 'write')
-    return 'Für dieses Repository fehlt der Schreibzugriff.';
+    return text.accountMismatch;
+  if (!repo.selected) return text.repoNotInTray;
+  if (repo.permission !== 'write') return text.noWriteAccess;
   const workflow = snapshot.workflows.find(
     (item) => item.id === request.workflowId && item.repoId === repo.id,
   );
-  if (!workflow || !workflow.dispatch)
-    return 'Dieser Workflow bietet keinen manuellen Start auf dem Standardbranch an.';
+  if (!workflow || !workflow.dispatch) return text.noDispatch;
   if (!workflow.refs.includes(repo.defaultBranch))
-    return 'Auf dem Standardbranch ist kein manueller Start verfügbar.';
-  if (!workflow.refs.includes(request.ref))
-    return 'Dieser Branch oder Tag ist nicht verfügbar.';
-  if (!request.requestId.trim())
-    return 'Die Anfrage benötigt eine eindeutige ID.';
+    return text.noDefaultBranchDispatch;
+  if (!workflow.refs.includes(request.ref)) return text.refUnavailable;
+  if (!request.requestId.trim()) return text.requestId;
   if (
     Object.keys(request.inputs).some(
       (name) => !workflow.inputs.some((input) => input.name === name),
     )
   )
-    return 'Unbekannte Workflow-Eingabe.';
+    return text.unknownInput;
   for (const input of workflow.inputs) {
     const value = request.inputs[input.name];
     const absent =
       value === undefined || (typeof value === 'string' && !value.trim());
-    if (absent && input.required) return `${input.label} ist erforderlich.`;
+    if (absent && input.required) return text.required(input.label);
     if (absent) continue;
     if (input.type === 'boolean' && typeof value !== 'boolean')
-      return `${input.label} muss Ja oder Nein sein.`;
+      return text.boolean(input.label);
     if (
       input.type === 'number' &&
       (typeof value !== 'number' || !Number.isFinite(value))
     )
-      return `${input.label} muss eine Zahl sein.`;
+      return text.number(input.label);
     if (
       ['string', 'choice', 'environment'].includes(input.type) &&
       typeof value !== 'string'
     )
-      return `${input.label} muss Text sein.`;
+      return text.text(input.label);
     if (
       ['choice', 'environment'].includes(input.type) &&
       !input.options.includes(String(value))
     )
-      return `${input.label}: Wähle einen verfügbaren Wert.`;
+      return text.option(input.label);
   }
   return null;
 }
@@ -99,10 +97,10 @@ export function safePin(snapshot: Snapshot, pin: Pin): Pin {
     requestId: 'pin-validation',
   });
   if (error) throw new Error(error);
-  if (!pin.label.trim() || !pin.id.trim())
-    throw new Error('Gib dem Favoriten einen Namen.');
+  const text = m().common.validation;
+  if (!pin.label.trim() || !pin.id.trim()) throw new Error(text.favoriteName);
   if (Object.keys(pin.inputs).some(isSecretName))
-    throw new Error('Geheime Eingaben werden nicht in Favoriten gespeichert.');
+    throw new Error(text.secretInputs);
   return {
     id: pin.id,
     label: pin.label.trim(),

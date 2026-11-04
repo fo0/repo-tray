@@ -10,13 +10,14 @@ import {
 } from 'vitest';
 import { get } from 'svelte/store';
 import { minuteClock } from './clock';
+import { setLocale } from './i18n/index.svelte';
 import {
   accountLabel,
   avatarLetter,
   clockTime,
   dateTime,
   errorMessage,
-  FALLBACK_ERROR,
+  fallbackError,
   ipcErrorMessage,
   lastRunMoment,
   plural,
@@ -50,7 +51,7 @@ describe('errorMessage', () => {
     expect(errorMessage('IPC-Fehler.')).toBe('IPC-Fehler.');
   });
   it('falls back for anything else', () => {
-    expect(errorMessage({ code: 1 })).toBe(FALLBACK_ERROR);
+    expect(errorMessage({ code: 1 })).toBe(fallbackError());
     expect(errorMessage(undefined, 'Eigener Text.')).toBe('Eigener Text.');
   });
 });
@@ -66,8 +67,8 @@ describe('ipcErrorMessage', () => {
       ipcErrorMessage(new TypeError('x is undefined'), 'Eigener Text.'),
     ).toBe('Eigener Text.');
     expect(ipcErrorMessage('  ', 'Eigener Text.')).toBe('Eigener Text.');
-    expect(ipcErrorMessage({ code: 1 })).toBe(FALLBACK_ERROR);
-    expect(ipcErrorMessage(undefined)).toBe(FALLBACK_ERROR);
+    expect(ipcErrorMessage({ code: 1 })).toBe(fallbackError());
+    expect(ipcErrorMessage(undefined)).toBe(fallbackError());
   });
 });
 
@@ -341,5 +342,64 @@ describe('relative run times across a daylight-saving switch', () => {
     const autumn = Date.parse('2026-10-31T22:30:00Z');
     expect(relativeTime('2026-10-24T22:10:00Z', autumn)).toBe('vor 6 Tagen');
     expect(relativeTime('2026-10-24T21:50:00Z', autumn)).toBe('24.10.2026');
+  });
+});
+
+describe('format in English', () => {
+  const noon = new Date(2026, 5, 17, 12, 0);
+  const at = (day: number, hour: number, minute = 0) =>
+    new Date(2026, 5, day, hour, minute).toISOString();
+  beforeEach(() => {
+    setLocale('en');
+    vi.useFakeTimers();
+    vi.setSystemTime(noon);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    setLocale('de');
+  });
+
+  it('reads relative times, dates and labels in English', () => {
+    expect(relativeTime(at(17, 12))).toBe('just now');
+    expect(relativeTime(at(17, 11, 57))).toBe('3 min ago');
+    expect(relativeTime(at(17, 9))).toBe('3 h ago');
+    expect(relativeTime(at(16, 11))).toBe('yesterday');
+    expect(relativeTime(at(14, 12))).toBe('3 days ago');
+    expect(relativeTime(at(10, 23, 59))).toBe('06/10/2026');
+    expect(repoLabel(null, 'x')).toBe('Repository unavailable');
+    expect(accountLabel(undefined, '', true)).toBe('No active account');
+    expect(errorMessage({ code: 1 })).toBe(
+      'The operation could not be completed. Try again.',
+    );
+  });
+  it('names run moments in English, with „on“ only before a date', () => {
+    const base: Run = {
+      id: 42,
+      repoId: 'demo-repo',
+      workflowId: 7,
+      name: 'Build',
+      branch: 'main',
+      status: 'in_progress',
+      conclusion: null,
+      createdAt: at(17, 11, 57),
+      updatedAt: at(17, 11, 58),
+      htmlUrl: '',
+    };
+    expect(runMoment(base, Date.now()).spoken).toBe('started 3 min ago');
+    const old = {
+      ...base,
+      status: 'completed' as const,
+      conclusion: 'success' as const,
+      updatedAt: at(8, 9),
+    };
+    expect(runMoment(old, Date.now(), true)).toMatchObject({
+      spoken: 'finished on 06/08/2026',
+      title: 'Finished: 06/08/2026, 09:00 AM · demo time',
+    });
+    expect(
+      lastRunMoment({ at: at(17, 11, 57), active: true }, Date.now()),
+    ).toMatchObject({
+      summary: 'Running now · Last run: 06/17/2026, 11:57 AM',
+    });
   });
 });

@@ -16,6 +16,7 @@
   import LiveRuns from './LiveRuns.svelte';
   import RepositoryList from './RepositoryList.svelte';
   import SectionHeader from './SectionHeader.svelte';
+  import { m } from './i18n/index.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
   import { lastRun, type repositoryActivity } from './repoActivity';
@@ -62,13 +63,16 @@
     panel.snapshot ? lastRun(panel.snapshot, pin.repoId, pin.workflowId) : null;
 </script>
 
-{#snippet more(page: SectionPage, hidden: number, noun: string)}
+{#snippet more(page: SectionPage, hidden: number)}
   {#if hidden > 0}<button
       class="text-button more-button"
       data-focus-key={`more:${page}`}
-      aria-label={`+${hidden} weitere ${noun} anzeigen`}
+      aria-label={m().shell.sections.moreLabel[page](hidden)}
       onclick={() => void view.showMore(page)}
-      >+{hidden} weitere<Icon name="maximize" size={12} /></button
+      >{m().shell.sections.more(hidden)}<Icon
+        name="maximize"
+        size={12}
+      /></button
     >{/if}
 {/snippet}
 
@@ -77,18 +81,21 @@
   <EmptyState
     icon="search"
     iconSize={25}
-    title="Keine Treffer"
-    text="Versuche einen anderen Suchbegriff."
-    action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
+    title={m().shell.overview.noMatches}
+    text={m().common.tryOtherSearch}
+    action={{
+      label: m().common.clearSearch,
+      icon: 'close',
+      run: onClearQuery,
+    }}
   />
 {:else}
   <section class="overview-section" aria-labelledby="section-runs">
     <SectionHeader
       page="runs"
       id="section-runs"
-      title="Läuft gerade"
+      title={m().shell.sections.runs}
       count={live.length}
-      unit={['Run', 'Runs']}
       live={live.length > 0}
       onMaximize={() => void view.open('runs')}
     />
@@ -101,18 +108,19 @@
         onCancel={(run) => void panel.actions.cancelRun(run)}
         onShow={(id) => void view.showRun(id)}
       />{:else}<p class="section-empty">
-        {searching ? 'Keine passenden laufenden Runs.' : 'Gerade läuft nichts.'}
+        {searching
+          ? m().shell.overview.noLiveMatches
+          : m().shell.overview.nothingRunning}
       </p>{/if}
-    {@render more('runs', live.length - shownLive.length, 'Runs')}
+    {@render more('runs', live.length - shownLive.length)}
   </section>
 
   <section class="overview-section" aria-labelledby="section-favorites">
     <SectionHeader
       page="favorites"
       id="section-favorites"
-      title="Favoriten"
+      title={m().shell.pages.favorites}
       count={pins.length}
-      unit={['Favorit', 'Favoriten']}
       icon="heart"
       onMaximize={() => void view.open('favorites')}
     />
@@ -129,18 +137,19 @@
         lastRun={pinRun}
         demo={panel.demo}
       />{:else}<p class="section-empty">
-        {searching ? 'Keine passenden Favoriten.' : 'Noch keine Favoriten.'}
+        {searching
+          ? m().shell.overview.noFavoriteMatches
+          : m().shell.overview.noFavorites}
       </p>{/if}
-    {@render more('favorites', pins.length - shownPins.length, 'Favoriten')}
+    {@render more('favorites', pins.length - shownPins.length)}
   </section>
 
   <section class="overview-section" aria-labelledby="section-repos">
     <SectionHeader
       page="repos"
       id="section-repos"
-      title="Repositories"
+      title={m().shell.pages.repos}
       count={groups.length}
-      unit={['Repository', 'Repositories']}
       onMaximize={() => void view.open('repos')}
     />
     {#if groups.length}<RepositoryList
@@ -160,9 +169,9 @@
         onHide={(repo, hidden) => void panel.actions.setHidden(repo, hidden)}
       />{:else}<p class="section-empty">
         {searching
-          ? 'Keine passenden Repositories.'
-          : 'Keine Repositories gefunden.'}
+          ? m().shell.overview.noRepoMatches
+          : m().shell.overview.noRepos}
       </p>{/if}
-    {@render more('repos', groups.length - shownGroups.length, 'Repositories')}
+    {@render more('repos', groups.length - shownGroups.length)}
   </section>
 {/if}

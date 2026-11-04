@@ -1,5 +1,6 @@
 <script module lang="ts">
   import { errorMessage } from './format';
+  import { m } from './i18n/index.svelte';
   import { call } from './ipc';
 
   /**
@@ -40,7 +41,7 @@
   ) {
     try {
       await navigator.clipboard.writeText(url);
-      onNotice('Link kopiert.', 'subtle');
+      onNotice(m().common.linkCopied, 'subtle');
     } catch {
       onNotice(failure, 'warning');
     }

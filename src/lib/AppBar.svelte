@@ -1,6 +1,7 @@
 <script lang="ts">
   import AccountMenu from './AccountMenu.svelte';
   import Icon from './Icon.svelte';
+  import { m } from './i18n/index.svelte';
   import type { Account, Snapshot } from './types';
 
   let {
@@ -64,7 +65,7 @@
     <button
       type="button"
       class="brand-home"
-      title="Zur Übersicht"
+      title={m().shell.appBar.home}
       onclick={() => onHome()}
       ><span class="brand-icon"><Icon name="tray" size={16} /></span><span
         class="brand-name">RepoWatch</span
@@ -86,16 +87,16 @@
     /><button
       class:spinning={refreshing}
       class="icon-button"
-      aria-label="Aktualisieren"
+      aria-label={m().shell.appBar.refresh}
       aria-keyshortcuts="F5 Control+R"
-      title={`${demo ? 'Demo' : 'GitHub'}-Status aktualisieren (F5)`}
+      title={m().shell.appBar.refreshTitle(demo)}
       onclick={() => onRefresh()}
       disabled={refreshing || !canRefresh}
       ><Icon name="refresh" size={17} /></button
     ><button
       class="icon-button"
-      aria-label="Einstellungen"
-      title="Einstellungen"
+      aria-label={m().shell.appBar.settings}
+      title={m().shell.appBar.settings}
       onclick={() => onSettings()}
       disabled={!ready}><Icon name="settings" size={17} /></button
     >

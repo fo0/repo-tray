@@ -8,6 +8,7 @@ import {
 import type { Bridge, DemoControls } from './demo';
 import { Favorites } from './favorites.svelte';
 import { errorMessage } from './format';
+import { m } from './i18n/index.svelte';
 import { call } from './ipc';
 import { RequestEpoch } from './model';
 import { Notices, PANEL_NOTICE } from './notices.svelte';
@@ -17,9 +18,14 @@ import type { DemoScenario, Pin, Run, Snapshot } from './types';
 
 type BusyFlag =
   'pinsBusy' | 'templateBusy' | 'accountBusy' | 'accessBusy' | 'resetBusy';
+type AccountIssue = 'savedGone' | 'removed' | 'notSaved' | null;
 /** With accounts left the user picks one; without any, connecting comes first. */
-const nextAccountStep = (value: Snapshot, pick: string) =>
-  value.accounts.length ? pick : 'Verbinde ein GitHub-Konto, um fortzufahren.';
+function accountNoticeText(issue: AccountIssue, accounts: number) {
+  const text = m().shell.account;
+  if (!issue || issue === 'notSaved') return issue ? text.notSaved : '';
+  const pick = issue === 'savedGone' ? text.pickAgain : text.pickOther;
+  return `${text[issue]} ${accounts ? pick : text.connectFirst}`;
+}
 export interface PanelDeps {
   /** Demo controls exist only in the browser demo. */
   bridge: Bridge & Partial<DemoControls>;
@@ -35,8 +41,8 @@ export class Panel {
   // Snapshots are replaced wholesale, never mutated: no deep proxy needed.
   snapshot = $state.raw<Snapshot | null>(null);
   accountId = $state('');
-  /** Why the active account has to be chosen (again). */
-  accountNotice = $state('');
+  /** Why the active account has to be chosen (again); read as text below. */
+  #accountIssue = $state<AccountIssue>(null);
   scenario = $state<DemoScenario>('normal');
   error = $state('');
   refreshing = $state(false);
@@ -76,6 +82,13 @@ export class Panel {
     this.actions = new Actions(this, bridge);
   }
 
+  /** Why the active account has to be chosen (again), in the language in effect. */
+  get accountNotice() {
+    return accountNoticeText(
+      this.#accountIssue,
+      this.snapshot?.accounts.length ?? 0,
+    );
+  }
   /** Native is never labelled demo, not even before its first snapshot. */
   get demo() {
     return this.snapshot ? this.snapshot.mode !== 'live' : !this.native;
@@ -141,9 +154,7 @@ export class Panel {
         readActiveAccount(),
       );
       this.accountId = restored.id;
-      this.accountNotice = restored.missing
-        ? `Das gespeicherte Konto ist nicht mehr verbunden. ${nextAccountStep(value, 'Wähle ein aktives Konto neu aus.')}`
-        : '';
+      this.#accountIssue = restored.missing ? 'savedGone' : null;
       if (restored.missing) rememberActiveAccount('');
       this.#accountReady = true;
     } else if (
@@ -151,7 +162,7 @@ export class Panel {
       !value.accounts.some((account) => account.id === this.accountId)
     ) {
       this.changeAccount('');
-      this.accountNotice = `Das aktive Konto wurde entfernt. ${nextAccountStep(value, 'Wähle ein anderes aktives Konto aus.')}`;
+      this.#accountIssue = 'removed';
     }
   }
 
@@ -197,10 +208,8 @@ export class Panel {
       !this.snapshot?.accounts.some((account) => account.id === value)
         ? ''
         : value;
-    this.accountNotice = '';
-    if (this.native && !rememberActiveAccount(this.accountId))
-      this.accountNotice =
-        'Die Kontoauswahl konnte nicht gespeichert werden und gilt nur für diese Sitzung.';
+    this.#accountIssue =
+      this.native && !rememberActiveAccount(this.accountId) ? 'notSaved' : null;
     this.error = '';
     this.notices.clear(PANEL_NOTICE);
     // „Rückgängig“ belongs to the previous account's view.
@@ -218,12 +227,7 @@ export class Panel {
       const value = await this.#bridge.refreshSnapshot();
       if (!this.viewEpoch.current(ticket)) return null;
       this.accept(value);
-      if (!value.stale)
-        this.showNotice(
-          this.demo
-            ? 'Demo-Status aktualisiert.'
-            : 'GitHub-Status aktualisiert.',
-        );
+      if (!value.stale) this.showNotice(m().shell.refreshed(this.demo));
       return value;
     } catch (cause) {
       if (this.viewEpoch.current(ticket)) this.error = errorMessage(cause);
@@ -276,7 +280,7 @@ export class Panel {
       this.accountId = '';
       this.scenario = 'normal';
       this.starts.clearQuarantine();
-      this.showNotice('Demo zurückgesetzt.');
+      this.showNotice(m().shell.demoReset);
     });
 
   async #mutation<T>(

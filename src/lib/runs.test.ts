@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import fixture from '../../fixtures/demo.json';
+import { setLocale } from './i18n/index.svelte';
 import { fullRepo } from './model';
 import { repositoryActivity } from './repoActivity';
 import {
@@ -309,5 +310,25 @@ describe('run strip', () => {
     expect(recentSummary(recentRuns(snapshot(), 'demo-personal-kit'))).toBe(
       'Letzte 3 Runs: 1 erfolgreich, 1 läuft, 1 in Warteschlange',
     );
+  });
+
+  describe('in English', () => {
+    afterEach(() => setLocale('de'));
+    it('names status and the strip summary in English', () => {
+      setLocale('en');
+      const at = '2026-11-01T08:00:00Z';
+      const done = (id: number, conclusion: Run['conclusion']) =>
+        run(id, at, { status: 'completed', conclusion });
+      expect(statusLabel(done(1, 'failure'))).toBe('Failed');
+      expect(recentSummary([null])).toBe('No runs yet');
+      expect(recentSummary([done(1, 'success')])).toBe('Last run: succeeded');
+      expect(
+        recentSummary([
+          done(1, 'success'),
+          run(2, at, { status: 'in_progress', conclusion: null }),
+          run(3, at, { status: 'in_progress', conclusion: null }),
+        ]),
+      ).toBe('Last 3 runs: 1 succeeded, 2 running');
+    });
   });
 });

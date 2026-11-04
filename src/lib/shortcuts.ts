@@ -1,3 +1,4 @@
+import { m } from './i18n/index.svelte';
 import type { SectionPage } from './view.svelte';
 
 export type Shortcut =
@@ -39,13 +40,7 @@ export const sectionKey = (page: SectionPage) =>
   SECTION_ORDER.indexOf(page) + 1;
 
 /** The „Tastenkürzel“ hint, one shortcut per line (tooltip text). */
-export const SHORTCUT_HINT = [
-  'Tastenkürzel',
-  '/ – Suche',
-  'F5 oder Strg+R – Aktualisieren',
-  'Strg+1, 2, 3 – Repositories, Verlauf, Favoriten maximieren; nochmal zurück',
-  'Esc – Suche leeren oder verlassen, Menü oder Dialog schließen, zurück zur Übersicht',
-].join('\n');
+export const shortcutHint = () => m().shell.shortcuts.join('\n');
 
 /** A Latin letter by its key; other layouts fall back to the physical key. */
 function isLetter(event: KeyPress, letter: string) {

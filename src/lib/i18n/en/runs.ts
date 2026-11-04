@@ -1,4 +1,65 @@
 import type { runs as German } from '../de/runs';
 
 /** English texts: runs. Same shape as the German catalog. */
-export const runs: typeof German = {};
+export const runs: typeof German = {
+  status: {
+    in_progress: 'Running',
+    queued: 'Queued',
+    waiting: 'Waiting',
+    success: 'Succeeded',
+    failure: 'Failed',
+    cancelled: 'Cancelled',
+  },
+  active: (n: number) => `${n} active`,
+  strip: {
+    none: 'No runs yet',
+    last: (word: string) => `Last run: ${word}`,
+    lastN: (n: number, parts: string) => `Last ${n} runs: ${parts}`,
+    tones: {
+      ok: ['succeeded', 'succeeded'],
+      fail: ['failed', 'failed'],
+      cancel: ['cancelled', 'cancelled'],
+      run: ['running', 'running'],
+      wait: ['waiting', 'waiting'],
+      queue: ['queued', 'queued'],
+    },
+  },
+  activity: {
+    filters: 'Activity filter',
+    all: 'All',
+    active: 'Active',
+    failed: 'Failed',
+    recent: 'Completed',
+    now: 'Now',
+    done: 'Completed',
+    note: 'About the history',
+    noteLive: 'Open runs update automatically.',
+    noteLimit: (n: number) => `Up to ${n} completed runs stay in the history.`,
+    noMatches: 'No matching runs',
+    quiet: 'All quiet here',
+    noneForFilter: 'No runs for this filter.',
+  },
+  cancel: {
+    run: 'Cancel run',
+    pending: 'Cancelling',
+    pendingTitle: 'Cancelling …',
+    confirmTitle: 'Click again to cancel',
+    armed: 'Cancel?',
+    armedLong: 'Really cancel?',
+    label: (run: string) => `Cancel ${run}`,
+    armedLabel: (run: string) => `Really cancel ${run}?`,
+    pendingLabel: (run: string) => `Cancelling ${run}`,
+  },
+  row: {
+    since: (elapsed: string) => `for ${elapsed}`,
+    account: 'Account',
+    updated: 'Updated',
+    status: 'Status',
+    open: 'Open on GitHub',
+    copy: 'Copy link',
+    noLinkDemo: 'Demo runs have no GitHub link',
+    noLink: 'This run has no valid GitHub link',
+    copyFailed:
+      'Link could not be copied. Open the run on GitHub and copy it there.',
+  },
+};
