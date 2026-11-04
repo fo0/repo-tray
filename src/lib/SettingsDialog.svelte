@@ -2,6 +2,7 @@
   import { onDestroy, untrack } from 'svelte';
   import AccountsTab from './AccountsTab.svelte';
   import HiddenReposSetting from './HiddenReposSetting.svelte';
+  import LanguageSetting from './LanguageSetting.svelte';
   import Modal from './Modal.svelte';
   import RefreshSetting from './RefreshSetting.svelte';
   import StartupSettings from './StartupSettings.svelte';
@@ -11,6 +12,8 @@
   import { bridge } from './bridge';
   import { errorMessage } from './format';
   import { HiddenChoice } from './hiddenChoice.svelte';
+  import { languagePreference, m, setLocale } from './i18n/index.svelte';
+  import { rememberLanguage, resolveLocale } from './i18n/locale';
   import { RefreshChoice } from './refresh.svelte';
   import { SETTINGS_TABS, type SettingsTab } from './settingsTabs';
   import { appliedTheme, applyTheme, rememberTheme } from './theme';
@@ -76,6 +79,10 @@
   /** Plain copy for the teardown, which reads state as it was before close. */
   let keptTheme = untrack(() => savedTheme);
   let theme = $state(untrack(() => savedTheme));
+  // main.ts applied the saved language; like the theme, a choice previews.
+  let savedLanguage = $state(languagePreference());
+  let keptLanguage = untrack(() => savedLanguage);
+  let language = $state(untrack(() => savedLanguage));
   const autostart = new Autostart(untrack(() => native));
   const refresh = new RefreshChoice(bridge);
   const hidden = new HiddenChoice();
@@ -84,6 +91,8 @@
     autostart.dispose();
     // Closing without „Speichern“ drops the preview.
     if (appliedTheme() !== keptTheme) applyTheme(keptTheme);
+    if (languagePreference() !== keptLanguage)
+      setLocale(resolveLocale(keptLanguage), keptLanguage);
   });
   /** A staged account that was disconnected meanwhile falls back. */
   const account = $derived(
@@ -97,6 +106,7 @@
     account: native && account !== accountId,
     scenario: demo && draftScenario !== scenario,
     theme: theme !== savedTheme,
+    language: language !== savedLanguage,
     autostart: autostart.pending !== null,
     refresh: refresh.pending,
     hidden: hidden.pendingIn(snapshot?.hiddenRepos ?? []),
@@ -163,6 +173,14 @@
           throw new Error(
             'Darstellung ließ sich nicht speichern und gilt bis zum nächsten Start.',
           );
+      }
+      if (pending.language) {
+        const value = language;
+        savedLanguage = keptLanguage = value;
+        // The native side words notifications, tray and errors in it too.
+        await bridge.setLocale(resolveLocale(value));
+        if (!rememberLanguage(value))
+          throw new Error(m().settings.language.saveFailed);
       }
       if (pending.refresh) await refresh.apply();
       if (pending.hidden)
@@ -254,6 +272,7 @@
         onDisconnect={disconnect}
       />
     {:else if tab === 'app'}
+      <LanguageSetting bind:value={language} />
       <ThemeSetting bind:value={theme} />
       <RefreshSetting choice={refresh} />
       <HiddenReposSetting {snapshot} choice={hidden} />

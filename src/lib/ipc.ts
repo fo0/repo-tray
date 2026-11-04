@@ -1,4 +1,5 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
+import type { Locale } from './i18n/locale';
 import type {
   BrowserConfig,
   BrowserReply,
@@ -17,7 +18,7 @@ import type {
  * Every command the native shell registers in `generate_handler!`
  * (src-tauri/src/desktop.rs), with its camelCase arguments and its result.
  * `args: undefined` means the command takes none; a Rust `Result<(), String>`
- * resolves as `void` and every `Err` rejects with its German message.
+ * resolves as `void` and every `Err` rejects with its message in the language set by `set_locale`.
  */
 export interface Commands {
   snapshot: { args: undefined; result: Snapshot };
@@ -27,6 +28,8 @@ export interface Commands {
   refresh_interval: { args: undefined; result: number };
   /** Validates (15–3600 s) and stores the interval; resolves with the saved value. */
   set_refresh_interval: { args: { seconds: number }; result: number };
+  /** The language in effect for native texts: errors, notifications, tray. */
+  set_locale: { args: { locale: Locale }; result: void };
   save_pin: { args: { pin: Pin }; result: Snapshot };
   delete_pin: { args: { pinId: string }; result: Snapshot };
   dispatch_workflow: {
@@ -87,6 +90,7 @@ const REGISTERED: Record<Command, true> = {
   refresh_repositories: true,
   refresh_interval: true,
   set_refresh_interval: true,
+  set_locale: true,
   save_pin: true,
   delete_pin: true,
   dispatch_workflow: true,

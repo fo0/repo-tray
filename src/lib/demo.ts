@@ -271,6 +271,8 @@ export function createDemoBridge(
       return snapshot();
     },
     ...demoRefresh(storage),
+    // The demo has no native texts; the panel switches by itself.
+    setLocale: () => Promise.resolve(),
     async setDemoScenario(next) {
       scenario = next;
       return snapshot();
