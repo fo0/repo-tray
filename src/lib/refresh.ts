@@ -1,4 +1,5 @@
 import type { PreferenceStorage } from './demo';
+import { m } from './i18n/index.svelte';
 
 /** Mirrors src-tauri/src/refresh_interval.rs. */
 export const REFRESH_DEFAULT = 60;
@@ -6,8 +7,6 @@ export const REFRESH_MIN = 15;
 export const REFRESH_MAX = 3600;
 /** Slider stops in seconds; the default (1 min) is the recommended one. */
 export const REFRESH_PRESETS = [15, 30, 60, 120, 300, 600, 1800] as const;
-export const REFRESH_ERROR =
-  'Aktualisierung muss zwischen 15 s und 60 min liegen.';
 export const REFRESH_KEY = 'repowatch.demo.refresh.v1';
 
 /** Whole seconds within 15–3600. */
@@ -20,7 +19,12 @@ export function validRefresh(seconds: unknown): seconds is number {
   );
 }
 
-/** „15 s“, „1 min“, „1 min 30 s“. */
+/** Why a value is refused, in the language in effect. */
+export function refreshError(): string {
+  return m().settings.refresh.error;
+}
+
+/** „15 s“, „1 min“, „1 min 30 s“: unit symbols, the same in every language. */
 export function formatRefresh(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
@@ -50,7 +54,7 @@ export function demoRefresh(storage?: PreferenceStorage) {
   return {
     refreshInterval: () => Promise.resolve(seconds),
     setRefreshInterval(next: number): Promise<number> {
-      if (!validRefresh(next)) return Promise.reject(new Error(REFRESH_ERROR));
+      if (!validRefresh(next)) return Promise.reject(new Error(refreshError()));
       seconds = next;
       try {
         storage?.setItem(REFRESH_KEY, JSON.stringify(next));

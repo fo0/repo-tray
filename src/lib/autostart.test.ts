@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setLocale } from './i18n/index.svelte';
 import type { StartupStatus } from './types';
 
 const call = vi.fn();
@@ -35,6 +36,14 @@ describe('startupNote', () => {
       /^In Windows deaktiviert/,
     );
   });
+  it('names a status in English when English is in effect', () => {
+    setLocale('en');
+    expect(startupNote(null, false)).toBe('Status unknown.');
+    expect(startupNote(status('unsupported'), false)).toBe(
+      'Windows autostart is only available on Windows.',
+    );
+  });
+  afterEach(() => setLocale('de'));
 });
 
 describe('Autostart', () => {

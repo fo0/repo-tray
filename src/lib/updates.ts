@@ -1,3 +1,5 @@
+import { intlLocale } from './i18n/index.svelte';
+
 /** Panel-side update flow; the IPC payloads live in types.ts. */
 export type UpdatePhase =
   | 'idle'
@@ -8,11 +10,11 @@ export type UpdatePhase =
   | 'verifying'
   | 'installing';
 
-/** German date of a release, or an empty string when unknown or malformed. */
+/** A release's date in the language in effect, or '' when unknown or malformed. */
 export function releaseDate(value: string | null): string {
   const date = value ? new Date(value) : null;
   return date && Number.isFinite(date.getTime())
-    ? date.toLocaleDateString('de-DE', {
+    ? date.toLocaleDateString(intlLocale(), {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',

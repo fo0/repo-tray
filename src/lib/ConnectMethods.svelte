@@ -5,6 +5,7 @@
 
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { m } from './i18n/index.svelte';
 
   let {
     value = $bindable(),
@@ -29,8 +30,7 @@
     />
     <Icon name="computer" size={18} />
     <span
-      ><strong>Bestehende Anmeldung auf diesem PC verwenden</strong><small
-        >{localHint}</small
+      ><strong>{m().accounts.connect.local}</strong><small>{localHint}</small
       ></span
     >
   </label>
@@ -43,7 +43,7 @@
     />
     <Icon name="shield" size={18} />
     <span
-      ><strong>Mit Token verbinden</strong><small
+      ><strong>{m().accounts.connect.token}</strong><small
         >Fine-grained Personal Access Token</small
       ></span
     >
@@ -53,8 +53,8 @@
     <input type="radio" name="connect-method" value="browser" disabled />
     <Icon name="github" size={18} />
     <span
-      ><strong>Mit GitHub anmelden</strong><small
-        >Vorübergehend deaktiviert</small
+      ><strong>{m().accounts.connect.browser}</strong><small
+        >{m().accounts.connect.paused}</small
       ></span
     >
   </label>

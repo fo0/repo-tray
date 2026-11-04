@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import InlineConfirm from './InlineConfirm.svelte';
   import { accountTitle } from './accountSelection';
+  import { m } from './i18n/index.svelte';
   import type { Account, UncertainStart } from './types';
   let {
     accounts,
@@ -36,7 +37,7 @@
     uncertainStarts.some((start) => start.accountId === account.id);
   /** One sentence: what the vault and cache delete, and a released lock. */
   const consequence = (account: Account) =>
-    `Zugang und Favoriten werden gelöscht${imported(account) ? ', gh bleibt angemeldet' : ''}${locked(account) ? ';' : '.'}`;
+    m().accounts.connected.consequence(imported(account), locked(account));
 
   /** Focuses the checked account, else the first one. */
   export function focusChoice() {
@@ -82,7 +83,7 @@
       </label>
       {#if account.id === activeAccountId}<span
           class="account-tag"
-          id={`account-tag-${account.id}`}>Aktiv</span
+          id={`account-tag-${account.id}`}>{m().accounts.connected.active}</span
         >{/if}
       {#if confirming !== account.id}<button
           type="button"
@@ -90,17 +91,19 @@
           bind:this={triggers[account.id]}
           disabled={disabled || confirming !== null}
           onclick={() => (confirming = account.id)}
-          aria-label={`${accountTitle(account)} trennen`}>Trennen</button
+          aria-label={m().accounts.connected.disconnectAccount(
+            accountTitle(account),
+          )}>{m().accounts.connected.disconnect}</button
         >{/if}
       {#if confirming === account.id}<InlineConfirm
           id={`disconnect-${account.id}`}
-          title={`${accountTitle(account)} trennen?`}
+          title={m().accounts.connected.confirmTitle(accountTitle(account))}
           text={consequence(account)}
           warning={locked(account)
-            ? 'ungeklärte Starts sind danach nicht mehr gesperrt.'
+            ? m().accounts.connected.lockReleased
             : undefined}
-          confirmLabel="Trennen"
-          busyLabel="Wird getrennt …"
+          confirmLabel={m().accounts.connected.disconnect}
+          busyLabel={m().accounts.connected.disconnecting}
           busy={disabled}
           onConfirm={() => void disconnect(account.id)}
           onCancel={() => cancel(account.id)}

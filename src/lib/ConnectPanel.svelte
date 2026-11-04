@@ -2,6 +2,7 @@
   import { onDestroy, tick } from 'svelte';
   import ConnectMethods, { type ConnectMethod } from './ConnectMethods.svelte';
   import TokenPermissions from './TokenPermissions.svelte';
+  import { m } from './i18n/index.svelte';
 
   // Browser demo: the same steps as the desktop app, with an example token
   // that is checked locally and never stored.
@@ -37,7 +38,7 @@
     if (tokenInput) tokenInput.value = '';
     hasToken = false;
     if (!isExample) {
-      tokenError = 'Nur „demo-token“ funktioniert hier. Nichts gespeichert.';
+      tokenError = m().accounts.connect.exampleOnly;
       return;
     }
     tokenError = '';
@@ -66,34 +67,34 @@
 {#if step === 'choose'}
   <div class="modal-body connect-step">
     <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
-      Anmeldeart wählen
+      {m().accounts.connect.chooseMethod}
     </h3>
     <ConnectMethods
       bind:value={method}
       localDisabled
-      localHint="Nur in der Desktop-App"
+      localHint={m().accounts.connect.localDesktopOnly}
     />
   </div>
   <div class="modal-actions">
     <button type="button" class="secondary-button" onclick={onClose}
-      >Abbrechen</button
+      >{m().common.cancel}</button
     >
     <button
       type="button"
       class="primary-button"
-      onclick={() => (step = 'token')}>Weiter</button
+      onclick={() => (step = 'token')}>{m().common.next}</button
     >
   </div>
 {:else if step === 'token'}
   <form onsubmit={submitExampleToken}>
     <div class="modal-body connect-step">
       <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
-        Mit Token verbinden
+        {m().accounts.connect.token}
       </h3>
       <label class="field"
-        ><span>Beispiel-Token</span><input
+        ><span>{m().accounts.connect.exampleToken}</span><input
           type="password"
-          aria-label="Beispiel-Token"
+          aria-label={m().accounts.connect.exampleToken}
           aria-describedby="token-permissions"
           bind:this={tokenInput}
           autocomplete="off"
@@ -111,20 +112,23 @@
     </div>
     <div class="modal-actions">
       <button type="button" class="secondary-button" onclick={back}
-        >Zurück</button
+        >{m().common.back}</button
       >
       <button
         type="submit"
         class="primary-button"
         aria-disabled={hasToken ? undefined : 'true'}
-        title={hasToken ? undefined : 'Token eingeben'}>Verbinden</button
+        title={hasToken ? undefined : m().accounts.connect.enterToken}
+        >{m().accounts.connect.connect}</button
       >
     </div>
   </form>
 {:else}
   <div class="modal-body connect-step">
     <h3 id="connect-step-title" tabindex="-1" bind:this={heading}>
-      {step === 'checking' ? 'Wird geprüft …' : 'Anmeldung abgebrochen'}
+      {step === 'checking'
+        ? m().accounts.connect.checking
+        : m().accounts.connect.cancelled}
     </h3>
   </div>
   <div class="modal-actions">
@@ -132,7 +136,7 @@
       type="button"
       class="secondary-button"
       onclick={() => (step === 'checking' ? cancel() : onClose())}
-      >Abbrechen</button
+      >{m().common.cancel}</button
     >
     <button
       type="button"
@@ -140,7 +144,10 @@
       aria-disabled={step === 'checking' ? 'true' : undefined}
       onclick={() => {
         if (step === 'cancelled') step = 'token';
-      }}>{step === 'checking' ? 'Wird geprüft …' : 'Erneut versuchen'}</button
+      }}
+      >{step === 'checking'
+        ? m().accounts.connect.checking
+        : m().common.retry}</button
     >
   </div>
 {/if}
