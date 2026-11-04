@@ -58,7 +58,10 @@ test('a theme previews while staged, every way out but „Speichern“ restores 
   }
   await open(page, 'App');
   await expect(
-    dialog(page).getByRole('radio', { name: 'System', exact: true }),
+    // „Sprache“ has a „System“ choice too; this one is the theme's.
+    dialog(page)
+      .getByRole('radiogroup', { name: 'Darstellung' })
+      .getByRole('radio', { name: 'System', exact: true }),
   ).toBeChecked();
   await dialog(page).getByRole('radio', { name: 'Hell', exact: true }).check();
   await save(page).click();
