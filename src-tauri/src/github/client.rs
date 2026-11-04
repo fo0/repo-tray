@@ -238,7 +238,7 @@ impl<T: Transport> ApiClient<T> {
                     html_url: Some(confirmation.html_url),
                     message: trf!(
                         "GitHub hat den Start angenommen (Run #{}). Das ist keine Build-Erfolgsmeldung.",
-                        "GitHub accepted the start (Run #{}). This does not mean the build succeeded.",
+                        "GitHub accepted the start (run #{}). This does not mean the build succeeded.",
                         confirmation.workflow_run_id
                     ),
                 },
@@ -251,13 +251,13 @@ impl<T: Transport> ApiClient<T> {
                 }
                 Err(_) => DispatchOutcome::uncertain(tr(
                     "GitHub hat keine Run-ID bestätigt. Prüfe die Runs auf GitHub, bevor du erneut startest.",
-                    "GitHub confirmed no Run ID. Check the Runs on GitHub before you start again.",
+                    "GitHub confirmed no run ID. Check the runs on GitHub before you start again.",
                 )),
             },
             Err(ApiError::Transport(TransportError::OutcomeUnknown)) => {
                 DispatchOutcome::uncertain(tr(
                     "Der Start hat GitHub möglicherweise erreicht. Prüfe die Runs auf GitHub, bevor du es erneut versuchst.",
-                    "The start may have reached GitHub. Check the Runs on GitHub before you try again.",
+                    "The start may have reached GitHub. Check the runs on GitHub before you try again.",
                 ))
             }
             Err(ApiError::InvalidResponse) => DispatchOutcome::uncertain(tr(

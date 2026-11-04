@@ -486,8 +486,9 @@ fn rotate(
     Ok(credential.tokens.access)
 }
 
+/// Whether a poll error is the transient "GitHub unreachable" one, in either language.
 pub fn is_network_error(message: &str) -> bool {
-    message == text::network()
+    text::is_network(message)
 }
 
 #[cfg(test)]

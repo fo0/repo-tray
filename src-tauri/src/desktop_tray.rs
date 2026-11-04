@@ -31,7 +31,7 @@ fn tooltip(status: u8) -> &'static str {
     match status {
         RUNNING => tr(
             "RepoWatch · Workflows laufen",
-            "RepoWatch · Workflows running",
+            "RepoWatch · workflows running",
         ),
         FAILED => tr("RepoWatch · Fehler", "RepoWatch · Error"),
         READY => tr("RepoWatch · bereit", "RepoWatch · ready"),

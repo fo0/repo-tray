@@ -354,7 +354,7 @@ pub fn validate_pin_fields(pin: &Pin) -> Result<(), String> {
     if !valid_git_ref(&pin.git_ref) {
         return Err(tr(
             "Branch oder Tag des Favoriten ist ungültig.",
-            "The favorite's Branch or Tag is invalid.",
+            "The favorite's branch or tag is invalid.",
         )
         .into());
     }

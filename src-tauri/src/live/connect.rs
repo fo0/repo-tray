@@ -52,7 +52,7 @@ impl LiveStore<HttpTransport> {
             {
                 Err(tr(
                     "Token ist ungültig. Füge den Token ohne Leerzeichen oder Zeilenumbrüche ein.",
-                    "Token is invalid. Paste the Token without spaces or line breaks.",
+                    "Token is invalid. Paste the token without spaces or line breaks.",
                 ))
             } else {
                 Ok(())
@@ -71,7 +71,7 @@ impl LiveStore<HttpTransport> {
         if response.status != 200 {
             return Err(tr(
                 "Token wurde von GitHub nicht bestätigt. Prüfe Gültigkeit und Organisationsfreigabe.",
-                "GitHub did not confirm the Token. Check its validity and organization approval.",
+                "GitHub did not confirm the token. Check its validity and organization approval.",
             )
             .into());
         }

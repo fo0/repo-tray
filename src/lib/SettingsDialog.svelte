@@ -8,19 +8,18 @@
   import StartupSettings from './StartupSettings.svelte';
   import ThemeSetting from './ThemeSetting.svelte';
   import UpdatePanel from './UpdatePanel.svelte';
+  import { AppearanceChoice } from './appearanceChoice.svelte';
   import { Autostart } from './autostart.svelte';
   import { bridge } from './bridge';
   import { errorMessage } from './format';
   import { HiddenChoice } from './hiddenChoice.svelte';
-  import { languagePreference, m, setLocale } from './i18n/index.svelte';
-  import { rememberLanguage, resolveLocale } from './i18n/locale';
+  import { m } from './i18n/index.svelte';
   import { RefreshChoice } from './refresh.svelte';
   import {
     SETTINGS_TABS,
     settingsTabLabel,
     type SettingsTab,
   } from './settingsTabs';
-  import { appliedTheme, applyTheme, rememberTheme } from './theme';
   import type { DemoScenario, HiddenRepo, Snapshot } from './types';
   import type { Updater } from './updater.svelte';
 
@@ -78,15 +77,7 @@
   /** null: untouched, the setting in effect shows. */
   let accountChoice = $state<string | null>(null);
   let scenarioChoice = $state<DemoScenario | null>(null);
-  // main.ts applied the saved theme; the choice only previews until saved.
-  let savedTheme = $state(appliedTheme());
-  /** Plain copy for the teardown, which reads state as it was before close. */
-  let keptTheme = untrack(() => savedTheme);
-  let theme = $state(untrack(() => savedTheme));
-  // main.ts applied the saved language; like the theme, a choice previews.
-  let savedLanguage = $state(languagePreference());
-  let keptLanguage = untrack(() => savedLanguage);
-  let language = $state(untrack(() => savedLanguage));
+  const appearance = new AppearanceChoice(bridge);
   const autostart = new Autostart(untrack(() => native));
   const refresh = new RefreshChoice(bridge);
   const hidden = new HiddenChoice();
@@ -94,9 +85,7 @@
     alive = false;
     autostart.dispose();
     // Closing without „Speichern“ drops the preview.
-    if (appliedTheme() !== keptTheme) applyTheme(keptTheme);
-    if (languagePreference() !== keptLanguage)
-      setLocale(resolveLocale(keptLanguage), keptLanguage);
+    appearance.restore();
   });
   /** A staged account that was disconnected meanwhile falls back. */
   const account = $derived(
@@ -109,8 +98,8 @@
   const changed = $derived({
     account: native && account !== accountId,
     scenario: demo && draftScenario !== scenario,
-    theme: theme !== savedTheme,
-    language: language !== savedLanguage,
+    theme: appearance.themePending,
+    language: appearance.languagePending,
     autostart: autostart.pending !== null,
     refresh: refresh.pending,
     hidden: hidden.pendingIn(snapshot?.hiddenRepos ?? []),
@@ -172,20 +161,8 @@
         // The choice holds for this session, but could not be remembered.
         if (accountNotice) throw new Error(accountNotice);
       }
-      if (pending.theme) {
-        const value = theme;
-        savedTheme = keptTheme = value;
-        if (!rememberTheme(value))
-          throw new Error(m().settings.theme.saveFailed);
-      }
-      if (pending.language) {
-        const value = language;
-        savedLanguage = keptLanguage = value;
-        // The native side words notifications, tray and errors in it too.
-        await bridge.setLocale(resolveLocale(value));
-        if (!rememberLanguage(value))
-          throw new Error(m().settings.language.saveFailed);
-      }
+      if (pending.theme) appearance.applyTheme();
+      if (pending.language) appearance.applyLanguage();
       if (pending.refresh) await refresh.apply();
       if (pending.hidden)
         await hidden.apply(snapshot?.hiddenRepos ?? [], onUnhide);
@@ -276,8 +253,8 @@
         onDisconnect={disconnect}
       />
     {:else if tab === 'app'}
-      <LanguageSetting bind:value={language} />
-      <ThemeSetting bind:value={theme} />
+      <LanguageSetting bind:value={appearance.language} />
+      <ThemeSetting bind:value={appearance.theme} />
       <RefreshSetting choice={refresh} />
       <HiddenReposSetting {snapshot} choice={hidden} />
       <StartupSettings {native} {autostart} />

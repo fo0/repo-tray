@@ -16,7 +16,7 @@ impl<T: Transport> LiveStore<T> {
         let release = self.cache.release_uncertain_start(&start).map_err(|_| {
             tr(
                 "Startsperre konnte nicht aufgehoben werden.",
-                "Start lock could not be released.",
+                "Could not unlock the start.",
             )
         })?;
         self.claims = self.cache.uncertain_starts().map_err(|_| {
@@ -28,7 +28,7 @@ impl<T: Transport> LiveStore<T> {
         if release == Release::Replaced {
             return Err(tr(
                 "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.",
-                "This Workflow has a newer start lock on this Branch or Tag. Check the Runs again.",
+                "This workflow has a newer start lock on this branch or tag. Check the runs again.",
             )
             .into());
         }
@@ -92,14 +92,14 @@ impl<T: Transport> LiveStore<T> {
             if !default.dispatch {
                 return Err(tr(
                     "workflow_dispatch fehlt im Standardbranch.",
-                    "workflow_dispatch is missing on the default Branch.",
+                    "workflow_dispatch is missing on the default branch.",
                 )
                 .into());
             }
             if !workflow.refs.contains(&request.git_ref) {
                 return Err(tr(
                     "Branch oder Tag unbekannt. Klicke auf Aktualisieren.",
-                    "Unknown Branch or Tag. Click Refresh.",
+                    "Unknown branch or tag. Click Refresh.",
                 )
                 .into());
             }
@@ -107,7 +107,7 @@ impl<T: Transport> LiveStore<T> {
             if !actual.dispatch {
                 return Err(tr(
                     "workflow_dispatch fehlt im gewählten Branch oder Tag.",
-                    "workflow_dispatch is missing on the chosen Branch or Tag.",
+                    "workflow_dispatch is missing on the chosen branch or tag.",
                 )
                 .into());
             }
@@ -172,7 +172,7 @@ impl<T: Transport> LiveStore<T> {
             Ok(None) => {
                 return DispatchOutcome::uncertain(tr(
                     "Der letzte Start dieses Workflows auf diesem Branch oder Tag ist ungeklärt. Kein erneuter Start – prüfe die Runs auf GitHub und hebe die Sperre danach auf.",
-                    "The last start of this Workflow on this Branch or Tag is unresolved. No new start – check the Runs on GitHub, then release the lock.",
+                    "The last start of this workflow on this branch or tag is uncertain. No new start – check the runs on GitHub, then unlock it.",
                 ))
             }
             Ok(Some(claim)) => self.claims.push(claim),
@@ -185,7 +185,7 @@ impl<T: Transport> LiveStore<T> {
                 Ok(()) => self.claims.retain(|claim| claim.target() != target),
                 Err(_) => outcome.message.push_str(tr(
                     " Die Startsperre konnte nicht aufgehoben werden; prüfe die Runs auf GitHub und hebe sie danach auf.",
-                    " The start lock could not be released; check the Runs on GitHub, then release it.",
+                    " Could not unlock the start; check the runs on GitHub, then unlock it.",
                 )),
             }
         }

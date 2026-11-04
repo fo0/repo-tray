@@ -172,7 +172,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
         // completed runs are kept. Accepting the cut lets the next window start from now
         // instead of failing on an ever longer window.
         let timestamp = chrono::DateTime::from_timestamp(since.saturating_sub(2) as i64, 0)
-            .ok_or(tr("Run-Zeitfenster ungültig.", "Invalid Run time window."))?
+            .ok_or(tr("Run-Zeitfenster ungültig.", "Invalid run time window."))?
             .to_rfc3339();
         let created = format!(">={timestamp}");
         let window = client.get_pages_uncached(
@@ -229,7 +229,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
             return Err(ApiError::Http(response.status).into());
         }
         let value: Value = serde_json::from_slice(&response.body)
-            .map_err(|_| tr("Run-Antwort ungültig.", "Invalid Run response."))?;
+            .map_err(|_| tr("Run-Antwort ungültig.", "Invalid run response."))?;
         let updated = run_from_wire(&repo.id, &value)?;
         if updated.id != run.id || updated.workflow_id != run.workflow_id {
             return Err(tr(
@@ -269,7 +269,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
 }
 
 fn parse_list(repo_id: &str, body: &[u8]) -> Result<Vec<Run>, ScopeError> {
-    let invalid = || tr("Run-Liste ungültig.", "Invalid Run list.");
+    let invalid = || tr("Run-Liste ungültig.", "Invalid run list.");
     let page: Value = serde_json::from_slice(body).map_err(|_| invalid())?;
     page["workflow_runs"]
         .as_array()

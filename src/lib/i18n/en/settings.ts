@@ -32,7 +32,7 @@ export const settings: typeof German = {
     heading: 'Refresh',
     invalid: 'Refresh invalid',
     error: 'Refresh must be between 15 s and 60 min.',
-    recommendedHint: 'Recommended: 1 min · running Runs every 15 s',
+    recommendedHint: 'Recommended: 1 min · running runs every 15 s',
     recommended: 'Recommended',
     custom: 'Custom value',
   },
@@ -51,7 +51,7 @@ export const settings: typeof German = {
     checkStatus: 'Check status',
     openWindows: 'Open Windows autostart',
     removeEntry: 'Remove autostart entry',
-    reading: 'Reading status …',
+    reading: 'Reading status…',
     unknown: 'Status unknown.',
     disabledByWindows:
       'Disabled in Windows – turn it on under Settings → Apps → Startup.',

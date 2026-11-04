@@ -19,15 +19,15 @@ export const shell: typeof German = {
     connection: 'Connection status',
     demoTitle:
       'Demo mode: no real GitHub connection. All data and starts are simulated.',
-    liveTitle: 'GitHub connection · Token in the OS vault',
+    liveTitle: 'GitHub connection · token in the OS vault',
     staleDemo: 'Outdated demo data',
     stale: 'Outdated data',
     refreshDemo: 'Refresh demo status',
     refreshLive: 'Refresh GitHub status',
     refreshStamp: (stamp: string) => `Refresh · ${stamp}`,
-    refreshing: 'Refreshing …',
+    refreshing: 'Refreshing…',
     reload: 'Reload',
-    loading: 'Loading …',
+    loading: 'Loading…',
   },
   connect: {
     title: 'Connect GitHub',
@@ -56,9 +56,12 @@ export const shell: typeof German = {
     maximizeTitle: (key: number) => `Maximize · Ctrl+${key}`,
     more: (n: number) => `+${n} more`,
     moreLabel: {
-      runs: (n: number) => `Show ${n} more runs`,
-      favorites: (n: number) => `Show ${n} more favorites`,
-      repos: (n: number) => `Show ${n} more repositories`,
+      runs: (n: number) =>
+        n === 1 ? 'Show 1 more run' : `Show ${n} more runs`,
+      favorites: (n: number) =>
+        n === 1 ? 'Show 1 more favorite' : `Show ${n} more favorites`,
+      repos: (n: number) =>
+        n === 1 ? 'Show 1 more repository' : `Show ${n} more repositories`,
     },
   },
   overview: {
@@ -69,10 +72,10 @@ export const shell: typeof German = {
     noFavorites: 'No favorites yet.',
     noRepoMatches: 'No matching repositories.',
     noRepos: 'No repositories found.',
-    startWorkflow: 'Start workflow …',
+    startWorkflow: 'Start workflow…',
   },
   loading: {
-    title: 'Loading workflows …',
+    title: 'Loading workflows…',
     text: 'Your overview is almost ready.',
     demoFailed: 'Demo not loaded',
     demoFailedText: 'Restart the app to load the local demo data.',

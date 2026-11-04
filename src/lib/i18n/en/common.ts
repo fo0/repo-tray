@@ -4,7 +4,7 @@ import type { common as German } from '../de/common';
 export const common: typeof German = {
   cancel: 'Cancel',
   save: 'Save',
-  saving: 'Saving …',
+  saving: 'Saving…',
   close: 'Close',
   retry: 'Try again',
   undo: 'Undo',

@@ -125,18 +125,18 @@ describe('in English', () => {
   it('names the reason and the favorite controls in the language in effect', () => {
     setLocale('en');
     expect(startReason({ uncertain: true })).toBe(
-      'Start status unknown – check the runs on GitHub',
+      'Start status uncertain – check the runs on GitHub',
     );
     expect(blockedReason(null)).toBe('Offline – starts are disabled');
     expect(startGate({ running: true }, 'workflow').openReason).toBe(
-      'Starting …',
+      'Starting…',
     );
     expect(favoriteNames('launch-kit-demo', 'Release')).toEqual({
       open: 'Start launch-kit-demo · Release…',
       start: 'Start launch-kit-demo · Release now',
       edit: 'Edit launch-kit-demo · Release',
       remove: 'Remove launch-kit-demo · Release from favorites',
-      uncertain: 'Start status unknown: launch-kit-demo · Release',
+      uncertain: 'Start status uncertain: launch-kit-demo · Release',
     });
   });
 });

@@ -92,7 +92,7 @@ fn pinned_refs_follow_the_git_ref_format_essentials() {
     let english = crate::i18n::with_locale(crate::i18n::Locale::En, || {
         validate_pin_fields(&invalid).unwrap_err()
     });
-    assert_eq!(english, "The favorite's Branch or Tag is invalid.");
+    assert_eq!(english, "The favorite's branch or tag is invalid.");
 }
 
 #[test]

@@ -15,7 +15,7 @@ pub fn completion_notice(run: &Run, repos: &[Repo]) -> (String, String) {
             |repo| format!("{}/{}", repo.owner, repo.name),
         );
     let name = &run.name;
-    (title, trf!("{name}: Run beendet.", "{name}: Run finished."))
+    (title, trf!("{name}: Run beendet.", "{name}: run finished."))
 }
 
 #[cfg(test)]
@@ -76,6 +76,6 @@ mod tests {
         let notice = crate::i18n::with_locale(crate::i18n::Locale::En, || {
             completion_notice(&run("missing"), &[])
         });
-        assert_eq!(notice.1, "Build: Run finished.");
+        assert_eq!(notice.1, "Build: run finished.");
     }
 }

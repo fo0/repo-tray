@@ -4,7 +4,7 @@ use crate::i18n::tr;
 pub(super) fn sign_in_disabled() -> &'static str {
     tr(
         "Die Browser-Anmeldung / GitHub App ist vorübergehend deaktiviert. Nutze gh CLI oder einen Token.",
-        "Browser sign-in / GitHub App is temporarily disabled. Use gh CLI or a Token.",
+        "Browser sign-in / GitHub App is temporarily disabled. Use gh CLI or a token.",
     )
 }
 
@@ -22,11 +22,20 @@ pub(super) fn invalid() -> &'static str {
     )
 }
 
+/// German and English wording of [`network`].
+const NETWORK: [&str; 2] = [
+    "GitHub ist gerade nicht erreichbar. RepoWatch versucht es weiter, solange der Code gültig ist.",
+    "GitHub is unreachable right now. RepoWatch keeps trying while the code is valid.",
+];
+
 pub(super) fn network() -> &'static str {
-    tr(
-        "GitHub ist gerade nicht erreichbar. RepoWatch versucht es weiter, solange der Code gültig ist.",
-        "GitHub is unreachable right now. RepoWatch keeps trying while the code is valid.",
-    )
+    tr(NETWORK[0], NETWORK[1])
+}
+
+/// Whether `message` is [`network`] in either language, so a language switch between
+/// producing and checking it changes nothing.
+pub(super) fn is_network(message: &str) -> bool {
+    NETWORK.contains(&message)
 }
 
 pub(super) fn not_configured() -> &'static str {

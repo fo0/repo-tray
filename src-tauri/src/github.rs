@@ -129,7 +129,7 @@ impl ApiRequest {
         if workflow_id == 0 || git_ref.trim().is_empty() || inputs.len() > 25 {
             return Err(ApiError::Policy(tr(
                 "Startdaten des Workflows ungültig.",
-                "Invalid Workflow start data.",
+                "Invalid workflow start data.",
             )));
         }
         let url = ApiUrl::parse(&format!(
@@ -157,7 +157,7 @@ impl ApiRequest {
         validate_segment(owner)?;
         validate_segment(repo)?;
         if run_id == 0 {
-            return Err(ApiError::Policy(tr("Run-ID ungültig.", "Invalid Run ID.")));
+            return Err(ApiError::Policy(tr("Run-ID ungültig.", "Invalid run ID.")));
         }
         let url = ApiUrl::parse(&format!(
             "{API_ORIGIN}/repos/{owner}/{repo}/actions/runs/{run_id}/cancel"
@@ -347,7 +347,7 @@ fn validate_segment(value: &str) -> Result<(), ApiError> {
     {
         return Err(ApiError::Policy(tr(
             "Owner oder Repository-Name ungültig.",
-            "Invalid owner or Repository name.",
+            "Invalid owner or repository name.",
         )));
     }
     Ok(())

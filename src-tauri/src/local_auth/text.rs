@@ -68,28 +68,28 @@ pub(super) fn gcm_account_detail() -> &'static str {
 pub(super) fn gcm_actions_read() -> &'static str {
     tr(
         "Git-Anmeldung belegt keine API-Rechte für Workflows.",
-        "A Git sign-in proves no API permissions for Workflows.",
+        "A Git sign-in proves no API permissions for workflows.",
     )
 }
 
 pub(super) fn gcm_actions_write() -> &'static str {
     tr(
         "Workflows starten: nicht nachgewiesen.",
-        "Start Workflows: not proven.",
+        "Start workflows: not proven.",
     )
 }
 
 pub(super) fn gcm_no_names() -> &'static str {
     tr(
         "GCM erkannt; keine lesbaren Kontonamen verfügbar. Keine API-Anmeldung nachgewiesen. Nutze gh CLI oder einen API-Token.",
-        "GCM detected; no readable account names available. No API sign-in proven. Use gh CLI or an API Token.",
+        "GCM detected; no readable account names available. No API sign-in proven. Use gh CLI or an API token.",
     )
 }
 
 pub(super) fn gcm_names() -> &'static str {
     tr(
         "GCM erkannt. Nur Kontonamen geprüft; Git-Credentials werden nicht exportiert. Nutze gh CLI oder einen API-Token.",
-        "GCM detected. Only account names checked; Git credentials are not exported. Use gh CLI or an API Token.",
+        "GCM detected. Only account names checked; Git credentials are not exported. Use gh CLI or an API token.",
     )
 }
 
@@ -159,14 +159,14 @@ pub(super) fn gh_active_confirmed() -> &'static str {
 pub(super) fn scopes_unreadable() -> &'static str {
     tr(
         "Scopes nicht auslesbar; Lesezugriff auf Workflows pro Repository ungeprüft.",
-        "Scopes unreadable; read access to Workflows unchecked per Repository.",
+        "Scopes unreadable; read access to workflows unchecked per repository.",
     )
 }
 
 pub(super) fn start_unchecked() -> &'static str {
     tr(
         "Workflows starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.",
-        "Start Workflows: unchecked per Repository; no Workflow was started to check.",
+        "Start workflows: unchecked per repository; no workflow was started to check.",
     )
 }
 
@@ -187,13 +187,13 @@ pub(super) fn sign_in_invalid() -> &'static str {
 pub(super) fn scope_repo_present() -> &'static str {
     tr(
         "Scope repo vorhanden; private Workflows grundsätzlich abgedeckt. Repository-/Org-Zugriff noch ungeprüft.",
-        "Scope repo present; private Workflows covered in principle. Repository/org access still unchecked.",
+        "Scope repo present; private workflows covered in principle. Repository/org access still unchecked.",
     )
 }
 
 pub(super) fn scope_repo_missing() -> &'static str {
     tr(
         "Scope repo fehlt; Zugriff auf private Workflows nicht belegt. Feinere Rechte pro Repository ungeprüft.",
-        "Scope repo missing; access to private Workflows not proven. Finer permissions per Repository unchecked.",
+        "Scope repo missing; access to private workflows not proven. Finer permissions per repository unchecked.",
     )
 }

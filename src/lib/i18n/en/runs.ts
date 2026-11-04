@@ -42,7 +42,7 @@ export const runs: typeof German = {
   cancel: {
     run: 'Cancel run',
     pending: 'Cancelling',
-    pendingTitle: 'Cancelling …',
+    pendingTitle: 'Cancelling…',
     confirmTitle: 'Click again to cancel',
     armed: 'Cancel?',
     armedLong: 'Really cancel?',

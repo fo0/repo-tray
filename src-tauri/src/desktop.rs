@@ -164,7 +164,7 @@ fn open_run(app: tauri::AppHandle, url: String) -> Result<(), String> {
     // Open only the parser's canonical form, never the raw IPC string.
     let url = repowatch_core::run_link::canonical_run_url(&url).ok_or(tr(
         "Nur GitHub-Run-Links sind erlaubt.",
-        "Only GitHub Run links are allowed.",
+        "Only GitHub run links are allowed.",
     ))?;
     app.opener()
         .open_url(url, None::<&str>)
@@ -176,7 +176,7 @@ fn open_repo(app: tauri::AppHandle, url: String) -> Result<(), String> {
     // Open only the parser's canonical form, never the raw IPC string.
     let url = repowatch_core::run_link::canonical_repo_url(&url).ok_or(tr(
         "Nur GitHub-Repository-Links sind erlaubt.",
-        "Only GitHub Repository links are allowed.",
+        "Only GitHub repository links are allowed.",
     ))?;
     app.opener()
         .open_url(url, None::<&str>)

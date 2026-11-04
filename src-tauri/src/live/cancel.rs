@@ -11,13 +11,13 @@ use crate::{
 fn cancel_unconfirmed() -> &'static str {
     tr(
         "Abbruch nicht bestätigt – prüfe den Run auf GitHub.",
-        "Cancellation not confirmed – check the Run on GitHub.",
+        "Cancellation not confirmed – check the run on GitHub.",
     )
 }
 fn cancel_finished() -> &'static str {
     tr(
         "Run lässt sich nicht mehr abbrechen – er ist bereits beendet.",
-        "The Run can no longer be cancelled – it has already finished.",
+        "The run can no longer be cancelled – it has already finished.",
     )
 }
 fn cancel_forbidden() -> &'static str {
@@ -53,15 +53,19 @@ impl<T: Transport> LiveStore<T> {
         if repo.permission != Permission::Write {
             return Err(tr(
                 "Für dieses Repository fehlt der Schreibzugriff.",
-                "Write access to this Repository is missing.",
+                "Write access to this repository is missing.",
             )
             .into());
         }
         let request = ApiRequest::cancel_run(&repo.account_id, &repo.owner, &repo.name, run_id)
             .map_err(|error| error.to_string())?;
-        let refused = match self.client.post(&request, (self.clock)()) {
-            Ok(response) if response.status == 202 => None,
-            Ok(response) => Some(match response.status {
+        let status = match self.client.post(&request, (self.clock)()) {
+            Ok(response) => response.status,
+            Err(error) => return Err(cancel_failed(error)),
+        };
+        let refused = match status {
+            202 => None,
+            status => Some(match status {
                 409 => cancel_finished().to_owned(),
                 401 => trf!(
                     "Zugang von {} abgelaufen oder widerrufen – verbinde das Konto neu.",
@@ -74,13 +78,9 @@ impl<T: Transport> LiveStore<T> {
                     "GitHub error {status} while cancelling."
                 ),
             }),
-            Err(error) => return Err(cancel_failed(error)),
         };
         // Accepted, or already finished on GitHub: the next refresh polls the real status.
-        if refused
-            .as_deref()
-            .is_none_or(|text| text == cancel_finished())
-        {
+        if matches!(status, 202 | 409) {
             self.poll_at.remove(&repo_id);
         }
         match refused {

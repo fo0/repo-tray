@@ -7,7 +7,7 @@ export const favorites: typeof German = {
     start: (name: string) => `Start ${name} now`,
     edit: (name: string) => `Edit ${name}`,
     remove: (name: string) => `Remove ${name} from favorites`,
-    uncertain: (name: string) => `Start status unknown: ${name}`,
+    uncertain: (name: string) => `Start status uncertain: ${name}`,
   },
   tiles: {
     running: 'running',
@@ -28,7 +28,7 @@ export const favorites: typeof German = {
     name: 'Favorite name',
     placeholder: 'e.g. Windows build',
     help: 'Stores account, repository, workflow, branch or tag and non-secret inputs locally.',
-    saving: 'Saving …',
+    saving: 'Saving…',
     update: 'Update favorite',
     save: 'Save favorite',
     saveAsNew: 'Save as new favorite',

@@ -131,7 +131,7 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
     if inputs.len() > MAX_INPUTS {
         return Err(error(trf!(
             "Der Workflow hat mehr als {MAX_INPUTS} Eingaben – mehr unterstützt RepoWatch nicht.",
-            "The Workflow has more than {MAX_INPUTS} inputs – RepoWatch supports no more."
+            "The workflow has more than {MAX_INPUTS} inputs – RepoWatch supports no more."
         )));
     }
     let mut result = Vec::with_capacity(inputs.len());
@@ -260,14 +260,14 @@ pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs,
     if names.len() != specs.len() {
         return Err(error(tr(
             "Der Workflow enthält doppelte Eingabenamen.",
-            "The Workflow has duplicate input names.",
+            "The workflow has duplicate input names.",
         )));
     }
     if let Some(name) = supplied.keys().find(|name| !names.contains(name.as_str())) {
         let name = shown(name);
         return Err(error(trf!(
             "Der Workflow kennt die Eingabe „{name}“ nicht (mehr).",
-            "The Workflow does not know the input “{name}” (any more)."
+            "The workflow does not know the input “{name}” (any more)."
         )));
     }
     let mut normalized = Inputs::new();
@@ -298,7 +298,7 @@ fn validate_value(spec: &InputSpec, value: &InputValue) -> Result<(), WorkflowEr
     // author's own default is not a guess, so it stays startable.
     if let Some(note) = &spec.note {
         if !value.is_empty() && spec.default.as_ref() != Some(value) {
-            return Err(error(format!("„{name}“: {note}")));
+            return Err(error(trf!("„{name}“: {note}", "“{name}”: {note}")));
         }
     }
     let expected = match (spec.r#type, value) {
@@ -397,7 +397,7 @@ pub fn validate_non_secret_inputs(inputs: &Inputs) -> Result<(), WorkflowError> 
     }) {
         return Err(error(tr(
             "Geheime Eingaben wie Token oder Passwörter können nicht in Favoriten gespeichert werden.",
-            "Secret inputs such as Tokens or passwords cannot be saved in favorites.",
+            "Secret inputs such as tokens or passwords cannot be saved in favorites.",
         )));
     }
     Ok(())

@@ -10,8 +10,8 @@ export const updates: typeof German = {
   current: 'Up to date.',
   available: (version: string) => `Version ${version} available`,
   notes: 'Changes',
-  downloading: 'Downloading …',
-  verifying: 'Verifying …',
-  installing: 'Installing – RepoWatch restarts …',
+  downloading: 'Downloading…',
+  verifying: 'Verifying…',
+  installing: 'Installing – RepoWatch restarts…',
   install: 'Install',
 };

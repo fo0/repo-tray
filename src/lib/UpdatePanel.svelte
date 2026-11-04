@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { clockTime } from './format';
   import { m } from './i18n/index.svelte';
   import type { DownloadProgress, UpdateInfo } from './types';
   import { changelogSummary, releaseDate, type UpdatePhase } from './updates';
@@ -21,7 +22,8 @@
     phase: UpdatePhase;
     progress: DownloadProgress;
     error: string;
-    checkedAt: string;
+    /** When the last check succeeded (epoch ms), null before. */
+    checkedAt: number | null;
     onCheck: () => void;
     /** Downloads, verifies and installs in one go; the app then restarts. */
     onInstall: () => void;
@@ -42,7 +44,8 @@
   <div class="update-row">
     <div class="update-version">
       <strong>{m().updates.version(currentVersion)}</strong>
-      {#if native && checkedAt}<span>{m().updates.lastChecked(checkedAt)}</span
+      {#if native && checkedAt !== null}<span
+          >{m().updates.lastChecked(clockTime(checkedAt))}</span
         >{/if}
     </div>
     {#if native}<button

@@ -19,7 +19,7 @@ pub(super) fn hidden_save_failed() -> &'static str {
 pub(super) fn hidden_too_many() -> &'static str {
     tr(
         "Zu viele ausgeblendete Repositories.",
-        "Too many hidden Repositories.",
+        "Too many hidden repositories.",
     )
 }
 pub(super) fn hidden_unknown() -> &'static str {

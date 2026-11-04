@@ -7,8 +7,8 @@ export const dispatch: typeof German = {
     readOnly: 'No write access to this repository',
     offline: 'Offline – starts are disabled',
     forbidden: 'Access denied – starts are disabled',
-    running: 'Starting …',
-    uncertain: 'Start status unknown – check the runs on GitHub',
+    running: 'Starting…',
+    uncertain: 'Start status uncertain – check the runs on GitHub',
   },
   dialog: {
     title: 'Start workflow',
@@ -17,7 +17,7 @@ export const dispatch: typeof German = {
     completeFavorite:
       'Fill in the required fields and save the workflow as a favorite.',
     alreadyStarted: 'Already started – reopen the dialog to start again',
-    savingFavorite: 'Saving favorite …',
+    savingFavorite: 'Saving favorite…',
     chooseTarget: 'Choose a repository and workflow.',
     offline: 'Offline. Starts are disabled; the last state stays visible.',
     forbidden:
@@ -26,8 +26,8 @@ export const dispatch: typeof German = {
   actions: {
     continues:
       'The start continues if you close the dialog. The result then appears in the panel.',
-    simulating: 'Simulating …',
-    starting: 'Starting …',
+    simulating: 'Simulating…',
+    starting: 'Starting…',
     simulate: 'Simulate start',
     start: 'Start workflow',
   },
@@ -62,7 +62,7 @@ export const dispatch: typeof German = {
       `${name}: Start rejected. ${message}`,
   },
   uncertain: {
-    title: 'Start status unknown',
+    title: 'Start status uncertain',
     locked:
       'GitHub did not confirm the last start for this workflow and branch. It may already be running. Check the runs on GitHub. Starting again stays locked until you unlock it.',
     checkStatus: 'Check status',
@@ -76,7 +76,7 @@ export const dispatch: typeof German = {
       title: 'Unlock?',
       text: 'Only unlock once you have checked on GitHub that this start is not running or that starting again is intended. RepoWatch starts nothing when you unlock.',
       confirm: 'I checked the runs on GitHub – unlock',
-      busy: 'Unlocking …',
+      busy: 'Unlocking…',
     },
     help: {
       text: 'GitHub did not confirm the start. The workflow may already be running. Starting this workflow and branch again stays locked.',

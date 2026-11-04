@@ -35,7 +35,7 @@ async function expectEnglish(page: Page) {
   await expect(search).toBeVisible();
   await expect(search).toHaveAttribute(
     'placeholder',
-    'Search workflow, repository or branch …',
+    'Search workflow, repository or branch…',
   );
   await expect(
     page.getByRole('button', { name: 'Settings', exact: true }),

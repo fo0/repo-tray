@@ -350,7 +350,7 @@ impl<T: Transport> LiveStore<T> {
         };
         Some(trf!(
             "Kein Zugriff auf Workflows: {}/{}{more} – prüfe Token-Rechte oder SSO-Freigabe.",
-            "No access to Workflows: {}/{}{more} – check Token permissions or SSO approval.",
+            "No access to workflows: {}/{}{more} – check token permissions or SSO approval.",
             first.owner,
             first.name
         ))

@@ -108,7 +108,7 @@ fn account_save_failed() -> &'static str {
 fn browser_setup_notice() -> &'static str {
     tr(
         "Keine Repositories freigegeben – unter Repositories die Freigabe auf GitHub ändern.",
-        "No Repositories shared – change the access on GitHub under Repositories.",
+        "No repositories shared – change the access on GitHub under Repositories.",
     )
 }
 
@@ -361,7 +361,7 @@ impl<T: Transport> LiveStore<T> {
         if !path.starts_with(".github/workflows/")
             || path.split('/').any(|s| s == ".." || s.is_empty())
         {
-            return Err(tr("Workflow-Pfad ungültig.", "Invalid Workflow path.").into());
+            return Err(tr("Workflow-Pfad ungültig.", "Invalid workflow path.").into());
         }
         let mut segments = vec!["repos", &repo.owner, &repo.name, "contents"];
         segments.extend(path.split('/'));
@@ -372,11 +372,11 @@ impl<T: Transport> LiveStore<T> {
                 // branch or tag is gone or does not contain the workflow file.
                 ApiError::Http(404) if git_ref != repo.default_branch => crate::trf!(
                     "Workflow auf „{git_ref}“ nicht gefunden – der Branch oder Tag fehlt oder enthält den Workflow nicht.",
-                    "Workflow not found on “{git_ref}” – the Branch or Tag is missing or does not contain the Workflow."
+                    "Workflow not found on “{git_ref}” – the branch or tag is missing or does not contain the workflow."
                 ),
                 other => other.to_string(),
             })?;
-        let invalid = || tr("Workflow-Inhalt ungültig.", "Invalid Workflow content.");
+        let invalid = || tr("Workflow-Inhalt ungültig.", "Invalid workflow content.");
         if value["encoding"] != "base64" {
             return Err(invalid().into());
         }
@@ -405,7 +405,7 @@ impl<T: Transport> LiveStore<T> {
         {
             return Err(tr(
                 "Favorit passt nicht zum Konto oder Repository.",
-                "Favorite does not match the account or Repository.",
+                "Favorite does not match the account or repository.",
             )
             .into());
         }

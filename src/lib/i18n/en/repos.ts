@@ -33,31 +33,31 @@ export const repos: typeof German = {
   search: {
     overview: {
       label: 'Search overview',
-      placeholder: 'Search workflow, repository or branch …',
+      placeholder: 'Search workflow, repository or branch…',
     },
     runs: {
       label: 'Search history',
-      placeholder: 'Search repository, workflow or branch …',
+      placeholder: 'Search repository, workflow or branch…',
     },
     favorites: {
       label: 'Search favorites',
-      placeholder: 'Search favorite or repository …',
+      placeholder: 'Search favorite or repository…',
     },
     repos: {
       label: 'Search repositories',
-      placeholder: 'Search repository or workflow …',
+      placeholder: 'Search repository or workflow…',
     },
   },
   list: {
-    repoUncertain: 'Start status unresolved in this repository',
-    uncertain: 'Start status unresolved',
+    repoUncertain: 'Start status uncertain in this repository',
+    uncertain: 'Start status uncertain',
     lastRun: 'Last run',
     workflows: (count: number) =>
       count === 1 ? '1 workflow' : `${count} workflows`,
     noRunsYet: 'No runs yet',
     readOnly: 'Read only',
     noAccess: 'No access',
-    loadingWorkflows: 'Loading workflows …',
+    loadingWorkflows: 'Loading workflows…',
     noManualStart: 'No manual start',
     running: 'running',
     removeFavorite: (workflow: string) => `Remove ${workflow} from favorites`,
