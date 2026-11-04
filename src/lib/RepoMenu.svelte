@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte';
   import { copyLink, openRunLink } from './RunLink.svelte';
   import type { NoticeTone } from './StatusBanners.svelte';
+  import { m } from './i18n/index.svelte';
   import { menu, openingFocus, type MenuFocus } from './menu';
   import { fullRepo } from './model';
   import { safeGitHubUrl, safeRepoUrl } from './safeGitHubUrl';
@@ -42,8 +43,7 @@
   const repoUrl = $derived(demo ? null : safeRepoUrl(repo.owner, repo.name));
   const linkError = (message: string) => onNotice(message, 'warning');
   function copy() {
-    if (repoUrl)
-      void copyLink(repoUrl, onNotice, 'Link konnte nicht kopiert werden.');
+    if (repoUrl) void copyLink(repoUrl, onNotice, m().repos.menu.copyFailed);
   }
 
   function show(focus: MenuFocus, at: { x: number; y: number } | null = null) {
@@ -151,8 +151,8 @@
     aria-haspopup="menu"
     aria-expanded={open}
     aria-controls={open ? `${id}-menu` : undefined}
-    aria-label={`Aktionen für ${name}`}
-    title="Aktionen · Rechtsklick"
+    aria-label={m().repos.menu.actionsFor(name)}
+    title={m().repos.menu.actionsTitle}
     onclick={() => (open ? (open = false) : show('first'))}
     onkeydown={onTriggerKey}><Icon name="more" size={16} /></button
   >
@@ -164,7 +164,7 @@
       class="menu repo-actions-menu"
       role="menu"
       tabindex="-1"
-      aria-label={`Aktionen für ${name}`}
+      aria-label={m().repos.menu.actionsFor(name)}
       use:place
       use:menu={{ trigger, initial, onClose: close }}
     >
@@ -180,8 +180,7 @@
             onauxclick={(event) => {
               if (event.button === 1)
                 run(() => openRunLink(event, runUrl, native, linkError));
-            }}
-            ><Icon name="external" size={16} />Letzten Run auf GitHub öffnen</a
+            }}><Icon name="external" size={16} />{m().repos.menu.openLastRun}</a
           >{:else}<button
             type="button"
             class="menu-item"
@@ -189,9 +188,10 @@
             tabindex="-1"
             disabled
             title={demo
-              ? 'Demo-Runs haben keinen GitHub-Link'
-              : 'Für diesen Run gibt es keinen gültigen GitHub-Link'}
-            ><Icon name="external" size={16} />Letzten Run auf GitHub öffnen</button
+              ? m().repos.menu.demoRunNoLink
+              : m().repos.menu.runNoLink}
+            ><Icon name="external" size={16} />{m().repos.menu
+              .openLastRun}</button
           >{/if}{/if}
       <button
         type="button"
@@ -202,23 +202,21 @@
         title={repoUrl
           ? repoUrl
           : demo
-            ? 'Demo-Repositories haben keinen GitHub-Link'
-            : 'Für dieses Repository gibt es keinen gültigen GitHub-Link'}
+            ? m().repos.demoRepoNoLink
+            : m().repos.repoNoLink}
         onclick={() => run(copy)}
-        ><Icon name="copy" size={16} />Link kopieren</button
+        ><Icon name="copy" size={16} />{m().repos.menu.copyLink}</button
       >
       <button
         type="button"
         class="menu-item"
         role="menuitem"
         tabindex="-1"
-        title={hidden
-          ? 'Wieder in Repositories und Verlauf zeigen'
-          : 'Nicht mehr in Repositories und Verlauf zeigen · Einstellungen → App'}
+        title={hidden ? m().repos.menu.showTitle : m().repos.menu.hideTitle}
         onclick={() => run(() => onHide(!hidden))}
         ><Icon name={hidden ? 'eye' : 'eyeOff'} size={16} />{hidden
-          ? 'Einblenden'
-          : 'Ausblenden'}</button
+          ? m().repos.menu.show
+          : m().repos.menu.hide}</button
       >
     </div>
   {/if}

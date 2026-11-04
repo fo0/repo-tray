@@ -4,6 +4,7 @@
   import type { NoticeTone } from './StatusBanners.svelte';
   import { minuteClock } from './clock';
   import { dateTime, relativeTime } from './format';
+  import { m } from './i18n/index.svelte';
   import { fullRepo } from './model';
   import { safeRepoUrl } from './safeGitHubUrl';
   import type { Repo } from './types';
@@ -33,21 +34,21 @@
      page on GitHub; quieter than the workflow rows under it. The access tag
      stays in the row's head only, so it is never shown twice. -->
 <div class="repository-info">
-  <span class="sr-only">Standardbranch</span><span
+  <span class="sr-only">{m().repos.info.defaultBranch}</span><span
     class="branch-chip"
-    title={`Standardbranch: ${repo.defaultBranch}`}
+    title={m().repos.info.defaultBranchTitle(repo.defaultBranch)}
     ><Icon name="branch" size={11} /><span>{repo.defaultBranch}</span></span
   >{#if repo.pushedAt}<time
       class="repository-when"
       datetime={repo.pushedAt}
-      title={`Letzter Push: ${dateTime(repo.pushedAt)}${demo ? ' · Demo-Zeit' : ''}`}
-      >Push {relativeTime(repo.pushedAt, $minuteClock)}</time
+      title={`${m().repos.lastPush}: ${dateTime(repo.pushedAt)}${demo ? m().common.demoTime : ''}`}
+      >{m().repos.pushPrefix}{relativeTime(repo.pushedAt, $minuteClock)}</time
     >{/if}{#if url}<a
       class="repository-github"
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${name} auf GitHub öffnen`}
+      aria-label={m().repos.openOnGitHub(name)}
       title={url}
       onclick={open}
       onauxclick={(event) => {
@@ -56,10 +57,8 @@
     >{:else}<button
       type="button"
       class="repository-github"
-      aria-label={`${name} auf GitHub öffnen`}
-      title={demo
-        ? 'Demo-Repositories haben keinen GitHub-Link'
-        : 'Für dieses Repository gibt es keinen gültigen GitHub-Link'}
+      aria-label={m().repos.openOnGitHub(name)}
+      title={demo ? m().repos.demoRepoNoLink : m().repos.repoNoLink}
       disabled><Icon name="external" size={12} />GitHub</button
     >{/if}
 </div>

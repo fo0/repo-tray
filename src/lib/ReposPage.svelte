@@ -3,6 +3,7 @@
   import Icon from './Icon.svelte';
   import RepositoryList from './RepositoryList.svelte';
   import { errorMessage } from './format';
+  import { m } from './i18n/index.svelte';
   import type { Modals } from './modals.svelte';
   import type { Panel } from './panel.svelte';
   import type { repositoryActivity } from './repoActivity';
@@ -68,23 +69,24 @@
 {:else if searching}<EmptyState
     icon="search"
     iconSize={25}
-    title="Keine passenden Repositories"
-    text="Versuche einen anderen Suchbegriff."
-    action={{ label: 'Suche leeren', icon: 'close', run: onClearQuery }}
-  />{:else}<p class="section-empty">Keine Repositories gefunden.</p>{/if}
+    title={m().repos.page.noMatches}
+    text={m().common.tryOtherSearch}
+    action={{
+      label: m().common.clearSearch,
+      icon: 'close',
+      run: onClearQuery,
+    }}
+  />{:else}<p class="section-empty">{m().repos.page.none}</p>{/if}
 {#if !setup && browserInstallation}<div class="repository-access">
     <button
       class="text-button"
       disabled={panel.settingsBusy}
       onclick={() => void attempt(panel.manageInstallation)}
-      >Repository-Freigabe auf GitHub ändern<Icon
-        name="external"
-        size={14}
-      /></button
+      >{m().repos.page.manageAccess}<Icon name="external" size={14} /></button
     ><button
       class="text-button"
       disabled={panel.settingsBusy}
       onclick={() => void attempt(panel.refreshAccess)}
-      >Repository-Liste aktualisieren<Icon name="refresh" size={14} /></button
+      >{m().repos.page.refreshAccess}<Icon name="refresh" size={14} /></button
     >
   </div>{/if}
