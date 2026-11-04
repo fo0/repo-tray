@@ -114,7 +114,7 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features -
 - Credentials never reach IPC, snapshots, SQLite, logs or fixtures; no vault → fail closed.
 - The panel never calls GitHub; network lives in Rust.
 - Dispatch ack ≠ build success.
-- **UI:** labels German; owner UX rules in `agent_docs/ux_rules.md` are binding — read before any UI change; they override older UI docs and ADRs.
+- **UI:** every text in both catalogs, German and English — panel via `m()` (`src/lib/i18n/`), Rust via `tr`/`trf!` (`src-tauri/src/i18n.rs`) ([ADR-0009](docs/adr/0009-app-language.md)); owner UX rules in `agent_docs/ux_rules.md` are binding — read before any UI change; they override older UI docs and ADRs.
 - Tests and demo: synthetic fixtures, labelled mocks only.
 - Max file length: ~300 lines TS/Svelte, ~500 Rust (house threshold)
 
