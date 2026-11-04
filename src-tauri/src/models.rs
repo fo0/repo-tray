@@ -1,3 +1,5 @@
+use crate::i18n::tr;
+use crate::trf;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, VecDeque};
 
@@ -69,7 +71,7 @@ pub struct InputSpec {
     pub default: Option<InputValue>,
     #[serde(default)]
     pub options: Vec<String>,
-    /// Why the input offers no choice right now (German, shown with it); no value is valid then.
+    /// Why the input offers no choice right now (in the app's language, shown with it); no value is valid then.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }
@@ -332,19 +334,29 @@ pub fn validate_request_id(request_id: &str) -> Result<(), String> {
     if bounded_text(request_id, MAX_REQUEST_ID_CHARS) {
         Ok(())
     } else {
-        Err("Start-ID fehlt oder ist zu lang.".into())
+        Err(tr(
+            "Start-ID fehlt oder ist zu lang.",
+            "Start ID is missing or too long.",
+        )
+        .into())
     }
 }
 
 /// Shared by the demo and live stores for the user-written pin fields.
 pub fn validate_pin_fields(pin: &Pin) -> Result<(), String> {
     if !bounded_text(&pin.id, MAX_PIN_ID_CHARS) || !bounded_text(&pin.label, MAX_PIN_LABEL_CHARS) {
-        return Err(
-            "Ein Favorit braucht eine ID und einen Namen mit höchstens 120 Zeichen.".into(),
-        );
+        return Err(tr(
+            "Ein Favorit braucht eine ID und einen Namen mit höchstens 120 Zeichen.",
+            "A favorite needs an ID and a name of at most 120 characters.",
+        )
+        .into());
     }
     if !valid_git_ref(&pin.git_ref) {
-        return Err("Branch oder Tag des Favoriten ist ungültig.".into());
+        return Err(tr(
+            "Branch oder Tag des Favoriten ist ungültig.",
+            "The favorite's Branch or Tag is invalid.",
+        )
+        .into());
     }
     crate::workflow::validate_pin_inputs(&pin.inputs).map_err(|error| error.to_string())
 }
@@ -352,8 +364,9 @@ pub fn validate_pin_fields(pin: &Pin) -> Result<(), String> {
 /// Shared by the demo and live stores: a new favorite needs room; replacing one never does.
 pub fn check_pin_room(pins: &[Pin], id: &str) -> Result<(), String> {
     if pins.len() >= MAX_PINS && !pins.iter().any(|pin| pin.id == id) {
-        return Err(format!(
-            "Höchstens {MAX_PINS} Favoriten – entferne zuerst einen anderen."
+        return Err(trf!(
+            "Höchstens {MAX_PINS} Favoriten – entferne zuerst einen anderen.",
+            "At most {MAX_PINS} favorites – remove another one first."
         ));
     }
     Ok(())

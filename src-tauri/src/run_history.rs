@@ -6,15 +6,17 @@ use crate::{
         local_time, resource_gone, run_from_wire, ApiClient, ApiError, ApiRequest, RunTracker,
         Transport, TransportError,
     },
+    i18n::tr,
     live::url,
     models::{Repo, Run, RunStatus},
+    trf,
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const COMPLETED_LIMIT: usize = 50;
 
-/// What went wrong in one scope, kept structured so the panel can name it in German for
+/// What went wrong in one scope, kept structured so the panel can name it in its language for
 /// the right account or repository.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Cause {
@@ -24,7 +26,7 @@ pub(crate) enum Cause {
     },
     /// No answer from GitHub: network, TLS or timeout.
     Unreachable,
-    /// Already user-facing German text, such as a malformed response or an unusable credential.
+    /// Already user-facing text in the app's language, e.g. a malformed response or unusable credential.
     Text(String),
     /// The vault holds no credential for the account; nothing was sent.
     MissingCredential,
@@ -56,29 +58,43 @@ impl ScopeError {
         }
     }
 
-    /// The German sentence the panel shows. `login` names the account; `repo` is
+    /// The sentence the panel shows, in the app's language. `login` names the account; `repo` is
     /// `owner/name` when the failing scope is a repository.
     pub(crate) fn describe(&self, login: &str, repo: Option<&str>) -> String {
         let scope = repo.unwrap_or(login);
         let (Self::Denied(cause) | Self::Unauthorized(cause) | Self::Transient(cause)) = self;
         match (self, cause) {
-            (_, Cause::MissingCredential) => format!(
-                "Zugang von {login} fehlt im Tresor – verbinde das Konto neu oder trenne es."
+            (_, Cause::MissingCredential) => trf!(
+                "Zugang von {login} fehlt im Tresor – verbinde das Konto neu oder trenne es.",
+                "Access of {login} is missing from the vault – reconnect or disconnect the account."
             ),
-            (_, Cause::VaultUnavailable) => format!(
-                "Betriebssystem-Tresor nicht verfügbar – Zugang von {login} kann nicht gelesen werden."
+            (_, Cause::VaultUnavailable) => trf!(
+                "Betriebssystem-Tresor nicht verfügbar – Zugang von {login} kann nicht gelesen werden.",
+                "Operating system vault unavailable – access of {login} cannot be read."
             ),
             (Self::Unauthorized(_), Cause::Text(text)) => format!("{login}: {text}"),
-            (Self::Unauthorized(_), _) => {
-                format!("Zugang von {login} abgelaufen oder widerrufen – verbinde das Konto neu.")
-            }
-            (_, Cause::Http(status)) => format!("GitHub-Fehler {status} bei {scope}."),
-            (_, Cause::RateLimited { retry_at }) => format!(
+            (Self::Unauthorized(_), _) => trf!(
+                "Zugang von {login} abgelaufen oder widerrufen – verbinde das Konto neu.",
+                "Access of {login} expired or revoked – reconnect the account."
+            ),
+            (_, Cause::Http(status)) => trf!(
+                "GitHub-Fehler {status} bei {scope}.",
+                "GitHub error {status} for {scope}."
+            ),
+            (_, Cause::RateLimited { retry_at }) => trf!(
                 "GitHub-Limit erreicht – neuer Versuch um {}.",
+                "GitHub limit reached – retrying at {}.",
                 local_time(*retry_at)
             ),
-            (_, Cause::Unreachable) => "GitHub nicht erreichbar – prüfe deine Verbindung.".into(),
-            (_, Cause::Truncated) => format!("Liste von {scope} unvollständig – zu viele Einträge."),
+            (_, Cause::Unreachable) => tr(
+                "GitHub nicht erreichbar – prüfe deine Verbindung.",
+                "GitHub unreachable – check your connection.",
+            )
+            .into(),
+            (_, Cause::Truncated) => trf!(
+                "Liste von {scope} unvollständig – zu viele Einträge.",
+                "List of {scope} incomplete – too many entries."
+            ),
             (_, Cause::Text(text)) => format!("{scope}: {text}"),
         }
     }
@@ -156,7 +172,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
         // completed runs are kept. Accepting the cut lets the next window start from now
         // instead of failing on an ever longer window.
         let timestamp = chrono::DateTime::from_timestamp(since.saturating_sub(2) as i64, 0)
-            .ok_or("Run-Zeitfenster ungültig.")?
+            .ok_or(tr("Run-Zeitfenster ungültig.", "Invalid Run time window."))?
             .to_rfc3339();
         let created = format!(">={timestamp}");
         let window = client.get_pages_uncached(
@@ -212,11 +228,15 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
         if response.status != 200 {
             return Err(ApiError::Http(response.status).into());
         }
-        let value: Value =
-            serde_json::from_slice(&response.body).map_err(|_| "Run-Antwort ungültig.")?;
+        let value: Value = serde_json::from_slice(&response.body)
+            .map_err(|_| tr("Run-Antwort ungültig.", "Invalid Run response."))?;
         let updated = run_from_wire(&repo.id, &value)?;
         if updated.id != run.id || updated.workflow_id != run.workflow_id {
-            return Err("Run-Antwort passt nicht zur Anfrage.".into());
+            return Err(tr(
+                "Run-Antwort passt nicht zur Anfrage.",
+                "Run response does not match the request.",
+            )
+            .into());
         }
         fresh.insert(updated.id, updated);
     }
@@ -249,10 +269,11 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
 }
 
 fn parse_list(repo_id: &str, body: &[u8]) -> Result<Vec<Run>, ScopeError> {
-    let page: Value = serde_json::from_slice(body).map_err(|_| "Run-Liste ungültig.")?;
+    let invalid = || tr("Run-Liste ungültig.", "Invalid Run list.");
+    let page: Value = serde_json::from_slice(body).map_err(|_| invalid())?;
     page["workflow_runs"]
         .as_array()
-        .ok_or("Run-Liste ungültig.")?
+        .ok_or_else(invalid)?
         .iter()
         .map(|value| run_from_wire(repo_id, value).map_err(ScopeError::from))
         .collect()

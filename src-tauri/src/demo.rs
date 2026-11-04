@@ -90,10 +90,11 @@ impl DemoStore {
         let target = start.target();
         match self.uncertain_targets.get(&target) {
             Some(claimed_at) if start.claimed_at.as_ref() != Some(claimed_at) => {
-                return Err(
-                    "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut."
-                        .into(),
+                return Err(crate::i18n::tr(
+                    "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.",
+                    "This Workflow has a newer start lock on this Branch or Tag. Check the Runs again.",
                 )
+                .into())
             }
             Some(_) => {
                 self.uncertain_targets.remove(&target);

@@ -86,7 +86,7 @@ impl<T: Transport> LiveStore<T> {
             "runs",
         ];
         let first = url(&path, &[("per_page", "1")])
-            .map_err(|_| ApiError::Policy("API-Adresse ungültig."))?;
+            .map_err(|_| ApiError::Policy(super::invalid_api_address()))?;
         let pages = self
             .client
             .get_pages_limited(&repo.account_id, first, now, 1)?;

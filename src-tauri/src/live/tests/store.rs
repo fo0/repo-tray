@@ -148,7 +148,7 @@ fn a_failed_cache_write_is_a_notice_and_never_marks_live_data_stale() {
     live.persist();
     assert!(!live.data.stale);
     assert_eq!(live.data.connectivity, Connectivity::Online);
-    assert_eq!(live.data.message.as_deref(), Some(CACHE_NOTICE));
+    assert_eq!(live.data.message.as_deref(), Some(cache_notice()));
 }
 
 #[test]

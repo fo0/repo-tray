@@ -155,7 +155,10 @@ fn auth_errors_reach_the_panel_in_german() {
         AuthError::StalePoll.to_string(),
         "Diese Anmeldung wurde abgebrochen oder ersetzt."
     );
-    assert_eq!(AuthError::KeyringUnavailable.to_string(), VAULT_UNAVAILABLE);
+    assert_eq!(
+        AuthError::KeyringUnavailable.to_string(),
+        vault_unavailable()
+    );
     for error in [
         AuthError::Locked,
         AuthError::InvalidAuthorization,

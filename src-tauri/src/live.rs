@@ -11,6 +11,7 @@ use crate::{
     auth::NativeKeyring,
     cache::{AppSettings, Cache, CacheError},
     github::{ApiClient, ApiError, ApiUrl, Transport},
+    i18n::tr,
     models::*,
     workflow::{parse_workflow_yaml, validate_non_secret_inputs},
 };
@@ -41,26 +42,33 @@ pub fn now() -> u64 {
 }
 pub(crate) fn url(path: &[&str], query: &[(&str, &str)]) -> Result<ApiUrl, String> {
     let mut value =
-        reqwest::Url::parse("https://api.github.com").map_err(|_| "API-Adresse ungültig.")?;
+        reqwest::Url::parse("https://api.github.com").map_err(|_| invalid_api_address())?;
     value
         .path_segments_mut()
-        .map_err(|_| "API-Adresse ungültig.")?
+        .map_err(|_| invalid_api_address())?
         .extend(path);
     if !query.is_empty() {
         value.query_pairs_mut().extend_pairs(query.iter().copied());
     }
-    ApiUrl::parse(value.as_str()).map_err(|_| "API-Adresse ungültig.".into())
+    ApiUrl::parse(value.as_str()).map_err(|_| invalid_api_address().into())
+}
+fn invalid_api_address() -> &'static str {
+    tr("API-Adresse ungültig.", "Invalid API address.")
 }
 fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str, String> {
-    value[key]
-        .as_str()
-        .ok_or_else(|| "GitHub-Metadaten unvollständig.".into())
+    value[key].as_str().ok_or_else(|| {
+        tr(
+            "GitHub-Metadaten unvollständig.",
+            "GitHub metadata incomplete.",
+        )
+        .into()
+    })
 }
 fn number(value: &Value, key: &str) -> Result<u64, String> {
     value[key]
         .as_u64()
         .filter(|v| *v > 0)
-        .ok_or_else(|| "GitHub-ID ungültig.".into())
+        .ok_or_else(|| tr("GitHub-ID ungültig.", "Invalid GitHub ID.").into())
 }
 pub fn empty_snapshot() -> Snapshot {
     Snapshot {
@@ -73,32 +81,70 @@ pub fn empty_snapshot() -> Snapshot {
         connectivity: Connectivity::Online,
         updated_at: chrono::Utc::now().to_rfc3339(),
         stale: false,
-        message: Some("Verbinde dein GitHub-Konto in den Einstellungen.".into()),
+        message: Some(
+            tr(
+                "Verbinde dein GitHub-Konto in den Einstellungen.",
+                "Connect your GitHub account in the settings.",
+            )
+            .into(),
+        ),
         uncertain_starts: vec![],
         hidden_repos: vec![],
     }
 }
-const CACHE_NOTICE: &str = "Lokaler Zwischenspeicher konnte nicht aktualisiert werden.";
-const ACCOUNT_SAVE_FAILED: &str =
-    "Konto konnte nicht lokal gespeichert werden. Es wurde nichts verbunden; versuche es erneut.";
+fn cache_notice() -> &'static str {
+    tr(
+        "Lokaler Zwischenspeicher konnte nicht aktualisiert werden.",
+        "Local cache could not be updated.",
+    )
+}
+fn account_save_failed() -> &'static str {
+    tr(
+        "Konto konnte nicht lokal gespeichert werden. Es wurde nichts verbunden; versuche es erneut.",
+        "Account could not be saved locally. Nothing was connected; try again.",
+    )
+}
 /// The controls it names sit at the end of the Repositories page (`ReposPage.svelte`).
-const BROWSER_SETUP_NOTICE: &str =
-    "Keine Repositories freigegeben – unter Repositories die Freigabe auf GitHub ändern.";
+fn browser_setup_notice() -> &'static str {
+    tr(
+        "Keine Repositories freigegeben – unter Repositories die Freigabe auf GitHub ändern.",
+        "No Repositories shared – change the access on GitHub under Repositories.",
+    )
+}
 
-const PIN_CREDENTIAL_REFUSED: &str =
-    "Namen oder Werte, die wie Zugangsdaten aussehen, werden nicht gespeichert.";
-const PIN_TOO_LARGE: &str = "Favorit ist zu groß zum Speichern – kürze seine Eingaben.";
-const PIN_SAVE_FAILED: &str = "Favorit konnte nicht lokal gespeichert werden. Versuche es erneut.";
-const PIN_DELETE_FAILED: &str = "Favorit konnte nicht lokal entfernt werden. Versuche es erneut.";
+fn pin_credential_refused() -> &'static str {
+    tr(
+        "Namen oder Werte, die wie Zugangsdaten aussehen, werden nicht gespeichert.",
+        "Names or values that look like credentials are not saved.",
+    )
+}
+fn pin_too_large() -> &'static str {
+    tr(
+        "Favorit ist zu groß zum Speichern – kürze seine Eingaben.",
+        "Favorite is too large to save – shorten its inputs.",
+    )
+}
+fn pin_save_failed() -> &'static str {
+    tr(
+        "Favorit konnte nicht lokal gespeichert werden. Versuche es erneut.",
+        "Favorite could not be saved locally. Try again.",
+    )
+}
+fn pin_delete_failed() -> &'static str {
+    tr(
+        "Favorit konnte nicht lokal entfernt werden. Versuche es erneut.",
+        "Favorite could not be removed locally. Try again.",
+    )
+}
 
 /// The panel text for a favorite the cache refused. `CacheError` text is internal English;
 /// after the store's own checks (input limits included), a refused value can only be a
 /// credential-looking string, and an oversized entry is named as such.
 fn pin_save_error(error: CacheError) -> String {
     match error {
-        CacheError::Invalid(_) => PIN_CREDENTIAL_REFUSED,
-        CacheError::TooLarge => PIN_TOO_LARGE,
-        CacheError::Database(_) | CacheError::Serialization(_) => PIN_SAVE_FAILED,
+        CacheError::Invalid(_) => pin_credential_refused(),
+        CacheError::TooLarge => pin_too_large(),
+        CacheError::Database(_) | CacheError::Serialization(_) => pin_save_failed(),
     }
     .into()
 }
@@ -147,14 +193,18 @@ impl<T: Transport> LiveStore<T> {
         client: ApiClient<T>,
     ) -> Result<Self, String> {
         let mut data = empty_snapshot();
-        for account in cache
-            .account_ids()
-            .map_err(|_| "Konten konnten nicht geladen werden.")?
-        {
-            if let Some(cached) = cache
-                .load_snapshot(&account)
-                .map_err(|_| "Cache konnte nicht geladen werden.")?
-            {
+        for account in cache.account_ids().map_err(|_| {
+            tr(
+                "Konten konnten nicht geladen werden.",
+                "Accounts could not be loaded.",
+            )
+        })? {
+            if let Some(cached) = cache.load_snapshot(&account).map_err(|_| {
+                tr(
+                    "Cache konnte nicht geladen werden.",
+                    "Cache could not be loaded.",
+                )
+            })? {
                 if cached.mode != Mode::Live {
                     continue;
                 }
@@ -166,9 +216,12 @@ impl<T: Transport> LiveStore<T> {
                 data.updated_at = cached.updated_at;
             }
         }
-        let claims = cache
-            .uncertain_starts()
-            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
+        let claims = cache.uncertain_starts().map_err(|_| {
+            tr(
+                "Startsperren konnten nicht geladen werden.",
+                "Start locks could not be loaded.",
+            )
+        })?;
         // An unreadable preference keeps the default interval and hides nothing.
         let settings = cache.load_app_settings().unwrap_or_default();
         let refresh_seconds = settings.refresh_interval();
@@ -176,7 +229,13 @@ impl<T: Transport> LiveStore<T> {
         if !data.accounts.is_empty() {
             data.stale = true;
             data.connectivity = Connectivity::Offline;
-            data.message = Some("Letzter gespeicherter Stand · Verbindung wird geprüft.".into());
+            data.message = Some(
+                tr(
+                    "Letzter gespeicherter Stand · Verbindung wird geprüft.",
+                    "Last saved state · checking the connection.",
+                )
+                .into(),
+            );
         }
         Ok(Self {
             client,
@@ -223,7 +282,7 @@ impl<T: Transport> LiveStore<T> {
         settings.notifications = enabled;
         self.cache
             .save_app_settings(&settings)
-            .map_err(|_| "Einstellung konnte nicht gespeichert werden.".into())
+            .map_err(|_| hidden::hidden_save_failed().into())
     }
     /// Seconds between idle refreshes; an open run is still followed every 15 seconds.
     pub fn refresh_interval(&self) -> u64 {
@@ -237,7 +296,7 @@ impl<T: Transport> LiveStore<T> {
         settings.refresh_seconds = Some(seconds);
         self.cache
             .save_app_settings(&settings)
-            .map_err(|_| "Einstellung konnte nicht gespeichert werden.")?;
+            .map_err(|_| hidden::hidden_save_failed())?;
         self.refresh_seconds = seconds;
         self.schedule.set_refresh(seconds, (self.clock)());
         Ok(seconds)
@@ -269,7 +328,7 @@ impl<T: Transport> LiveStore<T> {
         path: &[&str],
         query: &[(&str, &str)],
     ) -> Result<Vec<Value>, ApiError> {
-        let url = url(path, query).map_err(|_| ApiError::Policy("API-Adresse ungültig."))?;
+        let url = url(path, query).map_err(|_| ApiError::Policy(invalid_api_address()))?;
         self.client
             .get_pages(account, url, (self.clock)())?
             .iter()
@@ -290,7 +349,7 @@ impl<T: Transport> LiveStore<T> {
             failed |= self.cache.save_snapshot(&account.id, &self.data).is_err();
         }
         if failed {
-            self.data.message = Some(with_notice(self.data.message.take(), CACHE_NOTICE));
+            self.data.message = Some(with_notice(self.data.message.take(), cache_notice()));
         }
     }
     fn yaml(
@@ -302,7 +361,7 @@ impl<T: Transport> LiveStore<T> {
         if !path.starts_with(".github/workflows/")
             || path.split('/').any(|s| s == ".." || s.is_empty())
         {
-            return Err("Workflow-Pfad ungültig.".into());
+            return Err(tr("Workflow-Pfad ungültig.", "Invalid Workflow path.").into());
         }
         let mut segments = vec!["repos", &repo.owner, &repo.name, "contents"];
         segments.extend(path.split('/'));
@@ -311,19 +370,22 @@ impl<T: Transport> LiveStore<T> {
             .map_err(|error| match error {
                 // Dispatch reads the default branch first; a 404 at another ref means that
                 // branch or tag is gone or does not contain the workflow file.
-                ApiError::Http(404) if git_ref != repo.default_branch => format!(
-                    "Workflow auf „{git_ref}“ nicht gefunden – der Branch oder Tag fehlt oder enthält den Workflow nicht."
+                ApiError::Http(404) if git_ref != repo.default_branch => crate::trf!(
+                    "Workflow auf „{git_ref}“ nicht gefunden – der Branch oder Tag fehlt oder enthält den Workflow nicht.",
+                    "Workflow not found on “{git_ref}” – the Branch or Tag is missing or does not contain the Workflow."
                 ),
                 other => other.to_string(),
             })?;
+        let invalid = || tr("Workflow-Inhalt ungültig.", "Invalid Workflow content.");
         if value["encoding"] != "base64" {
-            return Err("Workflow-Inhalt ungültig.".into());
+            return Err(invalid().into());
         }
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(text(&value, "content")?.replace(['\n', '\r'], ""))
-            .map_err(|_| "Workflow-Inhalt ungültig.")?;
-        parse_workflow_yaml(std::str::from_utf8(&bytes).map_err(|_| "Workflow ist kein UTF-8.")?)
-            .map_err(|e| e.to_string())
+            .map_err(|_| invalid())?;
+        let source = std::str::from_utf8(&bytes)
+            .map_err(|_| tr("Workflow ist kein UTF-8.", "Workflow is not UTF-8."))?;
+        parse_workflow_yaml(source).map_err(|e| e.to_string())
     }
     /// Pins have their own cache table, so saving or deleting one never rewrites the snapshot.
     pub fn save_pin(&mut self, pin: Pin) -> Result<Snapshot, String> {
@@ -341,7 +403,11 @@ impl<T: Transport> LiveStore<T> {
                 .iter()
                 .any(|w| w.id == pin.workflow_id && w.repo_id == pin.repo_id)
         {
-            return Err("Favorit passt nicht zum Konto oder Repository.".into());
+            return Err(tr(
+                "Favorit passt nicht zum Konto oder Repository.",
+                "Favorite does not match the account or Repository.",
+            )
+            .into());
         }
         if self
             .data
@@ -349,7 +415,11 @@ impl<T: Transport> LiveStore<T> {
             .iter()
             .any(|p| p.id == pin.id && p.account_id != pin.account_id)
         {
-            return Err("Ein Favorit kann nicht in ein anderes Konto verschoben werden.".into());
+            return Err(tr(
+                "Ein Favorit kann nicht in ein anderes Konto verschoben werden.",
+                "A favorite cannot be moved to another account.",
+            )
+            .into());
         }
         self.cache
             .save_pin(&pin.account_id, &pin)
@@ -362,7 +432,7 @@ impl<T: Transport> LiveStore<T> {
         if let Some(pin) = self.data.pins.iter().find(|p| p.id == id) {
             self.cache
                 .delete_pin(&pin.account_id, &id)
-                .map_err(|_| PIN_DELETE_FAILED)?;
+                .map_err(|_| pin_delete_failed())?;
         }
         self.data.pins.retain(|p| p.id != id);
         Ok(self.snapshot())

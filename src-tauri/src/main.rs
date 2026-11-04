@@ -3,6 +3,7 @@
 mod desktop;
 mod desktop_auth;
 mod desktop_startup;
+mod desktop_tray;
 mod desktop_updates;
 mod tray_popup;
 

@@ -1,4 +1,5 @@
 //! Opt-in, per-user Windows login registration. No preference copy is stored.
+use crate::i18n::tr;
 use serde::Serialize;
 use std::{ffi::OsStr, io};
 
@@ -15,12 +16,20 @@ pub fn show_on_launch(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> bool
 
 pub fn registration_command(executable: &str) -> Result<String, String> {
     if executable.is_empty() || executable.contains(['"', '\0', '\r', '\n']) {
-        return Err("Der Installationspfad ist für Windows-Autostart ungeeignet.".into());
+        return Err(tr(
+            "Der Installationspfad ist für Windows-Autostart ungeeignet.",
+            "The install path is unsuitable for Windows autostart.",
+        )
+        .into());
     }
     let command = format!("\"{executable}\" {AUTOSTART_ARG}");
     // Microsoft documents a 260-character limit for a Run command line.
     if command.encode_utf16().count() >= 260 {
-        return Err("Der Installationspfad ist für Windows-Autostart zu lang.".into());
+        return Err(tr(
+            "Der Installationspfad ist für Windows-Autostart zu lang.",
+            "The install path is too long for Windows autostart.",
+        )
+        .into());
     }
     Ok(command)
 }
@@ -88,7 +97,11 @@ pub fn read(store: &impl Registration, expected: &str) -> Result<StartupStatus, 
 }
 
 fn read_error() -> String {
-    "Windows-Autostart konnte nicht gelesen werden. Prüfe den Status erneut.".into()
+    tr(
+        "Windows-Autostart konnte nicht gelesen werden. Prüfe den Status erneut.",
+        "Windows autostart could not be read. Check the status again.",
+    )
+    .into()
 }
 
 pub fn set_enabled(
@@ -98,18 +111,30 @@ pub fn set_enabled(
 ) -> Result<StartupStatus, String> {
     let current = store.command().map_err(|_| read_error())?;
     if current.as_deref().is_some_and(|value| value != expected) {
-        return Err("Der Autostartname wird von einem anderen Eintrag verwendet. Es wurde nichts verändert.".into());
+        return Err(tr(
+            "Der Autostartname wird von einem anderen Eintrag verwendet. Es wurde nichts verändert.",
+            "The autostart name is used by another entry. Nothing was changed.",
+        )
+        .into());
     }
     if enabled != current.is_some() {
         store
             .write(enabled.then_some(expected))
-            .map_err(|_| "Windows-Autostart konnte nicht geändert werden. Prüfe den Status und versuche es erneut.".to_string())?;
+            .map_err(|_| {
+                tr(
+                    "Windows-Autostart konnte nicht geändert werden. Prüfe den Status und versuche es erneut.",
+                    "Windows autostart could not be changed. Check the status and try again.",
+                )
+                .to_string()
+            })?;
     }
     let actual = read(store, expected)?;
     if actual.registered != enabled {
-        return Err(
-            "Windows hat die Änderung nicht bestätigt. Prüfe den Autostartstatus erneut.".into(),
-        );
+        return Err(tr(
+            "Windows hat die Änderung nicht bestätigt. Prüfe den Autostartstatus erneut.",
+            "Windows did not confirm the change. Check the autostart status again.",
+        )
+        .into());
     }
     Ok(actual)
 }

@@ -1,6 +1,7 @@
 //! The gh CLI adapter: auth status in its JSON and legacy forms, and the help probes that
 //! decide which flags a gh version supports.
-use super::{LocalAccount, Runner, FAILED};
+use super::text::{self, failed};
+use super::{LocalAccount, Runner};
 use crate::workflow::looks_like_credential;
 use serde::Deserialize;
 use std::path::Path;
@@ -15,11 +16,11 @@ pub(super) fn gh_help(
 ) -> Result<String, String> {
     let output = runner.run(program, &["auth", command, "--help"], current)?;
     if !output.success {
-        return Err(FAILED.into());
+        return Err(failed().into());
     }
     std::str::from_utf8(&output.bytes)
         .map(str::to_owned)
-        .map_err(|_| FAILED.into())
+        .map_err(|_| failed().into())
 }
 
 pub(super) fn gh_status(
@@ -42,12 +43,12 @@ pub(super) fn gh_status(
         }
         let output = runner.run(program, &args, current)?;
         if !output.success {
-            return Err(FAILED.into());
+            return Err(failed().into());
         }
         Ok((gh_accounts(&output.bytes)?, false))
     } else {
         if help.contains("--no-refresh") {
-            return Err("Diese gh-Version stellt keinen kompatiblen Kontostatus bereit. Aktualisiere die GitHub CLI.".into());
+            return Err(text::gh_status_incompatible().into());
         }
         // Legacy gh lacks structured auth status. Ask its read-only /user endpoint for
         // the active identity instead of parsing human output or reading credential files.
@@ -57,20 +58,27 @@ pub(super) fn gh_status(
             current,
         )?;
         if !output.success {
-            return Err(FAILED.into());
+            return Err(failed().into());
         }
         let login = std::str::from_utf8(&output.bytes)
-            .map_err(|_| FAILED)?
+            .map_err(|_| failed())?
             .trim();
         if !valid_login(login) {
-            return Err(FAILED.into());
+            return Err(failed().into());
         }
-        Ok((vec![LocalAccount {
-            source: "gh".into(), host: "github.com".into(), login: login.into(), usable: true, active: true,
-            detail: "Aktives gh-Konto über GitHub bestätigt. Noch nicht mit RepoWatch verbunden.".into(),
-            actions_read: "Scopes nicht auslesbar; Lesezugriff auf Workflows pro Repository ungeprüft.".into(),
-            actions_write: "Workflows starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
-        }], true))
+        Ok((
+            vec![LocalAccount {
+                source: "gh".into(),
+                host: "github.com".into(),
+                login: login.into(),
+                usable: true,
+                active: true,
+                detail: text::gh_active_confirmed().into(),
+                actions_read: text::scopes_unreadable().into(),
+                actions_write: text::start_unchecked().into(),
+            }],
+            true,
+        ))
     }
 }
 
@@ -102,7 +110,7 @@ struct GhAccount {
     token_source: String,
 }
 pub(super) fn gh_accounts(bytes: &[u8]) -> Result<Vec<LocalAccount>, String> {
-    let status: GhStatus = serde_json::from_slice(bytes).map_err(|_| FAILED)?;
+    let status: GhStatus = serde_json::from_slice(bytes).map_err(|_| failed())?;
     let mut accounts = Vec::new();
     for account in status
         .hosts
@@ -126,10 +134,26 @@ pub(super) fn gh_accounts(bytes: &[u8]) -> Result<Vec<LocalAccount>, String> {
             .collect();
         let repo = scopes.contains(&"repo");
         accounts.push(LocalAccount {
-            source: "gh".into(), host: account.host.clone(), login: account.login.clone(), active: account.active, usable,
-            detail: if usable { "GitHub-API-Anmeldung bestätigt · bevorzugte Quelle" } else { "Anmeldung ungültig, abgelaufen oder keine gespeicherte lokale Anmeldung" }.into(),
-            actions_read: if repo { "Scope repo vorhanden; private Workflows grundsätzlich abgedeckt. Repository-/Org-Zugriff noch ungeprüft." } else if account.scopes.is_empty() { "Scopes nicht auslesbar; Lesezugriff auf Workflows pro Repository ungeprüft." } else { "Scope repo fehlt; Zugriff auf private Workflows nicht belegt. Feinere Rechte pro Repository ungeprüft." }.into(),
-            actions_write: "Workflows starten: pro Repository ungeprüft; kein Workflow wurde zum Prüfen gestartet.".into(),
+            source: "gh".into(),
+            host: account.host.clone(),
+            login: account.login.clone(),
+            active: account.active,
+            usable,
+            detail: if usable {
+                text::api_sign_in_confirmed()
+            } else {
+                text::sign_in_invalid()
+            }
+            .into(),
+            actions_read: if repo {
+                text::scope_repo_present()
+            } else if account.scopes.is_empty() {
+                text::scopes_unreadable()
+            } else {
+                text::scope_repo_missing()
+            }
+            .into(),
+            actions_write: text::start_unchecked().into(),
         });
     }
     accounts.sort_by(|a, b| a.login.cmp(&b.login));

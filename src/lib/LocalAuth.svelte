@@ -1,4 +1,5 @@
 <script lang="ts">
+  const GH_MISSING = /^gh CLI (nicht gefunden|not found)/;
   import { onDestroy, onMount } from 'svelte';
   import LocalAccountImport, {
     importable,
@@ -55,8 +56,9 @@
       const result = await call('discover_local_auth');
       if (!active || ticket !== generation) return;
       accounts = result.accounts;
-      // Matches the shell's notice text (local_auth.rs), not a shown text.
-      ghMissing = result.notices.some((n) => n.startsWith('gh CLI nicht'));
+      // Matches the shell's notice text (local_auth/text.rs) in either
+      // language, since a language switch can race the discovery.
+      ghMissing = result.notices.some((n) => GH_MISSING.test(n));
       const found = result.accounts.filter(importable);
       if (found.length === 1 && found[0]) selected = localKey(found[0]);
     } catch (cause) {

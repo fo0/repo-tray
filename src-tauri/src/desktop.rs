@@ -1,6 +1,8 @@
+use crate::desktop_tray::{self, TrayMenu, TRAY_ID};
 use repowatch_core::{
     auth::{DeviceFlow, OsKeyring},
     cache::Cache,
+    i18n::tr,
     live::LiveStore,
     DispatchOutcome, DispatchRequest, Pin, RunStatus, Snapshot, UncertainStart,
 };
@@ -35,7 +37,10 @@ pub(crate) async fn work<T: Send + 'static>(
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<NativeState>();
-        let mut engine = state.engine.lock().map_err(|_| "Dienst nicht verfügbar.")?;
+        let mut engine = state
+            .engine
+            .lock()
+            .map_err(|_| tr("Dienst nicht verfügbar.", "Service unavailable."))?;
         let result = operation(&mut engine);
         state
             .open_run
@@ -43,7 +48,13 @@ pub(crate) async fn work<T: Send + 'static>(
         result
     })
     .await
-    .map_err(|_| "Aufgabe konnte nicht abgeschlossen werden.".to_string())?
+    .map_err(|_| {
+        tr(
+            "Aufgabe konnte nicht abgeschlossen werden.",
+            "Task could not be completed.",
+        )
+        .to_string()
+    })?
 }
 #[tauri::command]
 async fn snapshot(app: tauri::AppHandle) -> Result<Snapshot, String> {
@@ -151,21 +162,31 @@ fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
 fn open_run(app: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     // Open only the parser's canonical form, never the raw IPC string.
-    let url = repowatch_core::run_link::canonical_run_url(&url)
-        .ok_or("Nur GitHub-Run-Links sind erlaubt.")?;
+    let url = repowatch_core::run_link::canonical_run_url(&url).ok_or(tr(
+        "Nur GitHub-Run-Links sind erlaubt.",
+        "Only GitHub Run links are allowed.",
+    ))?;
     app.opener()
         .open_url(url, None::<&str>)
-        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
+        .map_err(|_| browser_failed().into())
 }
 #[tauri::command]
 fn open_repo(app: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     // Open only the parser's canonical form, never the raw IPC string.
-    let url = repowatch_core::run_link::canonical_repo_url(&url)
-        .ok_or("Nur GitHub-Repository-Links sind erlaubt.")?;
+    let url = repowatch_core::run_link::canonical_repo_url(&url).ok_or(tr(
+        "Nur GitHub-Repository-Links sind erlaubt.",
+        "Only GitHub Repository links are allowed.",
+    ))?;
     app.opener()
         .open_url(url, None::<&str>)
-        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
+        .map_err(|_| browser_failed().into())
+}
+fn browser_failed() -> &'static str {
+    tr(
+        "Browser konnte nicht geöffnet werden.",
+        "Browser could not be opened.",
+    )
 }
 fn tray_image(active: bool, failed: bool) -> tauri::image::Image<'static> {
     let color = if active {
@@ -229,21 +250,27 @@ pub fn run() {
             let show = MenuItem::with_id(
                 app,
                 "toggle",
-                "RepoWatch öffnen / ausblenden",
+                desktop_tray::show_label(),
                 true,
                 None::<&str>,
             )?;
             let notifications = CheckMenuItem::with_id(
                 app,
                 "notifications",
-                "Run-Benachrichtigungen",
+                desktop_tray::notifications_label(),
                 true,
                 notify,
                 None::<&str>,
             )?;
-            let quit = MenuItem::with_id(app, "quit", "RepoWatch beenden", true, None::<&str>)?;
+            let quit =
+                MenuItem::with_id(app, "quit", desktop_tray::quit_label(), true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &notifications, &quit])?;
-            TrayIconBuilder::with_id("repowatch")
+            app.manage(TrayMenu::new(
+                show.clone(),
+                notifications.clone(),
+                quit.clone(),
+            ));
+            TrayIconBuilder::with_id(TRAY_ID)
                 .icon(tray_image(false, false))
                 .tooltip("RepoWatch")
                 .menu(&menu)
@@ -326,16 +353,10 @@ pub fn run() {
                         selected(&run.repo_id)
                             && run.conclusion == Some(repowatch_core::Conclusion::Failure)
                     });
-                    if let Some(tray) = handle.tray_by_id("repowatch") {
+                    if let Some(tray) = handle.tray_by_id(TRAY_ID) {
                         let _ = tray.set_icon(Some(tray_image(active, failed)));
-                        let _ = tray.set_tooltip(Some(if active {
-                            "RepoWatch · Workflows laufen"
-                        } else if failed {
-                            "RepoWatch · Fehler"
-                        } else {
-                            "RepoWatch · bereit"
-                        }));
                     }
+                    desktop_tray::show_status(&handle, active, failed);
                     for run in &value.runs {
                         if selected(&run.repo_id)
                             && run.status == RunStatus::Completed
@@ -368,6 +389,7 @@ pub fn run() {
             refresh_repositories,
             refresh_interval,
             set_refresh_interval,
+            crate::desktop_tray::set_locale,
             save_pin,
             delete_pin,
             dispatch_workflow,

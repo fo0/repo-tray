@@ -519,6 +519,19 @@ fn user_facing_errors_are_german_with_a_local_clock_time() {
         ApiError::Transport(TransportError::VaultUnavailable).to_string(),
         "Betriebssystem-Tresor nicht verfügbar. Der Zugang kann nicht gelesen werden."
     );
+    let english = crate::i18n::with_locale(crate::i18n::Locale::En, || {
+        [
+            ApiError::Http(502).to_string(),
+            ApiError::Transport(TransportError::VaultUnavailable).to_string(),
+        ]
+    });
+    assert_eq!(
+        english,
+        [
+            "GitHub error 502.",
+            "Operating system vault unavailable. The access cannot be read."
+        ]
+    );
 }
 
 #[test]

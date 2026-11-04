@@ -189,7 +189,7 @@ fn rotation_commits_both_tokens_and_preserves_foreign_credentials() {
 #[test]
 fn lost_refresh_response_is_durable_and_never_retried_even_after_restart() {
     let vault = Vault::default();
-    let mut t = fake(vec![Err(NETWORK.into())]);
+    let mut t = fake(vec![Err(text::network().into())]);
     assert!(rotate(&vault, "github-device-42", &mut t, credential(), 30000).is_err());
     assert!(
         BrowserCredential::decode(&vault.read_token("github-device-42").unwrap().unwrap())

@@ -4,6 +4,7 @@ use super::LiveStore;
 use crate::{
     cache::Release,
     github::{ApiRequest, ApiUrl, Transport},
+    i18n::tr,
     models::*,
     workflow::validate_inputs,
 };
@@ -12,18 +13,24 @@ impl<T: Transport> LiveStore<T> {
     /// Explicit user action after checking the runs on GitHub. It never dispatches, and no
     /// code path calls it automatically.
     pub fn release_uncertain_start(&mut self, start: UncertainStart) -> Result<Snapshot, String> {
-        let release = self
-            .cache
-            .release_uncertain_start(&start)
-            .map_err(|_| "Startsperre konnte nicht aufgehoben werden.")?;
-        self.claims = self
-            .cache
-            .uncertain_starts()
-            .map_err(|_| "Startsperren konnten nicht geladen werden.")?;
+        let release = self.cache.release_uncertain_start(&start).map_err(|_| {
+            tr(
+                "Startsperre konnte nicht aufgehoben werden.",
+                "Start lock could not be released.",
+            )
+        })?;
+        self.claims = self.cache.uncertain_starts().map_err(|_| {
+            tr(
+                "Startsperren konnten nicht geladen werden.",
+                "Start locks could not be loaded.",
+            )
+        })?;
         if release == Release::Replaced {
-            return Err(
-                "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.".into(),
-            );
+            return Err(tr(
+                "Für diesen Workflow auf diesem Branch oder Tag gibt es eine neuere Startsperre. Prüfe die Runs erneut.",
+                "This Workflow has a newer start lock on this Branch or Tag. Check the Runs again.",
+            )
+            .into());
         }
         Ok(self.snapshot())
     }
@@ -35,18 +42,23 @@ impl<T: Transport> LiveStore<T> {
         }
         let fingerprint = match serde_json::to_string(&request) {
             Ok(v) => v,
-            Err(_) => return DispatchOutcome::rejected("Ungültige Anfrage."),
+            Err(_) => {
+                return DispatchOutcome::rejected(tr("Ungültige Anfrage.", "Invalid request."))
+            }
         };
         if let Some((prior, outcome)) = self.outcomes.get(&request.request_id) {
             return if prior == &fingerprint {
                 outcome.clone()
             } else {
-                DispatchOutcome::rejected("Start-ID bereits verwendet.")
+                DispatchOutcome::rejected(tr(
+                    "Start-ID bereits verwendet.",
+                    "Start ID already used.",
+                ))
             };
         }
         let checked = (|| -> Result<(Repo, crate::github::ApiRequest), String> {
             if self.data.stale {
-                return Err("Klicke zuerst auf Aktualisieren.".into());
+                return Err(tr("Klicke zuerst auf Aktualisieren.", "Click Refresh first.").into());
             }
             let repo = self
                 .data
@@ -55,27 +67,49 @@ impl<T: Transport> LiveStore<T> {
                 .find(|r| {
                     r.id == request.repo_id && r.account_id == request.account_id && r.selected
                 })
-                .ok_or("Repository nicht im Tray.")?
+                .ok_or(tr(
+                    "Repository nicht im Tray.",
+                    "Repository not in the tray.",
+                ))?
                 .clone();
             if repo.permission != Permission::Write {
-                return Err("Repository hat keinen Schreibzugriff.".into());
+                return Err(tr(
+                    "Repository hat keinen Schreibzugriff.",
+                    "Repository has no write access.",
+                )
+                .into());
             }
             let workflow = self
                 .data
                 .workflows
                 .iter()
                 .find(|w| w.id == request.workflow_id && w.repo_id == repo.id && w.dispatch)
-                .ok_or("Workflow ist nicht manuell startbar.")?;
+                .ok_or(tr(
+                    "Workflow ist nicht manuell startbar.",
+                    "Workflow cannot be started manually.",
+                ))?;
             let default = self.yaml(&repo, &workflow.path, &repo.default_branch)?;
             if !default.dispatch {
-                return Err("workflow_dispatch fehlt im Standardbranch.".into());
+                return Err(tr(
+                    "workflow_dispatch fehlt im Standardbranch.",
+                    "workflow_dispatch is missing on the default Branch.",
+                )
+                .into());
             }
             if !workflow.refs.contains(&request.git_ref) {
-                return Err("Branch oder Tag unbekannt. Klicke auf Aktualisieren.".into());
+                return Err(tr(
+                    "Branch oder Tag unbekannt. Klicke auf Aktualisieren.",
+                    "Unknown Branch or Tag. Click Refresh.",
+                )
+                .into());
             }
             let mut actual = self.yaml(&repo, &workflow.path, &request.git_ref)?;
             if !actual.dispatch {
-                return Err("workflow_dispatch fehlt im gewählten Branch oder Tag.".into());
+                return Err(tr(
+                    "workflow_dispatch fehlt im gewählten Branch oder Tag.",
+                    "workflow_dispatch is missing on the chosen Branch or Tag.",
+                )
+                .into());
             }
             // Environments belong to the repository, not the ref: one the last refresh could
             // not list completely stays unavailable for every ref's environment inputs.
@@ -130,14 +164,16 @@ impl<T: Transport> LiveStore<T> {
             .claim_dispatch(&target, &chrono::Utc::now().to_rfc3339())
         {
             Err(_) => {
-                return DispatchOutcome::rejected(
+                return DispatchOutcome::rejected(tr(
                     "Startsperre konnte nicht gespeichert werden. Es wurde nichts gestartet.",
-                )
+                    "Start lock could not be saved. Nothing was started.",
+                ))
             }
             Ok(None) => {
-                return DispatchOutcome::uncertain(
+                return DispatchOutcome::uncertain(tr(
                     "Der letzte Start dieses Workflows auf diesem Branch oder Tag ist ungeklärt. Kein erneuter Start – prüfe die Runs auf GitHub und hebe die Sperre danach auf.",
-                )
+                    "The last start of this Workflow on this Branch or Tag is unresolved. No new start – check the Runs on GitHub, then release the lock.",
+                ))
             }
             Ok(Some(claim)) => self.claims.push(claim),
         }
@@ -147,9 +183,10 @@ impl<T: Transport> LiveStore<T> {
         if outcome.state != DispatchState::Uncertain {
             match self.cache.resolve_dispatch(&target) {
                 Ok(()) => self.claims.retain(|claim| claim.target() != target),
-                Err(_) => outcome.message.push_str(
+                Err(_) => outcome.message.push_str(tr(
                     " Die Startsperre konnte nicht aufgehoben werden; prüfe die Runs auf GitHub und hebe sie danach auf.",
-                ),
+                    " The start lock could not be released; check the Runs on GitHub, then release it.",
+                )),
             }
         }
         if outcome.state == DispatchState::Accepted {

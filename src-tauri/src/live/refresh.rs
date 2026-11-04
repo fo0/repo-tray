@@ -1,23 +1,36 @@
 //! The refresh orchestration: account catalogs, repository metadata and runs, each scope
 //! on its own timer, settled into one snapshot and notice.
 use super::{
+    browser_setup_notice,
     catalog::{
         account_repos, list_all, list_values, merge_catalog, offered_refs, RefListing, REF_PAGES,
     },
     empty_snapshot, number, text,
     transport::OAuthClient,
-    with_notice, LiveStore, Schedule, BROWSER_SETUP_NOTICE,
+    with_notice, LiveStore, Schedule,
 };
 use crate::{
     browser_auth,
     github::Transport,
+    i18n::tr,
     models::*,
     run_history::{self, Cause, ScopeError},
+    trf,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Shown with an environment input whose listing exceeded the page budget.
-const ENVIRONMENTS_UNAVAILABLE: &str = "Zu viele Umgebungen – Auswahl nicht verfügbar.";
+fn environments_unavailable() -> &'static str {
+    tr(
+        "Zu viele Umgebungen – Auswahl nicht verfügbar.",
+        "Too many environments – selection unavailable.",
+    )
+}
+
+/// The suffix naming how many further items a notice leaves out.
+fn more_count(count: usize) -> String {
+    trf!(" (+{count} weitere)", " (+{count} more)")
+}
 
 impl<T: Transport> LiveStore<T> {
     /// Lists every account whose catalog is due, each on its own timer. A failing account
@@ -123,7 +136,7 @@ impl<T: Transport> LiveStore<T> {
                         None,
                     ),
                     Err(ScopeError::Transient(Cause::Truncated)) => {
-                        (vec![], Some(ENVIRONMENTS_UNAVAILABLE.to_string()))
+                        (vec![], Some(environments_unavailable().to_string()))
                     }
                     Err(_) => {
                         parsed = None;
@@ -333,11 +346,13 @@ impl<T: Transport> LiveStore<T> {
         let first = denied.next()?;
         let more = match denied.count() {
             0 => String::new(),
-            count => format!(" (+{count} weitere)"),
+            count => more_count(count),
         };
-        Some(format!(
+        Some(trf!(
             "Kein Zugriff auf Workflows: {}/{}{more} – prüfe Token-Rechte oder SSO-Freigabe.",
-            first.owner, first.name
+            "No access to Workflows: {}/{}{more} – check Token permissions or SSO approval.",
+            first.owner,
+            first.name
         ))
     }
     fn settle(&mut self, issues: RefreshIssues) {
@@ -359,7 +374,7 @@ impl<T: Transport> LiveStore<T> {
                         .accounts
                         .iter()
                         .any(|a| browser_auth::is_browser_account(&a.id)))
-                .then(|| BROWSER_SETUP_NOTICE.to_owned());
+                .then(|| browser_setup_notice().to_owned());
                 self.data.message = match (setup, denied) {
                     (Some(setup), Some(denied)) => Some(with_notice(Some(setup), &denied)),
                     (setup, denied) => setup.or(denied),
@@ -378,9 +393,13 @@ impl<T: Transport> LiveStore<T> {
                 };
                 let more = match issues.failures.len() - 1 {
                     0 => String::new(),
-                    count => format!(" (+{count} weitere)"),
+                    count => more_count(count),
                 };
-                let headline = format!("Letzter Stand · {}{more}", failure.describe());
+                let headline = trf!(
+                    "Letzter Stand · {}{more}",
+                    "Last state · {}{more}",
+                    failure.describe()
+                );
                 self.data.message = Some(match denied {
                     Some(denied) => with_notice(Some(headline), &denied),
                     None => headline,

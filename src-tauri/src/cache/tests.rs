@@ -227,13 +227,13 @@ fn credential_looking_github_metadata_is_redacted_instead_of_failing() {
     let inputs = &loaded.workflows[0].inputs;
     let tokenizer = inputs.iter().find(|i| i.name == "tokenizer_model").unwrap();
     assert_eq!(tokenizer.default, None);
-    assert_eq!(tokenizer.label, REDACTED);
+    assert_eq!(tokenizer.label, redacted());
     assert_eq!(
         inputs[0].options,
         vec!["windows-x64", "linux-x64", "macos-arm64"]
     );
     assert_eq!(inputs[1].default, None);
-    assert_eq!(loaded.runs[0].name, REDACTED);
+    assert_eq!(loaded.runs[0].name, redacted());
 }
 
 #[test]

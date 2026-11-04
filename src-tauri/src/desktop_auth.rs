@@ -5,11 +5,22 @@ use crate::desktop::{work, NativeState};
 use repowatch_core::{
     auth::{DeviceFlowStatus, DevicePollResult, SecretToken},
     browser_auth::{self, NativeOAuthTransport, PollOutcome},
+    i18n::tr,
     local_auth::{self, LocalDiscovery, ProcessRunner, Programs},
     Snapshot,
 };
 use std::sync::atomic::Ordering;
 use tauri::Manager;
+
+fn service_unavailable() -> &'static str {
+    tr(
+        "Anmeldedienst nicht verfügbar.",
+        "Sign-in service unavailable.",
+    )
+}
+fn cancelled() -> &'static str {
+    tr("Anmeldung wurde abgebrochen.", "Sign-in was cancelled.")
+}
 
 #[tauri::command]
 pub(crate) async fn connect_token(
@@ -47,7 +58,11 @@ pub(crate) async fn discover_local_auth(app: tauri::AppHandle) -> Result<LocalDi
     })
     .await
     .map_err(|_| {
-        "Lokale Prüfung konnte nicht abgeschlossen werden. Versuche es erneut.".to_string()
+        tr(
+            "Lokale Prüfung konnte nicht abgeschlossen werden. Versuche es erneut.",
+            "Local check could not be completed. Try again.",
+        )
+        .to_string()
     })?
 }
 #[tauri::command]
@@ -57,7 +72,11 @@ pub(crate) async fn connect_local_auth(
     confirm_import: bool,
 ) -> Result<Snapshot, String> {
     if !confirm_import {
-        return Err("Bestätige zuerst die Übernahme in den RepoWatch-Tresor.".into());
+        return Err(tr(
+            "Bestätige zuerst die Übernahme in den RepoWatch-Tresor.",
+            "First confirm the import into the RepoWatch vault.",
+        )
+        .into());
     }
     let ticket = app
         .state::<NativeState>()
@@ -114,9 +133,9 @@ pub(crate) async fn start_browser_auth(app: tauri::AppHandle) -> Result<BrowserR
         let mut flow = state
             .browser_flow
             .lock()
-            .map_err(|_| "Anmeldedienst nicht verfügbar.")?;
+            .map_err(|_| service_unavailable())?;
         if state.auth_generation.load(Ordering::SeqCst) != ticket {
-            return Err("Anmeldung wurde abgebrochen.".into());
+            return Err(cancelled().into());
         }
         flow.0 = ticket;
         let status = flow
@@ -131,7 +150,7 @@ pub(crate) async fn start_browser_auth(app: tauri::AppHandle) -> Result<BrowserR
         })
     })
     .await
-    .map_err(|_| "Anmeldedienst nicht verfügbar.".to_string())?
+    .map_err(|_| service_unavailable().to_string())?
 }
 #[tauri::command]
 pub(crate) fn open_browser_auth(app: tauri::AppHandle, flow_id: u64) -> Result<(), String> {
@@ -141,7 +160,7 @@ pub(crate) fn open_browser_auth(app: tauri::AppHandle, flow_id: u64) -> Result<(
     let mut flow = state
         .browser_flow
         .lock()
-        .map_err(|_| "Anmeldedienst nicht verfügbar.")?;
+        .map_err(|_| service_unavailable())?;
     if state.auth_generation.load(Ordering::SeqCst) != flow_id
         || flow.0 != flow_id
         || !matches!(
@@ -149,16 +168,34 @@ pub(crate) fn open_browser_auth(app: tauri::AppHandle, flow_id: u64) -> Result<(
             DeviceFlowStatus::AwaitingAuthorization { .. }
         )
     {
-        return Err("Dieser Code ist nicht mehr aktiv.".into());
+        return Err(tr(
+            "Dieser Code ist nicht mehr aktiv.",
+            "This code is no longer active.",
+        )
+        .into());
     }
-    app.opener().open_url(browser_auth::VERIFY_URL, None::<&str>).map_err(|_| "Browser konnte nicht geöffnet werden. Öffne github.com/login/device und gib den angezeigten Code ein.".into())
+    app.opener()
+        .open_url(browser_auth::VERIFY_URL, None::<&str>)
+        .map_err(|_| {
+            tr(
+                "Browser konnte nicht geöffnet werden. Öffne github.com/login/device und gib den angezeigten Code ein.",
+                "Browser could not be opened. Open github.com/login/device and enter the code shown.",
+            )
+            .into()
+        })
 }
 #[tauri::command]
 pub(crate) fn open_browser_installation(app: tauri::AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     app.opener()
         .open_url(browser_auth::installation_url()?, None::<&str>)
-        .map_err(|_| "Browser konnte nicht geöffnet werden.".into())
+        .map_err(|_| {
+            tr(
+                "Browser konnte nicht geöffnet werden.",
+                "Browser could not be opened.",
+            )
+            .into()
+        })
 }
 #[tauri::command]
 pub(crate) async fn poll_browser_auth(
@@ -173,9 +210,9 @@ pub(crate) async fn poll_browser_auth(
             let mut flow = state
                 .browser_flow
                 .lock()
-                .map_err(|_| "Anmeldedienst nicht verfügbar.")?;
+                .map_err(|_| service_unavailable())?;
             if !current() || flow.0 != flow_id {
-                return Err("Anmeldung wurde abgebrochen.".into());
+                return Err(cancelled().into());
             }
             let status = flow.1.status(repowatch_core::live::now());
             if !matches!(status, DeviceFlowStatus::AwaitingAuthorization { .. }) {
@@ -231,9 +268,9 @@ pub(crate) async fn poll_browser_auth(
             let mut flow = state
                 .browser_flow
                 .lock()
-                .map_err(|_| "Anmeldedienst nicht verfügbar.")?;
+                .map_err(|_| service_unavailable())?;
             if !current() || flow.0 != flow_id {
-                return Err("Anmeldung wurde abgebrochen.".into());
+                return Err(cancelled().into());
             }
             let now = repowatch_core::live::now();
             if flow.1.status(now) == DeviceFlowStatus::Expired {
@@ -249,7 +286,10 @@ pub(crate) async fn poll_browser_auth(
                 .map_err(|e| e.to_string())?
         };
         let snapshot = if let Some(tokens) = tokens {
-            let mut engine = state.engine.lock().map_err(|_| "Dienst nicht verfügbar.")?;
+            let mut engine = state
+                .engine
+                .lock()
+                .map_err(|_| tr("Dienst nicht verfügbar.", "Service unavailable."))?;
             Some(engine.connect_browser(tokens, current)?)
         } else {
             None
@@ -262,7 +302,7 @@ pub(crate) async fn poll_browser_auth(
         })
     })
     .await
-    .map_err(|_| "Anmeldedienst nicht verfügbar.".to_string())?
+    .map_err(|_| service_unavailable().to_string())?
 }
 #[tauri::command]
 pub(crate) async fn disconnect_account(

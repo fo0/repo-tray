@@ -3,6 +3,7 @@
 //! The bytes are held in memory until their size and SHA-256 match the release asset; only
 //! then are they written to disk. No request carries credentials.
 use super::validate_download_url;
+use crate::i18n::tr;
 use sha2::{Digest, Sha256};
 use std::{
     io::{self, Read},
@@ -28,9 +29,24 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const STALL_TIMEOUT: Duration = Duration::from_secs(60);
 const DOWNLOAD_DEADLINE: Duration = Duration::from_secs(10 * 60);
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
-const DOWNLOAD_FAILED: &str = "Download fehlgeschlagen – nichts installiert.";
-const VERIFY_FAILED: &str = "Datei passt nicht zum Release – nichts installiert.";
-const STAGE_FAILED: &str = "Installer konnte nicht gespeichert werden.";
+fn download_failed() -> &'static str {
+    tr(
+        "Download fehlgeschlagen – nichts installiert.",
+        "Download failed – nothing installed.",
+    )
+}
+fn verify_failed() -> &'static str {
+    tr(
+        "Datei passt nicht zum Release – nichts installiert.",
+        "File does not match the release – nothing installed.",
+    )
+}
+fn stage_failed() -> &'static str {
+    tr(
+        "Installer konnte nicht gespeichert werden.",
+        "Installer could not be saved.",
+    )
+}
 /// Staged update folders under the temp directory: `RepoWatch-update-<version>`.
 const STAGE_PREFIX: &str = "RepoWatch-update-";
 
@@ -104,7 +120,7 @@ pub fn read_verified(
     mut progress: impl FnMut(u64),
 ) -> Result<Vec<u8>, String> {
     if size > MAX_INSTALLER_BYTES {
-        return Err(VERIFY_FAILED.into());
+        return Err(verify_failed().into());
     }
     let mut bytes = Vec::with_capacity(size as usize);
     let mut hasher = Sha256::new();
@@ -115,10 +131,10 @@ pub fn read_verified(
             Ok(0) => break,
             Ok(read) => read,
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            Err(_) => return Err(DOWNLOAD_FAILED.into()),
+            Err(_) => return Err(download_failed().into()),
         };
         if bytes.len() as u64 + read as u64 > size {
-            return Err(VERIFY_FAILED.into());
+            return Err(verify_failed().into());
         }
         hasher.update(&buffer[..read]);
         bytes.extend_from_slice(&buffer[..read]);
@@ -130,7 +146,7 @@ pub fn read_verified(
     progress(bytes.len() as u64);
     let hash: [u8; 32] = hasher.finalize().into();
     if bytes.len() as u64 != size || &hash != sha256 {
-        return Err(VERIFY_FAILED.into());
+        return Err(verify_failed().into());
     }
     Ok(bytes)
 }
@@ -149,7 +165,7 @@ impl<R: Read> Read for Deadline<R> {
 /// Unauthenticated download of `installer`, verified by `read_verified`.
 pub fn download(installer: &Installer, progress: impl FnMut(u64)) -> Result<Vec<u8>, String> {
     if !validate_download_url(&installer.url, &installer.version) {
-        return Err(DOWNLOAD_FAILED.into());
+        return Err(download_failed().into());
     }
     let client = reqwest::blocking::Client::builder()
         .connect_timeout(CONNECT_TIMEOUT)
@@ -165,21 +181,21 @@ pub fn download(installer: &Installer, progress: impl FnMut(u64)) -> Result<Vec<
         }))
         .user_agent(concat!("RepoWatch/", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|_| DOWNLOAD_FAILED)?;
+        .map_err(|_| download_failed())?;
     let deadline = Instant::now() + DOWNLOAD_DEADLINE;
     let response = client
         .get(&installer.url)
         .header("Accept", "application/octet-stream")
         .send()
-        .map_err(|_| DOWNLOAD_FAILED)?;
+        .map_err(|_| download_failed())?;
     if response.status() != reqwest::StatusCode::OK {
-        return Err(DOWNLOAD_FAILED.into());
+        return Err(download_failed().into());
     }
     if response
         .content_length()
         .is_some_and(|length| length != installer.size)
     {
-        return Err(VERIFY_FAILED.into());
+        return Err(verify_failed().into());
     }
     read_verified(
         Deadline(response, deadline),
@@ -209,11 +225,11 @@ pub fn stage(root: &Path, installer: &Installer, bytes: &[u8]) -> Result<PathBuf
     match std::fs::remove_dir_all(&dir) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(_) => return Err(STAGE_FAILED.into()),
+        Err(_) => return Err(stage_failed().into()),
     }
-    std::fs::create_dir(&dir).map_err(|_| STAGE_FAILED)?;
+    std::fs::create_dir(&dir).map_err(|_| stage_failed())?;
     let path = dir.join(file_name(&installer.version));
-    std::fs::write(&path, bytes).map_err(|_| STAGE_FAILED)?;
+    std::fs::write(&path, bytes).map_err(|_| stage_failed())?;
     Ok(path)
 }
 
@@ -343,17 +359,17 @@ mod tests {
         altered[1000] = 8;
         assert_eq!(
             read_verified(altered.as_slice(), bytes.len() as u64, &sha(&bytes), |_| {}),
-            Err(VERIFY_FAILED.into())
+            Err(verify_failed().into())
         );
         // Too short: every byte matches a prefix, the size does not.
         let short = &bytes[..bytes.len() - 1];
         assert_eq!(
             read_verified(short, bytes.len() as u64, &sha(&bytes), |_| {}),
-            Err(VERIFY_FAILED.into())
+            Err(verify_failed().into())
         );
         assert_eq!(
             read_verified(&b""[..], 1, &sha(b""), |_| {}),
-            Err(VERIFY_FAILED.into())
+            Err(verify_failed().into())
         );
     }
 
@@ -376,12 +392,12 @@ mod tests {
             &sha(&[1; 1000]),
             |_| {},
         );
-        assert_eq!(result, Err(VERIFY_FAILED.into()));
+        assert_eq!(result, Err(verify_failed().into()));
         assert!(consumed <= 64 * 1024, "read {consumed} bytes");
         let long = vec![1u8; 1001];
         assert_eq!(
             read_verified(long.as_slice(), 1000, &sha(&long[..1000]), |_| {}),
-            Err(VERIFY_FAILED.into())
+            Err(verify_failed().into())
         );
         assert_eq!(
             read_verified(
@@ -390,7 +406,7 @@ mod tests {
                 &sha(&long),
                 |_| {}
             ),
-            Err(VERIFY_FAILED.into())
+            Err(verify_failed().into())
         );
     }
 
@@ -404,12 +420,12 @@ mod tests {
         }
         assert_eq!(
             read_verified(Broken, 10, &sha(b""), |_| {}),
-            Err(DOWNLOAD_FAILED.into())
+            Err(download_failed().into())
         );
         let expired = Deadline(&b"data"[..], Instant::now());
         assert_eq!(
             read_verified(expired, 4, &sha(b"data"), |_| {}),
-            Err(DOWNLOAD_FAILED.into())
+            Err(download_failed().into())
         );
     }
 

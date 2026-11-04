@@ -1,9 +1,14 @@
 //! Bounded metadata parsing only. Workflow YAML is never interpreted or executed.
 
+use crate::i18n::tr;
 use crate::models::{InputSpec, InputType, InputValue, Inputs};
+use crate::trf;
 use serde_yaml_ng::{Mapping, Value};
 use std::collections::BTreeSet;
 use std::fmt;
+
+mod limits;
+use limits::{check_tree, check_yaml_envelope};
 
 pub const MAX_WORKFLOW_BYTES: usize = 64 * 1024;
 /// The most inputs a workflow may declare; a favorite never needs to store more.
@@ -13,7 +18,6 @@ pub const MAX_INPUT_NAME_BYTES: usize = 128;
 /// Longest text value a favorite stores. With `MAX_INPUTS` and worst-case JSON escaping
 /// (25 × 8,000 × 6 bytes ≈ 1.2 MB) every favorite stays below the 2 MiB cache entry limit.
 pub const MAX_PIN_INPUT_VALUE_CHARS: usize = 8_000;
-const MAX_YAML_DEPTH: usize = 48;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParsedWorkflow {
@@ -53,12 +57,19 @@ fn field<'a>(mapping: &'a Mapping, name: &str) -> Option<&'a Value> {
 /// Also recognize boolean `true` as a key from YAML 1.1 producers that coerce `on`.
 pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError> {
     check_yaml_envelope(source)?;
-    let document: Value = serde_yaml_ng::from_str(source)
-        .map_err(|_| error("Workflow-YAML ist fehlerhaft oder enthält doppelte Schlüssel."))?;
+    let document: Value = serde_yaml_ng::from_str(source).map_err(|_| {
+        error(tr(
+            "Workflow-YAML ist fehlerhaft oder enthält doppelte Schlüssel.",
+            "Workflow YAML is malformed or has duplicate keys.",
+        ))
+    })?;
     check_tree(&document, 0)?;
-    let root = document
-        .as_mapping()
-        .ok_or_else(|| error("Workflow-YAML hat keine gültige Struktur."))?;
+    let root = document.as_mapping().ok_or_else(|| {
+        error(tr(
+            "Workflow-YAML hat keine gültige Struktur.",
+            "Workflow YAML has no valid structure.",
+        ))
+    })?;
     let on = field(root, "on").or_else(|| root.get(Value::Bool(true)));
     let dispatch = match on {
         None | Some(Value::Null) => None,
@@ -66,9 +77,10 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
         Some(Value::String(_)) => None,
         Some(Value::Sequence(events)) => {
             if !events.iter().all(|event| matches!(event, Value::String(_))) {
-                return Err(error(
+                return Err(error(tr(
                     "Die Event-Liste unter „on“ darf nur Event-Namen enthalten.",
-                ));
+                    "The event list under “on” may contain only event names.",
+                )));
             }
             events
                 .iter()
@@ -76,7 +88,12 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
                 .then_some(&Value::Null)
         }
         Some(Value::Mapping(events)) => field(events, "workflow_dispatch"),
-        _ => return Err(error("Die Event-Angabe unter „on“ wird nicht unterstützt.")),
+        _ => {
+            return Err(error(tr(
+                "Die Event-Angabe unter „on“ wird nicht unterstützt.",
+                "The events under “on” are not supported.",
+            )))
+        }
     };
     let Some(dispatch) = dispatch else {
         return Ok(ParsedWorkflow {
@@ -88,18 +105,20 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
         Value::Null => None,
         Value::Mapping(settings) => field(settings, "inputs"),
         _ => {
-            return Err(error(
+            return Err(error(tr(
                 "„workflow_dispatch“ muss leer sein oder Einstellungen enthalten.",
-            ))
+                "“workflow_dispatch” must be empty or contain settings.",
+            )))
         }
     };
     let inputs = match inputs {
         None | Some(Value::Null) => vec![],
         Some(Value::Mapping(inputs)) => parse_specs(inputs)?,
         _ => {
-            return Err(error(
+            return Err(error(tr(
                 "„inputs“ unter „workflow_dispatch“ muss benannte Eingaben enthalten.",
-            ))
+                "“inputs” under “workflow_dispatch” must contain named inputs.",
+            )))
         }
     };
     Ok(ParsedWorkflow {
@@ -110,8 +129,9 @@ pub fn parse_workflow_yaml(source: &str) -> Result<ParsedWorkflow, WorkflowError
 
 fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
     if inputs.len() > MAX_INPUTS {
-        return Err(error(format!(
-            "Der Workflow hat mehr als {MAX_INPUTS} Eingaben – mehr unterstützt RepoWatch nicht."
+        return Err(error(trf!(
+            "Der Workflow hat mehr als {MAX_INPUTS} Eingaben – mehr unterstützt RepoWatch nicht.",
+            "The Workflow has more than {MAX_INPUTS} inputs – RepoWatch supports no more."
         )));
     }
     let mut result = Vec::with_capacity(inputs.len());
@@ -120,14 +140,16 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
             .as_str()
             .filter(|name| !name.is_empty() && name.len() <= MAX_INPUT_NAME_BYTES)
             .ok_or_else(|| {
-                error(format!(
-                    "Eingabenamen müssen Texte mit 1 bis {MAX_INPUT_NAME_BYTES} Zeichen sein."
+                error(trf!(
+                    "Eingabenamen müssen Texte mit 1 bis {MAX_INPUT_NAME_BYTES} Zeichen sein.",
+                    "Input names must be text of 1 to {MAX_INPUT_NAME_BYTES} characters."
                 ))
             })?;
+        let label = shown(name);
         let settings = settings.as_mapping().ok_or_else(|| {
-            error(format!(
-                "Eingabe „{}“ ist ungültig deklariert.",
-                shown(name)
+            error(trf!(
+                "Eingabe „{label}“ ist ungültig deklariert.",
+                "Input “{label}” is declared incorrectly."
             ))
         })?;
         let input_type = match field(settings, "type") {
@@ -139,16 +161,16 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
                 "number" => InputType::Number,
                 "environment" => InputType::Environment,
                 _ => {
-                    return Err(error(format!(
-                        "Eingabe „{}“ hat einen nicht unterstützten Typ.",
-                        shown(name)
+                    return Err(error(trf!(
+                        "Eingabe „{label}“ hat einen nicht unterstützten Typ.",
+                        "Input “{label}” has an unsupported type."
                     )))
                 }
             },
             _ => {
-                return Err(error(format!(
-                    "Der Typ von Eingabe „{}“ muss ein Text sein.",
-                    shown(name)
+                return Err(error(trf!(
+                    "Der Typ von Eingabe „{label}“ muss ein Text sein.",
+                    "The type of input “{label}” must be text."
                 )))
             }
         };
@@ -156,19 +178,19 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
             None => false,
             Some(Value::Bool(required)) => *required,
             _ => {
-                return Err(error(format!(
-                    "„required“ von Eingabe „{}“ muss true oder false sein.",
-                    shown(name)
+                return Err(error(trf!(
+                    "„required“ von Eingabe „{label}“ muss true oder false sein.",
+                    "“required” of input “{label}” must be true or false."
                 )))
             }
         };
-        let label = match field(settings, "description") {
+        let description = match field(settings, "description") {
             None | Some(Value::Null) => name.to_owned(),
             Some(Value::String(description)) => description.clone(),
             _ => {
-                return Err(error(format!(
-                    "Die Beschreibung von Eingabe „{}“ muss ein Text sein.",
-                    shown(name)
+                return Err(error(trf!(
+                    "Die Beschreibung von Eingabe „{label}“ muss ein Text sein.",
+                    "The description of input “{label}” must be text."
                 )))
             }
         };
@@ -182,17 +204,17 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
                         .filter(|value| !value.is_empty())
                         .map(str::to_owned)
                         .ok_or_else(|| {
-                            error(format!(
-                                "Die Optionen von Eingabe „{}“ müssen nicht leere Texte sein.",
-                                shown(name)
+                            error(trf!(
+                                "Die Optionen von Eingabe „{label}“ müssen nicht leere Texte sein.",
+                                "The options of input “{label}” must be non-empty text."
                             ))
                         })
                 })
                 .collect::<Result<Vec<_>, _>>()?,
             _ => {
-                return Err(error(format!(
-                    "Eingabe „{}“: Optionen sind nur als Liste bei Typ „choice“ erlaubt.",
-                    shown(name)
+                return Err(error(trf!(
+                    "Eingabe „{label}“: Optionen sind nur als Liste bei Typ „choice“ erlaubt.",
+                    "Input “{label}”: options are allowed only as a list with type “choice”."
                 )))
             }
         };
@@ -200,24 +222,24 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
             && (options.is_empty()
                 || options.iter().collect::<BTreeSet<_>>().len() != options.len())
         {
-            return Err(error(format!(
-                "Eingabe „{}“ braucht mindestens eine Option und keine doppelten.",
-                shown(name)
+            return Err(error(trf!(
+                "Eingabe „{label}“ braucht mindestens eine Option und keine doppelten.",
+                "Input “{label}” needs at least one option and no duplicates."
             )));
         }
         let default = field(settings, "default")
             .map(|value| {
                 serde_yaml_ng::from_value::<InputValue>(value.clone()).map_err(|_| {
-                    error(format!(
-                        "Der Standardwert von Eingabe „{}“ muss Text, Zahl oder true/false sein.",
-                        shown(name)
+                    error(trf!(
+                        "Der Standardwert von Eingabe „{label}“ muss Text, Zahl oder true/false sein.",
+                        "The default of input “{label}” must be text, a number or true/false."
                     ))
                 })
             })
             .transpose()?;
         let spec = InputSpec {
             name: name.into(),
-            label,
+            label: description,
             r#type: input_type,
             required,
             default,
@@ -236,12 +258,16 @@ fn parse_specs(inputs: &Mapping) -> Result<Vec<InputSpec>, WorkflowError> {
 pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs, WorkflowError> {
     let names: BTreeSet<_> = specs.iter().map(|spec| spec.name.as_str()).collect();
     if names.len() != specs.len() {
-        return Err(error("Der Workflow enthält doppelte Eingabenamen."));
+        return Err(error(tr(
+            "Der Workflow enthält doppelte Eingabenamen.",
+            "The Workflow has duplicate input names.",
+        )));
     }
     if let Some(name) = supplied.keys().find(|name| !names.contains(name.as_str())) {
-        return Err(error(format!(
-            "Der Workflow kennt die Eingabe „{}“ nicht (mehr).",
-            shown(name)
+        let name = shown(name);
+        return Err(error(trf!(
+            "Der Workflow kennt die Eingabe „{name}“ nicht (mehr).",
+            "The Workflow does not know the input “{name}” (any more)."
         )));
     }
     let mut normalized = Inputs::new();
@@ -253,7 +279,11 @@ pub fn validate_inputs(specs: &[InputSpec], supplied: &Inputs) -> Result<Inputs,
                 normalized.insert(spec.name.clone(), value.clone());
             }
             None if spec.required => {
-                return Err(error(format!("Pflichtfeld „{}“ fehlt.", shown(&spec.name))))
+                let name = shown(&spec.name);
+                return Err(error(trf!(
+                    "Pflichtfeld „{name}“ fehlt.",
+                    "Required field “{name}” is missing."
+                )));
             }
             None => {}
         }
@@ -277,20 +307,27 @@ fn validate_value(spec: &InputSpec, value: &InputValue) -> Result<(), WorkflowEr
         | (InputType::String | InputType::Environment, InputValue::String(_)) => None,
         (InputType::Choice, InputValue::String(value)) if spec.options.contains(value) => None,
         (InputType::Choice, InputValue::String(_)) => {
-            return Err(error(format!(
-                "Der Wert von „{name}“ ist keine der erlaubten Optionen."
+            return Err(error(trf!(
+                "Der Wert von „{name}“ ist keine der erlaubten Optionen.",
+                "The value of “{name}” is not one of the allowed options."
             )))
         }
-        (InputType::Boolean, _) => Some("true oder false"),
-        (InputType::Number, _) => Some("eine Zahl"),
-        (InputType::String | InputType::Environment, _) => Some("einen Text"),
-        (InputType::Choice, _) => Some("eine der Optionen"),
+        (InputType::Boolean, _) => Some(tr("true oder false", "true or false")),
+        (InputType::Number, _) => Some(tr("eine Zahl", "a number")),
+        (InputType::String | InputType::Environment, _) => Some(tr("einen Text", "text")),
+        (InputType::Choice, _) => Some(tr("eine der Optionen", "one of the options")),
     };
     if let Some(expected) = expected {
-        return Err(error(format!("Eingabe „{name}“ erwartet {expected}.")));
+        return Err(error(trf!(
+            "Eingabe „{name}“ erwartet {expected}.",
+            "Input “{name}” expects {expected}."
+        )));
     }
     if spec.required && value.is_empty() {
-        return Err(error(format!("Pflichtfeld „{name}“ darf nicht leer sein.")));
+        return Err(error(trf!(
+            "Pflichtfeld „{name}“ darf nicht leer sein.",
+            "Required field “{name}” must not be empty."
+        )));
     }
     Ok(())
 }
@@ -330,20 +367,23 @@ pub fn looks_like_credential(value: &str) -> bool {
 /// here before they reach the cache.
 pub fn validate_pin_inputs(inputs: &Inputs) -> Result<(), WorkflowError> {
     if inputs.len() > MAX_INPUTS {
-        return Err(error(format!(
-            "Ein Favorit speichert höchstens {MAX_INPUTS} Eingaben."
+        return Err(error(trf!(
+            "Ein Favorit speichert höchstens {MAX_INPUTS} Eingaben.",
+            "A favorite stores at most {MAX_INPUTS} inputs."
         )));
     }
     if inputs.keys().any(|name| name.len() > MAX_INPUT_NAME_BYTES) {
-        return Err(error(format!(
-            "Eingabenamen eines Favoriten dürfen höchstens {MAX_INPUT_NAME_BYTES} Zeichen lang sein."
+        return Err(error(trf!(
+            "Eingabenamen eines Favoriten dürfen höchstens {MAX_INPUT_NAME_BYTES} Zeichen lang sein.",
+            "A favorite's input names may be at most {MAX_INPUT_NAME_BYTES} characters long."
         )));
     }
     if inputs.values().any(|value| {
         matches!(value, InputValue::String(text) if text.chars().count() > MAX_PIN_INPUT_VALUE_CHARS)
     }) {
-        return Err(error(format!(
-            "Eingabewerte eines Favoriten dürfen höchstens {MAX_PIN_INPUT_VALUE_CHARS} Zeichen lang sein."
+        return Err(error(trf!(
+            "Eingabewerte eines Favoriten dürfen höchstens {MAX_PIN_INPUT_VALUE_CHARS} Zeichen lang sein.",
+            "A favorite's input values may be at most {MAX_PIN_INPUT_VALUE_CHARS} characters long."
         )));
     }
     Ok(())
@@ -355,122 +395,12 @@ pub fn validate_non_secret_inputs(inputs: &Inputs) -> Result<(), WorkflowError> 
         sensitive_key(name)
             || matches!(value, InputValue::String(value) if looks_like_credential(value))
     }) {
-        return Err(error(
+        return Err(error(tr(
             "Geheime Eingaben wie Token oder Passwörter können nicht in Favoriten gespeichert werden.",
-        ));
+            "Secret inputs such as Tokens or passwords cannot be saved in favorites.",
+        )));
     }
     Ok(())
-}
-
-fn check_yaml_envelope(source: &str) -> Result<(), WorkflowError> {
-    if source.len() > MAX_WORKFLOW_BYTES {
-        return Err(error("Workflow-YAML ist größer als 64 KiB."));
-    }
-    let mut block_indent = None;
-    let mut flow_depth = 0usize;
-    let mut single = false;
-    let mut double = false;
-    let mut escaped = false;
-    for line in source.lines() {
-        let indentation = line.bytes().take_while(|byte| *byte == b' ').count();
-        if line.trim().is_empty() {
-            continue;
-        }
-        if let Some(block) = block_indent {
-            if indentation > block {
-                continue;
-            }
-            block_indent = None;
-        }
-        if !single && !double && (indentation > MAX_YAML_DEPTH * 2 || line.starts_with('\t')) {
-            return Err(error("Workflow-YAML ist zu tief verschachtelt."));
-        }
-        let mut node_start = true;
-        let bytes = line.as_bytes();
-        for (index, byte) in bytes.iter().copied().enumerate() {
-            if double && escaped {
-                escaped = false;
-                continue;
-            }
-            if double && byte == b'\\' {
-                escaped = true;
-                continue;
-            }
-            if double {
-                if byte == b'"' {
-                    double = false;
-                }
-                continue;
-            }
-            if single {
-                if byte == b'\'' {
-                    single = false;
-                }
-                continue;
-            }
-            if node_start && (byte == b'"' || byte == b'\'') {
-                double = byte == b'"';
-                single = byte == b'\'';
-                node_start = false;
-                continue;
-            }
-            let boundary = index == 0
-                || bytes[index - 1].is_ascii_whitespace()
-                || b"[{,:-".contains(&bytes[index - 1]);
-            if byte == b'#' && boundary {
-                break;
-            }
-            if node_start && (byte == b'&' || byte == b'*') {
-                return Err(error("YAML-Anker und -Aliase werden nicht unterstützt."));
-            }
-            if node_start && byte == b'!' {
-                return Err(error("YAML-Tags werden nicht unterstützt."));
-            }
-            if node_start && (byte == b'|' || byte == b'>') {
-                block_indent = Some(indentation);
-                break;
-            }
-            if node_start && (byte == b'[' || byte == b'{') {
-                flow_depth += 1;
-                if flow_depth > MAX_YAML_DEPTH {
-                    return Err(error("Workflow-YAML ist zu tief verschachtelt."));
-                }
-            } else if flow_depth > 0 && (byte == b']' || byte == b'}') {
-                flow_depth = flow_depth.saturating_sub(1);
-                node_start = false;
-            } else if byte == b':'
-                && (flow_depth > 0 || bytes.get(index + 1).is_none_or(u8::is_ascii_whitespace))
-                || byte == b',' && flow_depth > 0
-            {
-                node_start = true;
-            } else if node_start
-                && (byte == b'-' || byte == b'?')
-                && bytes.get(index + 1).is_some_and(u8::is_ascii_whitespace)
-            {
-                // A block sequence or explicit-key indicator precedes another node.
-            } else if !byte.is_ascii_whitespace() {
-                node_start = false;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn check_tree(value: &Value, depth: usize) -> Result<(), WorkflowError> {
-    if depth > MAX_YAML_DEPTH {
-        return Err(error("Workflow-YAML ist zu tief verschachtelt."));
-    }
-    match value {
-        Value::Tagged(_) => Err(error("YAML-Tags werden nicht unterstützt.")),
-        Value::Sequence(values) => values
-            .iter()
-            .try_for_each(|value| check_tree(value, depth + 1)),
-        Value::Mapping(values) => values.iter().try_for_each(|(key, value)| {
-            check_tree(key, depth + 1)?;
-            check_tree(value, depth + 1)
-        }),
-        _ => Ok(()),
-    }
 }
 
 #[cfg(test)]

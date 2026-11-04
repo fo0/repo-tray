@@ -4,7 +4,9 @@ use super::{
     parse_dispatch_confirmation, ApiError, ApiRequest, ApiResponse, ApiUrl, Method, Transport,
     TransportError, MAX_BACKOFF_SECONDS, MAX_PAGES, MAX_RESPONSE_BYTES,
 };
+use crate::i18n::tr;
 use crate::models::{DispatchOutcome, DispatchState};
+use crate::trf;
 use crate::workflow::looks_like_credential;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
@@ -72,7 +74,10 @@ impl<T: Transport> ApiClient<T> {
     /// so callers never mistake a rate limit for missing access. Other statuses stay `Ok`.
     pub fn get(&self, request: &ApiRequest, now: u64) -> Result<ApiResponse, ApiError> {
         if request.method != Method::Get {
-            return Err(ApiError::Policy("Nur GET-Anfragen sind hier erlaubt."));
+            return Err(ApiError::Policy(tr(
+                "Nur GET-Anfragen sind hier erlaubt.",
+                "Only GET requests are allowed here.",
+            )));
         }
         self.send_unthrottled(request, now)
     }
@@ -81,7 +86,10 @@ impl<T: Transport> ApiClient<T> {
     /// as `RateLimited`; every other status stays `Ok` for the caller to interpret.
     pub fn post(&self, request: &ApiRequest, now: u64) -> Result<ApiResponse, ApiError> {
         if request.method != Method::Post {
-            return Err(ApiError::Policy("Nur POST-Anfragen sind hier erlaubt."));
+            return Err(ApiError::Policy(tr(
+                "Nur POST-Anfragen sind hier erlaubt.",
+                "Only POST requests are allowed here.",
+            )));
         }
         self.send_unthrottled(request, now)
     }
@@ -151,9 +159,10 @@ impl<T: Transport> ApiClient<T> {
                 break;
             }
             if !seen.insert(url.clone()) || url.path() != first_path {
-                return Err(ApiError::Policy(
+                return Err(ApiError::Policy(tr(
                     "GitHub-Seitenfolge verlässt die angefragte Ressource.",
-                ));
+                    "GitHub paging leaves the requested resource.",
+                )));
             }
             let key = (account_id.to_owned(), url.clone());
             let cached = if cache {
@@ -192,9 +201,10 @@ impl<T: Transport> ApiClient<T> {
                 .as_ref()
                 .is_some_and(|next| next.path() != first_path)
             {
-                return Err(ApiError::Policy(
+                return Err(ApiError::Policy(tr(
                     "GitHub-Seitenfolge wechselt die Ressource.",
-                ));
+                    "GitHub paging switches the resource.",
+                )));
             }
             next = page.next.clone();
             pages.bodies.push(page.body.clone());
@@ -215,7 +225,10 @@ impl<T: Transport> ApiClient<T> {
         now: u64,
     ) -> DispatchOutcome {
         if request.method != Method::Post {
-            return DispatchOutcome::rejected("Ein Start braucht eine POST-Anfrage.");
+            return DispatchOutcome::rejected(tr(
+                "Ein Start braucht eine POST-Anfrage.",
+                "A start needs a POST request.",
+            ));
         }
         match self.execute(request, now) {
             Ok(response) => match parse_dispatch_confirmation(&response, owner, repo) {
@@ -223,27 +236,34 @@ impl<T: Transport> ApiClient<T> {
                     state: DispatchState::Accepted,
                     run_id: Some(confirmation.workflow_run_id),
                     html_url: Some(confirmation.html_url),
-                    message: format!(
+                    message: trf!(
                         "GitHub hat den Start angenommen (Run #{}). Das ist keine Build-Erfolgsmeldung.",
+                        "GitHub accepted the start (Run #{}). This does not mean the build succeeded.",
                         confirmation.workflow_run_id
                     ),
                 },
                 Err(_) if matches!(response.status, 400 | 401 | 403 | 404 | 422 | 429) => {
-                    DispatchOutcome::rejected(format!(
+                    DispatchOutcome::rejected(trf!(
                         "GitHub hat den Start abgelehnt (HTTP {}). Es wurde nichts gestartet.",
+                        "GitHub rejected the start (HTTP {}). Nothing was started.",
                         response.status
                     ))
                 }
-                Err(_) => DispatchOutcome::uncertain(
+                Err(_) => DispatchOutcome::uncertain(tr(
                     "GitHub hat keine Run-ID bestätigt. Prüfe die Runs auf GitHub, bevor du erneut startest.",
-                ),
+                    "GitHub confirmed no Run ID. Check the Runs on GitHub before you start again.",
+                )),
             },
-            Err(ApiError::Transport(TransportError::OutcomeUnknown)) => DispatchOutcome::uncertain(
-                "Der Start hat GitHub möglicherweise erreicht. Prüfe die Runs auf GitHub, bevor du es erneut versuchst.",
-            ),
-            Err(ApiError::InvalidResponse) => DispatchOutcome::uncertain(
+            Err(ApiError::Transport(TransportError::OutcomeUnknown)) => {
+                DispatchOutcome::uncertain(tr(
+                    "Der Start hat GitHub möglicherweise erreicht. Prüfe die Runs auf GitHub, bevor du es erneut versuchst.",
+                    "The start may have reached GitHub. Check the Runs on GitHub before you try again.",
+                ))
+            }
+            Err(ApiError::InvalidResponse) => DispatchOutcome::uncertain(tr(
                 "Die Antwort auf den Start ließ sich nicht prüfen. Es gibt keinen automatischen neuen Versuch.",
-            ),
+                "The answer to the start could not be checked. There is no automatic retry.",
+            )),
             Err(error) => DispatchOutcome::rejected(error.to_string()),
         }
     }

@@ -52,6 +52,11 @@ fn rejects_unknown_inputs_wrong_types_missing_required_and_invalid_choices() {
         validate_inputs(&parsed.inputs, &Inputs::new()).unwrap_err(),
         error("Pflichtfeld „flag“ fehlt.")
     );
+    let supplied: Inputs = serde_json::from_value(serde_json::json!({"flag": "true"})).unwrap();
+    let english = crate::i18n::with_locale(crate::i18n::Locale::En, || {
+        validate_inputs(&parsed.inputs, &supplied).unwrap_err()
+    });
+    assert_eq!(english, error("Input “flag” expects true or false."));
     let long = "u".repeat(80);
     for (supplied, message) in [
         (

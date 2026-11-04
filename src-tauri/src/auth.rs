@@ -2,6 +2,7 @@
 //! The native services verify the account before writing the OS keyring.
 //! `browser_auth` performs device-flow HTTP only when publisher configuration is present.
 
+use crate::i18n::tr;
 use serde::Serialize;
 use std::fmt;
 
@@ -41,24 +42,44 @@ pub enum AuthError {
 
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Desktop commands return this text to the panel, so it is German.
+        // Desktop commands return this text to the panel, so it is in the app's language.
         f.write_str(match self {
-            Self::Locked => "Anmeldung ist in der Demo gesperrt.",
-            Self::KeyringUnavailable => VAULT_UNAVAILABLE,
-            Self::InvalidAuthorization => {
-                "Anmeldedaten von GitHub sind ungültig. Starte die Anmeldung erneut."
-            }
-            Self::StalePoll => "Diese Anmeldung wurde abgebrochen oder ersetzt.",
-            Self::NotPending => "Keine Anmeldung aktiv. Starte die Anmeldung erneut.",
+            Self::Locked => tr(
+                "Anmeldung ist in der Demo gesperrt.",
+                "Sign-in is locked in the demo.",
+            ),
+            Self::KeyringUnavailable => vault_unavailable(),
+            Self::InvalidAuthorization => tr(
+                "Anmeldedaten von GitHub sind ungültig. Starte die Anmeldung erneut.",
+                "GitHub returned invalid sign-in data. Start the sign-in again.",
+            ),
+            Self::StalePoll => tr(
+                "Diese Anmeldung wurde abgebrochen oder ersetzt.",
+                "This sign-in was cancelled or replaced.",
+            ),
+            Self::NotPending => tr(
+                "Keine Anmeldung aktiv. Starte die Anmeldung erneut.",
+                "No sign-in in progress. Start the sign-in again.",
+            ),
         })
     }
 }
 
 impl std::error::Error for AuthError {}
 
-pub const MISSING_CREDENTIAL: &str =
-    "Zugang fehlt im Tresor – verbinde das Konto neu oder trenne es.";
-pub const VAULT_UNAVAILABLE: &str = "Betriebssystem-Tresor nicht verfügbar.";
+pub fn missing_credential() -> &'static str {
+    tr(
+        "Zugang fehlt im Tresor – verbinde das Konto neu oder trenne es.",
+        "Access is missing from the vault – reconnect or disconnect the account.",
+    )
+}
+
+pub fn vault_unavailable() -> &'static str {
+    tr(
+        "Betriebssystem-Tresor nicht verfügbar.",
+        "Operating system vault unavailable.",
+    )
+}
 
 /// Why an account's stored credential cannot be used. A missing entry and an unreadable
 /// vault are kept apart from each other and from network failures, so neither is retried
@@ -69,15 +90,15 @@ pub enum CredentialError {
     Missing,
     /// The vault itself could not be read; fail closed.
     VaultUnavailable,
-    /// The entry exists but cannot be used; user-facing German text.
+    /// The entry exists but cannot be used; user-facing text in the app's language.
     Unusable(String),
 }
 
 impl fmt::Display for CredentialError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Missing => f.write_str(MISSING_CREDENTIAL),
-            Self::VaultUnavailable => f.write_str(VAULT_UNAVAILABLE),
+            Self::Missing => f.write_str(missing_credential()),
+            Self::VaultUnavailable => f.write_str(vault_unavailable()),
             Self::Unusable(text) => f.write_str(text),
         }
     }
