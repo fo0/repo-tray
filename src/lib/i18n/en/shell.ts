@@ -107,6 +107,7 @@ export const shell: typeof German = {
     '/ – Search',
     'F5 or Ctrl+R – Refresh',
     'Ctrl+1, 2, 3 – Maximize Repositories, History, Favorites; again to go back',
+    'Ctrl+, – Settings',
     'Esc – Clear or leave search, close menu or dialog, back to overview',
   ],
 };

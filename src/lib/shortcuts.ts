@@ -5,6 +5,7 @@ export type Shortcut =
   | { kind: 'refresh' }
   | { kind: 'section'; page: SectionPage }
   | { kind: 'search' }
+  | { kind: 'settings' }
   | { kind: 'escape' };
 
 type KeyPress = Pick<
@@ -20,6 +21,8 @@ export interface ShortcutActions {
   /** Maximizes a section, or returns to the overview from its open page. */
   toggleSection: (page: SectionPage) => void;
   focusSearch: () => void;
+  /** Opens the settings when the panel's settings button would be enabled. */
+  openSettings: () => void;
   /**
    * Escape on `target`; returns whether something handled it: the search
    * first, then the open page (back to the overview). Menus and dialogs
@@ -50,6 +53,13 @@ function isLetter(event: KeyPress, letter: string) {
     : event.code === `Key${letter.toUpperCase()}`;
 }
 
+/** The comma by its key; layouts without one on it use the physical key. */
+function isComma(event: KeyPress) {
+  return /^[\x21-\x7e]$/.test(event.key)
+    ? event.key === ','
+    : event.code === 'Comma';
+}
+
 /** Maps a key press to a panel shortcut, independent of focus and state. */
 export function shortcutFor(event: KeyPress): Shortcut | null {
   const command = event.ctrlKey || event.metaKey;
@@ -59,6 +69,8 @@ export function shortcutFor(event: KeyPress): Shortcut | null {
     return { kind: 'refresh' };
   if (command) {
     if (event.shiftKey) return null;
+    // Ctrl+, opens the settings, as in most desktop apps.
+    if (isComma(event)) return { kind: 'settings' };
     const digit =
       /^(?:Digit|Numpad)([1-3])$/.exec(event.code)?.[1] ??
       /^[1-3]$/.exec(event.key)?.[0];
@@ -84,8 +96,8 @@ export function isTypingTarget(target: EventTarget | null) {
  * Window keydown handler for the panel shortcuts. A reload is always
  * suppressed, since it would drop open dialogs and typed input; while a dialog
  * is open nothing else runs. A held refresh key refreshes once. Only `/` types
- * a character, so only it yields to a focused text field; F5, Ctrl+R and
- * Ctrl+1-3 work from the search field too.
+ * a character, so only it yields to a focused text field; F5, Ctrl+R,
+ * Ctrl+1-3 and Ctrl+, work from the search field too.
  */
 export function createShortcuts(actions: ShortcutActions) {
   return (event: KeyboardEvent) => {
@@ -110,6 +122,10 @@ export function createShortcuts(actions: ShortcutActions) {
       case 'search':
         event.preventDefault();
         actions.focusSearch();
+        return;
+      case 'settings':
+        event.preventDefault();
+        actions.openSettings();
         return;
       case 'escape':
         if (actions.escape(event.target)) event.preventDefault();

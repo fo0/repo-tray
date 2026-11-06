@@ -116,6 +116,8 @@
     refresh: () => void (canRefresh && refreshPanel()),
     toggleSection: view.toggle,
     focusSearch: () => searchField?.focus(),
+    // Like the settings button: only once a snapshot is loaded.
+    openSettings: () => void (snapshot && openSettings()),
     // Search first, then the open page; menus handle their own Escape.
     escape: (target) => !!searchField?.escape(target) || view.back(),
   });
