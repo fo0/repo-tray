@@ -10,6 +10,13 @@ test-results/
 *.db-shm
 *.db-wal
 .DS_Store
+*.log
+
+# Signing keys and certificates.
+*.key
+*.pem
+*.pfx
+*.p12
 
 src-tauri/gen/schemas/
 
@@ -21,5 +28,7 @@ release-work/
 # Local verification tools and logs.
 .local-tools/
 
-# Local agent worktrees.
+# Local agent worktrees and settings.
 .claude/worktrees/
+.claude/settings.local.json
+CLAUDE.local.md
