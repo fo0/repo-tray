@@ -68,8 +68,9 @@
       >{demo ? text.staleDemo : text.stale}</span
     >{/if}
   <button
-    onclick={() => onRefresh()}
-    disabled={refreshing || !canRefresh}
+    onclick={() => !refreshing && onRefresh()}
+    disabled={!canRefresh}
+    aria-disabled={refreshing ? 'true' : undefined}
     title={demo ? text.refreshDemo : text.refreshLive}
     aria-label={!refreshing && stamp ? text.refreshStamp(stamp) : undefined}
     >{refreshing
