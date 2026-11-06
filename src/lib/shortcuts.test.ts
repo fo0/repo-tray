@@ -60,6 +60,35 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press('/', { ctrlKey: true }))).toBeNull();
     expect(shortcutFor(press('Escape'))).toEqual({ kind: 'escape' });
   });
+  it('maps Ctrl+F (any case, any layout) to find', () => {
+    expect(shortcutFor(press('f', { ctrlKey: true }))).toEqual({
+      kind: 'find',
+    });
+    expect(shortcutFor(press('а', { ctrlKey: true, code: 'KeyF' }))).toEqual({
+      kind: 'find',
+    });
+    expect(shortcutFor(press('f'))).toBeNull();
+    expect(
+      shortcutFor(press('F', { ctrlKey: true, shiftKey: true })),
+    ).toBeNull();
+  });
+  it('maps Ctrl+, (any layout) to the settings', () => {
+    expect(shortcutFor(press(',', { ctrlKey: true }))).toEqual({
+      kind: 'settings',
+    });
+    // Cyrillic layout: the physical comma key types „б“.
+    expect(shortcutFor(press('б', { ctrlKey: true, code: 'Comma' }))).toEqual({
+      kind: 'settings',
+    });
+    // AZERTY: the comma key is elsewhere; the key itself counts.
+    expect(
+      shortcutFor(press(';', { ctrlKey: true, code: 'Comma' })),
+    ).toBeNull();
+    expect(shortcutFor(press(','))).toBeNull();
+    expect(
+      shortcutFor(press(';', { ctrlKey: true, shiftKey: true })),
+    ).toBeNull();
+  });
   it('leaves Alt and AltGr combinations to the keyboard layout', () => {
     expect(shortcutFor(press('1', { ctrlKey: true, altKey: true }))).toBeNull();
     expect(shortcutFor(press('F5', { altKey: true }))).toBeNull();
@@ -75,6 +104,8 @@ describe('sectionKey and shortcutHint', () => {
       'Strg+1, 2, 3 – Repositories, Verlauf, Favoriten',
     );
     expect(shortcutHint()).toContain('zurück zur Übersicht');
+    expect(shortcutHint()).toContain('Strg+, – Einstellungen');
+    expect(shortcutHint()).toContain('/ oder Strg+F – Suche');
   });
 });
 
@@ -102,6 +133,7 @@ describe('createShortcuts', () => {
       refresh: vi.fn(),
       toggleSection: vi.fn(),
       focusSearch: vi.fn(),
+      openSettings: vi.fn(),
       escape: vi.fn(() => escapes),
     } satisfies ShortcutActions;
     return { actions, handle: createShortcuts(actions) };
@@ -174,6 +206,14 @@ describe('createShortcuts', () => {
     expect(actions.toggleSection).toHaveBeenCalledWith('favorites');
     run(handle, event('1', { ctrlKey: true }, 'SELECT'));
     expect(actions.toggleSection).toHaveBeenLastCalledWith('repos');
+    const settings = event(',', { ctrlKey: true }, 'INPUT');
+    run(handle, settings);
+    expect(settings.preventDefault).toHaveBeenCalled();
+    expect(actions.openSettings).toHaveBeenCalledTimes(1);
+    const find = event('f', { ctrlKey: true }, 'INPUT');
+    run(handle, find);
+    expect(find.preventDefault).toHaveBeenCalled();
+    expect(actions.focusSearch).toHaveBeenCalledWith(true);
     const escape = event('Escape', {}, 'INPUT');
     run(handle, escape);
     expect(actions.escape).toHaveBeenCalledWith(escape.target);
@@ -200,12 +240,15 @@ describe('createShortcuts', () => {
       event('/'),
       event('Escape'),
       event('3', { ctrlKey: true }),
+      event(',', { ctrlKey: true }),
+      event('f', { ctrlKey: true }),
     ])
       run(handle, value);
     expect(actions.refresh).not.toHaveBeenCalled();
     expect(actions.focusSearch).not.toHaveBeenCalled();
     expect(actions.escape).not.toHaveBeenCalled();
     expect(actions.toggleSection).not.toHaveBeenCalled();
+    expect(actions.openSettings).not.toHaveBeenCalled();
   });
   it('skips keys another handler already took or an IME is composing', () => {
     const { actions, handle } = setup();

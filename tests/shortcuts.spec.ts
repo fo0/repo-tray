@@ -96,6 +96,21 @@ test('/ focuses the search; typing keeps plain keys, Escape clears then leaves',
   await expect(search).not.toBeFocused();
 });
 
+test('Ctrl+F focuses the search and selects its query, also from a field', async ({
+  page,
+}) => {
+  const search = page.getByLabel('Übersicht durchsuchen');
+  await expect(search).toHaveAttribute('aria-keyshortcuts', '/ Control+F');
+  await page.keyboard.press('Control+f');
+  await expect(search).toBeFocused();
+  await page.keyboard.type('demo');
+  await page.keyboard.press('Control+f');
+  // The query is selected: typing replaces it instead of appending.
+  await page.keyboard.type('alpha');
+  await expect(search).toHaveValue('alpha');
+  expect(await prevented(page)).toEqual(['f', 'f']);
+});
+
 test('F5, Ctrl+R and Ctrl+1/2/3 still work from the search field', async ({
   page,
 }) => {
@@ -142,12 +157,36 @@ test('an open dialog keeps the keyboard and never reloads', async ({
   await expect(heading(page, 'runs')).toBeVisible();
 });
 
+test('Ctrl+, opens the settings, also from the search field', async ({
+  page,
+}) => {
+  const settings = page.getByRole('button', {
+    name: 'Einstellungen',
+    exact: true,
+  });
+  await expect(settings).toHaveAttribute('aria-keyshortcuts', 'Control+,');
+  await page.getByLabel('Übersicht durchsuchen').focus();
+  await page.keyboard.press('Control+Comma');
+  const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+  await expect(dialog).toBeVisible();
+  expect(await prevented(page)).toEqual([',']);
+  // The open dialog keeps the keyboard; Escape closes it.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+});
+
 test('the search hint lists the keyboard shortcuts', async ({ page }) => {
   const hint = page.locator('.search-field kbd');
   await expect(hint).toHaveText('/');
   const title = await hint.getAttribute('title');
   expect(title).toContain('Tastenkürzel');
-  for (const entry of ['F5 oder Strg+R', 'Strg+1, 2, 3', 'Esc'])
+  for (const entry of [
+    'Strg+F',
+    'F5 oder Strg+R',
+    'Strg+1, 2, 3',
+    'Strg+,',
+    'Esc',
+  ])
     expect(title).toContain(entry);
   await expect(
     page.getByRole('button', { name: 'Aktualisieren', exact: true }),

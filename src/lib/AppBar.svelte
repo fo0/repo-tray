@@ -96,6 +96,7 @@
     ><button
       class="icon-button"
       aria-label={m().shell.appBar.settings}
+      aria-keyshortcuts="Control+,"
       title={m().shell.appBar.settings}
       onclick={() => onSettings()}
       disabled={!ready}><Icon name="settings" size={17} /></button
