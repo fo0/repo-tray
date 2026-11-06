@@ -223,10 +223,12 @@
           error = '';
         }}
       />
-      {#if form.validation}<div class="alert warning">
+      <!-- Status regions: the text changes while the form is edited or the
+           connection drops, and a screen reader hears it without moving. -->
+      {#if form.validation}<div class="alert warning" role="status">
           <Icon name="shield" size={16} /><span>{form.validation}</span>
         </div>{/if}
-      {#if panel.blocked}<div class="alert warning">
+      {#if panel.blocked}<div class="alert warning" role="status">
           <Icon name="warning" size={16} /><span
             >{snapshot?.connectivity === 'offline'
               ? m().dispatch.dialog.offline
