@@ -64,6 +64,7 @@
   </div>{/if}<label class="field"
   ><span>{m().dispatch.target.ref}<span class="required">*</span></span><select
     aria-label={m().dispatch.target.ref}
+    aria-required="true"
     value={gitRef}
     onchange={(event) => onRef(event.currentTarget.value)}
     {disabled}

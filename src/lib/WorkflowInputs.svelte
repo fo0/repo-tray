@@ -46,6 +46,7 @@
           >{/if}<small>{types[input.type]}</small></span
       >{#if input.type === 'choice' || input.type === 'environment'}<select
           aria-label={input.label}
+          aria-required={input.required ? 'true' : undefined}
           aria-describedby={input.note ? `input-note-${input.name}` : undefined}
           value={text(input)}
           onchange={(event) => onChange(input.name, event.currentTarget.value)}
@@ -58,6 +59,7 @@
         >{:else if input.type === 'number'}<input
           type="number"
           aria-label={input.label}
+          aria-required={input.required ? 'true' : undefined}
           value={text(input)}
           oninput={(event) =>
             onChange(input.name, parseNumber(event.currentTarget.value))}
@@ -66,6 +68,7 @@
         />{:else}<input
           type="text"
           aria-label={input.label}
+          aria-required={input.required ? 'true' : undefined}
           value={text(input)}
           oninput={(event) => onChange(input.name, event.currentTarget.value)}
           autocomplete="off"
