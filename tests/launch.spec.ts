@@ -69,6 +69,24 @@ test('offline and forbidden scenarios disable starts while showing cached activi
   }
 });
 
+test('required fields and the offline warning reach assistive technology', async ({
+  page,
+}) => {
+  await scenario(page, 'offline');
+  const dialog = await openLaunch(page);
+  await expect(
+    dialog.getByRole('combobox', { name: 'Branch oder Tag' }),
+  ).toHaveAttribute('aria-required', 'true');
+  await expect(
+    dialog.getByRole('combobox', { name: 'Repository' }),
+  ).not.toHaveAttribute('aria-required');
+  await expect(
+    dialog
+      .getByRole('status')
+      .filter({ hasText: 'Starts sind deaktiviert; der letzte Stand' }),
+  ).toBeVisible();
+});
+
 test('unknown response remains quarantined when the form is reopened', async ({
   page,
 }) => {

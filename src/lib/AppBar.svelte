@@ -59,7 +59,9 @@
 
 <!-- Natively the bar drags the window from its free space; its controls,
      the brand's home button among them, stay clickable. The heading keeps
-     its name „RepoWatch“; the tooltip says where the button leads. -->
+     its name „RepoWatch“; the tooltip says where the button leads.
+     A running refresh turns its button off via aria-disabled, not disabled,
+     so a keyboard press keeps focus there instead of dropping it to <body>. -->
 <header class="app-bar" data-tauri-drag-region={native ? true : undefined}>
   <h1 class="brand">
     <button
@@ -90,8 +92,9 @@
       aria-label={m().shell.appBar.refresh}
       aria-keyshortcuts="F5 Control+R"
       title={m().shell.appBar.refreshTitle(demo)}
-      onclick={() => onRefresh()}
-      disabled={refreshing || !canRefresh}
+      onclick={() => !refreshing && onRefresh()}
+      disabled={!canRefresh}
+      aria-disabled={refreshing ? 'true' : undefined}
       ><Icon name="refresh" size={17} /></button
     ><button
       class="icon-button"

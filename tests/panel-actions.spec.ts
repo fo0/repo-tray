@@ -51,6 +51,20 @@ test('closing a notice removes only the notice', async ({ page }) => {
   ).toBeEnabled();
 });
 
+test('a keyboard refresh keeps focus on the refresh button', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const refresh = page.getByRole('button', {
+    name: 'Aktualisieren',
+    exact: true,
+  });
+  await refresh.focus();
+  await page.keyboard.press('Enter');
+  await expect(notice(page, 'Demo-Status aktualisiert.')).toBeVisible();
+  await expect(refresh).toBeFocused();
+});
+
 test('demo reset restores templates, scenario and account selection', async ({
   page,
 }) => {
