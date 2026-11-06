@@ -73,14 +73,15 @@ describe('ipcErrorMessage', () => {
 });
 
 describe('plural', () => {
-  it('uses the singular only for exactly one', () => {
-    expect(plural(1, 'Repository', 'Repositories')).toBe('1 Repository');
-    expect(plural(1, 'Konto', 'Konten')).toBe('1 Konto');
-  });
-  it('uses the plural for zero and several', () => {
-    expect(plural(0, 'Konto', 'Konten')).toBe('0 Konten');
-    expect(plural(2, 'Repository', 'Repositories')).toBe('2 Repositories');
-    expect(plural(12, 'Run', 'Runs')).toBe('12 Runs');
+  // The singular only for exactly one; the plural for zero and several.
+  it.each([
+    [1, 'Repository', 'Repositories', '1 Repository'],
+    [1, 'Konto', 'Konten', '1 Konto'],
+    [0, 'Konto', 'Konten', '0 Konten'],
+    [2, 'Repository', 'Repositories', '2 Repositories'],
+    [12, 'Run', 'Runs', '12 Runs'],
+  ])('counts %i %s/%s as „%s“', (count, one, many, label) => {
+    expect(plural(count, one, many)).toBe(label);
   });
 });
 
@@ -111,13 +112,14 @@ describe('repoLabel and accountLabel', () => {
 });
 
 describe('avatarLetter', () => {
-  it('uses the upper-cased first login letter', () => {
-    expect(avatarLetter('team-demo', 'A')).toBe('T');
-    expect(avatarLetter('demo-dev', 'A')).toBe('D');
-  });
-  it('guards empty or missing logins', () => {
-    expect(avatarLetter('', '?')).toBe('?');
-    expect(avatarLetter(undefined, 'A')).toBe('A');
+  // The upper-cased first login letter; the fallback for an empty or missing login.
+  it.each([
+    ['team-demo', 'A', 'T'],
+    ['demo-dev', 'A', 'D'],
+    ['', '?', '?'],
+    [undefined, 'A', 'A'],
+  ])('reads login %j with fallback %s as %s', (login, fallback, letter) => {
+    expect(avatarLetter(login, fallback)).toBe(letter);
   });
 });
 
