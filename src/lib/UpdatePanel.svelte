@@ -48,8 +48,10 @@
           >{m().updates.lastChecked(clockTime(checkedAt))}</span
         >{/if}
     </div>
+    <!-- The icon spins while the check runs, like the app bar's refresh. -->
     {#if native}<button
         class="secondary-button"
+        class:spinning={phase === 'checking'}
         disabled={busy}
         onclick={onCheck}
         ><Icon name="refresh" size={14} />{m().updates.check}</button
