@@ -81,9 +81,12 @@ pub fn place(icon: Rect, monitor: Rect, work: Rect, size: (u32, u32), gap: u32) 
             cy - i64::from(height) / 2,
         ),
     };
+    // A work area with zero width or height still yields a 1 px frame on that axis; keep
+    // the upper bound at or above the lower one so `clamp` cannot panic there.
+    let (left, top) = (i64::from(work.x), i64::from(work.y));
     Rect {
-        x: x.clamp(i64::from(work.x), work.right() - i64::from(width)) as i32,
-        y: y.clamp(i64::from(work.y), work.bottom() - i64::from(height)) as i32,
+        x: x.clamp(left, (work.right() - i64::from(width)).max(left)) as i32,
+        y: y.clamp(top, (work.bottom() - i64::from(height)).max(top)) as i32,
         width,
         height,
     }
@@ -211,6 +214,22 @@ mod tests {
         }
         let tiny = r(-300, 200, 280, 400);
         assert_eq!(place(r(-50, 602, 24, 24), tiny, tiny, (480, 760), 6), tiny);
+    }
+
+    #[test]
+    fn a_zero_width_or_height_work_area_keeps_a_one_pixel_frame_at_its_edge() {
+        let monitor = r(0, 0, 1920, 1080);
+        for work in [r(100, 50, 0, 0), r(100, 50, 0, 600), r(100, 50, 800, 0)] {
+            let result = place(r(1800, 1044, 24, 24), monitor, work, (480, 760), 6);
+            assert!(result.x >= work.x && result.y >= work.y);
+            assert!(result.width >= 1 && result.height >= 1);
+            if work.width == 0 {
+                assert_eq!((result.x, result.width), (work.x, 1));
+            }
+            if work.height == 0 {
+                assert_eq!((result.y, result.height), (work.y, 1));
+            }
+        }
     }
 
     #[test]
