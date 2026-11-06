@@ -115,7 +115,7 @@
     blocked: () => modals.kind !== null,
     refresh: () => void (canRefresh && refreshPanel()),
     toggleSection: view.toggle,
-    focusSearch: () => searchField?.focus(),
+    focusSearch: (select) => searchField?.focus(select),
     // Like the settings button: only once a snapshot is loaded.
     openSettings: () => void (snapshot && openSettings()),
     // Search first, then the open page; menus handle their own Escape.

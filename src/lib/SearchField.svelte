@@ -20,9 +20,13 @@
   /** What the field searches on the page: its name and its placeholder. */
   const labels = $derived(m().repos.search[page]);
 
-  /** Target of the global `/` shortcut. */
-  export function focus() {
+  /**
+   * Target of the global `/` and Ctrl+F shortcuts; Ctrl+F also selects the
+   * query, so typing replaces it.
+   */
+  export function focus(select = false) {
     input?.focus();
+    if (select) input?.select();
   }
 
   /** Escape in the field clears the query first, then leaves the field. */
@@ -40,7 +44,7 @@
   ><Icon name="search" size={17} /><input
     bind:this={input}
     aria-label={labels.label}
-    aria-keyshortcuts="/"
+    aria-keyshortcuts="/ Control+F"
     placeholder={labels.placeholder}
     data-focus-landing={page === 'overview' ? true : undefined}
     bind:value={query}

@@ -104,7 +104,7 @@ export const shell: typeof German = {
   demoReset: 'Demo reset.',
   shortcuts: [
     'Keyboard shortcuts',
-    '/ – Search',
+    '/ or Ctrl+F – Search',
     'F5 or Ctrl+R – Refresh',
     'Ctrl+1, 2, 3 – Maximize Repositories, History, Favorites; again to go back',
     'Ctrl+, – Settings',

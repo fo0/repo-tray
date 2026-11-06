@@ -5,6 +5,7 @@ export type Shortcut =
   | { kind: 'refresh' }
   | { kind: 'section'; page: SectionPage }
   | { kind: 'search' }
+  | { kind: 'find' }
   | { kind: 'settings' }
   | { kind: 'escape' };
 
@@ -20,7 +21,8 @@ export interface ShortcutActions {
   refresh: () => void;
   /** Maximizes a section, or returns to the overview from its open page. */
   toggleSection: (page: SectionPage) => void;
-  focusSearch: () => void;
+  /** Focuses the search; `select` also selects its query for retyping. */
+  focusSearch: (select?: boolean) => void;
   /** Opens the settings when the panel's settings button would be enabled. */
   openSettings: () => void;
   /**
@@ -71,6 +73,8 @@ export function shortcutFor(event: KeyPress): Shortcut | null {
     if (event.shiftKey) return null;
     // Ctrl+, opens the settings, as in most desktop apps.
     if (isComma(event)) return { kind: 'settings' };
+    // Ctrl+F is the familiar find key; it searches the panel's lists.
+    if (isLetter(event, 'f')) return { kind: 'find' };
     const digit =
       /^(?:Digit|Numpad)([1-3])$/.exec(event.code)?.[1] ??
       /^[1-3]$/.exec(event.key)?.[0];
@@ -97,7 +101,7 @@ export function isTypingTarget(target: EventTarget | null) {
  * suppressed, since it would drop open dialogs and typed input; while a dialog
  * is open nothing else runs. A held refresh key refreshes once. Only `/` types
  * a character, so only it yields to a focused text field; F5, Ctrl+R,
- * Ctrl+1-3 and Ctrl+, work from the search field too.
+ * Ctrl+1-3, Ctrl+F and Ctrl+, work from the search field too.
  */
 export function createShortcuts(actions: ShortcutActions) {
   return (event: KeyboardEvent) => {
@@ -122,6 +126,10 @@ export function createShortcuts(actions: ShortcutActions) {
       case 'search':
         event.preventDefault();
         actions.focusSearch();
+        return;
+      case 'find':
+        event.preventDefault();
+        actions.focusSearch(true);
         return;
       case 'settings':
         event.preventDefault();

@@ -105,7 +105,7 @@ export const shell = {
   /** The „Tastenkürzel“ tooltip, one shortcut per line. */
   shortcuts: [
     'Tastenkürzel',
-    '/ – Suche',
+    '/ oder Strg+F – Suche',
     'F5 oder Strg+R – Aktualisieren',
     'Strg+1, 2, 3 – Repositories, Verlauf, Favoriten maximieren; nochmal zurück',
     'Strg+, – Einstellungen',

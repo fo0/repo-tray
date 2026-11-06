@@ -60,6 +60,18 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press('/', { ctrlKey: true }))).toBeNull();
     expect(shortcutFor(press('Escape'))).toEqual({ kind: 'escape' });
   });
+  it('maps Ctrl+F (any case, any layout) to find', () => {
+    expect(shortcutFor(press('f', { ctrlKey: true }))).toEqual({
+      kind: 'find',
+    });
+    expect(shortcutFor(press('а', { ctrlKey: true, code: 'KeyF' }))).toEqual({
+      kind: 'find',
+    });
+    expect(shortcutFor(press('f'))).toBeNull();
+    expect(
+      shortcutFor(press('F', { ctrlKey: true, shiftKey: true })),
+    ).toBeNull();
+  });
   it('maps Ctrl+, (any layout) to the settings', () => {
     expect(shortcutFor(press(',', { ctrlKey: true }))).toEqual({
       kind: 'settings',
@@ -93,6 +105,7 @@ describe('sectionKey and shortcutHint', () => {
     );
     expect(shortcutHint()).toContain('zurück zur Übersicht');
     expect(shortcutHint()).toContain('Strg+, – Einstellungen');
+    expect(shortcutHint()).toContain('/ oder Strg+F – Suche');
   });
 });
 
@@ -197,6 +210,10 @@ describe('createShortcuts', () => {
     run(handle, settings);
     expect(settings.preventDefault).toHaveBeenCalled();
     expect(actions.openSettings).toHaveBeenCalledTimes(1);
+    const find = event('f', { ctrlKey: true }, 'INPUT');
+    run(handle, find);
+    expect(find.preventDefault).toHaveBeenCalled();
+    expect(actions.focusSearch).toHaveBeenCalledWith(true);
     const escape = event('Escape', {}, 'INPUT');
     run(handle, escape);
     expect(actions.escape).toHaveBeenCalledWith(escape.target);
@@ -224,6 +241,7 @@ describe('createShortcuts', () => {
       event('Escape'),
       event('3', { ctrlKey: true }),
       event(',', { ctrlKey: true }),
+      event('f', { ctrlKey: true }),
     ])
       run(handle, value);
     expect(actions.refresh).not.toHaveBeenCalled();
