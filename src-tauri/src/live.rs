@@ -301,13 +301,13 @@ impl<T: Transport> LiveStore<T> {
         self.schedule.set_refresh(seconds, (self.clock)());
         Ok(seconds)
     }
-    /// Whether the panel shows a run that is not completed yet, or a started run is still
+    /// Whether the panel shows an open run (queued, running, waiting; not stuck), or a started run is still
     /// being followed, so a refresh is due every 15 seconds
     /// (`refresh_interval::OPEN_RUN_SECONDS`). Matches `snapshot`: a denied repository's
     /// frozen open runs do not count.
     pub fn has_open_run(&self) -> bool {
         let open = self.data.runs.iter().any(|run| {
-            run.status != RunStatus::Completed
+            run.status.is_open()
                 && !self
                     .data
                     .repos

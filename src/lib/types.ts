@@ -47,7 +47,12 @@ export interface Run {
   workflowId: number;
   name: string;
   branch: string;
-  status: 'queued' | 'in_progress' | 'completed' | 'waiting';
+  /**
+   * `stuck`: GitHub still reports the run queued or requested, but it was
+   * created more than 24 h ago. It never starts and refuses cancellation, so
+   * it is not open: it belongs with the finished history.
+   */
+  status: 'queued' | 'in_progress' | 'completed' | 'waiting' | 'stuck';
   conclusion: 'success' | 'failure' | 'cancelled' | null;
   createdAt: string;
   updatedAt: string;

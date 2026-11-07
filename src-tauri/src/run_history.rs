@@ -15,6 +15,22 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const COMPLETED_LIMIT: usize = 50;
+/// GitHub drops a job that waited 24 hours for a runner; a run it still lists as queued
+/// after that is an orphan that never starts and whose cancel GitHub refuses (409).
+pub(crate) const STUCK_AFTER_SECONDS: u64 = 24 * 60 * 60;
+
+/// Marks a run GitHub still calls queued long after its last change as stuck. The age counts
+/// from `updated_at`, not creation: a re-run keeps its old `created_at`, and a run approved
+/// after days of waiting is queued only now. Waiting runs (environment approval,
+/// concurrency) may legitimately wait for days and stay open.
+pub(crate) fn settle(mut run: Run, now: u64) -> Run {
+    let age = chrono::DateTime::parse_from_rfc3339(&run.updated_at)
+        .map(|changed| i64::try_from(now).unwrap_or(i64::MAX) - changed.timestamp());
+    if run.status == RunStatus::Queued && age.is_ok_and(|age| age > STUCK_AFTER_SECONDS as i64) {
+        run.status = RunStatus::Stuck;
+    }
+    run
+}
 
 /// What went wrong in one scope, kept structured so the panel can name it in its language for
 /// the right account or repository.
@@ -159,7 +175,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
             url(&path, &[("per_page", "100"), ("status", status)])?,
             now,
         )? {
-            for run in parse_list(&repo.id, &body)? {
+            for run in parse_list(&repo.id, &body, now)? {
                 fresh.entry(run.id).or_insert(run);
             }
         }
@@ -181,7 +197,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
             now,
         )?;
         for body in window.bodies {
-            for run in parse_list(&repo.id, &body)? {
+            for run in parse_list(&repo.id, &body, now)? {
                 fresh.entry(run.id).or_insert(run);
             }
         }
@@ -193,7 +209,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
         if response.status != 200 {
             return Err(ApiError::Http(response.status).into());
         }
-        for run in parse_list(&repo.id, &response.body)? {
+        for run in parse_list(&repo.id, &response.body, now)? {
             fresh.entry(run.id).or_insert(run);
         }
     }
@@ -230,7 +246,7 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
         }
         let value: Value = serde_json::from_slice(&response.body)
             .map_err(|_| tr("Run-Antwort ungültig.", "Invalid run response."))?;
-        let updated = run_from_wire(&repo.id, &value)?;
+        let updated = settle(run_from_wire(&repo.id, &value)?, now);
         if updated.id != run.id || updated.workflow_id != run.workflow_id {
             return Err(tr(
                 "Run-Antwort passt nicht zur Anfrage.",
@@ -268,14 +284,18 @@ pub(crate) fn refresh_repo_runs<T: Transport>(
     Ok(runs)
 }
 
-fn parse_list(repo_id: &str, body: &[u8]) -> Result<Vec<Run>, ScopeError> {
+fn parse_list(repo_id: &str, body: &[u8], now: u64) -> Result<Vec<Run>, ScopeError> {
     let invalid = || tr("Run-Liste ungültig.", "Invalid run list.");
     let page: Value = serde_json::from_slice(body).map_err(|_| invalid())?;
     page["workflow_runs"]
         .as_array()
         .ok_or_else(invalid)?
         .iter()
-        .map(|value| run_from_wire(repo_id, value).map_err(ScopeError::from))
+        .map(|value| {
+            run_from_wire(repo_id, value)
+                .map(|run| settle(run, now))
+                .map_err(ScopeError::from)
+        })
         .collect()
 }
 
@@ -317,7 +337,7 @@ pub(crate) fn refresh_selected<T: Transport>(
                 .cloned()
         };
         let interval = crate::refresh_interval::poll_seconds(
-            last().any(|run| run.status != RunStatus::Completed),
+            last().any(|run| run.status.is_open()),
             idle_seconds,
         );
         // A poll time ahead of now means the clock went back: poll now instead of waiting it
@@ -364,7 +384,7 @@ pub(crate) fn follow_dispatched<T: Transport>(
             .iter()
             .find(|run| run.id == *id && run.repo_id == tracker.repo_id)
         {
-            return run.status != RunStatus::Completed;
+            return run.status.is_open();
         }
         // The confirmed run URL was validated on dispatch; a request that cannot be built
         // now can never succeed later.
@@ -375,7 +395,8 @@ pub(crate) fn follow_dispatched<T: Transport>(
             Ok(response) if resource_gone(response.status) => false,
             Ok(response) => match tracker.parse(&response) {
                 Ok(run) => {
-                    let open = run.status != RunStatus::Completed;
+                    let run = settle(run, now);
+                    let open = run.status.is_open();
                     runs.push(run);
                     open
                 }

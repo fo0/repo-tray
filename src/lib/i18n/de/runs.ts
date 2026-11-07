@@ -9,6 +9,7 @@ export const runs = {
     success: 'Erfolgreich',
     failure: 'Fehlgeschlagen',
     cancelled: 'Abgebrochen',
+    stuck: 'Hängt',
   },
   /** A repository row with several open runs: „2 aktiv“. */
   active: (n: number) => `${n} aktiv`,
@@ -25,6 +26,7 @@ export const runs = {
       run: ['läuft', 'laufen'],
       wait: ['wartet', 'warten'],
       queue: ['in Warteschlange', 'in Warteschlange'],
+      stuck: ['hängt', 'hängen'],
     } as Record<RunTone, [one: string, many: string]>,
   },
   activity: {
@@ -60,6 +62,9 @@ export const runs = {
     account: 'Konto',
     updated: 'Aktualisiert',
     status: 'Status',
+    /** Tooltip on a stuck run's status: why it stays and what to do. */
+    stuckHint:
+      'Seit über 24 h in der Warteschlange – GitHub startet den Run nicht und nimmt keinen Abbruch an. Auf GitHub löschen.',
     open: 'Auf GitHub öffnen',
     copy: 'Link kopieren',
     noLinkDemo: 'Demo-Runs haben keinen GitHub-Link',

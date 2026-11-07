@@ -9,6 +9,7 @@ export const runs: typeof German = {
     success: 'Succeeded',
     failure: 'Failed',
     cancelled: 'Cancelled',
+    stuck: 'Stuck',
   },
   active: (n: number) => `${n} active`,
   strip: {
@@ -22,6 +23,7 @@ export const runs: typeof German = {
       run: ['running', 'running'],
       wait: ['waiting', 'waiting'],
       queue: ['queued', 'queued'],
+      stuck: ['stuck', 'stuck'],
     },
   },
   activity: {
@@ -56,6 +58,8 @@ export const runs: typeof German = {
     account: 'Account',
     updated: 'Updated',
     status: 'Status',
+    stuckHint:
+      'Queued for more than 24 h – GitHub will not start the run and refuses to cancel it. Delete it on GitHub.',
     open: 'Open on GitHub',
     copy: 'Copy link',
     noLinkDemo: 'Demo runs have no GitHub link',

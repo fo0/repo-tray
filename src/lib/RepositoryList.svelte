@@ -126,6 +126,9 @@
                 >{#if status}{#if !group.last}{@render dot()}{/if}<span
                     class="repository-status"
                     data-tone={status.tone}
+                    title={status.tone === 'stuck'
+                      ? m().runs.row.stuckHint
+                      : undefined}
                     ><Icon name={TONE_ICON[status.tone]} size={12} /><span
                       >{status.label}</span
                     ></span

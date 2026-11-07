@@ -101,9 +101,12 @@ export function relativeTime(
   return relative(value, now).text;
 }
 
-/** When an open run started or a completed run finished, for a `<time>` element. */
+/**
+ * When an open run started or a completed run finished, for a `<time>`
+ * element. A stuck run never finished: it reads from when it was queued.
+ */
 export function runMoment(run: Run, now: number, demo = false) {
-  const active = isActive(run);
+  const active = isActive(run) || run.status === 'stuck';
   const at = active ? run.createdAt : run.updatedAt;
   const when = relative(at, now);
   const text = m().common;
