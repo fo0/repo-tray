@@ -19,11 +19,13 @@ pub(crate) const COMPLETED_LIMIT: usize = 50;
 /// after that is an orphan that never starts and whose cancel GitHub refuses (409).
 pub(crate) const STUCK_AFTER_SECONDS: u64 = 24 * 60 * 60;
 
-/// Marks a run GitHub still calls queued long after its creation as stuck. Waiting runs
-/// (environment approval, concurrency) may legitimately wait for days and stay open.
+/// Marks a run GitHub still calls queued long after its last change as stuck. The age counts
+/// from `updated_at`, not creation: a re-run keeps its old `created_at`, and a run approved
+/// after days of waiting is queued only now. Waiting runs (environment approval,
+/// concurrency) may legitimately wait for days and stay open.
 pub(crate) fn settle(mut run: Run, now: u64) -> Run {
-    let age = chrono::DateTime::parse_from_rfc3339(&run.created_at)
-        .map(|created| i64::try_from(now).unwrap_or(i64::MAX) - created.timestamp());
+    let age = chrono::DateTime::parse_from_rfc3339(&run.updated_at)
+        .map(|changed| i64::try_from(now).unwrap_or(i64::MAX) - changed.timestamp());
     if run.status == RunStatus::Queued && age.is_ok_and(|age| age > STUCK_AFTER_SECONDS as i64) {
         run.status = RunStatus::Stuck;
     }

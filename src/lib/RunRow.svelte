@@ -75,7 +75,7 @@
   <button
     class="run-button"
     aria-expanded={expanded}
-    aria-label={`${runLabel(run, repo)} · ${statusLabel(run)} · ${moment.spoken}`}
+    aria-label={`${runLabel(run, repo)} · ${statusLabel(run)} · ${moment.spoken}${hint ? ` · ${hint}` : ''}`}
     onclick={() => onToggle()}
   >
     <!-- A running run turns a spinner, or shows the still icon when reduced
@@ -96,7 +96,7 @@
           >{run.name}<span class="run-number">#{run.id}</span></span
         ><span class="branch-chip" title={run.branch}
           ><Icon name="branch" size={11} /><span>{run.branch}</span></span
-        >{#if !open}<span class="run-took"
+        >{#if !open && tone !== 'stuck'}<span class="run-took"
             ><span class="meta-dot" aria-hidden="true">·</span><span
               class="run-duration">{elapsed}</span
             ></span

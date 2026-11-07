@@ -99,8 +99,8 @@ pub enum RunStatus {
     InProgress,
     Completed,
     Waiting,
-    /// GitHub still lists the run as queued more than `run_history::STUCK_AFTER_SECONDS` after it was
-    /// created: an orphan GitHub never starts and refuses to cancel (409). Not open — it
+    /// GitHub still lists the run as queued more than `run_history::STUCK_AFTER_SECONDS` after its
+    /// last change: an orphan GitHub never starts and refuses to cancel (409). Not open — it
     /// leaves „Läuft gerade“, the open-run pace and the tray's active state.
     Stuck,
 }

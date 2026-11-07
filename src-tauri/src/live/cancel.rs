@@ -46,12 +46,9 @@ impl<T: Transport> LiveStore<T> {
             .iter()
             .find(|run| run.id == run_id && run.repo_id == repo_id)
             .ok_or(tr("Run nicht gefunden.", "Run not found."))?;
-        match run.status {
-            RunStatus::Completed => {
-                return Err(tr("Run ist bereits beendet.", "Run has already finished.").into())
-            }
-            RunStatus::Stuck => return Err(cancel_stuck().into()),
-            _ => {}
+        // A stuck run is still asked: the classification is local, GitHub's 409 is the proof.
+        if run.status == RunStatus::Completed {
+            return Err(tr("Run ist bereits beendet.", "Run has already finished.").into());
         }
         let repo = self
             .data

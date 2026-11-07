@@ -175,7 +175,7 @@ fn a_run_github_never_queued_is_named_stuck_not_finished() {
     );
     assert_eq!(h.remote().posts(), 1);
 
-    // A run already classified as stuck is refused before any request.
+    // A locally stuck run is still asked once: only GitHub's answer proves it cannot be cancelled.
     let mut h = with_open_run("cancel-stuck");
     let run = h
         .live
@@ -185,9 +185,9 @@ fn a_run_github_never_queued_is_named_stuck_not_finished() {
         .find(|run| run.id == 30)
         .unwrap();
     run.status = RunStatus::Stuck;
-    assert_eq!(
-        h.live.cancel_run(REPO.into(), 30).unwrap_err(),
-        "GitHub nimmt den Abbruch nicht an – der Run hängt auf GitHub. Lösche ihn dort."
-    );
-    assert!(h.remote().requests.is_empty());
+    h.remote()
+        .cancels
+        .push_back(json(202, serde_json::json!({})));
+    assert!(h.live.cancel_run(REPO.into(), 30).is_ok());
+    assert_eq!(h.remote().posts(), 1);
 }
