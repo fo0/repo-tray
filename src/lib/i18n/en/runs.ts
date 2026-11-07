@@ -38,6 +38,7 @@ export const runs: typeof German = {
     noMatches: 'No matching runs',
     quiet: 'All quiet here',
     noneForFilter: 'No runs for this filter.',
+    showAll: 'Show all',
   },
   cancel: {
     run: 'Cancel run',

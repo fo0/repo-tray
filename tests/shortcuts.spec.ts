@@ -111,6 +111,42 @@ test('Ctrl+F focuses the search and selects its query, also from a field', async
   expect(await prevented(page)).toEqual(['f', 'f']);
 });
 
+test('ArrowDown in the search moves focus to the first result', async ({
+  page,
+}) => {
+  const search = page.getByLabel('Übersicht durchsuchen');
+  // On the overview the first result is the first run under „Läuft gerade“.
+  await search.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.live-run').first()).toBeFocused();
+  // A search narrows it down to the one matching repository.
+  await search.fill('sandbox');
+  await expect(page.locator('.repository-card')).toHaveCount(1);
+  await search.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(
+    page
+      .getByRole('region', { name: 'team-demo/sandbox-demo', exact: true })
+      .locator('.repository-toggle'),
+  ).toBeFocused();
+  // Without a result the caret stays in the field and the key is not taken.
+  await search.fill('unmatched-query');
+  await page.keyboard.press('ArrowDown');
+  await expect(search).toBeFocused();
+  // On a maximized page the first Verlauf run takes focus.
+  await search.fill('');
+  await page.keyboard.press('Control+2');
+  await page.getByLabel('Verlauf durchsuchen').focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.run-button').first()).toBeFocused();
+  expect(await prevented(page)).toEqual([
+    'ArrowDown',
+    'ArrowDown',
+    '2',
+    'ArrowDown',
+  ]);
+});
+
 test('F5, Ctrl+R and Ctrl+1/2/3 still work from the search field', async ({
   page,
 }) => {

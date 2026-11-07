@@ -42,6 +42,7 @@ export const runs = {
     noMatches: 'Keine passenden Runs',
     quiet: 'Hier ist gerade Ruhe',
     noneForFilter: 'Für diesen Filter gibt es keine Runs.',
+    showAll: 'Alle anzeigen',
   },
   cancel: {
     run: 'Run abbrechen',

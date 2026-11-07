@@ -66,6 +66,15 @@
 
   /** The refresh and history-limit note is on demand, not always visible. */
   let showNote = $state(false);
+  let chips = $state<HTMLElement>();
+  /**
+   * „Alle anzeigen“ under a filter that lists nothing: back to „Alle“, which
+   * takes focus, since the empty state's button goes with the runs it shows.
+   */
+  function showAll() {
+    onFilter('all');
+    chips?.querySelector<HTMLElement>('button')?.focus();
+  }
   /** Aktiv and Fehlgeschlagen name their size; the other chips do not. */
   const count = (id: ActivityFilter) =>
     id === 'active' ? activeRuns : id === 'failed' ? failedRuns : undefined;
@@ -108,7 +117,7 @@
   });
 </script>
 
-<div class="filters" role="group" aria-label={text.filters}>
+<div class="filters" role="group" aria-label={text.filters} bind:this={chips}>
   {#each FILTERS as item (item.id)}
     {@const runCount = count(item.id)}
     {@const label = text[item.id]}
@@ -175,5 +184,7 @@
       text={searching ? m().common.tryOtherSearch : text.noneForFilter}
       action={searching
         ? { label: m().common.clearSearch, icon: 'close', run: onClearQuery }
-        : undefined}
+        : filter !== 'all'
+          ? { label: text.showAll, icon: 'close', run: showAll }
+          : undefined}
     />{/if}{/each}
