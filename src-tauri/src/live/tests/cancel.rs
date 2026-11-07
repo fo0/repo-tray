@@ -161,3 +161,33 @@ fn a_cancel_that_cannot_apply_is_refused_before_any_request() {
     );
     assert!(h.remote().requests.is_empty());
 }
+
+#[test]
+fn a_run_github_never_queued_is_named_stuck_not_finished() {
+    let mut h = with_open_run("cancel-never-queued");
+    h.remote().cancels.push_back(json(
+        409,
+        serde_json::json!({"message": "Cannot cancel a workflow run that has not been queued yet."}),
+    ));
+    assert_eq!(
+        h.live.cancel_run(REPO.into(), 30).unwrap_err(),
+        "GitHub nimmt den Abbruch nicht an – der Run hängt auf GitHub. Lösche ihn dort."
+    );
+    assert_eq!(h.remote().posts(), 1);
+
+    // A run already classified as stuck is refused before any request.
+    let mut h = with_open_run("cancel-stuck");
+    let run = h
+        .live
+        .data
+        .runs
+        .iter_mut()
+        .find(|run| run.id == 30)
+        .unwrap();
+    run.status = RunStatus::Stuck;
+    assert_eq!(
+        h.live.cancel_run(REPO.into(), 30).unwrap_err(),
+        "GitHub nimmt den Abbruch nicht an – der Run hängt auf GitHub. Lösche ihn dort."
+    );
+    assert!(h.remote().requests.is_empty());
+}

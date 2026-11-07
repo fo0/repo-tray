@@ -663,3 +663,56 @@ fn every_scope_failure_reads_as_german_and_names_its_scope() {
         );
     }
 }
+
+#[test]
+fn a_run_github_still_queues_a_day_after_creation_is_stuck_and_not_open() {
+    let created = chrono::DateTime::parse_from_rfc3339("2026-10-31T10:00:00Z")
+        .unwrap()
+        .timestamp() as u64;
+    let mut requested = run(3, "requested");
+    requested["status"] = serde_json::json!("requested");
+    let remote = Arc::new(Mutex::new(Remote {
+        active: vec![run(1, "queued"), run(2, "waiting"), requested],
+        ..Remote::default()
+    }));
+    let client = ApiClient::new(Mock(remote));
+    let status = |runs: &[Run], id: u64| runs.iter().find(|r| r.id == id).unwrap().status;
+
+    let day = created + STUCK_AFTER_SECONDS;
+    let fresh = refresh_repo_runs(&client, &repo(), &[], Some(day - 15), day).unwrap();
+    assert_eq!(
+        status(&fresh, 1),
+        RunStatus::Queued,
+        "24 h exactly still waits"
+    );
+
+    let later = day + 1;
+    let runs = refresh_repo_runs(&client, &repo(), &fresh, Some(day), later).unwrap();
+    assert_eq!(status(&runs, 1), RunStatus::Stuck);
+    assert_eq!(
+        status(&runs, 3),
+        RunStatus::Stuck,
+        "requested counts as queued"
+    );
+    // An approval or concurrency wait may last days and stays open.
+    assert_eq!(status(&runs, 2), RunStatus::Waiting);
+    assert!(!RunStatus::Stuck.is_open());
+
+    // Only stuck runs left: the repository returns to the idle pace instead of 15 seconds.
+    let stuck: Vec<_> = runs
+        .into_iter()
+        .filter(|r| r.status == RunStatus::Stuck)
+        .collect();
+    let poll_at = BTreeMap::from([(repo().id, later)]);
+    let pass = refresh_selected(
+        &client,
+        &[repo()],
+        &stuck,
+        &poll_at,
+        &BTreeMap::new(),
+        &mut BTreeSet::new(),
+        pace(later + crate::refresh_interval::OPEN_RUN_SECONDS),
+    );
+    assert!(pass.polled.is_empty());
+    assert_eq!(pass.runs, stuck);
+}

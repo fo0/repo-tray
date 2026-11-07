@@ -348,7 +348,7 @@ pub fn run() {
                     let active = value
                         .runs
                         .iter()
-                        .any(|run| selected(&run.repo_id) && run.status != RunStatus::Completed);
+                        .any(|run| selected(&run.repo_id) && run.status.is_open());
                     let failed = value.runs.iter().any(|run| {
                         selected(&run.repo_id)
                             && run.conclusion == Some(repowatch_core::Conclusion::Failure)

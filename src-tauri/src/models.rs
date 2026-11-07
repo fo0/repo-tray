@@ -99,6 +99,17 @@ pub enum RunStatus {
     InProgress,
     Completed,
     Waiting,
+    /// GitHub still lists the run as queued more than `run_history::STUCK_AFTER_SECONDS` after it was
+    /// created: an orphan GitHub never starts and refuses to cancel (409). Not open — it
+    /// leaves „Läuft gerade“, the open-run pace and the tray's active state.
+    Stuck,
+}
+
+impl RunStatus {
+    /// Queued, running or waiting: GitHub may still move it, so it is followed closely.
+    pub fn is_open(self) -> bool {
+        matches!(self, Self::Queued | Self::InProgress | Self::Waiting)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
