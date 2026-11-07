@@ -29,6 +29,33 @@
     if (select) input?.select();
   }
 
+  /**
+   * The main button of each listed result: a live run, a favorite, a
+   * repository row or a Verlauf run, in the order the page shows them.
+   */
+  const RESULT =
+    '.content :is(.live-run, .pin-open, .repository-toggle, .run-button)';
+
+  /**
+   * ArrowDown in the field moves focus to the first result, so a search
+   * continues on the keyboard; without a result the caret stays.
+   */
+  function onkeydown(event: KeyboardEvent) {
+    if (
+      event.key !== 'ArrowDown' ||
+      event.isComposing ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    )
+      return;
+    const first = document.querySelector<HTMLElement>(RESULT);
+    if (!first) return;
+    event.preventDefault();
+    first.focus();
+  }
+
   /** Escape in the field clears the query first, then leaves the field. */
   export function escape(target: EventTarget | null) {
     if (!input || target !== input) return false;
@@ -48,6 +75,7 @@
     placeholder={labels.placeholder}
     data-focus-landing={page === 'overview' ? true : undefined}
     bind:value={query}
+    {onkeydown}
   />{#if query}<button
       class="icon-button small"
       aria-label={m().common.clearSearch}
