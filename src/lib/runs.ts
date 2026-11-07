@@ -6,7 +6,11 @@ import { fullRepo } from './model';
 import type { Run, Snapshot } from './types';
 
 export type ActivityFilter = 'all' | 'active' | 'failed' | 'recent';
-export const isActive = (run: Run) => run.status !== 'completed';
+/** Open runs: queued, running or waiting. A stuck run is history, not open. */
+export const isActive = (run: Run) =>
+  run.status === 'queued' ||
+  run.status === 'in_progress' ||
+  run.status === 'waiting';
 export const HISTORY_LIMIT = 50;
 
 /** Keep every open run visible, with a bounded chronological completed history. */
@@ -44,14 +48,17 @@ export function statusLabel(run: Run): string {
  * How a run reads at a glance: one colour and one icon per class, in the
  * same classes as `statusLabel`. The service already folds GitHub's
  * timed-out, startup-failure and action-required outcomes into `failure`, and
- * skipped, neutral and stale ones into `cancelled`.
+ * skipped, neutral and stale ones into `cancelled`; a run queued for more
+ * than 24 h arrives as `stuck`.
  */
-export type RunTone = 'run' | 'wait' | 'queue' | 'ok' | 'fail' | 'cancel';
+export type RunTone =
+  'run' | 'wait' | 'queue' | 'ok' | 'fail' | 'cancel' | 'stuck';
 
 export function runTone(run: Run): RunTone {
   if (run.status === 'in_progress') return 'run';
   if (run.status === 'waiting') return 'wait';
   if (run.status === 'queued') return 'queue';
+  if (run.status === 'stuck') return 'stuck';
   if (run.conclusion === 'success') return 'ok';
   return run.conclusion === 'failure' ? 'fail' : 'cancel';
 }
@@ -64,6 +71,7 @@ export const TONE_ICON: Record<RunTone, IconName> = {
   ok: 'check',
   fail: 'close',
   cancel: 'close',
+  stuck: 'warning',
 };
 
 /**
@@ -115,6 +123,7 @@ const TONE_ORDER: readonly RunTone[] = [
   'ok',
   'fail',
   'cancel',
+  'stuck',
   'run',
   'wait',
   'queue',

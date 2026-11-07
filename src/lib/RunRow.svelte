@@ -61,6 +61,8 @@
   // One status icon and colour per tone everywhere, as in „Läuft gerade“.
   const tone = $derived(runTone(run));
   const open = $derived(isActive(run));
+  /** A stuck run explains itself in a tooltip on its status. */
+  const hint = $derived(tone === 'stuck' ? text.stuckHint : undefined);
   const runUrl = $derived(safeGitHubUrl(run.htmlUrl));
   const moment = $derived(runMoment(run, now, demo));
   const elapsed = $derived(runDuration(run, now, !demo));
@@ -78,7 +80,7 @@
   >
     <!-- A running run turns a spinner, or shows the still icon when reduced
          motion is asked for (02-activity.css picks one). -->
-    <span class="status-tile" data-tone={tone}
+    <span class="status-tile" data-tone={tone} title={hint}
       >{#if tone === 'run'}<Icon
           name="spinner"
           size={15}
@@ -103,7 +105,7 @@
     >
     <!-- Open runs count up since their start; completed ones say when. -->
     <span class="run-side"
-      ><span class="run-status tone-dot" data-tone={tone}
+      ><span class="run-status tone-dot" data-tone={tone} title={hint}
         >{statusLabel(run)}</span
       ><time class="run-time" datetime={moment.datetime} title={moment.title}
         >{open ? text.since(elapsed) : moment.relative}</time
@@ -120,7 +122,9 @@
         >
       </div>
       <div class="run-fact">
-        <span>{text.status}</span><strong>{statusLabel(run)}</strong>
+        <span>{text.status}</span><strong title={hint}
+          >{statusLabel(run)}</strong
+        >
       </div>
       <!-- The actions of a run appear with its details, never on the row. -->
       <div class="run-links">

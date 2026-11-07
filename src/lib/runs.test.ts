@@ -128,6 +128,7 @@ describe('activity model', () => {
     ['completed', 'failure', 'Fehlgeschlagen'],
     ['completed', 'cancelled', 'Abgebrochen'],
     ['completed', null, 'Abgebrochen'],
+    ['stuck', null, 'Hängt'],
   ] satisfies [Run['status'], Run['conclusion'], string][])(
     'labels status %s with conclusion %s as %s',
     (status, conclusion, label) => {
@@ -271,6 +272,7 @@ describe('run strip', () => {
     ['completed', 'failure', 'fail'],
     ['completed', 'cancelled', 'cancel'],
     ['completed', null, 'cancel'],
+    ['stuck', null, 'stuck'],
   ] satisfies [Run['status'], Run['conclusion'], string][])(
     'classes status %s with conclusion %s as %s, like its label',
     (status, conclusion, tone) => {
