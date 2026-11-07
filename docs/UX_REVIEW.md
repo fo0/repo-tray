@@ -24,7 +24,7 @@ Binding rules: [owner UX rules](../agent_docs/ux_rules.md). This page lists the 
 
 **Verlauf**
 
-- Groups **Jetzt** and **Abgeschlossen** with counts; info button **Hinweis zum Verlauf** in the first head. Chips **Alle**, **Aktiv**, **Fehlgeschlagen**, **Abgeschlossen**.
+- Groups **Jetzt** and **Abgeschlossen** with counts; info button **Hinweis zum Verlauf** in the first head. Chips **Alle**, **Aktiv**, **Fehlgeschlagen**, **Abgeschlossen**; a chip that lists nothing offers **Alle anzeigen**, which returns to **Alle** and focuses it.
 - A row is one toggle: status tile (spinner unless reduced motion), repository without owner first (owner in the tooltip), then workflow with **#run ID**, branch chip and, once completed, the duration; status text and time on the right. One line at 360 px.
 - Open runs count up (**seit 3 min**); completed runs read relative (**gerade eben**, **vor 3 Min.**, **vor 2 Std.**, **gestern**, then the date) with their duration; one shared minute clock; exact time in the tooltip.
 - Expanded: account, update time, status, **Auf GitHub öffnen**, **Link kopieren** (both disabled in the demo).

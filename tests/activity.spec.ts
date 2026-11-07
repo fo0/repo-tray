@@ -230,6 +230,38 @@ test('a search of only spaces is no search in the activity list', async ({
   ).toBeVisible();
 });
 
+test('a filter that lists nothing offers „Alle anzeigen“, which focuses „Alle“', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await chooseAccount(page, 'team-demo');
+  await openPage(page, 'runs');
+  const chips = page.getByRole('group', { name: 'Aktivitätsfilter' });
+  const all = chips.getByRole('button', { name: 'Alle', exact: true });
+  const showAll = page.getByRole('button', {
+    name: 'Alle anzeigen',
+    exact: true,
+  });
+  // „Alle“ lists runs, so its empty state offers no way back.
+  await expect(page.locator('article.run').first()).toBeVisible();
+  await expect(showAll).toHaveCount(0);
+  await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Hier ist gerade Ruhe' }),
+  ).toBeVisible();
+  await showAll.click();
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(all).toBeFocused();
+  await expect(page.locator('article.run').first()).toBeVisible();
+  // A search without matches keeps „Suche leeren“ as its one action.
+  await page.getByRole('button', { name: /^Fehlgeschlagen/ }).click();
+  await page.getByLabel('Verlauf durchsuchen').fill('unmatched-query');
+  await expect(
+    page.getByRole('button', { name: 'Suche leeren' }).last(),
+  ).toBeVisible();
+  await expect(showAll).toHaveCount(0);
+});
+
 test('the history note opens on demand from the info button', async ({
   page,
 }) => {
